@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2003/07/20 23:13:34  eggestad
+ * - better exit from mwacall
+ *
  * Revision 1.12  2003/07/06 22:10:16  eggestad
  * - added timepegs
  *
@@ -342,13 +345,15 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
 
 int mwacall(char * svcname, char * data, int datalen, int flags) 
 {
-  int handle, rc;
+  int handle, rc = -EFAULT;
   float timeleft;
   TIMEPEGNOTE("begining acall");
 
   /* input sanyty checking, everywhere else we depend on params to be sane. */
-  if ( (datalen < 0) || (svcname == NULL) ) 
-    return -EINVAL;
+  if ( (datalen < 0) || (svcname == NULL) ) {
+     rc = -EINVAL;
+     goto out;
+  };
   
   DEBUG1("mwacall called for service %.32s", svcname);
 
@@ -358,7 +363,8 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
       /* we've already timed out */
       DEBUG1("call to %s was made %d ms after deadline had expired", 
 	    timeleft, svcname);
-      return -ETIME;
+      rc = -ETIME;
+      goto out;
     };
   };
 
@@ -367,7 +373,8 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
 
   if (!_mwaddress) {
     DEBUG1("not attached");
-    return -ENOTCONN;
+    rc = -ENOTCONN;
+    goto out;
   };
 
   handle = _mw_nexthandle();
@@ -378,18 +385,23 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
      rc = _mwacall_ipc(svcname, data, datalen, flags);
      TIMEPEGNOTE("end acall");
      timepeg_log();
-     return rc;
+     break;
     
   case MWSRBP:
      rc = _mwacall_srb(svcname, data, datalen, flags);
      TIMEPEGNOTE("end acall");
      timepeg_log();
-     return rc;
+     break;
+     
+  default:
+     Error("mwacall: This can't happen unknown protocol %d", 
+	   _mwaddress->protocol);
+     rc = -EPROTONOSUPPORT;
   };
-  Error("mwacall: This can't happen unknown protocol %d", 
-	_mwaddress->protocol);
 
-  return -EFAULT;
+ out:
+  DEBUG1("returning %d", rc);
+  return rc;
 };
 
 int mwcall(char * svcname, 
@@ -410,6 +422,8 @@ int mwcall(char * svcname,
 
   hdl = mwacall(svcname, cdata, clen, flags);
   DEBUG1("mwcall(): mwacall() returned handle %d", hdl);
+
+  if (hdl < 0) return hdl;
   return mwfetch (hdl, rdata, rlen, appreturncode, flags);
 
 };

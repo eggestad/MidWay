@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2002/09/26 22:36:19  eggestad
+ * added missing include
+ *
  * Revision 1.1  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -34,6 +37,7 @@
 #include <string.h>
 
 #include <MidWay.h>
+#include <multicast.h>
 #include "connection.h"
 #include "connections.h"
 #include "gateway.h"

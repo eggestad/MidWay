@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2002/10/22 21:50:50  eggestad
+ * addresses in ipctables are now strings and not struct sockaddr_*
+ *
  * Revision 1.12  2002/10/03 21:14:04  eggestad
  * - cost field in provide was ignored, now correctly done
  *
@@ -90,7 +93,6 @@ gatewayentry * gwtbl   = NULL;
 conv_entry   * convtbl = NULL;
 
 static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /* we fill up the necessary fileds in the tables with
  * UNASSIGNED to "empty" them
@@ -112,6 +114,7 @@ init_tables()
     clttbl[i].status = UNASSIGNED;
     memset(clttbl[i].clientname, '\0', MWMAXNAMELEN);
     memset(clttbl[i].username, '\0', MWMAXNAMELEN);
+    memset(clttbl[i].addr_string, '\0', MWMAXNAMELEN);
 
   }
   for (i=0; i < ipcmain->srvtbl_length; i++) {
@@ -133,6 +136,7 @@ init_tables()
     gwtbl[i].pid = UNASSIGNED;
     memset(gwtbl[i].instancename, '\0', MWMAXNAMELEN);
     memset(gwtbl[i].domainname, '\0', MWMAXNAMELEN);
+    memset(gwtbl[i].addr_string, '\0', MWMAXNAMELEN);
   }
   ipcmain->gwtbl_nextidx = 0;
   for (i=0; i < ipcmain->convtbl_length; i++) {
@@ -420,6 +424,7 @@ int delclient(CLIENTID cid)
   clttbl[cltidx].status = UNASSIGNED;
   clttbl[cltidx].clientname[0] = '\0';
   clttbl[cltidx].username[0] = '\0';
+  clttbl[cltidx].addr_string[0] = '\0';
   return 0;
 };
 

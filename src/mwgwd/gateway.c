@@ -20,6 +20,13 @@
 
 /*
  * $Log$
+ * Revision 1.11  2002/10/03 21:19:35  eggestad
+ * - fix to prevent export of imported services (we still need to handle foreign domains later)
+ * - impsetsvcid() needed GWID.
+ * - get cost of service fixup
+ * - segfault in a DEBUG fixed.
+ * - improved handling of logfile prefix, added -L to give it spesifically (still not complete, see mwlog.c)
+ *
  * Revision 1.10  2002/09/29 17:44:01  eggestad
  * added unproviding over srb
  *
@@ -127,7 +134,7 @@ static int gw_getknownpeer_bygwid(GATEWAYID gwid);
 
 void usage(char * arg0)
 {
-  printf ("%s: [-A uri] [-l level] [-c clientport] [-g gatewayport] [-p commonport] [domainname]\n",
+  printf ("%s: [-A uri] [-l level] [-L logprefix] [-c clientport] [-g gatewayport] [-p commonport] [domainname]\n",
 	  arg0);
 };
 
@@ -189,9 +196,21 @@ static void do_event_message(char * message, int len)
       goto ack;
     } 
     
-    if (newsvc == 0)
-      doprovideevent(pe->name);
-    else // delsvc == 0
+    if (newsvc == 0) {
+      serviceentry * se;
+      se = _mw_get_service_byid(pe->svcid);
+    
+      if (!se) {
+	DEBUG("Got an provide event for a service that no longer exist, ignoring");
+	goto ack;
+      };
+
+      if (se->location == GWLOCAL) {
+	doprovideevent(pe->name);
+      } else {
+	DEBUG("we got a provide event for a foreign service, ignoring");
+      }
+    } else // delsvc == 0
       dounprovideevent(pe->name);
     
   ack:
@@ -417,7 +436,7 @@ int ipcmainloop(void)
       break;
 
     case PROVIDERPL:
-      impsetsvcid(pmsg->svcname, pmsg->svcid);
+      impsetsvcid(pmsg->svcname, pmsg->svcid, pmsg->gwid);
       break;
 
     case UNPROVIDEREQ:
@@ -830,7 +849,7 @@ void gw_provideservice_to_peers(char * service)
 {
   int i;
 
-  DEBUG( "exporting service %s to all peers");
+  DEBUG( "exporting service %s to all peers", service);
   
   LOCKMUTEX(peersmutex);
   for (i = 0; i < GWcount; i++) {
@@ -885,7 +904,7 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
       continue;
     };
 
-    DEBUG("new service %s, on idx %d", svctbl[i].servicename, i);
+    DEBUG("new service %s, on idx=%d location=%d", svctbl[i].servicename, i, svctbl[i].location);
 
     /* only imported services from foreign domains may be rexported. */
     if (svctbl[i].location == GWPEER) {
@@ -911,26 +930,31 @@ int gw_getcostofservice(char * service)
 {
   SERVICEID * svclist;
   serviceentry * svctbl;
-  int n = 0, cost = INT_MAX;
+  int n = 0, cost = INT_MAX, idx, tmpcost;;
 
   svctbl = _mw_getserviceentry(0);
   svclist = _mw_get_services_byname(service, 0);
+
+  DEBUG2("svctbl = %p, svclist = %p",svctbl,  svclist);
 
   if (svclist  == NULL) return -1;
   if (svctbl  == NULL) return -1;
 
 
-  while(svclist[n] != UNASSIGNED) {
+  for (n = 0; svclist[n] != UNASSIGNED; n++) {
+    idx = SVCID2IDX(svclist[n]);
     /* first we check to see if we got the service as a local service,
        if so, we export it with cost=0 (thus here we return 0) the cost
        if bumped on the importing side. */
-    if (svctbl[svclist[n]].cost == 0) {
+    tmpcost = svctbl[idx].cost;
+    if (tmpcost == 0) {
       DEBUG2("service %s is local cost = 0", service);
       free(svclist);
       return 0;
     };
-    if ((svctbl[svclist[n]].cost > -1) && (svctbl[svclist[n]].cost < cost))
-      cost = svctbl[svclist[n]].cost;
+    
+    if ((tmpcost > -1) && (tmpcost < cost))
+      cost = tmpcost;
   };
   DEBUG2("service %s has cost = %d", service, cost);
   free(svclist);
@@ -1166,7 +1190,10 @@ int main(int argc, char ** argv)
      info */
   mwhome = getenv ("MWHOME");
   instancename = getenv ("MWINSTANCE");
-  
+
+  DEBUG("MWHOME = %s", mwhome);
+  DEBUG("MWINSTANCE = %s", instancename);
+
   if (mwhome && instancename) {
     sprintf(logprefix, "%s/%s/log/SYSTEM", mwhome, instancename);
     mwopenlog(name, logprefix, loglevel);
@@ -1180,7 +1207,7 @@ int main(int argc, char ** argv)
 
 
   /* first of all do command line options */
-  while((c = getopt(argc,argv, "A:l:cgp:")) != EOF ){
+  while((c = getopt(argc,argv, "A:l:cgp:L:")) != EOF ){
     switch (c) {
     case 'l':
       if      (strcmp(optarg, "fatal")   == 0) loglevel=MWLOG_FATAL;
@@ -1194,17 +1221,27 @@ int main(int argc, char ** argv)
       else if (strcmp(optarg, "debug3")  == 0) loglevel=MWLOG_DEBUG3;
       else usage(argv[0]);
       break;
+
+    case 'L':
+      strncpy(logprefix, optarg, PATH_MAX);
+      break;
+
     case 'A':
       uri = strdup(optarg);
       break;
+
     case 'c':
       client = 1;
       break;
+
     case 'g':
       gateway = 1;
+      break;
+
     case 'p':
       port = atoi(optarg);
       break;
+
     default:
       usage(argv[0]);
       break;
@@ -1262,6 +1299,8 @@ int main(int argc, char ** argv)
      logfile. */
   if (logprefix[0] == '\0') {
     strncpy(logprefix, ipcmain->mw_homedir, 256);
+    strcat(logprefix, "/");
+    strcat(logprefix, ipcmain->mw_instance_name);
     strcat(logprefix, "/log/SYSTEM");
     printf("logprefix = %s\n", logprefix);
     mwopenlog(name, logprefix, loglevel);

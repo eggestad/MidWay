@@ -62,7 +62,10 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 * The shutdown command in mwadm don't indicate if successfull, and
   should detach IPC resources.
 
-* SRBP imp don't support SVCDATA.
+* SRBP imp don't support SVCDATA. (thus max datalen 3000 octets)
+  * not in mwgwd
+  * not in lib (C client)
+  * not in Perl NetClient
 
 * in the urlencode lib - when a empty value &name=& the = is required.
 
@@ -116,6 +119,17 @@ Minor BUGS:
   notably if a buffer length was gives as 0, a null terminatted buffer
   is assumed, but length was passed as 0 to server, now strlen() is
   called in mw(a)call.
+
+* the whole consept of an instance name has become iffy with regards
+  to URL, and is effectively broken in mwd.
+
+* in SRBclient we don't send rejects even id the gateway (peer) should
+  request it.
+
+* in SRBclient we don't perform all the test on a SVCCALL reply we
+  should according to the RFC.
+
+* in SRBclient:_mwfetch_srb: do test on expired deadline
 
 -----------------------------------------------------------------------
 

@@ -20,6 +20,10 @@
 
 /*
  * $Log$
+ * Revision 1.3  2002/09/22 22:54:57  eggestad
+ * - removed getsvccost, new and improved lies in gateway.c
+ * - added unexportservice()
+ *
  * Revision 1.2  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -122,7 +126,7 @@ int importservice(char * service, int cost, struct gwpeerinfo * peerinfo)
 };
 
 
-/* add service to Import list if it's isn't there already, else return old
+/* add service to Export list if it's isn't there already, else return old
    entry. send a provide to mwd if it was there from before.  */
 static Export *  condnewexport(char * service) 
 {
@@ -147,7 +151,7 @@ static Export *  condnewexport(char * service)
   
   // if the for loop found a match we return it. 
   if (exp != NULL) {
-    DEBUG("We already have an export if the service %s", exp->servicename); 
+    DEBUG("We already have an export for the service %s", exp->servicename); 
     return exp;
   };
 
@@ -166,24 +170,6 @@ static Export *  condnewexport(char * service)
   return exp;
 };
 
-static int getsvccost(char * service)
-{
-  SERVICEID sid;
-  serviceentry * svcent;
-
-  /* first we check to see if we got the service as a local service,
-     if so, we export it with cost=0 (thus here we return 0) the cost
-     if bumped on the importing side. */
-  sid = _mw_get_service_byname(service, 0);
-  if (sid != UNASSIGNED) { 
-    svcent = _mw_get_service_byid(sid);
-    return svcent->cost;
-  };
-
-  return -1;
-};
-
-  
 int exportservicetopeer(char * service, struct gwpeerinfo * peerinfo)
 {
   Export * exp;
@@ -196,13 +182,13 @@ int exportservicetopeer(char * service, struct gwpeerinfo * peerinfo)
 
   conn_getpeername(peerinfo->conn, pn, 255);
 
-  DEBUG("exporting service %s to peer %s domid %d", 
-	service , peerinfo->instance, peerinfo->domainid); 
+  DEBUG("exporting service %s to peer %s domid %d at %s", 
+	service , peerinfo->instance, peerinfo->domainid, pn); 
 
   if (peerinfo->domainid == 0) {
       DEBUG("peer %s is localdomain", pn);
       if (service[0] == '.') {
-	DEBUG("service %d begins with a '.', we do not export it to localdomain", service);
+	DEBUG("service %s begins with a '.', we do not export it to localdomain", service);
 	return -1;
       };
     } else {
@@ -212,7 +198,7 @@ int exportservicetopeer(char * service, struct gwpeerinfo * peerinfo)
 
   exp = condnewexport(service);
   if (exp->cost == -1) 
-    exp->cost = getsvccost(service);
+    exp->cost = gw_getcostofservice(service);
 
   /* check to see if we already has exported to this peer */
   for (ppl = &exp->peerlist; *ppl != NULL; ppl = &(*ppl)->next) {
@@ -233,10 +219,59 @@ int exportservicetopeer(char * service, struct gwpeerinfo * peerinfo)
   return  _mw_srbsendprovide (peerinfo->conn, service, exp->cost);
 };
 
-/*
-int exportservice(char * service) 
+static void unexportservice(char * servicename)
 {
-  struct gwpeerinfo * peerinfo;
-  
+    Export * exp, **prevexp;
+    peerlink * pl, *pl2;
+
+    prevexp = &exportlist;
+    for (exp = exportlist; exp != NULL; prevexp = &exp->next, exp = exp->next) 
+      if (strcmp(exp->servicename, servicename) == 0) break;
+    
+    if (exp == NULL) {
+      DEBUG("We've not exported %s", servicename); 
+      return;
+    };
+
+    // unlink it
+    *prevexp = exp->next;
+    DEBUG("deleting export at %p", exp);
+    for (pl = exp->peerlist; pl != NULL; ){
+      _mw_srbsendunprovide(pl->peer->conn, servicename);
+      pl2 = pl->next;
+      free(pl);
+      pl = pl2;
+    };
+
+    free(exp);
+    DEBUG("unexport complete");
 };
-*/
+
+
+/* called when we get ab newprovire event from mwd */
+void doprovideevent(char * service)
+{
+  Export * exp;
+  int cost; 
+
+  exp = condnewexport(service);
+
+  cost = gw_getcostofservice(service);
+  DEBUG2("cost of %s is %d", service, cost);
+  if (cost == -1) unexportservice(service);
+
+  if (cost != exp->cost) {
+    exp->cost = cost;
+    gw_provideservice_to_peers(service);
+  };
+};
+
+void dounprovideevent(char * servicename)
+{
+  SERVICEID * svclist;
+
+  svclist = _mw_get_services_byname(servicename, 0);
+   
+  if (svclist == NULL) unexportservice(servicename);
+  else free(svclist);
+};

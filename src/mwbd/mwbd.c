@@ -20,6 +20,10 @@
 
 /* 
  * $Log$
+ * Revision 1.8  2003/01/07 08:27:21  eggestad
+ * * fixed infinite loop on error on sendfd
+ * * added empty SIGPIPE handler, to ignore SIGPIPE, but solution incomplete
+ *
  * Revision 1.7  2002/11/19 12:43:54  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -241,9 +245,9 @@ void read_from_client(int fd, struct fd_info * cinfo)
   DEBUG("about to send fd with SRB init to gw");
   // markfd(fd);
   rc = sendfd(fd, gwinfo->fd, buffer, buflen); // must be moved to read_client();
-  assert(rc == buflen);
   if (rc != buflen) {
     Error("sendfd returned %d excpected %d", rc, buflen);
+    del_gw(gwinfo->fd);
     goto retry;
   };
 
@@ -541,6 +545,12 @@ void sig_chld(int sig)
   return;
 };
 
+// for now we just ignore it. 
+void sig_pipe(int sig)
+{
+  return;
+};
+
 void sig_term(int sig)
 {
   Info ("going down on signal %d", sig);
@@ -620,6 +630,10 @@ int main(int argc, char ** argv)
      if sigchld, error */
   sa.sa_handler = sig_usr1;
   sigaction(SIGUSR1, &sa, NULL);
+
+  // we just ignore broken pipe signals 
+  sa.sa_handler = sig_pipe;
+  sigaction(SIGPIPE, &sa, NULL);
 
   sa.sa_flags = SA_NOCLDSTOP;
   sa.sa_handler = sig_term;

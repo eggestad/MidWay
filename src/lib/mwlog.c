@@ -24,6 +24,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.16  2003/01/07 08:26:58  eggestad
+ * * reset log suffix for earlier debugging that where committed
+ * * added a hidden _mwgetloglevel() that return the pointer to debuglevel, for faster DEBUGN
+ *
  * Revision 1.15  2002/12/12 22:45:58  eggestad
  * last fixed was incomplete
  *
@@ -204,8 +208,7 @@ switchlog (void)
   if (_force_switchlog) {
     _force_switchlog = 0;
   } else {
-    //strftime(newsuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
-    strcpy(timesuffix, "XYZ");  
+    strftime(newsuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
     if (strcmp(newsuffix, timesuffix) == 0) {
       return;
     };
@@ -217,8 +220,7 @@ switchlog (void)
       filename [i] = '\0';
   };
 
-  //  strftime(timesuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
-  strcpy(timesuffix, "XYZ");
+  strftime(timesuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
 
   if (logprefix != NULL) {
     strcpy (filename, logprefix);
@@ -328,6 +330,12 @@ int mwsetloglevel(int level)
   if (level >= MWLOG_DEBUG) copy_on_FILE = stderr;
   else copy_on_FILE = NULL;
   return oldlevel;
+};
+
+/* undocumented but give us the pointer to the loglevel variable */
+int * _mwgetloglevel(void)
+{
+  return &loglevel;
 };
 
 /* the if's and but's here  are getting complicated...  

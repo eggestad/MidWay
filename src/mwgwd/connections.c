@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.18  2003/07/06 22:07:56  eggestad
+ * took out reverse ip lookups, it caused timeout on mwgwd start if no dns server is available
+ *
  * Revision 1.17  2003/03/16 23:50:24  eggestad
  * Major fixups
  *
@@ -483,7 +486,12 @@ void conn_setpeername (Connection * conn)
   switch(family) {
 
   case AF_INET:
+
     inet_ntop(family, &conn->peeraddr.sin4.sin_addr, ipadr, 128);
+
+    // postpone this until we got an async DNS lookup, gateway
+    // connects fail when DNS is unavailable
+#if 0
     hent = gethostbyaddr(&conn->peeraddr.sin4.sin_addr, sizeof(struct in_addr), family);
     if (hent == NULL) {
       Error("gethostbyaddr failed reason %s", hstrerror(h_errno));
@@ -491,6 +499,9 @@ void conn_setpeername (Connection * conn)
     } else {
       ipname = hent->h_name;
     };
+#else 
+    ipname = ipadr;
+#endif
 
     port = ntohs(conn->peeraddr.sin4.sin_port);
     snprintf(conn->peeraddr_string, 128, "%s id %d INET %s (%s) port %d", 

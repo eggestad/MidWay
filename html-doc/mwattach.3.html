@@ -1,0 +1,161 @@
+Content-type: text/html
+
+<HTML><HEAD><TITLE>Manpage of MWATTACH</TITLE>
+</HEAD><BODY>
+<H1>MWATTACH</H1>
+Section: MidWay Programmer's Manual (3C)<BR>Updated: DATE<BR><A HREF="#index">Index</A>
+<A HREF="http://localhost/cgi-bin/man/man2html">Return to Main Contents</A><HR>
+
+<A NAME="lbAB">&nbsp;</A>
+<H2>NAME</H2>
+
+mwattach, mwdetach - Attaching to a running MidWay instance
+<A NAME="lbAC">&nbsp;</A>
+<H2>SYNOPSIS</H2>
+
+<B>#include &lt;<A HREF="file:/usr/include/MidWay.h">MidWay.h</A>&gt;</B>
+
+<P>
+<B>int mwattach(int </B><I>type</I><B>, char * </B><I>name</I><B>, char * </B><I>address</I><B>, </B>
+
+<B>char * </B><I>username</I><B>, char * </B><I>password</I><B>, int </B><I>flags</I><B>);</B>
+
+<BR>
+
+<B>int mwdetach();</B>
+
+<A NAME="lbAD">&nbsp;</A>
+<H2>DESCRIPTION</H2>
+
+The call 
+<B>mwattach</B>()
+
+is analogous to connect() and shmat(), it is used to logon
+to a running MidWay system. To logoff you then use 
+<B>mwdetach</B>().
+
+There are two diffrent methods for a programm to attach it self to a MidWay instance.
+Either via IPC (sysvipc is currently only supported. Posix IPC is too new.) or via
+TCP/IP. (TCP/IP is Not Yet Implemented.). 
+<A NAME="lbAE">&nbsp;</A>
+<H3>OPTIONS</H3>
+
+<DL COMPACT>
+<DT><I>type </I>
+
+<DD>
+Indicate that type of member this process is and connecton method. 
+If 0 client only is assumed, and we rely on 
+<I>address </I>
+
+to find out the attachment type.
+If 
+<B>MWIPC</B>
+
+you are connecting as an IPC client. If 
+<B>MWSERVER</B>
+
+you want to attach as both client and server. 
+<B>MWSERVERONLY</B>
+
+says you want to attach as just a server (mwcall() will then fail). 
+And if 
+<B>MWTCP </B>
+
+you are attaching as a client only over TCP/IP (NYI).
+<DT><I>name</I>
+
+<DD>
+a member name, may be NULL, at which arg[0] is substituted.
+<DT><I>address</I>
+
+<DD>
+A string that indicate the address of the running instance. URL format: 
+for IPC attachment
+<B>ipc://</B><I>key</I>
+
+or 
+<B>ipc://</B><I>[instancename]</I>
+
+instancename assumed to be &quot;default&quot; if absent, 
+or
+<B>midway://</B><I>ipaddress:port</I>
+
+for TCP/IP (NYI). If NULL wee look for the environment variable MWADDRESS instead. 
+If not set, 
+<B><A HREF="ipc://default">ipc://default</A></B>
+
+is tried, and finally 
+<B>ipc://</B><I>userid</I>
+
+<DT><I>username</I>
+
+<DD>
+<DT><I>password</I>
+
+<DD>
+If attaching with TCP/IP we are not authenticated by the OS, and must login. See 
+<B><A HREF="http://localhost/cgi-bin/man/man2html?1+mwd.conf">mwd.conf</A></B>(1)
+
+for authentication methods.
+<DT><I>flags</I>
+
+<DD>
+For Future use.
+</DL>
+<A NAME="lbAF">&nbsp;</A>
+<H2>RETURN VALUES</H2>
+
+-errno
+<A NAME="lbAG">&nbsp;</A>
+<H2>ERRORS</H2>
+
+Rather complex, shmget(), shmat(), EISCONN if called twice, _mw_ipc_putmessage(), _mw_get_message()
+<A NAME="lbAH">&nbsp;</A>
+<H2>WARNINGS</H2>
+
+<P>
+<A NAME="lbAI">&nbsp;</A>
+<H2>EXAMPLES</H2>
+
+<P>
+<A NAME="lbAJ">&nbsp;</A>
+<H2>BUGS </H2>
+
+<P>
+<A NAME="lbAK">&nbsp;</A>
+<H2>SEE ALSO</H2>
+
+<P>
+
+
+<A NAME="lbAL">&nbsp;</A>
+<H2>STANDARDS</H2>
+
+NONE
+<P>
+
+<HR>
+<A NAME="index">&nbsp;</A><H2>Index</H2>
+<DL>
+<DT><A HREF="#lbAB">NAME</A><DD>
+<DT><A HREF="#lbAC">SYNOPSIS</A><DD>
+<DT><A HREF="#lbAD">DESCRIPTION</A><DD>
+<DL>
+<DT><A HREF="#lbAE">OPTIONS</A><DD>
+</DL>
+<DT><A HREF="#lbAF">RETURN VALUES</A><DD>
+<DT><A HREF="#lbAG">ERRORS</A><DD>
+<DT><A HREF="#lbAH">WARNINGS</A><DD>
+<DT><A HREF="#lbAI">EXAMPLES</A><DD>
+<DT><A HREF="#lbAJ">BUGS </A><DD>
+<DT><A HREF="#lbAK">SEE ALSO</A><DD>
+<DT><A HREF="#lbAL">STANDARDS</A><DD>
+</DL>
+<HR>
+This document was created by
+<A HREF="http://localhost/cgi-bin/man/man2html">man2html</A>,
+using the manual pages.<BR>
+Time: 21:27:21 GMT, January 10, 2000
+</BODY>
+</HTML>

@@ -1,0 +1,98 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\"
+.TH MWLOG 3  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.SH NAME
+mwlog mwloglevel, mwlogprefix \- MiddleWay logging facility
+.SH SYNOPSIS
+.B #include <MiddleWay.h>
+.sp
+.BI "void mwlog(int level, char * fmt, ...);"
+.sp
+.BI "void mwloglevel(int level);"
+.br
+.BI "void mwlogprefix(char * fileprefix);"
+.SH DESCRIPTION
+These calls constitute the logging facility in MiddleWay. This facility are used in MiddleWay code
+and is provided here to give programmers a unified program logg.
+There are nothing that provent a programmer
+to use stdout and stderr, but be aware that if 
+.I level
+is set to MWLOG_DEBUG or above, logging is performed to stderr as well as the log file.
+After the 
+.I level  
+argument to
+.BR mwlog ()
+it behaves just like 
+.BR printf (3)
+with one exeption, an newline is automatically added. As syslog each entry made by mwlog()
+in the logfile is prefixed by a time stamp, the calling pid, and loglevel.
+.br
+To set what level of log messages to ignore and what to write to log file we set level with
+.BR mwlogprefix ().
+All logging above this loglevel is ignored.
+.br
+The default log fileprefix is 
+.BI ~/MiddleWay/ instancename /log/MiddleWayLog.  YYYYMMDD
+The date suffix is alway added to the logfile and the filename is
+automatically switched after midnight.
+
+.br
+The 
+.I level
+parameter is similar to that of 
+.BR syslog (3)
+that it indicate severity of the entry.. 
+
+.TP
+.B MWLOG_DEBUG4
+Reserved for diffrentiate logging done in MiddleWay code on DEBUG3
+.TP
+.B MWLOG_DEBUG3
+A rather extreme level of debugging, and will produce a wast number of logging from MiddleWay code.
+Normallly only used for developing and debugging MiddleWay code.
+.TP
+.B MWLOG_DEBUG2
+Reserved for programmers to give excessive logging without being out
+drowned by logging from MiddleWay code.
+.TP
+.B MWLOG_DEBUG1
+Some debygging from MiddleWay code, more ment to be helpful for programmers to see when execution
+swaps between their own code and MiddleWays.
+.TP
+.B MWLOG_DEBUG
+Reserved for programmers to have a debugging facility without any from MiddleWay code.
+.TP
+.B MWLOG_INFO
+The default log level, which is meant to give enought to be able to go back and see when servers 
+started and stopped, when services were provided, and unprovided, when network connections 
+where established and disconnected. 
+.TP
+.B MWLOG_WARNING
+Warning messages that will indicate conditions that will not cause loss of service, but threatens.
+.TP
+.B MWLOG_ERROR
+Out right errors. 
+.PP
+.SH WARNINGS
+mwlog() do not close the logfile between to writes, this all processes using this logfile
+have it open for writing. Attempting to remove the logfile by rm will only unlink it, but 
+not remove the inode. (Common problem). Check it with lsof or fuser before removing.
+(This really is a bug, if the open/close calls cause a noticable CPU load, you are logging to much!)
+.SH EXAMPLES
+
+.SH BUGS 
+Even if mwlog() flushes the log, there are no file locking, and clobbing of the logfile 
+.I may 
+occur.
+.br
+If you use a relative or absolute path in mwlogfileprefix(), and we fail to open the file, 
+we silently drop all logging.
+.SH "SEE ALSO"
+
+.BR MiddleWay (7)
+
+.SH STANDARDS
+These calls are somewhat inspired by syslog and the logging facility in CA/Unicenter AgentWorks.

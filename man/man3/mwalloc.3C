@@ -1,0 +1,100 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MWALLOC 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.SH NAME
+mwalloc, mwrealloc mwfree \- Allocate and free MiddleWay Shared memory buffers.
+.SH SYNOPSIS
+.B #include <MiddleWay.h>
+.sp
+.BI "char * mwalloc (unsigned int size);"
+.br
+.BI "char * mwrealloc(char * buffer, unsigned int newsize);"
+.br
+.BI "void mwfree(char * buffer);"
+.SH DESCRIPTION
+MiddleWay uses buffers in a shared memory segment to pass data to and from processes, such as by
+.BR mwcall ().
+Even if
+.BR mwcall ()
+and is like don't require buffers to be alloced by 
+.BR mwalloc ()
+before called. They will automatically alloc a shared memory buffer and copy over. 
+.sp
+In the 
+.BR mwattach ()
+call you can set a flag 
+.B MWFASTPATH 
+or 
+.B MWSAFEPATH 
+(default). On 
+.B MWSAFEPATH
+.BR mwalloc () 
+is actually mapped to 
+.BR malloc ()
+anyway. You must set 
+.B MWFASTPATH
+to actually be given a pointer to shared memory.
+.sp
+The above holds true only if you use IPC to attach the MiddleWay domain. If you use TCP/IP, 
+.BR mwalloc (), 
+.BR mwrealloc "(), and" mwfree () 
+are always identical to 
+.BR malloc (), 
+.BR realloc (), 
+and 
+.BR free ().
+.SH "RETURN VALUES"
+Always a pointer to a memory location at least the size of 
+.IR size .
+Of failure we get NULL, and 
+.I errno 
+is set to 
+.BR ENOMEM .
+.br 
+.SH WARNINGS
+Be aware that if you alloc a buffers and hold it a long time, and you have 
+.B MWFASTPATH 
+set, 
+you are at any give time using more shared memory buffers than with
+.BR MWSAFEPATH .
+.br
+Likewise, if on 
+.B MWFASTPATH 
+there are nothing to prevent you from overriting neigbouring 
+buffers, and thus creating havoc on the whole domain. It is normal to use 
+.B MWSAFEPATH 
+during 
+developing phases and one critical systems, and to ise 
+.B MWFASTPATH
+on speed critical applications. Of course the gain of using 
+.B MWFASTPATH
+increases with increased buffer lengths.
+.sp
+The MiddleWay daemon 
+.BR mwd (1)
+do occationally try a garbage collect, but only after dead processes. 
+.sp
+If 
+.BR mwrealloc ()
+is passwd a NULL pointer, it return a NULL pointer.
+.SH EXAMPLES
+
+.SH BUGS 
+
+.SH "SEE ALSO"
+
+.BR mwattach (3C), 
+.BR mwcall (3C), 
+.BR mwservice (3C), 
+.BR mwreply (3C), 
+.BR malloc (3), 
+.BR realloc (3), 
+.BR free (3)
+
+.SH STANDARDS
+NONE

@@ -1,0 +1,34 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\"
+.TH MWCALL 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.SH NAME
+mwcall mwacall, mwfetch \- MiddleWay service calls
+.SH SYNOPSIS
+.B #include <MiddleWay.h>
+.sp
+.BI "int mwcall(char * servicename, char * cdata, int clen, char ** rdata, int * rlen, int * appreturncode, int flags);"
+.sp
+.BI "int mwacall(char * svcname, char * data, int len, int flags);"
+.br
+.BI "int mwfetch(int handle, char ** data, int * len, mwsvcinfo * si);"
+.SH DESCRIPTION
+These calls are used to serve a service request to a given service see mwserver(
+.SH "RETURN VALUES"
+
+.SH "ERRORS"
+
+.SH WARNINGS
+
+.SH EXAMPLES
+
+.SH BUGS 
+
+.SH "SEE ALSO"
+
+.BR lseek (2)
+
+.SH STANDARDS
+NONE

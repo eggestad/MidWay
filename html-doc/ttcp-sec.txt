@@ -1,0 +1,177 @@
+
+Network Working Group C. Hannum 
+Request for Comments: ? The NetBSD Project 
+Category: Informational September 1996 
+
+                Security Problems Associated With T/TCP 
+
+Status of this Memo 
+
+   This memo provides information for the Internet community. This memo 
+   does not specify an Internet standard of any kind. Distribution of 
+   this memo is unlimited. 
+
+Table of Contents 
+
+   1. Introduction ................................................... 1 
+   2. Host-based Authorization ....................................... 1 
+   3. SYN Flooding ................................................... 2 
+   4. Pre-SYN Queueing ............................................... 3 
+   5. Sequence Number Attacks ........................................ 3 
+   6. Conclusions .................................................... 3 
+   A. References ..................................................... 3 
+   B. Author's Address ............................................... 4 
+
+1. Introduction 
+
+   Transaction TCP [RFC-1644] specifies a set of extensions to the TCP 
+   protocol to improve performance of client/server transaction systems. 
+
+   The basic ideas behind T/TCP are to: 
+
+   a) avoid the normal 2MSL delay (TCP TIME-WAIT state [STD-007]) before 
+   a new instance of a connection can be created, and 
+
+   b) shorten the initial 3-way handshake [STD-007] used to establish a 
+   connection and synchronize the two TCPs. 
+
+   Although the original memo does not discuss the security implications 
+   of these extensions, several exist. This memo explains some of the 
+   more obvious ones. 
+
+2. Host-based Authorization 
+
+   In a host-based authorization system, we permit a TCP connection 
+   based on the source IP address of the incoming request. This is the 
+   model used, for example, by the BSD `rlogin' program. 
+
+   The 3-way handshake (3WHS) in TCP provides minimal security against 
+
+C. Hannum [Page 1] 
+
+RFC ? T/TCP Security Problems September 1996 
+
+   spoofing the source IP address, by requiring the client to know the 
+   initial send sequence number (ISS) of the server. Unfortunately, 
+   it's possible in many cases to guess the ISS. Although the weakness 
+   of the ISS as a security device has put a major kink in host-based 
+   authorization, it is still widely used, and there are environments in 
+   which it is currently secure. 
+
+   (See `Sequence Number Attacks' below for some additional comments on 
+   ISS prediction.) 
+
+   T/TCP defines a mechanism (`TCP accelerated open', or `TAO') for 
+   short-circuiting TIME-WAIT state, using a `connection count' option. 
+   The idea is that segments for a new instance of a connection will 
+   have a higher connection count than, and therefore can be easily 
+   distinguished from, packets for older instances. This is implemented 
+   using a per-host cache of the previous received connection counts, 
+   and typically a global counter for outgoing connection counts. 
+
+   In addition, the primary focus of T/TCP is to allow data to be sent 
+   and acted upon without a full 3WHS having taken place. Since there 
+   will be no TAO cache entry the first time we contact a host, T/TCP 
+   requires us to go through a full 3WHS to initialize the connection 
+   count. Therefore, we have at least the modest security of TCP. 
+
+   Or so one might think. It should be apparent, however, that the same 
+   methods used to guess ISSes (primarily, opening a dummy connection, 
+   seeing what the current ISS is, and then predicting what it will be) 
+   can also be used to guess the connection count. Worse, the 
+   connection count is even more trivial to predict than the ISS. It is 
+   therefore a simple matter to submit one-sided requests to a T/TCP 
+   server, possibly spoofing such services as rlogin. 
+
+3. SYN Flooding 
+
+   As mentioned above, the focus of T/TCP is to allow the server to 
+   receive and act upon data from the client without performing a full 
+   3WHS. Even when it falls back to the 3WHS, a T/TCP server will 
+   typically store the data it received in the initial SYN packet. This 
+   means that a SYN packet may cause even more resources to be consumed 
+   than a normal embryonic TCP connection. This significantly increases 
+   the possible resource consumption caused by SYN flooding. 
+
+   Worse, with the connection count prediction previously mentioned, 
+   it's possible to submit an arbitrary number of queries to a server 
+   (for example, CGI requests that are known to be expensive), with no 
+   record of the real origin. It could be very difficult or even 
+   impossible for the maintainer of a server to determine who is 
+   flooding it. 
+
+C. Hannum [Page 2] 
+
+RFC ? T/TCP Security Problems September 1996 
+
+4. Pre-SYN Queueing 
+
+   As a side note, [RFC-1644] briefly mentions a `Pre-SYN Queue', which 
+   would store incoming data for a connection that is received before 
+   the SYN. This would improve performance in the case where a 
+   significant amount of data is already available for the client to 
+   send, but the SYN packet happens to get lost. 
+
+   Combined with connection count prediction, a naive implementation of 
+   pre-SYN queueing could allow some untracable prankster to consume a 
+   large amount of memory on the server. This can be fixed merely by 
+   tossing the pre-SYN queues when the server is short on memory. 
+
+5. Sequence Number Attacks 
+
+   There have been several suggestions on methods for creating ISSes 
+   that might prevent guessing, or at least make it more difficult. 
+   Most of these involve simply using a random number for the ISS, or 
+   randomizing the periodic increment, in a way that would break TCP's 
+   ability to recognize data from an old instance of a connection. 
+   These methods can be discarded. 
+
+   Bellovin suggests adding a hash based on the local and foreign IP 
+   addresses and port numbers to the existing clock-based ISS 
+   [RFC-1948]. This effectively gives each connection its own ISS 
+   space. 
+
+   A key point of this technique is that the same combination of IP 
+   addresses and ports must generate the same hash number, or we would 
+   again break TCP as above. Of course, this has a significant security 
+   impact. If a spoofer can create multiple connections to a server 
+   from the same address and port, the hash function just rotates the 
+   ISS space, and has no real security benefit. With normal TCP, TIME- 
+   WAIT state would make this a very slow process; however, with T/TCP, 
+   this is not the case. 
+
+6. Conclusions 
+
+   These concerns, combined with the fact that sending a FIN with a SYN 
+   clearly violates the processing rules in [STD-007], seem to indicate 
+   that T/TCP needs more development before it is ready for general use. 
+
+A. References 
+
+   [RFC-1644] Braden, R., "T/TCP -- TCP Extensions for Transactions, 
+   Functional Specification", RFC-1644, USC/Information Sciences 
+   Institute, July 1994. 
+
+C. Hannum [Page 3] 
+
+RFC ? T/TCP Security Problems September 1996 
+
+   [STD-007] Postel, J., "Transmission Control Protocol - DARPA Internet 
+   Program Protocol Specification", STD-007, USC/Information Sciences 
+   Institute, September 1981. 
+
+   [RFC-1948] Bellovin, S., "Defending Against Sequence Number Attacks", 
+   RFC-1948, AT&T Research, May 1996. 
+
+B. Author's Address 
+
+   Charles M. Hannum 
+   The NetBSD Project 
+   c/o MIT SIPB 
+   84 Mass Ave, W20-557 
+   Cambridge, MA 02139 
+
+   Phone: (617) 253-7788 
+   EMail: mycroft@MIT.EDU 
+
+C. Hannum [Page 4] 

@@ -1,0 +1,235 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+   <meta name="GENERATOR" content="Mozilla/4.7 [en] (X11; I; Linux 2.2.5-15 i586) [Netscape]">
+</head>
+<body>
+
+<h1>
+The MidWay API.</h1>
+This is a brief description of the API, the full details are in the man
+pages. Note that MidWay consider everything that begins with mw, _mw, __mw
+it own private name space.
+<br>&nbsp;
+<table BORDER NOSAVE >
+<tr NOSAVE>
+<td NOSAVE>C Function</td>
+
+<td>Client or Server API</td>
+
+<td>Description</td>
+
+<td>Implemented</td>
+</tr>
+
+<tr>
+<td>mwattach()</td>
+
+<td>both</td>
+
+<td>Attaches the process to a running MidWay instance.It&nbsp;specifies
+if the process is a server or client.</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwdetach()</td>
+
+<td>both</td>
+
+<td>Detatches from a running MidWay instance</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwcall()</td>
+
+<td>client</td>
+
+<td>Performs a synchronus service call</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwacall()</td>
+
+<td>client</td>
+
+<td>Performs an asychronus service call, reply must be retrieved with mwfetch()</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwfetch()</td>
+
+<td>client</td>
+
+<td>Retrives a reply from the service routine, either&nbsp;
+<br>a specific, or the first available.</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwreply()</td>
+
+<td>server</td>
+
+<td>Send the reply back to the calling client, must be used in a service
+routine.</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwreturn()</td>
+
+<td>server</td>
+
+<td>A macro that do mwreply()&nbsp;and a C return</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwforward()</td>
+
+<td>server</td>
+
+<td>Forwards the request to another service, the reply is sendt directly
+to the client by the other service routine.</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwalloc()</td>
+
+<td>both</td>
+
+<td>allocates a buffer in shared memory, used by mwcall(), mwreply() and
+their likes to store the data buffer passed.&nbsp;</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwrealloc()</td>
+
+<td>both</td>
+
+<td>resizes a shared memory buffer allocated by mwalloc()</td>
+
+<td>No</td>
+</tr>
+
+<tr>
+<td>mwfree()</td>
+
+<td>both</td>
+
+<td>Frees a buffer alloacted by mwalloc()</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwMainLoop()</td>
+
+<td>server</td>
+
+<td>Wait forever on a service request, and calls the associoated service
+routine</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwservicerequest()</td>
+
+<td>server</td>
+
+<td>Waits for a service request, call the service routine and returns.
+Used if you need a custom MainLoop.</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwbegin()</td>
+
+<td>client</td>
+
+<td>Meant to do the start a distributed transaction. Transactions are not
+yet implemented, now it only set a deadline on the service request. If
+a server recieves an expired request is is silently dropped. mwcall() and
+mwfetch() return when their request expire.</td>
+
+<td>No</td>
+</tr>
+
+<tr>
+<td>mwcommit()</td>
+
+<td>client</td>
+
+<td>resets deadline to 0.</td>
+
+<td>No</td>
+</tr>
+
+<tr>
+<td>mwabort()</td>
+
+<td>client</td>
+
+<td>currently does the same as mwcommit()</td>
+
+<td>No</td>
+</tr>
+
+<tr>
+<td>mwlog()</td>
+
+<td>both</td>
+
+<td>Provides a common logging facility</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwsetlogprefix()</td>
+
+<td>both</td>
+
+<td>If the process want to log to a private log.</td>
+
+<td>Yes</td>
+</tr>
+
+<tr>
+<td>mwsetloglevel()</td>
+
+<td>both</td>
+
+<td>Specifies how much logging this process should do. From only errors
+to full debug.</td>
+
+<td>Yes</td>
+</tr>
+</table>
+
+<p>
+<hr WIDTH="100%">
+<br>Top
+<br>&nbsp;
+<br>&nbsp;
+<br>&nbsp;
+</body>
+</html>

@@ -1,0 +1,35 @@
+<h1>Transactions</h1>
+
+The consept of transactions used here is exactly the
+same as used in databases.
+A transaction is a group or set of work that are atomic, 
+either it all succed or it all never happened.
+
+SRB's are sometimes referred to as Ttransaction Processing Monitors
+or just TP_monitors. THe "Transaction" part stems from tre API calls,
+that do a transaction begin, abort, or commit. Every thing between
+the begin and commit are atomic. THis is exactly the same as begin, 
+abort and commit on SQL. Transaction is by RDBMS (Database monitors)
+to be a fairly advanced consept. Commercial level RDBMS's has such 
+as Oracle, Sybase, DB2, etc do for couse have it. Postgress has it, 
+while MySQL, and mSQL do not. For a RDBMS or another resouce to 
+cooperate with a TP monitor, it has to support two-phase commits. 
+TP monitors tend to have a Transaction monitor that know about all the 
+transaction capable resources and coordinate transactions among them.
+Tuxedo and CICS for examples can do this. 
+TP monitors originated on the mainframe, and IBM had an easy time
+since they made both CICS, DB2, and the OS with filesystem.
+The makers of Tuxedo, had a tougher time and had to make an open
+interface standard. X-Open picked it up and it is called the XA interface.
+It is now a ISO standard. (Posix begun and abandoned work on a standard 
+of its own.) In the X-Open world  the API is tx_begin() tx_abort()
+and tx_commit(). THey are pretty much identical to tuxedos tp_begin()
+tp_abort(), and tp_commit(). 
+XA defines that the TP monitor must have a tarnsaction moinitor, 
+and for each XA capable resource a resource monitor. 
+<!--- insert fig --->
+Corba by the way defines an OTB (Object Transaction Broker). 
+
+I've never checked out if the Linux version of Oracle support XA.
+THis is a rather advanced feature, and since I'm not really a DB person
+I'll exclude myself in the implementation of anything XA'ish in MidWay. 

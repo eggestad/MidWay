@@ -1,0 +1,85 @@
+MidWay:         A Service Request Broker (SRB)
+Address:	http://www.mid-way.org
+By:             Terje Eggestad
+Address:        Terje.Eggestad@iname.com
+
+
+
+**** What is MidWay? ****
+
+MidWay is a Service Request Broker. Not unlike an ORB (object Request
+Broker), but a SRB works by function passing, not method passing,
+there are no objects here in the sense OO describe it. An SRB are
+state less while an ORB is statefull.
+
+In a SRB a process (called a server) provides a service given by a
+name. A client can now call the service and pass it input data, and it
+returns data.  While commecial SRBs usually has some means to declare
+data types, in MidWay "data" means an octet string, think Perl
+scalars.
+
+The providing of a service is a dynamic affair, no need for an
+ORB'like IDL.  There are no limitation on how many servers that can
+provide the same service.
+
+This parallellism gives a lot of scalability. You can do both fan-out
+and pipleline parallellism with MidWay. The purpose of a SRB is speed
+and scalability. Speed comes from the statelessness. (Se docs for
+details).  Building applications that can handle 100 hits a second is
+simple.
+
+SRB are traditionally called Transaction Processing Monitors or TP
+monitors.  They earned that by providing transaction support, thus a
+clients could after calling n services either commit or rollback the
+work done in all the services.  This fuctionallyit is not implemeted
+yet, and will only be if in demand.
+
+MidWay is intended to be more WEB and internet orientated that its
+commercial cousins. Really easy since most TP Monitors have mainframe
+legacy in mind.
+
+
+
+**** Running Middleway ****
+
+To do a quick test of MidWay, goto src and write make. There are no
+installation as of yet, this is alpha code. Either greate a soft link
+from /lib to src/lib/libMWipc.so, and do a ldconfig -v or include
+$PWD/src/lib/ in LD_LIBRARY_PATH.
+
+goto src/mwd and start mwd by ./mwd -D, check
+~/MidWay/userid/log/SYSTEM.date
+
+goto src/lib and start testmidway
+
+goto src/mwadm and start it, at prompt give the command: 
+MWADM> call test1 date 
+the test1 service in testmiddleway shall now give you the date.
+
+Now read the docs!
+
+
+
+**** A Note on Release Numbers. ****
+
+In the CVS archive releasable versions are tagged with 
+STABILITY_M_N_P which are:
+STABILITY: Alpha, Beta, Release, and possibly more.
+           Put simply it says what quality of code this is meant to be.
+M: Is the major version number that indicate that there are major changes
+   and most probably incompatibilities.
+N: Minor version number, indicate new fetues, but no incompatibilities.
+P: Patch number, bugs files only. 
+
+The rationale for using the STABILITY verb is that many projects are
+developing on 0.X.Y and releases on 1.0.0. Which is OK, but causes
+confusion later on when say 2.3.24 is experimental, while 2.2.15 is
+production.  Observant readers may recognice that this is Linux kernel
+version numbers.  Linus & co seem to prefer 2.even.patch for
+production, and 2.odd.patch for development. Not a bad plan either. I
+just really want the three numbers to have the meaning as indicated
+above, and the only way to indicate quality is to add a new indicator.
+
+
+Terje
+

@@ -1,0 +1,130 @@
+Objects, forking and scaling.
+
+On occation when I talk to Object Orientation (OO) evangelists, 
+I get the feeling that they think that
+a) Objects didn't exists until OO was invented.
+b) OO is <it>always</it> the best way to model/describe reality.
+Neither are true. 
+I love OO as well, and when the part of reality you're working on
+models nicly with OO, life is sweet.
+However OO do have some problems with respect to scaling.
+1) Objects are noe stateless
+2) There are overheads with object creation, and destruction.
+
+<h2> Statelessness</h2>
+If an object don't store state, its methods are by definition functions, 
+we here consider functions, procedures and <*>services<*> to be identical.
+In order to be statefull both/all parties to the object must know
+that the relationship exists. I modern ORBs such as CORBA and DCOM
+this is done by having a socket connection, usually over TCP.
+While the CORBA crew has flages with possibility of millions of
+objects, you can't have millions of sockets on a single hosts.
+
+<sepearet page>
+Upper limits of number of sockets/connections.
+Remember that when an operating system receive a TCP or UDP packet, it
+must find the propper queue to put it on. The propper queue
+is identidifed with the following key:
+remote ip adr + remote port + local port + local ip adr
+In IPv4 the key is 4 + 2 + 2 + 4= 12 bytes, and will in IPv6 increase
+to 16 + 2 + 2 + 16 = 36 bytes. On an 32 bit machines it require
+10 load and 10 compare instruction for every socket. Most (maybe all)
+OS's do a sequential search thru the socket table in the kernel.
+(Check Linux!) If we have a 1 000 000 connectins it is on average 
+500000 key tests wich is 10 000 000 instructions. A top of the line
+CPU today can to 1 000 000 000 instructions a second, and we have 
+burnt of all available CPU resource with 100 packets a second.
+Most servers today still have only a megabyte or two in L2 cache, 
+and we need 36MBytes just to hold the socket table. Needless to say, 
+you get a storm of cache faults, and you would get a 10 fold degradation 
+of performace.
+
+A socket needs queues for storing data being send and received.
+On Unix these are two 16kByte buffers, or 32kB for every socket.
+with 1000000 sockets you need 32Gb of buffer space.
+
+And we haven't even done any work out side the kernel yet.
+
+In the literature, this is the main argumebr for SRB over ORB.
+A machine can easily handle 500 sockets and 1000 processes.
+It will go into thrashing with 10000 sockets and 20000 processes.
+<end page>
+
+If you have statefullness you will need a 1:1 ration between clients 
+and objects. With out state you can drop the ration between
+clients and services to 10:1 or 100:1 region.
+
+Mainframe evangelists claim. rightfully, that you can never have as many 
+users (with telnet) as you can on a mainframe.
+Consider unix processes to be objects, every user has a minimum of one
+object that they interact with (the shell). The shell has state by userid,
+groupid, umask, cwd, env vars and private (shell) vars. It
+ptoved methods to alter this state, newgrp, umask, cd, setenv etc
+as well as providing an ananumous method for creating new objects.
+You see here just the 1:1 ration problem eating away RAM and the kernel
+houskeeping task grows propotionally to the number of processes.
+Remember that with the more processes you have (that do work)
+each must do a smaller and smaller slice for you to avoid spending all 
+your CPU resource. However with each process doing smaller and smaller 
+piece each the amount of work needed for scheduling calculatins grow
+until the OS is spending the majority of CPU resource on scheduling.
+Classical thrashing.
+
+Another point made by mainframe evangelists are that is it ludicrous 
+to send a packet for every key stroke, as is done in a telnet session.
+It just gets worse in graphical environmamet, X11 clients are sendt both
+keypress and key release events, and may ask for a strom of pointer (mouse)
+movements events.
+
+THe reason the mainframe could in the 70's handle a couple of thousand 
+attached terminals, was that each 3270 terminal are loaded with a form, 
+and handle all fill out for form fields, only send the completed form 
+when you hit the send button.
+A web browser has copied this, and this is exactly the way a html form 
+work, you only send the filled in form to a CGI program.
+Here we see the diffrence in the server side. On the mainframe the 
+form is sendt to a service in a TP monitor like CICS.
+On Unix the approach has been to create a new process to handle
+the form data that terminate after completion.
+
+<h2>The CGI problem</h2>
+
+The forking for every html form sendt to the server is a known problem
+with scaling, and a number of solutions have been provided to do FastCGI.
+You have the FastCGI project, and mod_perl that embeds a perl interpreter
+in apache.
+
+THe extra obverhead with forkinbg are dismissed by some web developers
+by the agrument that it depends on the ration between init and term
+work to the amount of real work.
+<fig>
+THis is true but a html form or "screen" should contain relativeliy few
+fields. This a user friendlyness issue, a form with to many 
+fields become crowded and **uoversiktlig*. Normallig the actuall work 
+is quite small to the startup cost. <inster what cost a fork()>
+
+They key is to have the program handling the request up and running and 
+ready to handle the request when it comes, and that it will
+handle more than one request in its lifetime (It should handle infinite 
+request in theory.). MidWay provide this, but is a very general 
+approcah in that the servcies may be used from WIN32 apps, gnome apps, 
+tcl/tk, as well as in plain html.
+
+Another strange speedup you get when using a SRB is that the average 
+resonsetime  is halved.
+Consider an example where we have n=5 CGI requests, and that it takes
+s=5 timeslices to do the actiual work.
+If we fork of n processes to handle the requests the scheduling looks
+like this(single CPU):
+<fig>
+and the average resonstime rt is (n+1/2)*s or O(n).
+If a single program handles all the requests one at a time:
+<fig>
+Average reesonstime is now rt = s*n/2 or O(n/2). 
+
+THis is actually a classical OS scheduling problem. My professor 
+didn't make thsi argument to show that preemptve round robin was not the
+optimal schedulig tactic. At the time I closed my ears and considered
+that anything but preemtive was unaccepatble, and historic.
+I think must of my fellow students did too. 
+

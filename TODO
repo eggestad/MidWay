@@ -1,0 +1,37 @@
+
+     MAJOR TODO LIST
+=======================================================================
+
+ * Events - sent from servers to clients
+
+ * Conversations - statefull clients server communicaion.
+
+ * TCP/IP clients and gateways between MW instances.
+
+ * Perl module
+
+ * TCL bindings
+
+ * PHP bindings 
+
+ * A GNOME mwadm
+
+ * Java TCP/IP Client API
+
+ * Transaction support
+
+
+     MINOR TODO LIST
+=======================================================================
+
+ * Staticstics
+
+ * trace facility
+
+ * Data buffers are now not arbitrary length
+
+ * fast path missing
+
+
+
+

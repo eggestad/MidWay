@@ -1,0 +1,91 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MWSERVER 1 "DATE" Linux "MiddleWay Users Manual"
+.SH NAME
+mwd \- The MiddleWay generic server.
+.SH SYNOPSIS
+.B mwserver [-A url] [-l \fIdebuglevel\fP] {-s \fIservice[:function]\fP} \fIlibrarys\fP...
+.SH DESCRIPTION
+This program provides the simplest way of making a service routice in C. You write your 
+functions as spesified in 
+.BR mwservice (3C). 
+Then you link it into a shared library. You give this library as argument to 
+.B mwserver
+and you tell it via the -s option which functions that you want to provide as a service.
+.br
+You can give as many -s option and libraries as arguments as you can fit on the command line.
+.sp
+If you want to have a start up and shutdown procedure then 
+.BR dlopen (3) 
+specify that for each library you have the function _init is run when the library is loaded, 
+and _fini when the library is unloaded.
+In addition mwserver will after having loaded all the libraries look for a function 
+.IR mwinit . 
+The first one and only the first one found in the library list are executed. Likewise on gracefull
+shutdown mwserver looks for 
+.IR mwexit .
+
+.SH EXAMPLE
+Given a C file example.c:
+.nf
+#include <MiddleWay.h>
+
+int SERVICE1(mwsvcinfo *si) {
+.
+.
+.
+mwreply (..);
+};
+.fi
+You now compile it with:
+.RS
+gcc -c example.c
+.br
+gcc -shared -o example.so example.o
+.RE
+Now you start the server by this command:
+.RS
+mwserver -s SERVICE1 -s service1:SERVICE1 example.so
+.RE
+Your service routine are now available both as the service 
+.B SERVICE1 
+and 
+.B service1, 
+check with 
+.BR mwadm (1).
+.SH ENVIRONMENT
+.TP
+.B LD_LIBRARY_PATH
+If you don't give the full path of your lib to 
+.BR mwserver, 
+it will look for your library
+in the current working directory, then in the bin directory of your MiddleWay instance (see 
+.BR mwd (1). 
+After that it will follow the spesification of 
+.BR dlopen (3)
+with says that it will use 
+.BR LD_LIBRARY_PATH , 
+.IR /etc/ls.so.cache , " /usr/lib" ", and" " /lib"
+in that order to find the library. 
+.TP
+.B MWURL
+see 
+.BR mwd (1). 
+.TP
+.B MWDIR
+see 
+.BR mwd (1). 
+.SH SEE ALSO
+.BR MiddleWay (7),  mwadm (1), mwd (1), mwservice (3C), dlopen (3)
+.SH WARNINGS
+The intention is to make mwd start and stopp servers. If a server started
+directly by giving the mwserver command, and it core dumps, it will 
+take som 60 - 120 seconds for mwd to clean up (NYI). 
+mwserver is intended for development use only.
+.SH BUGS
+It is not possible to provide the same function/symbol in two librarys.

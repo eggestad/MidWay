@@ -1,0 +1,138 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+	<TITLE>Presentation Layer</TITLE>
+	<META NAME="AUTHOR" CONTENT="Terje Eggestad">
+</HEAD>
+<BODY>
+<h1>The Data Presentation issue</h1>
+<P>If you're unfamiliar with the term Presentation layer see
+discussion on <A HREF="osistack.html">the OSI reference mode</A>l.
+The short version is that in the OSI model, you've a specific
+software layer that handle how data are to be presented. HTML is one
+example of a data presentation standard. ASN.1 is another. In data
+presentation you deal with issues like, how is an INTEGER encode.
+Different machines may be MSB (Most Significant Bit First) or LSB
+(Least). The equivalent of deciding if your machine writes from left
+to right, or right to left. Are INTEGER unsigned, or signed, if
+signed are negative numbers encoded in signed-magnitude, one's
+compliment, or two's compliment. Are INTERGERs 16 bit, 32 bit, 64
+bit, 36 bit? While all machines designs since the mini machines are 8
+bit based, mainframes where originally 6 bit. I believe that IBM 390
+machines are 9 bit based, and data width are 36 bit. 
+</P>
+<P>This is part of the reason IBM mainframes use EBCDIC character set
+(9 bit) while everyone else are in the ASCII world. ASCII is actually
+7 bit, How the upper half of the 8bit byte (octet) are be used was
+chaos until ISO-8859-1 came along and defined an 8bit character set
+for all countries using the Latin alphabet as base. Prior to that a
+number of 8bit charset was proposed. MicroSoft used the codepage
+scheme that resulted in different codepages for every language. HP
+has promoted roman8 forever, even today their printers come with a
+factory setting of roman8 and not 8859-1 Latin-1 as default charset.
+The HP Unix HP-UX has the same peculiarity. The charset story gets
+better with multi-octet characters. 16Bit chars was proposed for a
+while, but we seem to end with variable length characters, n octets. 
+</P>
+<P>My first language happens to be Norwegian, and Norwegian has three
+extra characters from English: &AElig;&Oslash;&Aring; (upper) &aelig;&oslash;&aring;
+(lower). In strict seven bit machines, historic now, the ASCII values
+for {|} was used for the lower chars and [\] for the upper. Consider
+how cool it was to program C with your terminal and printer set up
+this way, not to mention that your keyboard no longer had &quot;{[]}\|&quot;!
+MicroSoft codepage PC850, roman8 and ISO 8859 Latin-1 places these
+char in the upper 7bit, but of course in different placed, and
+lexically on the wrong order. Suddenly you discover that sorting
+places &aring; before &oslash;, think about a sort routine that sort
+b before a. Setting up OS's databases, etc. with the right LANG, LC_
+and NLS variables become an art form by itself. 
+</P>
+<P>So far I just talked about integers and characters, now consider
+that SQL databases usually define data types that don't exist in many
+programing languages. DECIMAL for example. It is defined in COBOL,
+but not many other. C terminates strings with a NULL char, while many
+other languages has an integer associated with the string to specify
+length, Perl does this for example. 
+</P>
+<P>Data encoding is pretty much a field of science all by itself. 
+There has been many attempt to find general solutions to this
+problem. ASN.1 is one, the OSI had quite a few chapters on this, and
+OSI used this as the main critique of TCP/IP. TCP/IP only specify
+that in TCP you have a stream of octets, and in UDP, a block of
+octets. IP only make sure that MSB and LSB of each octet are handled
+correctly. Despite attempt, a true general way to to datatype
+encoding has ever succeeded. I believe that TCP/IP succeeded to
+become a standard not <U>despite</U> the lack of data presentation,
+but <U><I>because</I></U>
+the lack of one. Same thing with the popularity of Perl, TCL/TK,
+Pyton, and PHP that has only one atomic data type, the scalar (really
+strings). HTML too has only strings, and love and behold, the world
+embraced it. 
+</P>
+
+<p>The cost difference of translation an integer to a string and back
+instead of a propper binary format drown the second you you start
+accessing disk. It has been traditionally a rarety if a service handler 
+don't perform some kind of disk operation.
+
+The very idea behind a SRB calls for coarse grain
+parallellism, ask for all that needs to be done in one call.
+</p>
+<P>Data presentation don't stop with encoding of specific data types,
+but in function passing, you may want to define the parameters. In RPC
+you generate stubs, and in CORBA you've got an <I>IDL</I> (Interface
+Description Language). The problem with IDL's are that changes to the
+interface tend to require recompilation of all clients and server
+<I>simultaneously</I>.  If you have a 1000 MidWay clients, replacing
+them all are no small task. I've participated in a couple of projects
+where changes on this scale has been necessary, and a couple where we
+used Tuxedo, and either replaced the servers with new version that
+could handle old and new clients, or added new servers that very used
+for the new clients. Phased migration are the key. Remember that in
+24-7 systems all changes must be reversible.
+</P>
+<P>Another issue is that while some programming languages provide
+ranging on data, particular well in Pascal, and enums in C, it is
+still not enough. A legal range on a parameter in a function or
+method, may (actually usually do) change depending on the value in
+other parameters. A very typical example is the printf(3) function.</P>
+<P>When dealing with formats to use among MidWay participants, I'll
+recommend to copy the http scheme. First of all, specifying a MIME
+type. MIME are  perhaps one of the more ingenious schemes to do data
+presentation. In this way the data passed in an service call should
+be prefix with for example &quot;Content-type: text/html\n\n&quot; or
+&quot;Content-type: application/octet-stream\n\n&quot;. See
+<A HREF="http://www.isi.edu/in-notes/iana/assignments/media-types/media-types">http://www.isi.edu/in-notes/iana/assignments/media-types/media-types</A>,
+RFC2616 (HTTP 1.1) and RFC 2388 (multipart/form-data). Most Web forms
+are encoded with MIME type: application/x-url-encoded which has the
+familiar
+<FONT SIZE=3><tt>name=Xavier+Xantico&amp;verdict=Yes&amp;colour=Blue&amp;happy=sad&amp;Utf%F6r=Send
+</tt></FONT>format. This is actually a FML without the data types.
+The really nice part is that a service may use only a few fields
+before passing it on to another service. I'm considering a separate
+library for manipulating url-encoded buffers more gracefully. Just
+keep in mind that it will have nothing to do with MidWay. MidWay is
+strictly <A HREF="osi-stack.html">Session Layer</A>. 
+</P>
+<P ALIGN=LEFT><A HREF="tuxedo.html">Tuxedo</A> do mess with data
+presentation, while MidWay simply passes octet strings, Tuxedo has
+types buffers. One of the more interesting types are <I>FML</I>
+(Field Manipulation Language). In the way Tuxedo does it, it requires
+defining the FML in a separate file, and a FML IDL compiler. The
+reason being that each Filed in the FML has a data type (integer,
+float, string etc.) Another reason is that Tuxedo provides data
+dependent routing, thus selecting different servers depending on
+values in the FML buffer. Just keep in mind what I said above, if you
+want this, a new API should be created on top of MidWay's API. 
+</P>
+<p>I did consider adding a MIME parameter to mwcall(), but I don't
+really see what MidWay need ths information for.
+</p>
+
+In the end of the day the only form of data that is really language 
+independent is an octet string. 
+
+<HR>
+<P ALIGN=LEFT>Top</P>
+</BODY>
+</HTML>

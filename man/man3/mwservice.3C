@@ -1,0 +1,99 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MWSERVICE 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.SH NAME
+ \- MiddleWay service routines
+.SH SYNOPSIS
+.B #include <MiddleWay.h>
+.sp
+.BI "int " functionname "(mwsvcinfo * si);"
+.SH DESCRIPTION
+This is the prototype for writing service routines in C. 
+A function must be registered as a MiddleWay service routinewith 
+.BR mwprovide ()
+where you give what name it should be announced with in the MiddleWay instance.
+You can either do mwprovide directly or by compile the C function 
+into a shared library and use either 
+.BR mwserver ()
+or give the shared library as an executable in the config file for 
+.BR mwd "(). (see" mwd.conf (4)).
+.sp
+The input params to the routine is given by the struct mwsvcinfo:
+.nf
+struct _mwsvcinfo {
+  int handle;
+  CLIENTID cltid;
+  SERVERID srvid;
+  char * data;
+  int datalen;
+  int flags;
+  char service[MWMAXSVCNAME];
+
+  time_t deadline; /* deadline here is pretty much a timeval struct. */
+  int   udeadline; /* see gettimeofday(); */
+};
+.fi
+.SS Struct Description
+.TP
+.B handle
+The handle returned by 
+.BR mwacall ().
+This is for info only.
+.TP
+.B cltid
+The Client ID of the instance menber that performed the 
+.BR mwacall ().
+.TP
+.B srvid
+If this call has been forwarded by another server thru the 
+.BR mwforward ()
+call the id of the 
+.I last
+server who did this is recorded here, UNASSIGNED (-1) otherwise.
+.TP
+.B data / datalen
+The input data to the service function. datalen is never 0 even if 0 in the 
+.BR mw(a)call (). 
+.TP 
+.B flags
+The flags given in the client process to 
+.BR mw(a)call ().
+.TP 
+.B service
+The service name used in the 
+.BR mw(a)call "() or " mwforward ()
+call. This is needed incase you have registered the same C functions as service routines for 
+multiple services.
+.TP
+.B deadline / udeadline
+If the client had set a deadline with 
+.BR mwbegin ()
+it is given here. You can compare with 
+.BR gettimeofday ()
+is find out how much time remains. If you know that your routine will not complete in time
+you might as well return with ETIME immediately. This is optional, and is probably only 
+needed in near realtime applications.
+.PP
+If your service routine need to return data or an application level return code you need to
+call 
+.BR mwreply ()
+to do so. 
+The C return shall only return success (0) or failure (!0) of the service call.
+
+.SH WARNINGS
+
+.SH EXAMPLES
+
+.SH BUGS 
+
+.SH "SEE ALSO"
+
+.BR MiddleWay (7)
+
+.SH STANDARDS
+NONE

@@ -1,0 +1,414 @@
+/*
+  MidWay
+  Copyright (C) 2000 Terje Eggestad
+
+  MidWay is free software; you can redistribute it and/or
+  modify it under the terms of the GNU  General Public License as
+  published by the Free Software Foundation; either version 2 of the
+  License, or (at your option) any later version.
+  
+  MidWay is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+  
+  You should have received a copy of the GNU General Public License 
+  along with the MidWay distribution; see the file COPYING.  If not,
+  write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+  Boston, MA 02111-1307, USA. 
+*/
+
+/*
+ * $Id$
+ * $Name$
+ * 
+ * $Log$
+ * Revision 1.1  2000/03/21 21:04:20  eggestad
+ * Initial revision
+ *
+ * Revision 1.1.1.1  2000/01/16 23:20:12  terje
+ * MidWay
+ *
+ */
+
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#include <sys/time.h>
+#include <unistd.h>
+#include <stdlib.h> 
+#include <sys/sem.h>
+#include <errno.h>
+
+#include <MidWay.h>
+#include <ipctables.h>
+#include <ipcmessages.h>
+#include <shmalloc.h>
+
+/* globals from mwadm.c */
+extern struct ipcmaininfo * ipcmain;
+extern extended;
+
+/* We must provide a function for each entry in the 
+   struct command  commands[]; in mwadm.c.
+   mwadm.c expects these functions to print on stdout. 
+   We expect that mwadm.c has spilt the command line on white space, 
+   and gives the args as separate strings.
+
+   In future this module will be used by mwd to provide these call as services.
+   At that time, the results shall be encoded in another format than tty "print".
+*/
+
+int info(int argc, char ** argv)
+{
+  char * token;
+
+  if (ipcmain == NULL) {
+    printf ("We are not connected to a MidWay system\n");
+    return -1;
+  };
+
+  printf ("MidWay system \"%s\" has version %d.%d.%d\n", 
+	  ipcmain->mw_system_name==NULL?"(Anonymous)":ipcmain->mw_system_name,
+	  ipcmain->vermajor, ipcmain->verminor, ipcmain->patchlevel);
+  printf ("  master Processid = %d status = %d boottime %s\n", 
+	  ipcmain->mwdpid, ipcmain->status, ctime(&ipcmain->boottime));
+  return 0;
+};
+
+int clients(int argc, char ** argv)
+{
+  char * token;
+  int i, count = 0;
+  cliententry * cltent;
+  char *  clienttypestring[4] = { "N/A   ", "Client", "Server" , NULL};
+  char * loc = "N/A     ";
+
+  if (ipcmain == NULL) {
+    printf ("We are not connected to a MidWay system\n");
+    return -1;
+  };
+  
+  printf ("Client table:\n");
+  cltent = _mw_getcliententry(0);
+  /*if (extended) printf ("table address %#x \n", 
+    (long)cltent); */
+  printf ("ClientID Type   Location Pid    msgqid Clientname\n");
+  for (i = 0; i < ipcmain->clttbl_length; i++) {
+    if (cltent[i].status != UNASSIGNED) {
+      count ++;
+      if (cltent[i].location == MWLOCAL)  loc = "LocalIPC";
+      if (cltent[i].location == MWREMOTE) loc = "Remote  ";
+      /*      if (extended) printf ("@ %#x ", &cltent[i]); */
+      printf ("%8d %-6s %-8s %-6d %-6d %s\n", i,  clienttypestring[cltent[i].type], 
+	      loc, cltent[i].pid, cltent[i].mqid, cltent[i].clientname);
+    };
+  }
+  printf ("\n %d/%d (%5.3f%%) entries used\n", count,i, 
+	    (float) count*100 / (float) i);
+  return 0;
+}
+
+int servers(int argc, char ** argv)
+{
+  serverentry * srvent;
+  serviceentry * svcent;
+  char * token;
+  int i, count = 0;
+  cliententry * cltent;
+  
+  if (ipcmain == NULL) {
+    printf ("We are not connected to a MidWay system\n");
+    return -1;
+  };
+
+  printf ("Server table:\n");
+  srvent = _mw_getserverentry(0);
+  svcent = _mw_getserviceentry(0);
+  
+  /*  if (extended) printf ("table address %#x \n", 
+      (long)srvent);*/
+  printf ("ServerID    Pid msgqid block Status Service\n");
+  for (i = 0; i < ipcmain->srvtbl_length; i++) {
+    char * servicename;
+    if (srvent[i].status != UNASSIGNED) {
+      count ++;
+      /*if (extended) printf ("@ %#x ", &srvent[i]);*/
+      /*	if (srvent[i].nowserving == UNASSIGNED) servicename = "(IDLE)";
+		else svcent[srvent[i].nowserving & MWINDEXMASK].servicename;*/
+      printf ("%8d %6d %6d %5d %6d %.32s\n", i, srvent[i].pid, 
+	      srvent[i].mqid, srvent[i].mwdblock, srvent[i].status, 
+	      srvent[i].statustext);
+    };
+  }
+  printf ("\n %d/%d (%5.3f%%) entries used\n", count,i, 
+	  (float) count*100 / (float) i);
+  return 0 ;
+};
+
+int services(int argc, char ** argv)
+{
+  int i, count = 0;
+  serviceentry * svcent;
+  char * token;
+  char * location[3] = { "Local   ", "Imported", NULL};
+
+  printf ("Services table:\n");
+  svcent = _mw_getserviceentry(0);
+  /*  if (extended) printf ("table address %#x \n", 
+      (long)svcent);*/
+  printf ("ServiceID type Location Srv/GWID Service\n");
+  for (i = 0; i < ipcmain->svctbl_length; i++) {
+    if (svcent[i].server != UNASSIGNED) {
+      count ++;
+      /* if (extended) printf ("@ %#x ", &svcent[i]);*/
+      printf ("%9d %4d %-8s %8d %s\n", i, svcent[i].type, 
+	      location[svcent[i].location], 
+	      svcent[i].location?
+	      MWINDEXMASK&svcent[i].gateway : MWINDEXMASK&svcent[i].server, 
+	      svcent[i].servicename);
+    };
+    }
+  printf ("\n %d/%d (%5.3f%%) entries used\n", count,i, 
+	  (float) count*100 / (float) i);
+  return 0 ;
+};
+
+
+int heapinfo(int argc, char ** argv) 
+{
+  extern struct segmenthdr * _mwHeapInfo;
+  unsigned short semarray[BINS];
+  int i, rc;
+
+  if (_mwHeapInfo == NULL) {
+    printf("shm head not attached\n");
+    return -1;
+  };
+  printf ("magic %x segnment size %d semid %d\n", 
+	  _mwHeapInfo->magic, _mwHeapInfo->segmentsize, _mwHeapInfo->semid);
+  printf (" Basechunksize %d chunkspersize %d Bins %d\n", 
+	  _mwHeapInfo->basechunksize, _mwHeapInfo->chunkspersize, BINS);
+  printf (" Chunks inuse=%d highwater=%d average=%d avgcount=%d\n", 
+	  _mwHeapInfo->inusecount, _mwHeapInfo->inusehighwater, 
+	  _mwHeapInfo->inuseaverage, _mwHeapInfo->inuseavgcount );
+
+
+  rc = semctl(_mwHeapInfo->semid,BINS, GETALL, semarray);
+  if (rc != 0) {
+    printf ("semctl() failed, rc = %d reason %d\n",rc, errno);
+    return -errno;
+  };
+  printf ("Chunksize freecount locked\n");
+  for (i = 0; i < BINS; i++) {
+    printf(" %8d  %8d   %s\n", 
+	   (1<<i) * _mwHeapInfo->basechunksize, 
+	   _mwHeapInfo->freecount[i], 
+	   semarray[i] ? "no " : "yes");
+  };
+  return 0;
+};
+ 
+
+int boot(int argc, char ** argv)
+{
+  pid_t pid1, pid2;
+  int status, rc;
+  int fds[2], c, n;
+  FILE * sin;
+
+  pid1 = fork ();
+  if (pid1 == 0) {
+    close(0);
+    close(1);
+    rc = pipe(fds);
+    if (rc != 0) {
+      fprintf(stderr, "boot failed because: %s\n", strerror(errno));
+      return -errno;
+    };
+    printf ("child 1\n");
+    fflush(stdout);
+    pid2 = fork();
+    if (pid2 == 0) {
+      printf("child 2 about to reassign stdout\n");
+
+      close(fds[0]);
+      /*stdout = fdopen(fds[1], "w");*/
+      if (stdout == NULL) {
+	 fprintf(stderr,"reasignment failed reason: %s", strerror(errno));
+	 exit(-1);
+      };
+      rc = printf("child 2 reassignment complete\n");
+      fprintf(stderr,"wrote %d bytes on new stdout, should be %d\n", 
+	      rc, strlen("child 2 reassignment complete\n"));
+      argv[0] = "-mwd";  
+      execvp("mwd", argv); 
+      fclose(stdout);
+      sleep(10);
+      fprintf(stderr,"boot failed, reason exec of mwd failed with: %s\n", strerror(errno)); 
+      exit(0);
+    } else {
+      printf ("child 1 reading\n");
+      n = 0;
+      close(fds[1]);
+      sin = fdopen(fds[0], "r");
+      while(!feof(sin)) {
+	c = fgetc(sin);
+	/*	printf("got a char from sin %d\n", c);*/
+	n++;
+	if (c != EOF) {
+	  fputc(c, stderr);
+	  fflush(stderr);
+	};
+      };
+      printf("sin empty after %d bytes\n",n);
+      exit(0);
+    };
+  } 
+  wait(&status);
+  return 0;
+};
+
+int shutdown (int argc, char ** argv)
+{
+  Administrative admmesg;
+  int rc;
+
+  admmesg.mtype = ADMREQ;
+  admmesg.opcode = ADMSHUTDOWN;
+  admmesg.delay = 0;
+  admmesg.cltid = _mw_get_my_clientid();
+  
+  rc = _mw_ipc_putmessage(0,&admmesg, sizeof(Administrative), 0);
+  if (rc != 0) fprintf(stderr, "shutdown failed, reason %d", rc);
+  return rc;
+};
+
+int dumpipcmain(int argc, char ** argv)
+{
+  const char * status_by_name[] = { "RUNNING", "SHUTDOWN", 
+				    "BOOTING", "BUSY", "DEAD", NULL };
+  cliententry  * clttbl  = NULL;
+  serverentry  * srvtbl  = NULL;
+  serviceentry * svctbl  = NULL;
+  gatewayentry * gwtbl   = NULL;
+  conv_entry   * convtbl = NULL;
+
+  if (ipcmain == NULL) {
+    printf ("\n ipcmain struct (shared memory) is not attached\n");
+    return -1;
+  };
+
+  clttbl  = _mw_getcliententry(0);
+  srvtbl  = _mw_getserverentry(0);
+  svctbl  = _mw_getserviceentry(0);
+  gwtbl   = _mw_getgatewayentry(0);
+  convtbl = _mw_getconv_entry(0);
+
+  printf ("\nIPCMAIN struct is located at %#X\n", ipcmain);
+  
+  printf ("Magic                = %-8s\n", ipcmain->magic);
+  printf ("Versions             = %d.%d.%d\n", ipcmain->vermajor, 
+	  ipcmain->verminor, ipcmain->patchlevel);
+  printf ("master mwd pid       = %d\n", ipcmain->mwdpid);
+  printf ("Watchdog pid         = %d\n", ipcmain->mwwdpid);
+  printf ("Mwds Message queueid = %d\n", ipcmain->mwd_mqid);
+  printf ("MW System name       = %s\n", ipcmain->mw_system_name);
+  printf ("Status               = (%d)%s\n", 
+	  ipcmain->status, status_by_name[ipcmain->status]);
+  printf ("Boottime             = %s", ctime(&ipcmain->boottime));
+  printf ("lastactive           = %s", ctime(&ipcmain->lastactive));
+  printf ("configlastloaded     = %s", ctime(&ipcmain->configlastloaded));
+  printf ("shutdown time        = %s", ctime(&ipcmain->shutdowntime));
+
+  printf("\n");
+  printf ("Heap ipcid          = %d\n", ipcmain->heap_ipcid);
+  printf ("Client  table ipcid = %d length = %7d at address %#X\n", 
+	  ipcmain->clttbl_ipcid, ipcmain->clttbl_length, clttbl);
+  printf ("Server  table ipcid = %d length = %7d at address %#X\n", 
+	  ipcmain->srvtbl_ipcid, ipcmain->srvtbl_length, srvtbl);
+  printf ("Service table ipcid = %d length = %7d at address %#X\n", 
+	  ipcmain->svctbl_ipcid, ipcmain->svctbl_length, svctbl);
+  printf ("Gateway table ipcid = %d length = %7d at address %#X\n", 
+	  ipcmain->gwtbl_ipcid,  ipcmain->gwtbl_length,  gwtbl);
+  printf ("Convers table ipcid = %d length = %7d at address %#X\n", 
+	  ipcmain->convtbl_ipcid, ipcmain->convtbl_length, convtbl);
+  return 0 ;
+}
+
+
+int call(int argc, char ** argv) 
+{
+  int i, j, len, apprc, rc;
+  char * data, * rdata = NULL;
+  struct timeval start, end;
+
+  
+  if ( (argv[1] == NULL) ||  (argv[2] == NULL) ) {
+    return -1;
+  }
+
+  len = strlen(argv[2]);
+  data = (char *) malloc(len);
+  j = 0;
+  for (i = 0; i < len; i++) {
+    if (argv[2][i] == '%') {
+      /* simlified, we accept only %UL where H is the high nibble
+	 and L is teh lower nibble. Thus a char in hex.
+	 fortunalty the lowe niddle in an ascii hex reprenentation
+	 is the binary value */
+      if ((i + 2) < len) {
+	data[j++] = argv[2][++i] & 0x0f << 4
+	  + argv[2][++i] & 0x0f;
+      } 
+    } else {
+      data[j++] = argv[2][i];
+    }
+  }
+  data[j] = '\0';
+
+  mwlog(MWLOG_DEBUG,"about to call(%s, %s, %d, ...)", argv[1], data, j);
+  gettimeofday(&start, NULL); 
+  rc = mwcall(argv[1], data, j, &rdata, &len, &apprc, 0);
+  gettimeofday(&end, NULL); 
+
+  if (rc != 0) {
+    printf("Call failed with reason %d\n", rc);
+    return rc;
+  };
+  printf("call returned in %f\n", 
+	 (float)(end.tv_sec - start.tv_sec) 
+	 +(float)(end.tv_usec - start.tv_usec)/1000000); 
+  
+  if (rdata != NULL) {
+    data = realloc(data,len*3);
+    j = 0;
+    for (i = 0; i < len; i++) {
+      if ( (!isprint(rdata[i])) || (rdata[i] == '%') ) {
+	sprintf(&data[j], "%%%2.2x", (unsigned char) rdata[i]);
+	j += 3;
+      } else {
+	data[j++] = rdata[i];
+      };
+    };
+    data[j] = '\0';
+    printf ("Call to \"%s\" succeded, returned data \"%.*s\" %d bytes\n",  
+	    argv[1], j, data, len);
+    printf ("  with application return code %d\n", apprc);
+  } else {
+    printf ("Call to \"%s\" succeded, returned no data\n",  
+	    argv[1], data, len);
+    printf ("  with application return code %d\n", apprc);
+    
+  };
+
+
+  mwlog(MWLOG_DEBUG,"call to %s returned %s len %d bytes rc = %d apprc=%d)", 
+	argv[1], data, len, rc, apprc);
+
+  mwfree(rdata);
+
+  return rc;
+};
+
+

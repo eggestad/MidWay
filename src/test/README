@@ -1,0 +1,5 @@
+Start testserver with: 
+../mwserver/mwserver -d info -s testsvc1:testdataservice testsuiteserver.so
+
+Then run the testclient with:
+./testsuiteclient

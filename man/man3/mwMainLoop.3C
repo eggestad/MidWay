@@ -1,0 +1,119 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+..\"
+.TH MWMAINLOOP 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.SH NAME
+mwMainLoop \- Main loop in a MiddleWay server
+.SH SYNOPSIS
+.B #include <MiddleWay.h>
+.sp
+.BI "int mwMainLoop(int flags);"
+.SH DESCRIPTION
+This is called by a server after it has attached it selv to the domain with 
+.BR mattach ()
+and provided all its service routines with
+.BR mwprovide ().
+.BR mwMainLoop ()
+essentially calls 
+.BR mwservicerequest ()
+indefinitly. 
+.br
+If 
+.B MWSIGRST 
+is not set it will return on a signal, with return code -EINTR. 
+.sp
+Programmers may feel the need roll their own mwMainLoop, espesially if you want to 
+incorporate a MiddleWay server in a program that has a main loop else where. Thats 
+pretty much OK, just be carefull. An example mwMainLoop is shown below, taken from 
+.IR MiddleWay/src/lib/mwserver.c .
+You may also look in the code for 
+.BR mwserver (1)
+(MiddleWay/src/mwserver) for a more complex example. 
+.sp 
+After 
+.BR mwMainLoop ()
+exits you are
+.I required
+to call 
+.BR mwdetach() .
+Failure to do so will leave ipc resources undeleted, and the info tables in shared memory 
+will still hold information about this server, and some service calls may fail 
+since they may still be addressed to this server.
+When 
+.BR mwMainLoop ()
+returns te status if theis server is set to "(suspended)". 
+.SH "RETURN VALUES"
+The return value is always a negative errno, giving the reason why the loop aborted.
+.SH "ERRORS"
+.TP
+.B EINTR
+A signal was delivered to the program 
+.IR "while in msgrcv" . 
+If you want to know which one, or to vatch signals during execution of service routines, 
+install a signal handler.
+.TP
+.B ENOTCONN
+Either 
+.BR mwattach ()
+has not yet been called, or it failed, or 
+.BR mwdetach ()
+has been called.
+.TP 
+.B ESHUTDOWN
+The MiddleWay daemon 
+.BR  mwd (1)
+has sent us an instruction to exit. We are required to do so.
+.TP
+.B ENOENT
+No calls to 
+.BR mwprovide ()
+has been made or
+in the last service request a 
+.BR mwunprovide ()
+was called on the last service this server provided. To continue 
+.BR mwMainLoop () 
+would be futine since the only "service" we can perform is a 
+shutdown instruction from 
+.BR mwd (1).
+If you wanted to suspend a service in such a way it can be resumed from 
+.BR mwadm (1), 
+use 
+.BR
+mw****** (). 
+.SH WARNINGS
+
+.SH EXAMPLES
+An (almost) minimum implementation of mwMainLoop().
+.sp
+.nf
+int mwMainLoop(int flags)
+{
+  int rc, counter = 0;
+  
+  while(1) {
+    counter++;
+    mwlog(MWLOG_DEBUG, "std MailLoop begining for the %d time.", 
+          counter);
+    rc = mwservicerequest(flags);
+    if ( (rc == -EINTR) && (flags & MWSIGRSRT)) continue;
+    if (rc < 0) return rc;
+  };
+};
+.fi
+
+.SH BUGS 
+
+.SH "SEE ALSO"
+.BR mwprovide (3C),
+.BR mwunprovide (3C),
+.BR mwattach (3C),
+.BR mwdetach (3C),
+.BR mwservicerequest (3C),
+.BR mwd (1),
+.BR mwserver (1)
+.SH STANDARDS
+NONE

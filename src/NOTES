@@ -1,0 +1,20 @@
+
+(*) Shutdown
+I'm not very happy with the shutdown procedure. Servers are commanded down by 
+removing their message queue. This don't work with clients, 
+a) they may run as another user,
+b) their're not in blocking wain on the queue usually. (Client gateways will! Maybe
+IPC clients really should be depreciated, unless a server.)
+Clients will not release IPC shm segments anyway, kernel fix on shmctl() critical.
+
+In servers added a flag param to _mw_send_detach() in order to send a force flag.
+mwd do understand the flag and do not ack it. This is non negotiable by the server, 
+not a request. But it messes up the neatness of _mw_*detach() functions to mess 
+with a force flag.
+
+Tried a signal approach to giving a shutdown command, didn't like that either, 
+didn't like the consept of doing a msgrcv() from a signal handler. 
+
+A untried method is to send a message to command a shutdown, but it don't handle
+server crashes, (i.e. core dumps). 
+

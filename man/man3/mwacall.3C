@@ -1,0 +1,111 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MWCALL 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.SH NAME
+mwcall mwacall, mwfetch \- MiddleWay service calls
+.SH SYNOPSIS
+.B #include <MiddleWay.h>
+.sp
+.BI "int mwcall(char * servicename, char * data, int len, char ** rdata, int * rlen, int * appreturncode, int flags);"
+.sp
+.BI "int mwacall(char * servicename, char * data, int len, int flags);"
+.br
+.BI "int mwfetch(int handle, char ** rdata, int * rlen, int flags);"
+.SH DESCRIPTION
+These calls are used to send a service request to a given service see mwservice(3C)/mwprovide(3C). 
+mwcall() is really a mwacall() mwfetch() pair, and is provided as a convinace. 
+.sp
+Servicename is a null terminated string of max 32 characters long. In order for this call to succed
+some server in the MiddleWay must have provided a service with name 
+.IR servicename .
+.I Data
+is a pointer to the request buffer passed to the service routine. 
+The number of bytes of data is given by
+.IR len . 
+Id data is a NULL terminated string len may be 0. Similary 
+.I rdata
+and 
+.I rlen
+is used for receiving the return buffer from the service routine. The return buffer
+is alway allocated with 
+.B mwalloc()
+and must be freed by 
+.BR mwfree() .
+It is not required that the request buffer is allocated by 
+.BR mwalloc() . 
+If it is not mw(a)call will allocate one automatically of the needed size, and free it 
+on the return.
+.sp
+Typically when you pass C structs or C++ objects around you will need to copy the data in the 
+return buffer into the struct or have a pointer to it. Note that if you are using fastpath
+you may cause a possible shared memory buffer leak. (see 
+.BR mwalloc() ). 
+
+.I Appreturncode 
+is probided for the servoce routine to pass back an application level return/exit code.
+The use of this is not mandatory. It may be NULL. 
+.I Handle
+is used if you have made several mwacall() and  want it retrive a spesific reply.
+If handle is 0 the first reply is returned. 
+
+The 
+.I flags
+parameter controls som aspects of the calls. There are currently these flags.
+.TP
+.B MWNOREPLY
+Used in mwcall() and mwacall() only. It tells the server that no reply is needed. Note that 
+you don't get any confirmation that the request ever gets processed.
+.TP
+.B MWNOBLOCK
+Used in all calls, spesifies that the calls should fail if they encounter a condition 
+where they wold block. There are one condition, mwcall() will of course block while reading
+our own message queue while waiting for the reply from a server. If you want to avoid that 
+condition you must used mwacall() and mwfetch() explisitly. 
+.SH "RETURN VALUES"
+On success mwcall() and mwfetch return 0. mwacall() return the handel that may be used 
+with mwfetch to retrive the reply.
+On failure we get a negative number for local errors. The number is a negative errno. 
+On server side errors we get a positive errno.
+We dispreciate errno in order to be pthread optimised. 
+.SH "ERRORS"
+.TP
+.B ENOENT
+There are no service with serivename available.
+.TP 
+.B ENOTCONN 
+The calling process has not performed a succesful mwattach() 
+and is thus not attach to a running system.
+.TP 
+.B EINVAL
+flags has a undefined flag set.
+.TP 
+.B EINTR
+The subroutine was interruptet by a signal. (Actually one of the underlying msgrcv() of select()
+system calls were.)
+.TP
+.B ETIME
+The deadline set by mwbegin() was reached, while we were waiting for one or more replys, or 
+before mwcall was called..
+.TP
+.B ENOBUFS
+We are out of MiddleWays shared memory buffers, see mwd(1). 
+.TP
+.B EAGAIN
+The call would block and MWNOBLOCK flags was set. 
+.SH WARNINGS
+
+.SH EXAMPLES
+
+.SH BUGS 
+
+.SH "SEE ALSO"
+
+.BR mwattach (3C), mwprovide (3C)
+
+.SH STANDARDS
+NONE

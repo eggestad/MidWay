@@ -1,0 +1,100 @@
+<HTML>
+<HEAD>
+<TITLE>Scaleability - Funneling</TITLE>
+<!--Created by Applixware HTML Author, Release 4.4 on Mon Jan 10 21:29:10 2000-->
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+<meta name="GENERATOR" content="Mozilla/4.51 [en] (X11; I; Linux 2.2.5-15
+i586) [Netscape]">
+<meta name="AUTHOR" content="Terje Eggestad">
+<meta name="CREATED" content="20000108;21443800">
+<meta name="CHANGEDBY" content="Terje Eggestad">
+<meta name="CHANGED" content="20000109;2321600">
+</HEAD>
+<BODY>
+<H1><FONT SIZE=4>Scalability through funneling</FONT></H1>
+<P>MidWay provide the ability to have many more attached clients than there
+are servers, thus the number of users and sessions on the third tier (the
+database usually), we keep the use of resources (RAM most importantly) on the
+database server down to the absolute minimum.</P>
+<P>Ram aside, there are limits to how many processes and sockets an OS can
+handle effectively. The number of processes are discussed in the <A HREF="objects-function.html">next
+section</A>. Here we discuss a bit the problem with TCP sessions and sockets.
+</P>
+<H2><FONT SIZE=4>Upper limits of number of sockets/connections.</FONT>
+</H2>
+<P>Remember that when an operating system receive a TCP or UDP packet, it must
+find the proper queue to put it on. The proper queue is identified with the
+following key:</P>
+<BLOCKQUOTE>
+<P><div STYLE="margin-left: 0.79in"><I><TT><FONT FACE="courier, courier new">remote
+ip adr + remote port + local port + local ip adr</FONT></TT></I></div >
+</P>
+</BLOCKQUOTE>
+<P>In IPv4 the key is <TT><FONT FACE="courier, courier new">4 + 2 + 2 + 4 = 12 bytes
+</FONT></TT>, and will in IPv6 increase to <TT><FONT FACE="courier, courier new">16
++ 2 + 2 + 16 = 36 bytes</FONT></TT>. On a 32 bit machine it require 10 load
+and 10 compare instruction for every socket. OS's do a sequential search
+through the socket table in the kernel, Al least Linux do. If we have a 1 000
+000 connections it is on average 500000 key tests which is 10 000 000
+instructions. A top of the line CPU today can to 1 000 000 000 instructions a
+second, and we have burnt of all available CPU resource with 100 packets a
+second. Most servers today still have only a megabyte or two in L2 cache, and
+we need 36 MBytes just to hold the socket table. Needless to say, you get a
+storm of cache faults, and you would get a 10 fold degradation of performance.
+</P>
+<p> The important thing to remember is that the work needed to process
+all packets comming into a machine per second is 
+<p align=center><i>W = p * n</i></p>
+where <i>p</i> is the number of packet and <it>n</it> is the number
+of sockets. If there is one user per socket then we have a
+relationship between <it>p</it> and <it>n</it>. <it>p = n*r</it>, where<it>r</it>
+is the rate of packets each user generate. This leave us with 
+<p align=center><i>W = n^2*r</i> or <i> O(n^2)</i></p>
+It is the square here that gives us a particular problem, and why the limit of 
+max sockets don't increase all that much over time. Given a 1Gips CPU above, 
+and we say that we can't use more than 1% of CPU in processing packets, we have 
+20 instruction per packet, and we on average have to test 1/2 of the sockets. 
+<p align=center><i>1000 000 000 / 100  = 20 * 1/2 * n*2</i></p>
+<p align=center><i> n = 1000</i></p>
+<p>A hard limit of 1000 sockets, or with 1:1 with sockets and users, 1000 users.
+The Web (http) remedies this by connection and disconnecting for every request.
+There is one problem anyway, latecy on the net is often quite high. Try som ping 
+around locally and on other continents. Round trip over my ISDN line to my ISP
+gives a rount trip time of 30ms.
+The US gives usually a round trip of 200ms. 
+The thing is that due to the threeway handshake on connect and the exchange of the 
+disconnect packages, the socket must exist for two round trips. Considering that
+a well designed MidWay service should complete in 10ms, you have a problem.
+(NB: Suddenly the speed on the users access line to the internett becomes 
+<i>your</i> problem!) 
+Actually, Linux at least only test for connections in ESTABLISHED state, effectivly 
+divides the problem by 3 (or atleast 2), but /3 still doesn't solve the O(n^2) problem. 
+<p>One remedy to this problem is <i>Transactional</i> TCP, T/TCP RFC 1644. 
+T/TCP bypasses the threeway handshake, and teh TIME_WAIT state. T/TCP has some 
+security issues, I picked up a <a href="ttcp-sec.txt">draft RFC</a> on the issue. 
+T/TCP doesn't either solve the O(n^2) problem, funneling does. </p>
+
+<P>A socket needs queues for storing data being send and received. On Unix
+these are two 16 kBytes buffers, or 32 kB for every socket. With 1000000
+sockets you need 32 GB of buffer space, and we haven't even done any work out
+side the kernel yet. Now you can start to consider kernel tables for open
+files, process tables, the amount to work is it to just schedule 10000
+processes, etc.</P>
+<P>In the literature, this is the main argument for using a SRB. A machine can
+handle 500 sockets, 1000 processes, and 1000 Mbytes of RAM. It will go into
+thrashing with 10000 sockets, 20000 processes, and 20 GB of Ram. When using an
+SRB, the optimal numbers are in the area of 50 sockets, 100 processes and 100
+Mbytes of RAM. More importantly: you get to use the RAM for what it should be
+used for, DB cache!</P>
+<P>If you look at Apache it has in its config <I>min</I> <I>servers</I>, and 
+<I>max servers</I>. Apache will fork <I>n</I> copies of itself to handle all
+the incoming requests, with <TT><FONT FACE="courier, courier new">min &lt; n
+&lt; max</FONT></TT>. If Apache gets more requests than max, they are queued
+in the TCP/IP stack, until a server is ready to process. MidWay is just more
+flexible, and more general. Apache don't solve the <A HREF="objects-functions.html#forking">forking
+problem</A>.<BR>
+</P>
+<HR>
+<P><A HREF="toc.html">Top</A></P>
+</BODY>
+</HTML>

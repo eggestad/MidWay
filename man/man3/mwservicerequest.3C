@@ -1,0 +1,64 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+..\"
+.TH MWSERVICEREQUEST 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.SH NAME
+mwservicerequest () \- Gets a service request of the input queue and executes the function for the service.
+.SH SYNOPSIS
+.B #include <MiddleWay.h>
+.sp
+.BI "int mwservicerequest(int flags);"
+.SH DESCRIPTION
+For every time this is called it gets a service request of the IPC message queue the server
+has to receive MiddleWay data on. It then lookup the registered (with 
+.BR mwprovide ()) 
+function that shall perform the service request. 
+.br 
+If the next request is not a service request then it exits with a propper return code.
+.SH "RETURN VALUES"
+0 on success, otherwise a negative errno.
+.SH "ERRORS"
+.TP
+.B EINTR
+A signal was delivered to the program 
+.IR "while in msgrcv" . 
+If you want to know which one, or to watch signals during execution of service routines, 
+install a signal handler.
+.TP
+.B EAGAIN
+.I flags
+& 
+.B MWNOBLOCK
+is true and now service calls are wainting on the message queue.
+.TP
+.B ENOTCONN
+Either 
+.BR mwattach ()
+has not yet been called, or it failed, or 
+.BR mwdetach ()
+has been called.
+.B ESHUTDOWN
+The MiddleWay daemon 
+.BR  mwd (1)
+has sent us an instruction to exit. We are required to do so.
+.TP
+.B ENOENT
+There are currently not service handles registered by 
+.BR mwprovide (). 
+
+.SH WARNINGS
+
+.SH EXAMPLES
+
+.SH BUGS 
+
+.SH "SEE ALSO"
+
+.BR mwMainLoop(3C)
+
+.SH STANDARDS
+NONE

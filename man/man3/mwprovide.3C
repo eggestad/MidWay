@@ -1,0 +1,71 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MWPROVIDE 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.SH NAME
+mwprovide mwunprovide \- The act of making services available in the MiddleWay instance
+.SH SYNOPSIS
+.B #include <MiddleWay.h>
+.sp
+.BI "int mwprovide(char * " service ", int (*" svcfunc ") (mwsvcinfo*), int " flags ");"
+.br
+.BI "int mwunprovide(char * " service ");"
+.SH DESCRIPTION
+These calls control which services a server provides to the MiddleWay instance. The
+.I service
+argument gives the name the service shall be known under in the instance. The max length of teh 
+service name is 32 (see MiddleWay.h). Legal characters in the name is all upper and 
+lower characters (a-z) all digits, underscore, minus, plus, and period. 
+Service names with leading periodes will not be exported to other instances thru gateways 
+unless explisitly named and renamed to a name without a leading periode. 
+.br
+The 
+.I srvfunc
+is a pointer to the C function that is the service routine. See 
+.BR mwservice (3C) 
+on how to write these functions. The supported flags are:
+.TP
+.B MWCONV
+This is a conversational service.
+.TP
+.B MWSTDIO
+Only legal on conversational services. The file descriptor for the socket is also 
+available on filedescriptor 0 (stdin) and 1 (stdout). 
+.TP
+.B MWUNIQUE
+If 
+.BR mwprovide ()
+succeds, this server will be the one and only service providing this service.
+(with in the instance?? or globally???)
+
+
+.SH "RETURN VALUES"
+o on success, and -errno on failure.
+.SH "ERRORS"
+
+.SH WARNINGS
+You can also use 
+.BR mwprovide ()
+in a service routine to do this in run-time, which is a good thing, 
+but You can do 
+.BR mwunprovide ()
+on services provided by 
+.BR mwserver ()
+or thru 
+.BR mwd (). 
+It would then be impossible to re provide it without a server restart.
+I might add a dynamic/static flag to a service in a future version of MiddleWay.
+.SH EXAMPLES
+
+.SH BUGS 
+
+.SH "SEE ALSO"
+
+.BR
+
+.SH STANDARDS
+NONE

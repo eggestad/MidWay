@@ -1,0 +1,178 @@
+<!doctype html public "-//w3c//dtd html 4.0 transitional//en">
+<html>
+<head>
+   <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+      <title>Introduction to MidWay</title>
+      <!--Created by Applixware HTML Author, Release 4.4 on Mon Jan 10 21:27:36 2000-->
+</head>
+<body>
+
+<h1>
+<font size=+1>Exactly what is MidWay anyway?</font></h1>
+MidWay is formally a <i>Service Request Broker</i> (SRB). MidWay is the
+first Open Source Software implementation (at least know to me) of a very
+old idea that originated on the Mainframe. The biggest of these is CICS,
+on Unix <a href="tuxedo.html">Tuxedo&reg;</a> is dominant. SRB's are for
+historical reasons known as <i>TP Monitors, </i>or <i>Middleware</i>. The
+name MidWay is a pun on middleware. TP monitors have a very advanced <a href="transactions.html">transaction
+</a>concept,
+this is planned for MidWay in some future, (<b>BIG</b> project.)
+<p>Middleware is today a really bloated term, that are used on a whole
+range of different technologies, I'm not going to elaborate on this here.
+There is an excellent book on most types of client/server technologies
+called "
+<i>Client/Server Survival Guide</i>" by Orfali, Harkey, and Edwards.
+The differences between TP monitors and other types of client/server technologies
+are explained in a lot of details in the survival guide. I'm going to limit
+myself here to what MidWay can do.&nbsp; You use MidWay or another middleware
+for any or all of a number of reason.
+<ol>
+<li>
+Scalability</li>
+
+<li>
+Speed</li>
+
+<li>
+Throughput</li>
+
+<li>
+User need to operate on many databases, especially if they are of different
+make.</li>
+
+<li>
+In 3-tier applications.</li>
+
+<li>
+Security</li>
+
+<li>
+27-7 applications.</li>
+</ol>
+In the heart of a SRB is the <i>request/response</i> model. Very much the
+same as used in Web browsers (HTTP). Request/response are the reason that
+mainframes could in the 70's handle a thousand concurrent users, while
+even 90's Unix servers have trouble with a thousand concurrent telnet users.
+The Web uses http specifically in order to achieve the needed scalability
+to serve the world. The key is <a href="objects-functions.html#statelessness">statelessness
+</a>.
+<p>MidWay work by having servers processes that provides a <i>service</i>.
+A server may provide many services, and many servers may provide the same
+service. When a client call a service, it is load, and randomness that
+determine which server that actually handle the request. The components
+of a MidWay instance are shown here (only one server and one client.)
+<p><img SRC="Intro-arch.gif" ALT="Intro-arch.gif" height=340 width=688 align=TEXTTOP><br>
+<br>
+A service is mapped onto a subroutine or function. Unlike CORBA or RPC,
+MidWay has no way to specify the data type of the parameters. In fact,
+the only thing you may send to a service, and the only thing you can send
+back from the service, is a buffer of <i>n</i> octets(bytes). I've very
+specific <a href="presentation.html">reasons for not doing any data presentation</a>.
+If you are familiar with the <a href="osistack.html">OSI reference model,</a>
+MidWay is exclusively on layer 5 the <i>session</i> layer. The encoding
+of the data is entirely up to you. In many cases you would just pass a
+C struct, my recommendation is to encode as URI fields (how html form data
+is normally encode): <tt><font face="courier, courier new">field1=value&amp;field2=value.</font></tt>
+<p>In the current version of MidWay there are limitations of how big <i>n
+</i>can
+be, but this is planned to be removed. However, in order to maintain scalability,
+keep this as low as possible. 1 Mb is becoming ridicules, you can usually
+keep this below 10k.
+<p>Another very important feature in a SRB is the ability to issue multiple
+requests without waiting for the responses, as well as issue request that
+shall not be replied to.
+<p>3 tier applications are almost a given when using a SRB. The first tier
+is the MidWay client, it provides the user interface. The second tier is
+the MidWay server, and it is usually a database client. The third tier
+is then the database it self. Normally the second and third tier are sunning
+on the database server, while the first tier is running os a workstation.
+<p>Security is here almost implicit,and is provided by the second tier.
+If user authentication is required, MidWay can do it. (Not yet implemented).
+More importantly, only the operations programmed into the second tier are
+possible, no matter what userid and password the user may have on the database
+(third tier).
+<p>The ability to stop and start servers dynamically make it easy to make
+a backup or limited functionality server. When you take you database of
+line for backup, upgrades and such, and the users need to use at least
+a core set of operations you can put in an offline service that do simplified
+processing. This is much used with bank and credit cards when the banking
+system is offline, it is called STIP (STand In Processing). The STIP services
+will usually say OK under a certain amount and if the card is not stopped.
+Almost all 24-7 has some sort of backup/emergency processing. Just in case
+you miss out on the term 24-7, 24 hours 7 seven days a week availability.
+Another term that is coming up is "24 forever".
+<h2>
+<font size=+1>An Example</font></h2>
+To do a fast example, in the client you would do:
+<br>&nbsp;
+<blockquote>
+<div STYLE="margin-left: 0.79in"><tt><font face="courier, courier new">#include
+&lt;MidWay.h</font></tt></div>
+
+<p><br><tt><font face="courier, courier new">char * buffer;</font></tt>
+<br><tt><font face="courier, courier new">int rc, apprcode, bufferlen,
+flags = 0;</font></tt>
+<br><tt><font face="courier, courier new">rc = </font></tt><a href="http://mwattach.3.html/">mwattach
+</a><tt><font face="courier, courier new">("ipc://",
+"test client", userid, password, flags); /* connect to a running instance
+*/</font></tt>
+<br><tt><font face="courier, courier new">/* do the request and get the
+response immediately */</font></tt>
+<br><tt><font face="courier, courier new">rc = </font></tt><a href="http://mwcall.3.html/">mwcall
+</a><tt><font face="courier, courier new">("Service",
+"Hello Server", 0, &amp;buffer, &amp;bufferlen, &amp;apprcode, flags);</font></tt></blockquote>
+
+<p><br>Now in the server you need
+<br>&nbsp;
+<blockquote>
+<div STYLE="margin-left: 0.79in"><tt><font face="courier, courier new">#include
+&lt;MidWay.h</font></tt></div>
+
+<p><br><tt><font face="courier, courier new">/* the service rutine, "application
+logic" */</font></tt>
+<br><tt><font face="courier, courier new">int servicehandler(mwsvcinfo
+* si)</font></tt>
+<br><tt><font face="courier, courier new">{</font></tt>
+<br><tt><font face="courier, courier new">if (strcmp("si-data", "Hello
+Server") == 0) {</font></tt>
+<br><a href="http://mwreply.3.html/">mwreply</a><tt><font face="courier, courier new">("Hello
+Client", 0, MWSUCCESS, appreturncode);</font></tt>
+<br><tt><font face="courier, courier new">return MWSUCCESS;</font></tt>
+<br><tt><font face="courier, courier new">}</font></tt>
+<br><a href="http://mwreply.3.html/">mwreply</a><tt><font face="courier, courier new">("FAIL",
+0, MWFAILURE, -1);</font></tt>
+<br><tt><font face="courier, courier new">}</font></tt>
+<p><tt><font face="courier, courier new">main()</font></tt>
+<br><tt><font face="courier, courier new">{</font></tt>
+<br><a href="http://mwattach.3.html/">mwattach</a><tt><font face="courier, courier new">("ipc://",
+"test Server", NULL, NULL, MWSERVER); /* attach as a server, the MidWay
+daemon, mwd, must run as the same uid.*/</font></tt>
+<br><a href="http://mwprovide.3.html/">mwprovide</a><tt><font face="courier, courier new">("Service",
+servicehandler flags = 0); /* provide the service "Service" and map it
+to the C function servicehandler */</font></tt>
+<br><a href="http://mwMainLoop.3.html/">mwMainLoop</a><tt><font face="courier, courier new">();
+/* Wait eternally on request to my provided services. */</font></tt>
+<br><tt><font face="courier, courier new">}</font></tt>
+<br>&nbsp;</blockquote>
+That's pretty much all you need to do, except to make sure that <a href="http://mwd.1.html/">mwd(1)
+</a>is
+running. Servers must run with the same userid as the <a href="http://mwd.1.html/">mwd(1)
+</a>.
+Note that the main() in the server is provided in the <a href="http://mwserver.1.html/">mwserver
+</a>program.
+<p>A note on the URI used here in <a href="http://mwattach.3.html/">mwattach
+</a><tt><font face="courier, courier new">("ipc://",...).</font></tt>MidWay
+uses system V ipc to communicate among the participants. For servers ipc
+as protocol are the only one that is going to be legal for a long time,
+probably forever. I'll add http for clients pretty soon, mostly because
+http <i>is</i> a request/response protocol. I'll use Apache on the server
+side, an Apache module is pretty high on my todo list. Both for clients
+and for using MidWay services to generate HTML. However I must at some
+point define a native MidWay protocol, foremost for gateways between two
+running MidWay instances, but also for <a href="transactions.html">transactions
+</a>.
+<br>
+<hr>
+<p><a href="toc.html">Top</a>
+</body>
+</html>

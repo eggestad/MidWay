@@ -1,0 +1,62 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+	<TITLE></TITLE>
+	<META NAME="GENERATOR" CONTENT="StarOffice/5.1 (Linux)">
+	<META NAME="AUTHOR" CONTENT="Terje Eggestad">
+	<META NAME="CREATED" CONTENT="19991214;1190300">
+	<META NAME="CHANGEDBY" CONTENT="Terje Eggestad">
+	<META NAME="CHANGED" CONTENT="19991214;1291900">
+</HEAD>
+<BODY>
+<H1 ALIGN=CENTER><FONT FACE="times, serif">Loose and tight coupled
+programs.</FONT></H1>
+<P><BR><BR>
+</P>
+<HR>
+<P><FONT FACE="times, serif">MidWay and it's other TP monitor cousins
+are designed foremost for speed and scaleability, however they do
+have a place in loosly coupled programs. In order to define what I
+mean by &quot;loosely coupled&quot; it can be look at degrees of
+coupling. The most tigthly coupled program are assembly programs with
+no OS, running straight on the CPU. No memory protection, or defined
+interfaces. </FONT>
+</P>
+<P><FONT FACE="times, serif">However consider this rule: <B><U>The
+more disjoint the programmers are the smaller and simpler the
+interfaces must be</U></B>. Or to make a collorary to Murphy's law,
+Any API description that may be misunderstood or misused, <I>will</I>.
+(Ask Microosoft API developers that, especially about the Windows 3.5
+to 3.51 upgrade.) </FONT>
+</P>
+<P><FONT FACE="times, serif">It is not enough to define data types in
+an interface, since specific values in one may change the legal
+values in another. Consider printf(3), where even the first argument
+changes the number of required arguments, not to mention their types.
+See discussion of OSI layers.</FONT></P>
+<P><FONT FACE="times, serif">Now I',m gonna say something that is
+going to be a bit controversial: <B><U>An object oriented interface
+is by definition more complex than a functional one.</U></B></FONT></P>
+<P ALIGN=LEFT><FONT FACE="times, serif">Consider Corba, in the heart
+of Corba you have a IDL (Interface Definition Language). You can't
+even compile you program without having defined it's interfaces. If
+other objects you use changes their interfaces, you must recompile.
+The  later will normally hold true for MidWay applicatios as well,
+but you can exchange data encoded like web browsers encode HTML forms
+data: <B><FONT FACE="courier, monospace">fieldname1=value&amp;fieldname2=value</FONT></B>
+etc. Then your server may not even know about all the arguents sent
+it, nor care about them. It allows you to have a much less rigid
+regime in maintaining versions of all your components. </FONT>
+</P>
+<P ALIGN=LEFT><FONT FACE="times, serif">BTW: I'm not saying that
+object orientation of your programs is wrong, nor that Corba and it's
+likes are wrong, quite the contrary,  I'm just saying that they are
+better suited for more tightly coupled systems.</FONT></P>
+<P ALIGN=LEFT><FONT FACE="times, serif">See also discussion on
+problems with forking. </FONT>
+</P>
+<HR>
+<P ALIGN=LEFT><BR><BR>
+</P>
+</BODY>
+</HTML>

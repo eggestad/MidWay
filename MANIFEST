@@ -1,0 +1,21 @@
+   File Name			Description
+----------------------------------------------------------
+README				The Place to start reading
+AUTHORS				
+COPYING*			The full text of GPL and LGPL
+ChangeLog			All changes are logged here
+NEWS				New features per release.
+TODO				Furure features planned and under considerations.
+BUGS				Known bugs, to be moved to ChangeLog after fixes.
+html-doc/			User and intro docs
+man/				Man pages - the gory details
+man/man1/
+man/man3/
+include/			Include files needed for applications using MidWay
+src/				Source code for library, utilities, and runtime daemons
+src/include/			Includes for internal API
+src/lib/			sources for the MidWay API
+src/mwd/			Source for the MidWay Daemons, runtime arbitrator
+src/mwadm/			MidWay Admin, main Admin utility
+src/mwserver/			A generic server
+mod_MidWay/			An Apache Module that can link an URL to a Service

@@ -1,0 +1,79 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MWATTACH 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.SH NAME
+mwattach, mwdetach \- Attaching to a running MiddleWay instance
+.SH SYNOPSIS
+.B #include <MiddleWay.h>
+.sp
+.BI "int mwattach(int " url ", char * " name ", "
+.BI "char * " username ", char * " password ", int " flags ");"
+.br
+.BI "int mwdetach();"
+.SH DESCRIPTION
+The call 
+.BR mwattach ()
+is analogous to connect() and shmat(), it is used to logon
+to a running MiddleWay system. To logoff you then use 
+.BR mwdetach ().
+There are two different methods for a program to attach itself to a MiddleWay instance.
+Either via IPC (sysvipc is currently only supported. Posix IPC is too new.),  via
+http, or a native middleway protocol. (none of the two latter are yet implemented). 
+.SS OPTIONS
+.TP
+.I url
+A string that indicate the address of the running instance. URL format: 
+for IPC attachment
+.BI ipc:// key
+or 
+.BI ipc:// [instancename]
+instancename assumed to be "default" if absent, 
+or
+.BI middleway:// ipaddress:port
+or
+.BI http:// ipaddress:port
+for TCP/IP (NYI). If NULL wee look for the environment variable MWADDRESS instead. 
+If not set, 
+.B ipc://default
+is tried, and finally 
+.BI ipc:// userid
+.TP
+.I username
+Only needed if protocol is other then ipc. For ipc we are always using OS authentication.
+.TP
+.I password
+.BR mwd.conf (1)
+for authentication methods.
+.TP
+.I flags
+If 
+.B MWCLIENT
+you are connecting as an IPC client (really 0). If 
+.B MWSERVER
+you want to attach as both client and server. 
+.B MWSERVERONLY
+says you want to attach as just a server (mwcall() will then fail). 
+.TP
+.I name
+a member name, may be NULL, at which arg[0] is substituted.
+.SH "RETURN VALUES"
+-errno
+.SH "ERRORS"
+Rather complex, shmget(), shmat(), EISCONN if called twice, _mw_ipc_putmessage(), _mw_get_message()
+.SH WARNINGS
+
+.SH EXAMPLES
+
+.SH BUGS 
+
+.SH "SEE ALSO"
+
+.BR 
+
+.SH STANDARDS
+NONE

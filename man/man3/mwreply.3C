@@ -1,0 +1,56 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+..\"
+.TH MWREPLY 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.SH NAME
+mwreply \- Returning data from service routines
+.SH SYNOPSIS
+.B #include <MiddleWay.h>
+.sp
+.BI "void mwreply(char * reply, int replylen, int successflag, int applicationreturncode );"
+.SH DESCRIPTION
+This fuction is used in a service routine to return a reply to the service request.
+The 
+.I reply 
+argument is a pinter to the data to be sent. If NULL no data is returned, only return codes, 
+and the calling client gets confirmation that the call was executed.
+If 
+.I replylen 
+is 0, we assume a NULL terminated reply string. The 
+.I successflag 
+is interpreded by MiddleWay as 
+success of failure. (Not really used, but important for future support for the XA interface.)
+Zero on failure, non zero for success. 
+.BR mwfetch ()
+on the client will return EFAULT if this flag is zero.
+In addition to successflag programmers may pass another return code, 
+.I applicationreturncode
+for private use. MiddleWay ignore this, so it is optional.
+.sp
+If the service perform a normal C return without calling 
+.BR  mwreply ()
+first, the input buffer is returned, and the C return code is used as successflag.
+.sp
+Note that if the 
+.BR mw(a)call () 
+had  the 
+.B MWNOREPLY
+flag set (see mwservice()) this call is silently ignored and may be omitted.
+.SH WARNINGS
+It is very bad practice to omit this call. If you do a mwrealloc() on the input buffer and return 
+by C return, you will pass back the original buffer, and cause a buffer leak. I may change this 
+practice in the future if I find that is as bad an idea I belive it to be.
+.SH EXAMPLES
+
+.SH BUGS 
+
+.SH "SEE ALSO"
+
+.BR mwservice (3C), mwmwcall (3C), mwmwacall (3C), mwfetch (3C), mwalloc (3C), mwrealloc (3C), mwfree (3C) 
+
+.SH STANDARDS
+NONE

@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.10  2004/08/11 20:30:09  eggestad
+ * daemonize fix
+ *
  * Revision 1.9  2003/08/06 23:16:19  eggestad
  * Merge of client and mwgwd recieving SRB messages functions.
  *
@@ -583,9 +586,14 @@ int daemonize(void)
   fclose(stdin);
   //freopen("/var/log/mwbd.log", "a", stdout);
   //freopen("/var/log/mwbd.log", "a", stderr);
-  if (!debugging)
-    fclose(stderr);
+  if (!debugging) {
+     fclose(stderr);
+      stderr = fopen("/dev/null", "w");
+  }
   fclose(stdout);
+  stdout = fopen("/dev/null", "w");
+  
+  setsid();
 
   return p;
 };

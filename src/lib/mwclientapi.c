@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2003/07/06 22:10:16  eggestad
+ * - added timepegs
+ *
  * Revision 1.11  2003/06/26 17:04:08  eggestad
  * *** empty log message ***
  *
@@ -242,6 +245,7 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
 {
   int rc;
 
+  TIMEPEGNOTE("begining fetch");
   if ( (data == NULL) || (len == NULL) || (appreturncode == NULL) )
     return -EINVAL;
 
@@ -259,6 +263,8 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
     int pdatalen = 0;
     int first = 1;
  
+    DEBUG1("No MWMULTIPLE flags set, collection all replies");
+
     * len = 0;
 
     do {
@@ -289,6 +295,8 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
       if ( (rc != MWMORE) && (first) ) {
 	*data = pdata;
 	*len = pdatalen;	
+	TIMEPEGNOTE("returning short fetch");
+	timepeg_log();
 	return rc;
       };
       
@@ -300,34 +308,43 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
       memcpy((*data)+(*len), pdata, pdatalen);
       *len += pdatalen;
       
-    }  while(rc == MWMORE);
+    }  while (rc == MWMORE) ;
 
     (*data)[*len]  = '\0';
+    TIMEPEGNOTE("returning long fetch");
+    timepeg_log();
     return rc;
   };
-      
+
+  DEBUG1("MWMULTIPLE flags set");      
   /* multiple replies handeled in user code, we return the first reply */
   switch (_mwaddress->protocol) {
       
   case MWSYSVIPC:
-    
-    rc = _mwfetchipc(handle, data, len, appreturncode, flags);
-    return rc; 
+     rc = _mwfetchipc(handle, data, len, appreturncode, flags);
+    break;
     
   case MWSRBP:
     rc = _mwfetch_srb(handle, data, len, appreturncode, flags);
-    return rc;
-  };
+    break;
+
+  default:
   Error("mwfetch: This can't happen unknown protocol %d", 
 	_mwaddress->protocol);
 
   return -EFAULT;
+
+  };
+  TIMEPEGNOTE("returning fetch");
+  timepeg_log();
+  return rc;
 };
 
 int mwacall(char * svcname, char * data, int datalen, int flags) 
 {
-  int handle;
+  int handle, rc;
   float timeleft;
+  TIMEPEGNOTE("begining acall");
 
   /* input sanyty checking, everywhere else we depend on params to be sane. */
   if ( (datalen < 0) || (svcname == NULL) ) 
@@ -358,10 +375,16 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
     
   case MWSYSVIPC:
 
-    return _mwacall_ipc(svcname, data, datalen, flags);
+     rc = _mwacall_ipc(svcname, data, datalen, flags);
+     TIMEPEGNOTE("end acall");
+     timepeg_log();
+     return rc;
     
   case MWSRBP:
-    return _mwacall_srb(svcname, data, datalen, flags);
+     rc = _mwacall_srb(svcname, data, datalen, flags);
+     TIMEPEGNOTE("end acall");
+     timepeg_log();
+     return rc;
   };
   Error("mwacall: This can't happen unknown protocol %d", 
 	_mwaddress->protocol);
@@ -683,37 +706,51 @@ int mwabort()
 /* for IPC we use shmalloc. For network we use std malloc */
 void * mwalloc(int size) 
 {
-  if (size < 1) return NULL;
-  if ( !_mwaddress || (_mwaddress->protocol != MWSYSVIPC)) {
-    DEBUG3("mwalloc: using malloc");
-    return malloc(size);
-  } else {
-    DEBUG3("mwalloc: using _mwalloc");
-    return _mwalloc(size);
-  };
+   void * addr;
+
+   DEBUG3("size = %d", size);
+   if (size < 1) return NULL;
+
+   if ( !_mwaddress || (_mwaddress->protocol != MWSYSVIPC)) {
+      DEBUG3("mwalloc: using malloc");
+      addr = malloc(size);
+   } else {
+      DEBUG3("mwalloc: using _mwalloc");
+      addr = _mwalloc(size);
+   };
+   DEBUG3("returning mem at %p", addr);
+   return addr;
 };
 
-void * mwrealloc(void * adr, int newsize) {
-
-  if (_mwshmcheck(adr) == -1) {
-    DEBUG3("mwrealloc: using realloc");
-    return realloc(adr, newsize);
-  } else {
-    DEBUG3("mwrealloc: using _mwrealloc");
-    return _mwrealloc(adr, newsize);
-  };
+void * mwrealloc(void * adr, int newsize)
+{
+   char * naddr;
+   
+   DEBUG3("old mem %p size = %d", adr, newsize);
+   if (_mwshmcheck(adr) == -1) {
+      DEBUG3("mwrealloc: using realloc");
+      naddr =  realloc(adr, newsize);
+   } else {
+      DEBUG3("mwrealloc: using _mwrealloc");
+      naddr = _mwrealloc(adr, newsize);
+   };
+   DEBUG3("returning mem at %p", naddr);
+   return naddr;
 };
 
 
 int mwfree(void * adr) 
 {
-  if (_mwshmcheck(adr) == -1) {
-    DEBUG3("mwfree: using free");
-    free(adr);
-    return 0;
-  } else {
-    DEBUG3("mwfree: using _mwfree");
-    return _mwfree( adr);
-  };
+   int rc = 0;
+   DEBUG3("mem %p", adr);
+   if (_mwshmcheck(adr) == -1) {
+      DEBUG3("mwfree: using free");
+      free(adr);
+   } else {
+      DEBUG3("mwfree: using _mwfree");
+      rc =  _mwfree( adr);
+   };
+   DEBUG3("returning rc = %d", rc);
+   return rc;
 };
  

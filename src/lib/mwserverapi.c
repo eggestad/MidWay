@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.15  2003/07/20 23:31:05  eggestad
+ * - added an usleep() loop in mwreply() if no shm buffers are immediatly available
+ *
  * Revision 1.14  2002/11/19 12:43:53  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -335,12 +338,27 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
   /* if we already have completed the replies */
   if (! _mw_requestpending) return -EALREADY;
 
+  DEBUG1("mwreply (data =%p, len=%d rc=%d apprc=%d flags=%#x", 
+	 data, len,  returncode, appreturncode, flags);
 
   rc = _mwsystemstate();
   if (rc) return rc;
 
-
-  _mw_putbuffer_to_call(callmesg, data, len);
+  // if there is not available buffers,  we try for a while
+  do {
+     int n; 
+     n = 0;
+     rc = _mw_putbuffer_to_call(callmesg, data, len);
+     
+     if (rc) {
+	if (n >= 100) return rc;
+	if (n == 0) {
+	   Warning("Reply: failed to place reply buffer rc=%d", rc);
+	};
+	usleep(20);
+	n++;
+     }
+  } while (rc != 0);
 
   /* return code handling. returncode is EFAULT if MWFAIL, 
      0 on MWSUCCESS and MWMORE on MWMORE. */
@@ -433,7 +451,7 @@ int mwforward(char * svcname, char * data, int len, int flags)
     if (dataoffset == -1) {
       dbuf = _mwalloc(len);
       if (dbuf == NULL) {
-	Error("mwalloc(%d) failed reason %d", len, (int) errno);
+	Error("Forward: mwalloc(%d) failed reason %d", len, (int) errno);
 	return -errno;
       };
       memcpy(dbuf, data, len);

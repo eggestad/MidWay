@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2003/07/06 22:06:14  eggestad
+ * -debugging now in debug3
+ * - added funcs for seting and geting ownerid
+ *
  * Revision 1.12  2003/06/12 07:22:19  eggestad
  * fix for negative size
  *
@@ -278,6 +282,11 @@ int _mwshmcheck(void * adr)
   /* if SRBP then we have no heap... */
   if (_mwHeapInfo == NULL) return -1;
 
+  DEBUG3(" testing to see if byffer is %x < %x < %x", 
+	 (void *)_mwHeapInfo + sizeof(struct segmenthdr), 
+	 adr, 
+	 (void *)_mwHeapInfo + _mwHeapInfo->segmentsize);
+
   /* first we make sure that adr is within the heap*/
   if (adr < ((void *)_mwHeapInfo + sizeof(struct segmenthdr))) return -1;
   if (adr > ((void *)_mwHeapInfo + _mwHeapInfo->segmentsize)) return -1;
@@ -332,9 +341,14 @@ static chunkhead * popchunk(int *iRoot, int * freecount)
   if (*freecount == 0) return NULL;
   if (*iRoot == 0) return NULL;
 
+  DEBUG3("root offset = %d", *iRoot);
+
   pCHead = _mwoffset2adr(*iRoot);
   pCFoot = _mwfooter(pCHead); 
-  
+
+  DEBUG3("head at %p footer at %p", pCHead, pCFoot);
+  DEBUG3("footer: above = %d prev %d next %d", pCFoot->above, pCFoot->next, pCFoot->prev);
+
   if (*freecount == 1)  { /*last free*/
     pCFoot->next = 0;
     pCFoot->prev = 0;
@@ -351,10 +365,12 @@ static chunkhead * popchunk(int *iRoot, int * freecount)
 
   *iRoot = pCFoot->next;
   (*freecount) --;
+  DEBUG3("root offset now = %d", *iRoot);
 
   /* disconnect the chunk */
   pCFoot->next = 0;
   pCFoot->prev = 0;
+  DEBUG3("returning head at %p ", pCHead);
   return pCHead;
 };
 
@@ -449,7 +465,36 @@ static inline int attachheap(void)
   return 0;
 };
 
-  
+
+int _mwshmgetowner(int offset, MWID * id)
+{
+   chunkhead * pCHead;
+   
+   if (id == NULL) return -EINVAL;
+   
+   if (offset < 0) return -ERANGE;
+   if (offset > _mwHeapInfo->segmentsize) return -ERANGE;
+
+   pCHead = _mwoffset2adr(offset - sizeof(chunkhead));
+   *id = pCHead->ownerid;
+   return 0;
+};
+
+
+int _mwshmsetowner(int offset, MWID id)
+{
+   chunkhead * pCHead;
+   
+   if (offset < 0) return -ERANGE;
+   if (offset > _mwHeapInfo->segmentsize) return -ERANGE;
+
+   pCHead = _mwoffset2adr(offset - sizeof(chunkhead));
+   pCHead->ownerid = id;
+
+   return 0;
+};
+
+
 void * _mwalloc(int size)
 {
   chunkhead *pCHead;
@@ -491,12 +536,18 @@ void * _mwalloc(int size)
       }
 
       /* We now have a lock for the chunks of 1 * basesize */
+      DEBUG3("first chunk %d freecount %d", 
+	     _mwHeapInfo->chunk[i], _mwHeapInfo->freecount[i]);
       pCHead = popchunk(&_mwHeapInfo->chunk[i], 
 			&_mwHeapInfo->freecount[i]);
+      DEBUG3("first chunk %d freecount %d", 
+	     _mwHeapInfo->chunk[i], _mwHeapInfo->freecount[i]);
+
       rc = unlock(i);
       
       if (pCHead == NULL) continue;
-
+      
+      DEBUG3("chunk has size in chunks %ld ownerid = %lx", pCHead->size, pCHead->ownerid);
       
       _mwHeapInfo->inusecount ++;
       if (_mwHeapInfo->inusecount > _mwHeapInfo->inusehighwater) 
@@ -510,8 +561,8 @@ void * _mwalloc(int size)
 	      1<<i, _mwHeapInfo->basechunksize);       
       };
 
-      DEBUG3("_mwalloc(%d) return a chunk with size %d", 
-	     size, pCHead->size*_mwHeapInfo->basechunksize);
+      DEBUG1("_mwalloc(%d) return a chunk with size %d at %p ", 
+	     size, pCHead->size*_mwHeapInfo->basechunksize, (void*) pCHead + sizeof(chunkhead));
 
       /* NB: wr return the addresss to the data area NOT to the head of chunk.
        */

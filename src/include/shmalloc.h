@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2003/07/06 22:06:14  eggestad
+ * -debugging now in debug3
+ * - added funcs for seting and geting ownerid
+ *
  * Revision 1.6  2002/10/20 18:07:27  eggestad
  * added top and bottom offsets for legal buffer addresses, for _mwshmcheck
  *
@@ -192,6 +196,8 @@ void * _mwoffset2adr(int offset);
 int _mwshmcheck(void * adr);
 int _mwshmgetsizeofchunk(void * adr);
 
+int _mwshmgetowner(int offset, MWID * id);
+int _mwshmsetowner(int offset, MWID id);
 
 #endif /* _SHMALLOC_H */
 

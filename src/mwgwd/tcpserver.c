@@ -24,6 +24,13 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.2  2000/08/31 22:18:50  eggestad
+ * - added some debugging
+ * - sendmessage() now in lib
+ * - we now sending a detach message to mwd when a client disconnects
+ * - the end buffer is in lib and only alloc'ed if you use SRB.
+ * - tcpgetclientpeername() reworked.
+ *
  * Revision 1.1  2000/07/20 18:49:59  eggestad
  * The SRB daemon
  *
@@ -38,12 +45,14 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include <sys/time.h>
 #include <string.h>
 #include <signal.h>
 
 #include <MidWay.h>
 #include <SRBprotocol.h>
+#include "SRBprotocolServer.h"
 #include "tcpserver.h"
 #include "gateway.h"
 
@@ -78,6 +87,10 @@ typedef struct {
 
 static Connection connections[FD_SETSIZE];
 
+static fd_set sockettable;
+
+static int maxsocket = -1;
+
 /*
 int mapClientConnection[FD_SETSIZE];
 int mapGateWayConnection[FD_SETSIZE];
@@ -102,22 +115,27 @@ extern globaldata globals;
    on requests that only gateways may request. */
 void tcpsetconninfo(int fd, int * id, int * role, int * rejects, int * reverse)
 {
+  
   if (id != NULL) {
+    mwlog(MWLOG_DEBUG2, "tcpsetconninfo fd=%d id=%#x", fd, *id);
     if ((*id & MWCLIENTMASK) != 0)
-      connections[fd].client = *id & MWINDEXMASK;
+      connections[fd].client = (*id & MWINDEXMASK) | MWCLIENTMASK;
     if ((*id & MWGATEWAYMASK) != 0)
-      connections[fd].gateway = *id & MWINDEXMASK;
+      connections[fd].gateway = (*id & MWINDEXMASK) | MWGATEWAYMASK;
   };
 
-  if (role != NULL) 
+  if (role != NULL) {
+    mwlog(MWLOG_DEBUG2, "tcpsetconninfo fd=%d role=%d", fd, *role);
     connections[fd].role = *role;
-
-  if (rejects != NULL) 
+  }
+  if (rejects != NULL) {
+    mwlog(MWLOG_DEBUG2, "tcpsetconninfo fd=%d rejects=%d", fd, *rejects);
     connections[fd].rejects = *rejects;
-
-  if (reverse != NULL) 
+  }
+  if (reverse != NULL) {
+    mwlog(MWLOG_DEBUG2, "tcpsetconninfo fd=%d reverse=%d", fd, *reverse);
     connections[fd].reverse = *reverse;
-
+  }
 };
 
 int tcpgetconninfo(int fd, int * id, int * role, int * rejects, int * reverse)
@@ -153,6 +171,7 @@ char * tcpgetconnpeername (int fd)
   static char name[100];
   char * ipadr, * ipname;
   struct hostent *hent ;
+  int len  = 0;
 
   ipadr = inet_ntoa(connections[fd].ip4.sin_addr);
   hent = gethostbyaddr(ipadr, strlen(ipadr), AF_INET);
@@ -161,15 +180,54 @@ char * tcpgetconnpeername (int fd)
   else 
     ipname = hent->h_name;
 
-  sprintf(name, "%s (%s) port %d", ipname, ipadr,
+  if (connections[fd].client != UNASSIGNED) {
+    len = sprintf(name, "client %d at ", connections[fd].client & MWINDEXMASK);
+  } else if (connections[fd].gateway != UNASSIGNED) {
+    len = sprintf(name, "gateway %d at ", connections[fd].gateway & MWINDEXMASK);
+  };
+  sprintf(name+len, "%s (%s) port %d", ipname, ipadr,
+	  ntohs(connections[fd].ip4.sin_port));
+  return name;
+};
+
+char * tcpgetclientpeername (CLIENTID cid)
+{
+  static char name[100];
+  char * ipadr, * ipname;
+  struct hostent *hent ;
+  int i, fd = -1;
+  
+  cid |= MWCLIENTMASK;
+
+  for (i = 0; i <= maxsocket; i++) {
+    mwlog(MWLOG_DEBUG2, "tcpgetclientpeername: foreach fd=%d cid=%#x ?= %#x",
+	  i, cid, connections[i].client);
+    if (connections[i].client == cid) {
+      fd = i;
+      break;
+    }
+  };
+
+  mwlog(MWLOG_DEBUG2, "tcpgetclientpeername: cid=%#x fd = %d",cid, fd);
+  if (fd == -1) return NULL;
+  mwlog(MWLOG_DEBUG2, "tcpgetclientpeername: cid=%#x fd = %d role: %d ?= %d",
+	cid, fd, connections[fd].role, SRB_ROLE_CLIENT);
+  if (connections[fd].role != SRB_ROLE_CLIENT) return NULL;
+
+  ipadr = inet_ntoa(connections[fd].ip4.sin_addr);
+  hent = gethostbyaddr(ipadr, strlen(ipadr), AF_INET);
+  if (hent == NULL)
+    ipname = ipadr;
+  else 
+    ipname = hent->h_name;
+
+  sprintf(name, "client %d at %s (%s) port %d", 
+	  MWINDEXMASK & connections[fd].client, 
+	  ipname, ipadr,
 	  ntohs(connections[fd].ip4.sin_port));
   return name;
 };
   
-
-static fd_set sockettable;
-
-static int maxsocket = -1;
 
 /* setup global data. */
 void tcpserverinit(void)
@@ -185,11 +243,18 @@ void tcpserverinit(void)
     connections[i].role = UNASSIGNED;
   };
 
+  /* init random numbers */
   srand(time(NULL));
   lastconnectionid = rand();
+  
+  /* the send buffer is located in the lib/SRBclient.c and is not
+     alloc'ed until we really know we need it. */
+  if (_mw_srbmessagebuffer == NULL) _mw_srbmessagebuffer = malloc(SRBMESSAGEMAXLEN);
 
+  /* init the select() table to say that no fd shell be selected. */
   FD_ZERO(&sockettable);
 
+  mwlog(MWLOG_DEBUG2, "tcpserverinit: completed");
   return;
 };
 
@@ -267,6 +332,8 @@ static int newconnection(int listensocket)
   int mtu=-1, rc, fd, len;
   struct sockaddr_in sain;
 
+  /* fom gateway.c */
+  
   errno = 0;
   len = sizeof(struct sockaddr_in);
 
@@ -300,7 +367,7 @@ static int newconnection(int listensocket)
   };
   connections[fd].messagebuffer = (char *) malloc(SRBMESSAGEMAXLEN);
   
-  srbsendgreeting(fd);
+  _mw_srbsendready(fd, mydomain);
   /* Now we get the MTU of the socket. if MTU is less than
      MWMAXMESSAGELEN, but over a size like 256 we limit messages to
      that size. to get some control over fragmetation. This is
@@ -320,17 +387,20 @@ static int newconnection(int listensocket)
 void tcpcloseconnection(int fd)
 {
   FD_CLR(fd, &sockettable);
+  mwlog(MWLOG_DEBUG, "tcpcloseconnection on  fd=%d", fd);
+  if (connections[fd].client != UNASSIGNED) 
+    gwdetachclient(connections[fd].client);
 
-  srbsendterm(fd, -1);
+  _mw_srbsendterm(fd, -1);
   close (fd);
-  
-  if (maxsocket < fd) return;
 
   connections[fd].client = UNASSIGNED;
   connections[fd].gateway = UNASSIGNED;
   connections[fd].role = UNASSIGNED;
   free(connections[fd].messagebuffer);
   connections[fd].messagebuffer == NULL;
+  
+  if (maxsocket < fd) return;
 
   /* if this is the highest filedescription used, find the next
      highest and assign it to maxsocket. */
@@ -387,8 +457,8 @@ static void readmessage(int fd)
 
   n = read(fd, connections[fd].messagebuffer+connections[fd].leftover, 
 	       SRBMESSAGEMAXLEN-connections[fd].leftover);
-  /* read return 0 on end of file. */
-  if (n == 0) {
+  /* read return 0 on end of file, and -1 on error. */
+  if ((n == -1) || (n == 0)) {
     tcpcloseconnection(fd);
     return ;
   };
@@ -443,28 +513,6 @@ static void readmessage(int fd)
   return;
 };
 		
-/* sendmessage does two things write doesn't, it traces if trace is
-   engaged, and append \r\n to all messages. We really assumes that
-   message is at least SRBMESSAGEMAXLEN long */
-int sendmessage(int fd, char * message, int len) 
-{
-  if (len == 0) len = strlen(message);
-  
-  if (trace)
-    printf("<%d (%d) %s\n", fd, len, message);
-
-  if (len < SRBMESSAGEMAXLEN - 2)
-    len += sprintf(message+len, "\r\n");
-  else {
-    errno = E2BIG;
-    return -1;
-  };
-  
-  connections[fd].lasttx = time(NULL);
-  len = write(fd, message, len);
-
-  return len;
-};
 
 /* just to make it look better, we could do a little bit of
    optimization here by only copying the n entries. */
@@ -490,6 +538,7 @@ void * tcpservermainloop(void * param)
   mwlog(MWLOG_INFO, "tcpserver thread starting with pid=%d", tcpserver_pid);
 
   signal(SIGINT, sig_dummy);
+  signal(SIGPIPE, sig_dummy);
 
   while(! globals.shutdownflag) {
     copy_fd_set(&rfds, &sockettable, maxsocket);
@@ -512,6 +561,7 @@ void * tcpservermainloop(void * param)
     
     for (i=0; i<maxsocket+1; i++) {
       if (FD_ISSET(i, &errfds)) {
+	mwlog(MWLOG_DEBUG, "error condition of fd=%d", i);
 	if (connections[i].listen == FALSE) tcpcloseconnection(i);
 	else {
 	  mwlog (MWLOG_ERROR, 
@@ -524,6 +574,7 @@ void * tcpservermainloop(void * param)
 	FD_CLR(i, &errfds);
       };
       if (FD_ISSET(i, &rfds)) {
+	mwlog(MWLOG_DEBUG, "read condition of fd=%d", i);
 	if (connections[i].listen == FALSE) readmessage(i);
 	else newconnection(i);
 	FD_CLR(i, &rfds);

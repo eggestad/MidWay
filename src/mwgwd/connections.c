@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.8  2002/09/26 22:38:19  eggestad
+ * we no longer listen on the standalone  port (11000) for clients as default. Default is now teh broker.
+ *
  * Revision 1.7  2002/09/22 23:01:16  eggestad
  * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
  *
@@ -53,8 +56,9 @@
 #include <assert.h>
 
 #include <MidWay.h>
+#include <multicast.h>
 #include <SRBprotocol.h>
-
+#include "gateway.h"
 #include "connections.h"
 
 /* we use select for now
@@ -69,6 +73,10 @@
 */
 
 static char * RCSId UNUSED = "$Id$";
+
+
+/* hmm I'm almost puzzeled that this all works withouit a mutex on the
+   connection table. But I'm pretty sure that I'm OK without it.  */
 
 static Connection * connections = NULL;
 static int connectiontablesize = 0;
@@ -146,17 +154,19 @@ static void poll_off(int fd)
   unpoll_write(fd);
   FD_CLR(fd, &sockettable);
   
-  if (maxsocket <= fd) return;
+  if (maxsocket < fd) return;
 
   /* if this is the highest filedescription used, find the next
      highest and assign it to maxsocket. */
-  if (maxsocket == fd)
-    while (--fd > 0) {
-      if (FD_ISSET(fd, &sockettable)) {
-	maxsocket = fd;
-	return ;
-      };
+  while (--fd > 0) {
+    if (FD_ISSET(fd, &sockettable)) {
+      maxsocket = fd;
+      return ;
     };
+  };
+  /* in the off case that all socket are now not polled. */
+  maxsocket = -1;
+  return;
 };
 #endif
 
@@ -479,8 +489,6 @@ void conn_set(Connection * conn, int role, int type)
 
 void conn_del(int fd)
 {
-  struct gwpeerinfo * peerinfo;
-
   if (fd < 0) {
     Error("conn_del on fd %d", fd);
     return;
@@ -505,9 +513,13 @@ char * conn_print(void)
 {
   static char * output = NULL;
   int i, l;
-  /* MUTEX BEGIN */
-  output = realloc(output, maxsocket * 4096);
-  /* MUTEX END */
+
+  if (maxsocket <= 0) {
+    output = realloc(output, 4096);
+  } else {
+    output = realloc(output, maxsocket * 4096);
+  };
+
   l = sprintf (output, "Printing connection table\n"
 	       "fd role version mtu cid gwid state type connected lasttx lastrx peerinfo");
   for (i = 0; i<maxsocket+1; i++) {

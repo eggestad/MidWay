@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.9  2002/09/26 22:38:21  eggestad
+ * we no longer listen on the standalone  port (11000) for clients as default. Default is now teh broker.
+ *
  * Revision 1.8  2002/09/22 22:53:30  eggestad
  * - added IPC event message handler
  * - fix of mutex locking error
@@ -669,7 +672,7 @@ int gw_addknownpeer(char * instance, char * domain,
 
   peer.password = NULL;
 
-  DEBUG( "(instance=%s)", instance);
+  DEBUG( "(instance=%s, domain=%s)", instance, domain);
 
   switch (peeraddr->sa_family) {
 
@@ -690,6 +693,7 @@ int gw_addknownpeer(char * instance, char * domain,
     return -EAFNOSUPPORT;
   };
  
+  DEBUG("testing to see if theis is a foreign domain mydomain=%s peer has %s", domain, globals.mydomain);
   if (strcmp(domain, globals.mydomain) == 0)
     peer.domainid = 0;
   else 
@@ -1120,7 +1124,7 @@ void _mw_copy_on_stderr(int flag);
 
 int main(int argc, char ** argv)
 {
-  int loglevel = MWLOG_INFO, gateway = 0, client = 0, port = 11000;
+  int loglevel = MWLOG_INFO, gateway = 0, client = 0, port = -1;
   int role = 0;
   char * uri = NULL;
   char c, *name;
@@ -1292,11 +1296,16 @@ int main(int argc, char ** argv)
 
   /* now do the magic on the outside (TCP) */
   tcpserverinit ();
-  rc = tcpstartlisten(port, role);
-  if (rc == -1) {
-    Error("Failed to init tcp server, reason %d", errno);
-    exit(errno);
+
+  /* if port is -1 we never has set a port, and we use broker only */
+  if (port != -1) {
+    rc = tcpstartlisten(port, role);
+    if (rc == -1) {
+      Error("Failed to init tcp server, reason %d", errno);
+      exit(errno);
+    };
   };
+
   rc = pthread_create(&tcp_thread, NULL, tcpservermainloop, &tcp_thread_rc);
   DEBUG( "tcp_thread has id %d,", tcp_thread);
 

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.8  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.7  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -919,9 +922,8 @@ int _mw_srbsendprovide(Connection * conn, char * service, int cost)
 int _mw_srbsendgwinit(Connection * conn)
 {
   int  rc, domainid;
+  char * domain;
   char * auth = SRB_AUTH_NONE;
-  char * user, * password;
-  char * domain, * peerdomain;
   SRBmessage srbmsg;
   struct gwpeerinfo * peerinfo;
   if (conn == NULL) return -EINVAL;

@@ -41,15 +41,6 @@ typedef int CLIENTID;
 typedef int GATEWAYID;
 typedef int SERVICEID;
 typedef int CONVID;
-/* The max number of each ID are limitet to 24 bits, we use the top 
- * 8 bit to disdingush among them, the lower 24 bits are the index into 
- * their respective tables. */
-#define MWSERVERMASK     0x01000000
-#define MWCLIENTMASK     0x02000000
-#define MWGATEWAYMASK    0x04000000
-#define MWSERVICEMASK    0x08000000
-#define MWINDEXMASK      0x00FFFFFF
-
 
 typedef struct {
   int handle;
@@ -83,6 +74,12 @@ typedef struct {
 /* Flags*/
 #define MWCONV       0x00010000
 #define MWSTDIO      0x00020000
+
+/* flags for events */
+#define MWEVSTRING   0x00000000 // exact matches
+#define MWEVGLOB     0x00100000 // matches according to normal shell filename wildcards ?* etc (see fnmatch)
+#define MWEVREGEXP   0x00200000 // POSIX regular expression (see regex(7))
+#define MWEVEREGEXP  0x00400000 // extended regular express ----- || -----
 
 /* flags for mwattch() */
 #define MWCLIENT     0x00000000
@@ -180,16 +177,29 @@ extern "C" {
   void mwlog(int level, char * format, ...);
 
 
+  /* event API */
+  int mwsubscribe(char * pattern, int flags);
+  int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char * data, int datalen));
+  int mwunsubscribe(int subscriptionid);
+  int mwevent(char * eventname, char * data, int datalen, char * username, char * clientname);
+#define mweventbcast(eventname, data, datalen) mwevent( eventname, data, datalen, NULL, NULL)
+  void mwrecvevents(void);
+
   /* discovery api */
 
-typedef struct  {
-  char version[8];
-  char instance[MWMAXNAMELEN];
-  char domain[MWMAXNAMELEN];
-  struct sockaddr address;
-} instanceinfo;
+  typedef struct  {
+    char version[8];
+    char instance[MWMAXNAMELEN];
+    char domain[MWMAXNAMELEN];
+    struct sockaddr address;
+  } instanceinfo;
 
-instanceinfo * mwbrokerquery(char * domain, char * instance);
+  instanceinfo * mwbrokerquery(char * domain, char * instance);
+
+  typedef struct Task * PTask;
+  PTask mwaddtask(int (*function)(void), int interval);
+  int mwwaketask(PTask t);
+  int mwdotasks(void) ;
 
 
 #ifdef	__cplusplus
@@ -197,13 +207,13 @@ instanceinfo * mwbrokerquery(char * domain, char * instance);
 #endif
 
 /* MidWay spesific error codes. errno may not be limitet to < 255 even
- if they usually see to be.  _mw_*() functions usually return the
- errno number negative on error no MidWay specific error numbers must
- not collide with /usr/include/asm/errno.h. MidWay never uses the
- global errno variable in order to be thread safe. In the cases errno
- is needed from library/syscalls a threax mutex must be added. Thus in
- order to make a thread safe MidWay lib a compile time option must be
- given. As well as a thread lib for linking. */
+   if they usually see to be.  _mw_*() functions usually return the
+   errno number negative on error no MidWay specific error numbers must
+   not collide with /usr/include/asm/errno.h. MidWay never uses the
+   global errno variable in order to be thread safe. In the cases errno
+   is needed from library/syscalls a threax mutex must be added. Thus in
+   order to make a thread safe MidWay lib a compile time option must be
+   given. As well as a thread lib for linking. */
 
 
 #ifndef FALSE

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.4  2002/02/17 17:57:12  eggestad
  * - added prototype for delallservices()
  *
@@ -64,6 +67,7 @@ int delclient(CLIENTID cid);
 
 
 SERVICEID addlocalservice(SERVERID srvid, char * name, int type);
+SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type);
 int delservice(SERVICEID svcid, SERVERID srvid);
 int delallservices(SERVERID srvid);
 

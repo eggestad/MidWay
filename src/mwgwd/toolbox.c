@@ -20,10 +20,15 @@
 
 /*
  * $Log$
+ * Revision 1.2  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.1  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
  */
+
+#include <string.h>
 
 #include <MidWay.h>
 #include "toolbox.h"

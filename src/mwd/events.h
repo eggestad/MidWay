@@ -1,6 +1,6 @@
 /*
   MidWay
-  Copyright (C) 2001 Terje Eggestad
+  Copyright (C) 2000 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU  General Public License as
@@ -23,13 +23,25 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.2  2002/08/09 20:50:16  eggestad
+ * Revision 1.1  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
- *
- * Revision 1.1  2002/02/17 13:38:26  eggestad
- * missing includes/prototypes
- *
  *
  */
 
-int parse_request(int nonblocking);
+#ifndef _EVENTS_C
+#define _EVENTS_C
+
+#include <MidWay.h>
+#include <ipcmessages.h>
+
+int event_subscribe(char * pattern, MWID id, int subid, int flags);
+int event_unsubscribe(int subid, MWID id);
+void event_clear_id(MWID id);
+
+int event_ack(Event * evmsg) ;
+int internal_event_enqueue(char * event, char * data, int datalen, char * user);
+
+int event_enqueue(Event * evmsg);
+int do_events(void);
+
+#endif // _EVENTS_C

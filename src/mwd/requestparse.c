@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.6  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -60,6 +63,7 @@
 #include <shmalloc.h>
 #include "mwd.h"
 #include "tables.h"
+#include "events.h"
 
 /**********************************************************************
  * this module is exeptional simple and clean.
@@ -68,11 +72,10 @@
  * for administrative requests.
  **********************************************************************/
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 static char mesgbuffer[MWMSGMAX+1];
-static int mesglen;
 
 static int send_reply(void * data, int len, int mqid)
 {
@@ -188,8 +191,7 @@ static int do_detach(void * mp)
     Error("Expected a detach request but got 0x%x", dm->mtype);
     return -EUCLEAN;
   };
-
-
+  
   DEBUG("got a detach request from pid=%d on mqid %d, force=%s", 
 	 dm->pid, dm->ipcqid, (dm->flags & MWFORCE)?"Yes":"No");
   dm->mtype = DETACHRPL;
@@ -323,7 +325,6 @@ static int do_provide(void * mp)
 
 static int do_unprovide(void * mp)
 {
-  int rc;
   Provide * pmesg;
   serverentry * se;
 
@@ -375,10 +376,60 @@ static int do_admin(void * mp)
   return -EBADRQC;
 };
 
+static int do_event(void * mp)
+{
+  Event * evmsg;
+
+  if (mp == NULL) return -EINVAL;
+  evmsg = mp;
+  return   event_enqueue(evmsg);
+};
+
+static int do_eventack(void * mp)
+{
+  Event * evmsg;
+
+  if (mp == NULL) return -EINVAL;
+  evmsg = mp;
+  return   event_ack(evmsg);
+};
+
+static int do_subscribe(void * mp)
+{
+  Event * evmsg;
+  int rc;
+
+  if (mp == NULL) return -EINVAL;
+  evmsg = mp;
+  rc = event_subscribe(evmsg->event, evmsg->senderid, evmsg->subscriptionid, evmsg->flags);
+
+  evmsg->mtype = EVENTSUBSCRIBERPL;
+  evmsg->returncode = rc;
+  _mw_ipc_putmessage(evmsg->senderid, (char *) evmsg, sizeof(Event), 0);
+
+  return 0;
+};
+
+static int do_unsubscribe(void * mp)
+{
+  Event * evmsg;
+  int rc;
+
+  if (mp == NULL) return -EINVAL;
+  evmsg = mp;
+  rc = event_unsubscribe(evmsg->subscriptionid, evmsg->senderid);
+
+  evmsg->mtype = EVENTUNSUBSCRIBERPL;
+  evmsg->returncode = rc;
+  _mw_ipc_putmessage(evmsg->senderid, (char *) evmsg, sizeof(Event), 0);
+
+  return 0;
+};
+
 /* this replaces _mwGetServiceRequest  in a normal server*/
 static int do_call(void * mp)
 {
-  int rc, mwid;
+  int rc;
   Call * callmsg;
   mwsvcinfo svcinfo;
   extern int _mw_requestpending;
@@ -429,19 +480,20 @@ static int do_call(void * mp)
  * typical SIGALRM for a local timer, or SIGCHLD if one of the child
  * gateway or client handlers died. 
  */
-int parse_request(void)
-{
-  
+int parse_request(int nonblock)
+{  
   int rc, i;
   long mtype;
   char hex[330], shex[4];
-  rc = msgrcv(mymqid(), (void *) mesgbuffer, MWMSGMAX, 0,0); 
+
+  rc = msgrcv(mymqid(), (void *) mesgbuffer, MWMSGMAX, 0, nonblock?IPC_NOWAIT:0); 
+  DEBUG("rc = %d max = %d", rc, MWMSGMAX);
   /*  timeout is handleled by an alarm() else where, we simply return EINTR */
   
   if (rc == -1) {
     /* interrupts do usually happen for a reason. mwd should go down on SIGTERM.
        shutdown arrived. It really is the watchdog process that shou do */
-    if (errno == EINTR) {
+    if ((errno == EINTR) || (errno == ENOMSG)) {
       if (ipcmain->status ==  MWDEAD) return -ESHUTDOWN;
       if (flags.terminate) {
 	ipcmain->status = MWSHUTDOWN;
@@ -450,7 +502,7 @@ int parse_request(void)
       return -errno;
     }
     
-    Error("msgrcv() returned no message, reason=%d", errno);
+    Error("msgrcv() returned no message, reason=%s(%d)", strerror(errno), errno);
     if (errno == E2BIG) {
       hex[0] = '\0';
       rc = msgrcv(mymqid(), (void *) mesgbuffer, MWMSGMAX, 0,MSG_NOERROR); 
@@ -470,6 +522,7 @@ int parse_request(void)
     return -errno;
   }
 
+  _mw_dumpmesg(mesgbuffer);
 
   mtype = * (long *) mesgbuffer;  
 
@@ -490,6 +543,22 @@ int parse_request(void)
   case UNPROVIDEREQ:
     if (rc < (sizeof(Provide) -sizeof(long))) return -EMSGSIZE;
     return do_unprovide(mesgbuffer);
+
+  case EVENTSUBSCRIBEREQ:
+    if (rc < (sizeof(Event) -sizeof(long))) return -EMSGSIZE;
+    return do_subscribe(mesgbuffer);
+
+  case EVENTUNSUBSCRIBEREQ:
+    if (rc < (sizeof(Event) -sizeof(long))) return -EMSGSIZE;
+    return do_unsubscribe(mesgbuffer);
+
+  case EVENT:
+    if (rc < (sizeof(Event) -sizeof(long))) return -EMSGSIZE;
+    return do_event(mesgbuffer);
+
+  case EVENTACK:
+    if (rc < (sizeof(Event) -sizeof(long))) return -EMSGSIZE;
+    return do_eventack(mesgbuffer);
 
   case ADMREQ:
     if (rc < (sizeof(Administrative) -sizeof(long))) return -EMSGSIZE;

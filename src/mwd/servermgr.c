@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.2  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -919,7 +922,6 @@ int smgrDoWaitPid(void)
     
 int smgrTask(void) 
 {
-  int mtime_to_next_task = 10000; /* millisec */
   int i;
   struct ServerGroup * SG;
   struct Server * S;
@@ -949,9 +951,9 @@ int smgrTask(void)
     };
   };
 
-  DEBUG("smgrtask() ending next task in %d msecs", mtime_to_next_task);
+  DEBUG("smgrtask() ending.");
 
-  return mtime_to_next_task;
+  return 0;
 };
 
 /* called at startup in mwd, after all initalization is done, but

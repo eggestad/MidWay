@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.3  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -175,6 +178,13 @@ int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg);
 int _mw_putbuffer_to_call (Call * callmesg, char * data, int len);
 
 int _mw_fastpath_enabled(void) ;
+
+int _mwadr2offset(void * adr);
+void * _mwoffset2adr(int offset);
+
+int _mwshmcheck(void * adr);
+int _mwshmgetsizeofchunk(void * adr);
+
 
 #endif /* _SHMALLOC_H */
 

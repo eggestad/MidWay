@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.6  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -58,8 +61,8 @@
 #include "mwd.h"
 #include "shmallocfmt.h"
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /*
  * this need to change for more segments
@@ -230,7 +233,6 @@ int shmb_format(int mode, long chunksize, long chunkspersize)
 int shmb_info(int chunksize, 
 	      int * usage, int * average, int * highwatermark, int * max)
 {
-  void * bufferlist = NULL;
   struct segmenthdr * seghdr;
 
   if (pSegmentStart == NULL) {

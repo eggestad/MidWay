@@ -24,3 +24,5 @@ int _mw_isattached(void);
 int _mw_fastpath_enabled(void);
 int _mw_nexthandle(void);
 int _mw_isattached(void);
+
+void _mw_doevent(int subid, char * event, char * data, int datalen);

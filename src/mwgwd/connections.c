@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.6  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.5  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -363,8 +366,6 @@ void conn_getpeername (Connection * conn, char * name, int namelen)
 
 void conn_getclientpeername (CLIENTID cid, char * name, int namelen)
 {
-  char * ipadr, * ipname;
-  struct hostent *hent ;
   int i, fd = -1;
   
   cid |= MWCLIENTMASK;

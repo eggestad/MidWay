@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.4  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -45,6 +48,7 @@
  */
 
 #ifndef _ADDRESS_H
+#define _ADDRESS_H
 
 #include <netinet/in.h>
 

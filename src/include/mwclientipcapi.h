@@ -21,3 +21,5 @@
 int _mwattachipc(int type, char * name, int key);
 int _mwdetachipc(void);
 int _mwacall_ipc(char * svcname, char * data, int datalen, int flags) ;
+void _mw_doipcevents(void);
+void _mw_do_ipcevent(Event * ev);

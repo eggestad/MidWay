@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.7  2002/07/07 22:35:20  eggestad
  * *** empty log message ***
  *
@@ -50,9 +53,6 @@
  *
  */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -65,6 +65,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <MidWay.h>
 #include <ipctables.h>
 #include <ipcmessages.h>
+
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 
 static ipcmaininfo  * ipcmain = NULL; 
@@ -202,8 +205,6 @@ void
 _mw_detach_ipc(void)
 {
   extern struct segmenthdr * _mwHeapInfo;
-  serverentry * srvent;
-  cliententry * cltent;
   
   shmdt(clttbl);
   shmdt(srvtbl);
@@ -236,6 +237,7 @@ int _mw_mwd_mqid()
   return ipcmain->mwd_mqid;
 };
 
+/* functions dealing with ID's */
 
 void _mw_set_my_serverid(SERVERID sid)
 {
@@ -269,6 +271,16 @@ GATEWAYID _mw_get_my_gatewayid()
 {
   return mygatewayid;
 };
+
+MWID _mw_get_my_mwid(void)
+{
+  if (myclientid != UNASSIGNED) return CLTID2MWID(myclientid);
+  if (myserverid != UNASSIGNED) return CLTID2MWID(myserverid);
+  if (mygatewayid != UNASSIGNED) return CLTID2MWID(mygatewayid);
+  return UNASSIGNED;
+}
+
+/* functions dealing with shm info */
 
 ipcmaininfo * _mw_ipcmaininfo()
 {
@@ -399,7 +411,6 @@ serviceentry * _mw_get_service_byid (SERVICEID svcid)
 SERVERID _mw_get_server_by_serviceid (SERVICEID svcid)
 {
   int index;
-  serviceentry * svcent; 
 
   if (ipcmain == NULL) { 
     return UNASSIGNED;
@@ -418,8 +429,11 @@ SERVERID _mw_get_server_by_serviceid (SERVICEID svcid)
 
 SERVICEID _mw_get_service_byname (char * svcname, int convflag)
 {
-  int rc, index, type, selectedid = UNASSIGNED, qlen;
+  int index, type, selectedid = UNASSIGNED;
+#ifdef MSGCTLSTATFIX
+  int rc, qlen;
   struct msqid_ds this_mq_stat, last_mq_stat;
+#endif
   serviceentry * lasttblent = NULL; 
   serverentry * lastsrv = NULL, * thissrv = NULL;
 

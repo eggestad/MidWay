@@ -13,7 +13,7 @@ LIBS = -lMidWay -lm -lxml2
 CFLAGS = @CFLAGS@ -I../include -I../liburl  -I/usr/include/libxml2 
 
 OBJS = mwd.o shmallocfmt.o requestparse.o tables.o watchdog.o \
-	servermgr.o xmlconfig.o utils.o execvpe.o
+	servermgr.o xmlconfig.o execvpe.o events.o
 
 EXE = mwd
 

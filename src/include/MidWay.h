@@ -159,13 +159,6 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
 #define DEBUG3(m...) _DEBUGN(3, __FUNCTION__ , __FILE__, __LINE__, m)
 #define DEBUG4(m...) _DEBUGN(4, __FUNCTION__ , __FILE__, __LINE__, m)
 
-/*
-#define DEBUG(m...)  mwlog(MWLOG_DEBUG,  __FUNCTION__ "(): " m)
-#define DEBUG1(m...) mwlog(MWLOG_DEBUG1, __FUNCTION__ "(): " m)
-#define DEBUG2(m...) mwlog(MWLOG_DEBUG2, __FUNCTION__ "(): " m)
-#define DEBUG3(m...) mwlog(MWLOG_DEBUG3, __FUNCTION__ "(): " m)
-#define DEBUG4(m...) mwlog(MWLOG_DEBUG4, __FUNCTION__ "(): " m)
-*/
 #else 
 #define DEBUG(m...)
 #define DEBUG1(m...)
@@ -181,13 +174,21 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
 
 
 /* Mutex  funtions */
-
+#ifdef HAVE_LIBPTHREAD
+#include <pthread.h>
 #define USETHREADS
+#endif
+
 #ifdef USETHREADS
 
 #define DECLAREMUTEX(name) static pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
-#define LOCKMUTEX(name)  pthread_mutex_lock(&name)
-#define UNLOCKMUTEX(name)  pthread_mutex_unlock(&name)
+#define DECLAREGLOBALMUTEX(name)  pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
+#define _LOCKMUTEX(name)   do {pthread_mutex_lock(&name); }   while(0)
+#define _UNLOCKMUTEX(name) do {pthread_mutex_unlock(&name); } while(0)
+#define LOCKMUTEX(name)    do { DEBUG1("locking mutex " #name);   pthread_mutex_lock(&name);   } while(0)
+#define UNLOCKMUTEX(name)  do { DEBUG1("unlocking mutex " #name); pthread_mutex_unlock(&name); } while(0)
+#else 
+#error "PTHREADS are currently required"
 #endif
 
 #ifdef TIMEPEGS

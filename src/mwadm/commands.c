@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.8  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -65,6 +68,7 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <ctype.h>
+#include <getopt.h>
 
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -171,7 +175,7 @@ int servers(int argc, char ** argv)
   serverentry * srvent;
   serviceentry * svcent;
   int i, count = 0;
-  
+   
   if (ipcmain == NULL) {
     printf ("We are not connected to a MidWay system\n");
     return -1;
@@ -452,13 +456,130 @@ int dumpipcmain(int argc, char ** argv)
   return 0 ;
 }
 
+int event(int argc, char ** argv)
+{
+  int c, rc;
+  char * username = NULL;
+  char * clientname = NULL;
+  char * data = NULL;
+  char * eventname = NULL;
+  if (ipcmain == NULL) {
+    printf ("We are not connected to a MidWay system\n");
+    return -1;
+  };
+
+  optind = 0;
+  while( (c = getopt(argc, argv, "u:c:")) != -1) {
+    switch(c) {
+    case 'c':
+      clientname = optarg;
+      break;
+    case 'r':
+      username = optarg;
+      break;
+    };
+  };
+
+  switch (argc - optind) {
+
+  case 2:
+    data = argv[optind+1];
+  case 1:
+    eventname = argv[optind];
+    break;
+
+  default:
+    goto usage;
+  };
+
+  rc = mwevent(eventname, data, 0, username, clientname);
+  return rc ;
+
+  usage:
+  fprintf(stderr, "error in event: wrong number of args event [-u username] [-c clientname] eventname [data]\n", argc);
+  return 0;
+};
+
+static void event_handler(char * event, char * data, int datalen)
+{
+  printf("  EVENT: %s data:%*.*s(%d)\n", event, datalen, datalen, data, datalen);
+  return;
+};
+
+int sceleton(int argc, char ** argv) 
+{
+  int c;
+
+  optind = 0;
+  while( (c = getopt(argc, argv, "grR")) != -1) {
+    switch(c) {
+    case 'g':
+      break;
+    case 'r':
+      break;
+    case 'R':
+      break;
+    };
+  };
+  if ( (argc - optind) != 1) {
+    fprintf(stderr, "error in ?? wrong number of args \n");
+    return 0;
+  };
+
+  return 0;
+};
+
+
+int subscribe(int argc, char ** argv)
+{
+  int c, rc;
+  int flags = 0;
+
+  optind = 0;
+  while( (c = getopt(argc, argv, "grR")) != -1) {
+    switch(c) {
+    case 'g':
+      flags = MWEVGLOB;
+      break;
+    case 'r':
+      flags = MWEVREGEXP;
+      break;
+    case 'R':
+      flags = MWEVEREGEXP;
+      break;
+    };
+  };
+  if ( (argc - optind) != 1) {
+    fprintf(stderr, "error in subscribe wrong number of optind = %d args %d\n", optind, argc);
+    return 0;
+  };
+
+  rc = mwsubscribeCB(argv[optind], flags, event_handler);
+  printf ("mwsubscribe returned %d\n", rc);
+  return 0;
+
+};
+
+int unsubscribe(int argc, char ** argv)
+{
+  int rc;
+
+  if (argc != 2) {
+    fprintf(stderr, "error in %s wrong number of args\n", __FUNCTION__);
+    return 0;
+  };
+
+  rc = mwunsubscribe(atoi(argv[1]));
+  printf ("mwsubscribe returned %d\n", rc);
+  return 0;
+};
 
 int call(int argc, char ** argv) 
 {
   int i, j, len, apprc = 0, rc;
   char * data, * rdata = NULL;
   struct timeval start, end;
-  long long llstart, llend;
+  //  long long llstart, llend;
   double secs;
 
   if ( (argc <= 1) || (argv[1] == NULL) ) {

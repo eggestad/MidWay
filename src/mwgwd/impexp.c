@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.1  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -32,6 +35,10 @@
 #include "store.h"
 #include "connections.h"
 #include "impexp.h"
+#include "ipcmessages.h"
+#include "SRBclient.h"
+#include "SRBprotocolServer.h"
+
 
 
 static char * RCSId UNUSED = "$Id$";
@@ -57,7 +64,7 @@ static Import *  condnewimport(char * service, int cost)
     strncpy(imp->servicename, service, MWMAXSVCNAME);
 
     importlist = imp;
-    _mw_ipcsend_provide (service, 0);
+    _mw_ipcsend_provide (service, cost, 0);
 
     return imp;
   };
@@ -84,7 +91,7 @@ static Import *  condnewimport(char * service, int cost)
   strncpy(imp->servicename, service, MWMAXSVCNAME);
   
   *previmp = imp;
-  _mw_ipcsend_provide (service, cost);
+  _mw_ipcsend_provide (service, cost, 0);
   
   return imp;
 };
@@ -162,7 +169,6 @@ static Export *  condnewexport(char * service)
 static int getsvccost(char * service)
 {
   SERVICEID sid;
-  Import * imp;
   serviceentry * svcent;
 
   /* first we check to see if we got the service as a local service,

@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.5  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.4  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -48,7 +51,6 @@
 
 #include <string.h>
 #include <stdlib.h>
-#include <pthread.h>
 
 #include <MidWay.h> 
 #include <urlencode.h>
@@ -242,18 +244,16 @@ int storeSetIPCHandle(CLIENTID cid, int nethandle, int fd, int ipchandle)
   return -1;
 };
 
-pthread_mutex_t callmutex = PTHREAD_MUTEX_INITIALIZER;
+DECLAREMUTEX(callmutex);
 
 int  storeLockCall(void)
 {
-  DEBUG2("locking callmutex");
-  pthread_mutex_lock(&callmutex);
+  LOCKMUTEX(callmutex);
 };
 
 int  storeUnLockCall(void)
 {
-  DEBUG2("unlocking callmutex");
-  pthread_mutex_unlock(&callmutex);
+  UNLOCKMUTEX(callmutex);
 };
 
 

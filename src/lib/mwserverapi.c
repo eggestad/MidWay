@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.10  2002/07/07 22:35:20  eggestad
  * *** empty log message ***
  *
@@ -78,6 +81,7 @@
 #include <ipctables.h>
 #include <shmalloc.h>
 #include <mwclientapi.h>
+#include <mwclientipcapi.h>
 #include <mwserverapi.h>
 
 static char * RCSId UNUSED = "$Id$";
@@ -238,7 +242,6 @@ int mwprovide(char * service, int (*svcfunc) (mwsvcinfo*), int flags)
 {
   SERVICEID svcid;
   serviceentry * svcent;
-  int len;
   int rc;
   
   rc = _mwsystemstate();
@@ -315,7 +318,6 @@ static void completeStats(void)
 */
 int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
 {
-  char * ptr;
   int rc;
   int mwid;
 
@@ -377,7 +379,6 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
 */
 int mwforward(char * svcname, char * data, int len, int flags)
 {
-  char * ptr;
   int rc, dataoffset, dest;
   int ipcflags = 0;
   void * dbuf;
@@ -505,8 +506,8 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   int rc, mesglen;
   ipcmaininfo * ipcmain;
   serviceentry * svcent;
-  serverentry * srvent;
   mwsvcinfo * svcreqinfo;
+  long * mtype;
 
   if (!_mw_isattached()) { errno = ENOTCONN; return NULL;}
   if (!provided) { errno = ENOENT; return NULL;};
@@ -516,9 +517,20 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   if (ipcmain == NULL) {errno = EADDRNOTAVAIL; return NULL;}
 
   _mw_set_my_status(NULL);
+  mtype = (long *) buffer;
 
-  rc = _mw_ipc_getmessage(buffer, &mesglen, SVCCALL, flags);
-
+  do {
+    rc = _mw_ipc_getmessage(buffer, &mesglen, 0, flags);
+    
+    if (rc < 0) break;    
+    if (*mtype == SVCCALL) break;
+    if (*mtype == EVENT) {
+      _mw_do_ipcevent((Event *) buffer);
+      continue;
+    };
+    Error("Ignoring event of type %#x", *mtype);
+  } while(1);
+      
   if (rc < 0) {
     /* mwd will notify us about shutdown by removing our message queue.*/
     if ( (errno == EIDRM) || (errno == EINVAL) ) {
@@ -614,9 +626,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
 */
 int _mwCallCServiceFunction(mwsvcinfo * svcinfo)
 {
-  int rc, mesglen;
-  ipcmaininfo * ipcmain;
-  serviceentry * svcent;
+  int rc;
   struct ServiceFuncEntry * serviceptr;
 
   DEBUG1("calling C service routine for %s(%d) (it had waited %d millisecs)", 

@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.6  2002/08/07 23:54:06  eggestad
  * fixup for DEBUGs so we're C99 compliant
  *
@@ -154,7 +157,7 @@ _mw_vlogf(int level, char * format, va_list ap)
   switchlog();
 
   
-  LOCKMUTEX(logmutex);
+  _LOCKMUTEX(logmutex);
 
   /* print to log file if open */
   if (log != NULL) {
@@ -176,7 +179,7 @@ _mw_vlogf(int level, char * format, va_list ap)
     fflush(copy_on_FILE);
   };
 
-  UNLOCKMUTEX(logmutex);
+  _UNLOCKMUTEX(logmutex);
 
   return ;
 };

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.7  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.6  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -203,8 +206,10 @@ typedef struct {
 
 #define EVENT                0x400
 #define EVENTACK             0x410
-#define EVENTSUBSCRIBE       0x420
-#define EVENTUNSUBSCRIBE     0x430
+#define EVENTSUBSCRIBEREQ    0x420
+#define EVENTSUBSCRIBERPL    0x430
+#define EVENTUNSUBSCRIBEREQ  0x440
+#define EVENTUNSUBSCRIBERPL  0x450
 
 /* in the "normal"  case of an event, the event can't  be "". THe data
 is  however  optional,   and  the  user  and  group   is  optional  as
@@ -221,22 +226,23 @@ data buffer,  and data may not be  0. Since regexp may  be quite huge,
 the event field  may be too small. The flag  must be set appropriately
 if the match string is not a string but a glob or regexp. */
 
-#define EVENT_FLAG_GLOB            0x10
-#define EVENT_FLAG_REGEXP_BASIC    0x20
-#define EVENT_FLAG_REGEXP_EXTENDED 0x40
 
 struct event {
   long mtype;
   
-  char event[MWMAXSVCNAME];
+  char event[MWMAXNAMELEN];
+  int eventid;
+  int subscriptionid;
+  int senderid;
   
   int data;
   int datalen;
   
-  char user[MWMAXSVCNAME];
-  char group[MWMAXSVCNAME];
-
-  int flag;
+  char username[MWMAXNAMELEN];
+  char clientname[MWMAXNAMELEN];
+  
+  int flags;
+  int returncode;
 };
 
 typedef struct event Event;
@@ -277,6 +283,14 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
 
 int _mw_ipcconnect(char * servicename, char * socketpath, int flags);
 int _mw_ipcdisconnect(int fd);
+
+/* event API */
+int _mw_ipc_subscribe(char * pattern, int subid, int flags);
+int _mw_ipcsend_subscribe (char * pattern, int subid, int flags);
+int _mw_ipc_unsubscribe(int subid);
+int _mw_ipcsend_unsubscribe (int subid);
+int _mw_ipcsend_event(char * event, char * data, int datalen, char * username, char * clientname);
+int _mw_ipc_getevent(Event * ev);
 
 /* additionsl for servers */
 int _mw_ipcdorequest(void);

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.7  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.6  2002/07/07 22:35:20  eggestad
  * *** empty log message ***
  *
@@ -496,8 +499,6 @@ int _mwdetach_srb(void)
 int _mwacall_srb(char * svcname, char * data, int datalen, int flags)
 {
   int handle;
-  float timeleft;
-  int timeout;
   int rc; 
 
   handle = _mw_nexthandle();  

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.8  2002/07/07 22:35:20  eggestad
  * *** empty log message ***
  *
@@ -52,9 +55,6 @@
  *
  */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 #include <stdio.h>
 #include <errno.h>
 
@@ -71,8 +71,13 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <MidWay.h>
 #include <ipctables.h>
 #include <ipcmessages.h>
+#include <mwclientapi.h>
 #include <shmalloc.h>
 #include <address.h>
+
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
+
 /*
   Here we provide the "visible" library API, in the IPC only form.
   This is however limited to the client API, since the server API are 
@@ -119,7 +124,53 @@ int _mwdetachipc(void)
 
 
 
+ /* this really shoud bw in mwclientipcapi.c, but we need acces to the
+   subscription list */
 
+void _mw_do_ipcevent(Event * ev)
+{
+  int doack;
+  char * dbuf = NULL;
+  
+  DEBUG1("We got an event %s subscription id %d", 
+	 ev->event, ev->subscriptionid);
+  
+  doack = 0;
+  if (ev->data != 0) {
+    doack = 1;
+    dbuf = _mwoffset2adr(ev->data);
+    DEBUG3("ev->data %d, addr = %p data = %s", ev->data, dbuf, dbuf); 
+  }	
+    
+  _mw_doevent(ev->subscriptionid, ev->event, dbuf, ev->datalen);
+  
+  if (doack) {
+    ev->mtype = EVENTACK;
+    ev->senderid = _mw_get_my_mwid();
+    DEBUG1("Sending event ack");
+    _mw_ipc_putmessage(0, (char *)ev, sizeof(Event), 0);
+  };
+};
+
+void _mw_doipcevents(void)
+{
+  Event ev;
+  int rc;
+
+  do {
+    rc = _mw_ipc_getevent(&ev);
+    if (rc == -ENOMSG) return;
+    if (rc == -EMSGSIZE) continue;
+    
+    if (rc != 0) {
+      Error ("in %s, reason %s", __FUNCTION__, strerror(-rc));
+      return;
+    };
+    _mw_do_ipcevent(&ev);
+    
+  } while (rc >= 0);
+};
+  
 /*****************************************************************
  * 
  * Here We have the API that makes a client able to talk to a server
@@ -137,7 +188,6 @@ int _mwdetachipc(void)
 int _mwfetch_ipcxx(int handle, char ** data, int * len, int * appreturncode, int flags) 
 {
   int rc;
-  int arc;
   char * tmpdata = NULL;
   char * buffer = NULL;
   int tlen, blen = 0;

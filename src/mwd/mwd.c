@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.8  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -98,6 +101,7 @@
 #include "xmlconfig.h"
 #include "shmallocfmt.h"
 #include "requestparse.h"
+#include "events.h"
 
 #include "utils.h"
 
@@ -729,7 +733,6 @@ void inst_sighandlers()
   action.sa_handler = sighandler;
   sigfillset(&action.sa_mask);
   
-  if (sigaction(SIGALRM, &action, NULL)) failed++;
   if (sigaction(SIGTERM, &action, NULL)) failed++;
   if (sigaction(SIGHUP, &action, NULL)) failed++;
   if (sigaction(SIGINT, &action, NULL)) failed++;
@@ -848,22 +851,18 @@ static int mkdir_asneeded(char * path)
   return rc;
 };
 
-
 /*********************************************************************
  * the main program loop
  *********************************************************************/
 
 static void mainloop(void)
 {
-  int nextalarm_in_ms;
-  int rc;
+  int rc, nonblock;
   int serviceid_srvmgr; 
   serviceentry * svcent;
   int provided = 0;
-  
-  nextalarm_in_ms = smgrTask();
-  setrealtimer(nextalarm_in_ms*1000);
-
+  PTask srvmgrtask, eventtask;
+ 
   /* simplified mwprovide() since we're not going to send a provide
      req to our self. */
   serviceid_srvmgr = addlocalservice(_mw_get_my_serverid(),MWSRVMGR, MWCALLSVC);
@@ -876,19 +875,20 @@ static void mainloop(void)
   provided++;
   _mw_set_my_status("");
 
+  srvmgrtask = mwaddtask(smgrTask, 5000);
+  eventtask = mwaddtask(do_events, 5000);
+
+  mwwaketask(srvmgrtask);
+  
   /* finally the loop */
   DEBUG("mainloop starts");
   while(1) {
-    rc = parse_request();
+    nonblock = mwdotasks();
+    DEBUG("mwdotask returned %s", nonblock?"nonblock":"block");
+
+    rc = parse_request(nonblock);
     if (rc == -ESHUTDOWN) break;
     if (ipcmain->status == MWDEAD) exit(-1);
-
-    if (flags.alarm > 0) {
-      DEBUG("%d timers expired:  running tasks", flags.alarm);
-      nextalarm_in_ms = smgrTask();
-      setrealtimer(nextalarm_in_ms*1000);
-      flags.alarm = 0;
-    };
 
     if (flags.childdied > 0) {
       DEBUG("%d children has died furneral", flags.childdied);
@@ -905,8 +905,6 @@ static void mainloop(void)
     };
   };
   
-  setrealtimer(0);
-
   /* clean up provided services, completly redundant, but clean code
      is clean code! */
   _mw_popservice(serviceid_srvmgr);
@@ -925,10 +923,9 @@ int main(int argc, char ** argv)
 {
   char c;
   int rc, loglevel, daemon = 0, n;
-  char * nextdir, * thisdir, *tmphome, wd[PATH_MAX]; 
+  char wd[PATH_MAX]; 
   char * name, * tabhome = NULL;
   int tabkey = -1;
-  
   mwaddress_t * mwaddress;
 
   int opt_clients =       -1;

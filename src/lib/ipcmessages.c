@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.10  2002/07/07 22:35:20  eggestad
  * *** empty log message ***
  *
@@ -66,9 +69,6 @@
  *
  */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 #include <stdlib.h>
 #include <sys/msg.h>
 #include <errno.h>
@@ -82,6 +82,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <ipcmessages.h>
 #include <ipctables.h>
 #include <mwclientapi.h>
+
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /* 
    really need to get all messages into private memory. 
@@ -162,7 +165,8 @@ void  _mw_dumpmesg(void * mesg)
   Attach *am; 
   Provide * pm;
   Call *rm;
-  Converse *cm;
+  Event *ev;
+  //  Converse *cm;
   
   mtype = (long *) mesg;
   switch (*mtype) {
@@ -232,6 +236,67 @@ void  _mw_dumpmesg(void * mesg)
 	  rm->data, rm->datalen, 
 	  rm->appreturncode, rm->flags, rm->domainname, rm->returncode);
     return;
+
+  case EVENT:
+  case EVENTACK:
+    ev = (Event *) mesg;
+    DEBUG1("EVENT/EVENTACK MESSAGE: %#x\n"
+	   "          event                          = %.64s\n"
+	   "          MWID        eventid            = %#x\n"
+	   "          MWID        subscriptionid     = %d\n"
+	   "          MWID        senderid           = %#x\n"
+	   "            CLIENTID    cltid            = %d\n"
+	   "            SERVERID    srvid            = %d\n"
+	   "            SERVICEID   svcid            = %d\n"
+	   "            GATEWAYID   gwid             = %d\n"
+	   "          int         data               = %d\n"
+	   "          int         datalen            = %d\n"
+	   "          char        username           = %.64s\n"
+	   "          char        clientname         = %.64s\n"
+	   "          int         flags              = %#x\n",
+	   ev->mtype, ev->event, 
+	   ev->eventid,
+	   ev->subscriptionid,
+	   ev->senderid,
+	   MWID2CLTID(ev->senderid),
+	   MWID2SRVID(ev->senderid),
+	   MWID2SVCID(ev->senderid),
+	   MWID2GWID(ev->senderid),
+	   ev->data, ev->datalen, 
+	   ev->username, 
+	   ev->clientname, 
+	   ev->flags);
+    return;
+
+  case EVENTSUBSCRIBEREQ:
+  case EVENTSUBSCRIBERPL:
+  case EVENTUNSUBSCRIBEREQ:
+  case EVENTUNSUBSCRIBERPL:
+    ev = (Event *) mesg;
+    DEBUG1(" EVENT(UN)SUBSCRIBE[REQ|RPL] MESSAGE: %#x\n"
+	   " event                          = %.64s\n"
+	   " MWID        subscriptionid     = %d\n"
+	   " MWID        senderid           = %#x\n"
+	   "   CLIENTID    cltid            = %d\n"
+	   "   SERVERID    srvid            = %d\n"
+	   "   SERVICEID   svcid            = %d\n"
+	   "   GATEWAYID   gwid             = %d\n"
+	   " int         data               = %d\n"
+	   " int         datalen            = %d\n"
+	   " int         flags              = %#x\n"
+	   " int         returncode         = %d\n",
+	   ev->mtype,  
+	   ev->event,
+	   ev->subscriptionid,
+	   ev->senderid,
+	   MWID2CLTID(ev->senderid),
+	   MWID2SRVID(ev->senderid),
+	   MWID2SVCID(ev->senderid),
+	   MWID2GWID(ev->senderid),
+	   ev->data, ev->datalen, 
+	   ev->flags, ev->returncode);
+    return;
+
   default:
     DEBUG1("Unknown message type %#X ", (long *) mesg);
     return;
@@ -261,12 +326,15 @@ int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
 
   errno = 0;
   rc = msgrcv(_mw_my_mqid(), data, *len, type, flags);
-  /* if we got an interrupt this is OK, else not.*/
+  /* if we got an interrupt this is OK, of if there was no message in noblock. Else not.*/
   if (rc < 0) {
     if (errno == EINTR) {
       DEBUG1("msgrcv in _mw_ipc_getmessage interrupted");
       return -errno;
-    };
+    } else if ((errno == ENOMSG) && (flags & IPC_NOWAIT)) {
+      DEBUG1("msgrcv in _mw_ipc_getmessage nowait an no message");
+      return -errno;
+    } else 
     Warning("msgrcv in _mw_ipc_getmessage returned error %d", errno);
     return -errno;
   };
@@ -305,7 +373,9 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
 	dest, len, flags, rc);
   /*
     if we got an interrupt this is OK, else not.
-    Hmmm, we should have a timeout here. 
+    Hmmm, we should have a timeout here. (?)
+
+    TODO: We also should have a gracefull handling of full dest queues 
   */
   if (rc < 0) {
     if (errno == EINTR) {
@@ -517,8 +587,8 @@ int _mw_ipcsend_detach(int force)
 
 int _mw_ipcsend_provide(char * servicename, int cost, int flags)
 {
-  Provide providemesg, * pmesgptr;
-  int rc, error;
+  Provide providemesg;
+  int rc;
 
   memset(&providemesg, '\0', sizeof(Provide));
   
@@ -542,8 +612,8 @@ int _mw_ipcsend_provide(char * servicename, int cost, int flags)
 
 SERVICEID _mw_ipc_provide(char * servicename, int flags)
 {
-  Provide providemesg, * pmesgptr;
-  int rc, error, len, svcid;
+  Provide providemesg;
+  int rc, error, len;
 
 
   rc = _mw_ipcsend_provide(servicename, /* cost= */ 0, flags);
@@ -568,7 +638,7 @@ SERVICEID _mw_ipc_provide(char * servicename, int flags)
 int _mw_ipcsend_unprovide(char * servicename,  SERVICEID svcid)
 {
   Provide unprovidemesg;
-  int len, rc;
+  int rc;
 
   memset(&unprovidemesg, '\0', sizeof(Provide));
   
@@ -729,14 +799,14 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags)
 
 int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int flags)
 {
-  int rc,l;
+  int rc;
   char * buffer;
   struct timeval tv;
   Call * callmesg;
 
   /*  if (handle == 0) return -NMWNYI;*/
   
-  DEBUG1(__FUNCTION__ ": called for handle %d", handle);
+  DEBUG1(" called for handle %d", handle);
 
   /* first we check in another call to _mwfetch() retived it and placed 
      in the internal queue.*/
@@ -752,7 +822,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
     /* get the next message of type SVCREPLY of teh IPC queue. */
     rc = _mw_ipc_getmessage(buffer, len , SVCREPLY, flags);
     if (rc != 0) {
-      DEBUG1(__FUNCTION__ ": returned with error code %d", rc);
+      DEBUG1("returned with error code %d", rc);
       free (buffer);
       return rc;
     };
@@ -783,7 +853,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
   };
   
   /* we now have the requested reply */
-  DEBUG1(__FUNCTION__ ": Got a message of type %#x handle %d ", 
+  DEBUG1("Got a message of type %#x handle %d ", 
 	callmesg->mtype, callmesg->handle);
   /* Retriving info from the message 
      If fastpath we return pointers to the shm area, 
@@ -803,13 +873,228 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
 
   /* deadline info is invalid even though I can provide it */
 
-  DEBUG1(__FUNCTION__": returned with returncode=%d and with %d bytes of data", 
+  DEBUG1("returned with returncode=%d and with %d bytes of data", 
 	callmesg->returncode, callmesg->datalen);
 
   if (callmesg->returncode > MWMORE) 
     return -callmesg->returncode;
   return callmesg->returncode;
 };
+
+/************************************************************************/
+
+/* EVENTS */
+int _mw_ipc_subscribe(char * pattern, int subid, int flags)
+{
+  Event ev;
+  int rc, len;
+
+  rc = _mw_ipcsend_subscribe (pattern, subid, flags);
+
+  len = MWMSGMAX;
+  rc = _mw_ipc_getmessage((char *) &ev, &len, EVENTSUBSCRIBERPL, 0);
+  DEBUG1("got reply for subscribe %s id %d with rcode=%d (rc=%d)", 
+	pattern, subid, ev.returncode, rc);
+  
+  return ev.returncode;
+};
+
+int _mw_ipc_unsubscribe(int subid)
+{
+  Event ev;
+  int rc, len;
+
+  rc = _mw_ipcsend_unsubscribe (subid);
+
+  len = MWMSGMAX;
+  rc = _mw_ipc_getmessage((char *) &ev, &len, EVENTUNSUBSCRIBERPL, 0);
+  DEBUG1("got reply for unsubscribe %d with rcode=%d (rc=%d)", 
+	 subid, ev.returncode,  rc);
+  
+  return ev.returncode;
+};
+
+int _mw_ipcsend_subscribe (char * pattern, int subid, int flags)
+{
+  MWID id;
+  int  dest; 
+  int rc;
+  int pattlen;
+  char * dbuf;
+  Event ev;
+
+  memset (&ev, '\0', sizeof(Event));
+  errno = 0;
+
+  dest = 0; // mwd
+
+  if  (pattern == NULL) return -EINVAL;
+  if  (subid < 0) return -EINVAL;
+
+  DEBUG1("Sending a ipcmessage to mwd subscribe %s subid %d  flags %#x ", 
+	 pattern, subid, flags);
+
+  ev.mtype = EVENTSUBSCRIBEREQ;
+  ev.subscriptionid = subid;
+  ev.flags = flags;
+
+  id = _mw_get_my_mwid();
+  if (id == UNASSIGNED) {	
+	return -ENOENT;
+  }
+  ev.senderid = id;
+  
+  /* the pattern may be longer than MWMAXNAMELEN for globs and
+     regex. if so we pass the pattern in a buffer, and not the event
+     field. */
+  pattlen = strlen(pattern);
+  if (pattlen > MWMAXNAMELEN) {     
+    
+    DEBUG1("pattern longer than MWMAXLEN (%d > %d) passing pattern in a buffer", 
+	   pattlen, MWMAXNAMELEN);
+
+    dbuf = _mwalloc(pattlen+1);
+    if (dbuf == NULL) {
+      Error("mwalloc(%d) failed reason %d", pattlen, (int) errno);
+      return -errno;
+    };
+    memcpy(dbuf, pattern, pattlen);
+    dbuf[pattlen] = '\0';
+    ev.data = _mwshmcheck(dbuf);      
+    ev.datalen = pattlen;
+  } else {
+    ev.data = 0;
+    ev.datalen = 0;
+    memcpy(ev.event, pattern, pattlen);
+  };
+  
+  rc = _mw_ipc_putmessage(dest, (char *) &ev, sizeof (Event), 0);
+  
+  DEBUG1("_mw_ipc_putmessage returned %d", rc);
+
+  return rc;
+};
+    
+int _mw_ipcsend_unsubscribe (int subid)
+{
+  MWID id;
+  int  dest; 
+  int rc;
+  Event ev;
+
+  memset (&ev, '\0', sizeof(Event));
+  errno = 0;
+
+  dest = 0; // mwd
+
+  if  (subid < 0) return -EINVAL;
+
+  DEBUG1("Sending a ipcmessage to mwd unsubscribe subid %d  ", 
+	 subid);
+
+  ev.mtype = EVENTUNSUBSCRIBEREQ;
+  ev.subscriptionid = subid;
+  ev.flags = 0;
+
+  id = _mw_get_my_mwid();
+  if (id == UNASSIGNED) {	
+	return -ENOENT;
+  }
+  ev.senderid = id;
+
+  rc = _mw_ipc_putmessage(dest, (char *) &ev, sizeof (Event), 0);
+  
+  DEBUG1("_mw_ipc_putmessage returned %d", rc);
+
+  return rc;
+};
+    
+int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, char * clientname)
+{
+  MWID id;
+  int  dest; 
+  int rc;
+  int dataoffset;
+  char * dbuf;
+  Event ev;
+
+  memset (&ev, '\0', sizeof(Event));
+  errno = 0;
+
+  dest = 0;
+  
+  
+  /* now the data string are passed in shm, we only pass the address (offset) , and 
+     the other neccessary data.
+     since shmat on Linux do not always reurn tha same address for a given shm segment
+     we must operate on offset into the segment (se shmalloc.c) */
+
+  if (data != NULL) {
+    dataoffset = _mwshmcheck(data);
+    if (dataoffset == -1) {
+      dbuf = _mwalloc(datalen);
+      if (dbuf == NULL) {
+	Error("mwalloc(%d) failed reason %d", datalen, (int) errno);
+	return -errno;
+      };
+      memcpy(dbuf, data, datalen);
+      dataoffset = _mwshmcheck(dbuf);
+    };
+  } else {
+    dataoffset = 0;
+    datalen = 0;
+  };
+  /* else 
+     we really should check to see if datalen is longer than buffer 
+  */
+  
+  ev.mtype = EVENT;
+  ev.data = dataoffset;
+  ev.datalen = datalen;
+
+  id = _mw_get_my_mwid();
+  if (id == UNASSIGNED) {	
+    return -ENOENT;
+  }
+  ev.senderid = id;
+  ev.subscriptionid = UNASSIGNED;
+
+  strncpy (ev.event, event, MWMAXNAMELEN);
+  if (username != NULL) 
+    strncpy (ev.username, username, MWMAXNAMELEN);
+  else 
+    ev.username[0] = '\0';
+  if (clientname != NULL) 
+    strncpy (ev.clientname, clientname, MWMAXNAMELEN);
+  else 
+    ev.clientname[0] = '\0';
+  
+  DEBUG1("Sending a ipcmessage to mwd event %s id %#x buffer at offset%d len %d ", 
+	 ev.event, ev.senderid, ev.data, ev.datalen);
+
+  rc = _mw_ipc_putmessage(dest, (char *) &ev, sizeof (Event), 0);
+  
+  DEBUG1("_mw_ipc_putmessage returned %d", rc);
+
+  return rc;
+};
+
+int _mw_ipc_getevent(Event * ev)
+{
+  int len;
+  int rc;
+  if (ev == NULL) return -EINVAL;
+  len = sizeof(Event);
+  rc = _mw_ipc_getmessage((char *) ev, &len, EVENT, IPC_NOWAIT);
+  if (rc < 0) return rc;
+  if (len == sizeof(Event)) {
+    return 0;
+  };
+  Error("Got an event ipc message, but with wrong length! %d != %d", rc, sizeof(Event));
+  return -EMSGSIZE;
+};
+      
+/************************************************************************/
 
 int _mwCurrentMessageQueueLength()
 {

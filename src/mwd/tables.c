@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.6  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -69,8 +72,8 @@ serviceentry * svctbl  = NULL;
 gatewayentry * gwtbl   = NULL;
 conv_entry   * convtbl = NULL;
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /* we fill up the necessary fileds in the tables with
  * UNASSIGNED to "empty" them
@@ -240,8 +243,11 @@ int delserver(SERVERID sid)
     Error("No ipcmain table available");
     return -EUCLEAN;
   };
+
+  event_clear_id(CLTID2MWID(sid));
+
   srvtbl = getserverentry(0);
-  srvidx = sid & 0xFFFFFF;
+  srvidx = sid&MWINDEXMASK; //MWID2SRVID(sid);
 
   srvtbl[srvidx].status = UNASSIGNED;
   srvtbl[srvidx].mqid = UNASSIGNED;
@@ -382,6 +388,9 @@ int delclient(CLIENTID cid)
     Error("No ipcmain table available");
     return -EUCLEAN;
   };
+
+  event_clear_id(CLTID2MWID(cid));
+
   clttbl = getcliententry(0);
   cltidx = cid & MWINDEXMASK;
   
@@ -403,7 +412,7 @@ int delclient(CLIENTID cid)
 static SERVICEID addservice(char * name, int type)
 {
   serviceentry * svctbl;
-  int i, idx, svcidx;
+  int i, svcidx;
   static int nextidx = 0;
 
   /* we go thru the service table starting with the nest after the
@@ -461,7 +470,6 @@ SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
 SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type)
 {
   int svcidx;
-  static int nextidx = 0;
 
   serviceentry * svctbl;
   gatewayentry * gwent;

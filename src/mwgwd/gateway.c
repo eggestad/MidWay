@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.7  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.6  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -42,7 +45,6 @@
  *
  */
 
-#include <pthread.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -126,20 +128,7 @@ void usage(char * arg0)
    shall complete, and when teh ipc thread get the lock, checks to see
    if any peers need an update. */
 
-pthread_mutex_t peersmutex = PTHREAD_MUTEX_INITIALIZER;
-
-int  lock_peers(void)
-{
-  DEBUG2("locking peers mutex");
-  pthread_mutex_lock(&peersmutex);
-  DEBUG2("locked peers mutex");
-};
-
-int  unlock_peers(void)
-{
-  DEBUG2("unlocking peers mutex");
-  pthread_mutex_unlock(&peersmutex);
-};
+DECLAREMUTEX(peersmutex);
 
 int ipcmainloop(void)
 {
@@ -367,7 +356,7 @@ int ipcmainloop(void)
 int gwattachclient(Connection * conn, char * cname, char * username, char * password, urlmap * map)
 {
   Attach mesg;
-  int rc, l;
+  int rc;
 
   /*  first  of all  we  should  test  authentication..... that  means
      checking  config  for  authentication  level  required  for  this
@@ -738,7 +727,6 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
 
 void gw_provideservice_to_peers(char * service)
 {
-  struct gwpeerinfo * pi;
   int i;
 
   DEBUG( "exporting service %s to all peers");
@@ -766,7 +754,7 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
 {
   struct gwpeerinfo * pi = NULL;
   serviceentry * svctbl = _mw_getserviceentry(0);
-  int i, j, n, found;
+  int i, n;
   char ** svcnamelist = NULL;
   DEBUG( "Checking to see if we need to send provide or unprovide to GW %d", gwid&MWINDEXMASK);
 
@@ -781,7 +769,7 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
     Fatal("Internal error: could not find a gwpeerinfo entry for gwid %d", gwid&MWINDEXMASK);
   };
   
-  lock_peers();
+  LOCKMUTEX(peersmutex);
 
   /* get a list off all servcies with the lowest cost */
   n = 0;
@@ -796,7 +784,7 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
     svcnamelist = charlistaddunique(svcnamelist, svctbl[i].servicename);
   };
 
-  unlock_peers();
+  LOCKMUTEX(peersmutex);
 
   if (svcnamelist == NULL) return;
 

@@ -13,11 +13,11 @@ INCLUDES = -I../include
 
 CFLAGS =  -fpic @CFLAGS@ $(INCLUDES) 
 
-IPCOBJS = mwclientipcapi.o ipctables.o ipcmessages.o mwserverapi.o shmalloc.o osdep.o
+IPCOBJS = mwclientipcapi.o ipctables.o ipcmessages.o mwserverapi.o shmalloc.o osdep.o 
 
 NETOBJS = SRBclient.o SRBprotocol.o multicast.o
 
-COMMONOBJS = mwlog.o version.o address.o mwclientapi.o
+COMMONOBJS = mwlog.o version.o address.o mwclientapi.o utils.o tasks.o
 
 LIBS = libMidWay.a libMidWay.so
 

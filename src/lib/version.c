@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.5  2002/07/07 22:35:20  eggestad
  * *** empty log message ***
  *
@@ -51,7 +54,7 @@
 /* MAGIC are used to tag the ipcmain shm segment. */
 #define MAGIC "MW10"
 
-static char * RCSId = "$Id$";
+static char * RCSId UNUSED = "$Id$";
 static const char * Name = "$Name$";
 
 /* RCS Name are to be on the format Name:  TYPE_M_N_P , 
@@ -62,7 +65,6 @@ static const char * Name = "$Name$";
 char * major = NULL, * minor = NULL, * patch = NULL;
 const char * mwversion(void) 
 {
-  int len;
   /*  static char *  version = NULL; */
   static char version[1024];
 

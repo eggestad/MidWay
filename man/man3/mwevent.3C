@@ -1,0 +1,123 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\"
+.TH MWEVENT 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
+.SH NAME
+mwevent, mweventbcast, mwsubscribeCB, mwunsubscribe, mwrecvevents\- MidWay Event API
+.SH SYNOPSIS
+.B #include <MidWay.h>
+.sp
+.BI "int mwevent(char * eventname, char * data, int datalen, char * username, char * clientname);"
+.sp
+.BI "int mweventbcast(char * eventname, char * data, int datalen);"
+.sp
+.BI "int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char * data, int datalen));"
+.sp
+.\".BI "int mwsubscribe(char * pattern, int flags);""
+.\".sp"
+.\".BI "int mwgetevent(char ** event, char ** eventdataint * datalen);""
+.\".sp"
+.BI "int mwunsubscribe(int subscriptionid);"
+.br
+.BI "void mwrecvevents(void);"
+
+.SH DESCRIPTION
+Events are a named event with an optional data buffer. Events are
+received only by those MidWay clients and servers that has
+.I subscribed
+to the given event. The sender of an event may limit the recipients to
+a given user, or client name. Clients names are provided my the client
+in mwattach() and are informational only. Only the user here provide
+any security that events are recv only by the propper recipient.
+Events are fundamentally insecure, both for snooping and
+delivery. Events are provided as a mean to push data to clients,
+rather than having them to do poll waits. 
+
+Servers are capable of receiving events as well, even if it make less
+sense. Servers, afterall, ALWAYS passivly waits for something todo.
+
+In mwevent() the eventname is always a string, but in mwsubscribe() it
+may be a simple string, og a glob pattern, or a regexp. This allow a
+client/server to receive a wide set of events, possibly absolutely
+everyone.
+
+The return value from mwsubscribe() is an ID that must be given to
+mwunsubscribe() if a client want to unsubscribe a previous
+subscription.
+
+The mwsubscribeCB() must be passed a pointer to an user function to
+handle the event. We may later have a default handler function that
+just queues the event internally, and a function to pop the queue.
+
+In order to receive the events 
+.IR mwrecvevents ()
+must be called. mwrecvevents() is called implisity at every mw*
+function, so servers need never actually call it, it's done
+implicitly. Clients on the other hand are normally doing something
+else, and never call mw*() functions much. They must call
+mwrecvevents() explicitly.
+
+NB: currently only IPC clients may send or recv events.
+
+
+.SS Flags
+Flags for subscriptions.
+.TP
+.B MWEVGLOB
+The subscription pattern is a glob pattern see 
+.BR glob (7)
+for details. This is the same wildcard matches that the unix shell
+uses for filenames. Thus * matches any string includeing empty
+string. ? matches any character, etc.
+.TP
+.B MWEVREGEXP
+The subscription pattern is a regular expression, see 
+.BR regex (7)
+for details. 
+.TP 
+.B MWEVEREGEXP
+The subscription pattern is an extended regular expression, see
+.BR regex (7)
+for details. 
+
+.SH "NOTES"
+It's the mwd that distribute the events. All subscriptions are
+registered there, and glob and regexp patterns are also matched there.
+Consequently the pattern matching is done with the implementation of
+glob and regexps on the host running mwd.
+
+
+.SH "RETURN VALUES"
+mwsubscribe*() return an ID of the subscription (>=0), or -errno.
+all other return 0 on success or -errno on error.
+     
+.SH "ERRORS"
+.TP
+.B EINVAL
+if pattern or func is NULL, or mwd failed to compile the regular expression.
+.TP
+.B ENOTCONN
+you're not attached to a running MidWay instance.
+
+ 
+.SH WARNINGS
+Failure to receive subscribed events will case a shared memory biffer
+leakage. mwd may choose to detach clients that misbehave, and fail to
+receive it's events within a few seconds. Still an event storm will
+cause a buffer underflow.
+
+Short of the mwd being down, the subscription will always succede in
+the mwd, with one exeption. If the regular expression is malformed and
+fails to compile. There is no way on the client side to detect the
+nature by the error, but it's logged by the mwd as a warning.
+
+.SH EXAMPLES
+
+.SH BUGS 
+
+.SH "SEE ALSO"
+
+.SH STANDARDS
+None

@@ -236,6 +236,7 @@ void _mw_set_shmadr (ipcmaininfo * im, cliententry * clt, serverentry * srv,
 void _mw_set_my_serverid(SERVERID);
 void _mw_set_my_clientid(CLIENTID);
 void _mw_set_my_gatewayid(GATEWAYID);
+MWID _mw_get_my_mwid(void);
 SERVERID _mw_get_my_serverid(void);
 CLIENTID _mw_get_my_clientid(void);
 GATEWAYID _mw_get_my_gatewayid(void);

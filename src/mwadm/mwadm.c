@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.6  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -48,9 +51,6 @@
  */
 
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -65,6 +65,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <MidWay.h>
 #include <ipctables.h>
 
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
+
 struct ipcmaininfo * ipcmain = NULL;
 
 static int extended = 0;
@@ -73,8 +76,6 @@ static int extended = 0;
 static char * prompt = NORMALPROMPT;
 static int echo = 1;
 static int autorepeat = 0;
-
-static int ipckey;
 
 static int sigflag = 0;
 
@@ -97,6 +98,9 @@ int gateways(int, char **);
 int heapinfo(int, char **);
 int dumpipcmain(int, char **);
 int call(int, char **);
+int event(int, char **);
+int subscribe(int, char **);
+int unsubscribe(int, char **);
 int quit(int, char **);
 int query(int, char **);
 int toggleRandD(int, char **);
@@ -139,6 +143,12 @@ struct command  commands[] =
   { "detach",   detach,      0, "detach",  "detaches mwadm as client"},
   { "call",     call,        1, "call servicename data", 
     "perform a mwcall, data string and reply use url % encoding" },
+  { "event",    event,       0, "event eventname [data]", 
+    "perform a mwevent" },
+  { "subscribe", subscribe,  0, "subscribe [-grR] eventname", 
+    "subscribe to a mwevent" },
+  { "unsubscribe", unsubscribe,  0, "unsubscribe subscriptionid", 
+    "unsubscribe to a mwevent" },
   { NULL ,      NULL,        0, NULL, NULL }, 
   NULL
 };
@@ -213,7 +223,6 @@ int toggleRandD(int argc, char **argv)
 int attach(int argc, char ** argv)
 {
   int rc;
-  int ipckey;
   char durl [1024];
     
   rc = mwattach(url, "mwadm", NULL, NULL, 0 );
@@ -283,8 +292,7 @@ int parse_commandline(char *arglist)
 {
   int i = 0;
   int tokencount = 0, len, intoken = 0;
-  int start, end;
-  char * token = NULL, ** argv = NULL;
+  char ** argv = NULL;
   int argc = 0;
 
 
@@ -340,7 +348,7 @@ static void _usage(char * prog)
 
 int main(int argc, char ** argv)
 {
-  char * thiscommand, * lastcommand = NULL, * token;
+  char * thiscommand, * lastcommand = NULL;
   int option, rc, i;
   int loglevel;
   extern char *optarg;
@@ -401,7 +409,7 @@ int main(int argc, char ** argv)
 
   while(1) {
 
-    
+    mwrecvevents();
     thiscommand = readline(prompt);
     if (thiscommand == NULL) break;
 

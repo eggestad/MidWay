@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/08/09 20:50:16  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.4  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -38,9 +41,6 @@
  * 
  */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 #include <errno.h>
 #include <stdio.h>
 #include <sys/time.h>
@@ -52,6 +52,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include "mwd.h"
 #include "tables.h"
 #include "watchdog.h"
+
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /* undocumented func in lib/mwlog.c */
 void _mw_copy_on_stdout(int flag);

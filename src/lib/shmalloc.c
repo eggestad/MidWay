@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.7  2002/07/07 22:35:20  eggestad
  * *** empty log message ***
  *
@@ -52,9 +55,6 @@
  */
 
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 #include <sys/sem.h>
 #include <sys/shm.h>
 #include <errno.h>
@@ -67,6 +67,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <shmalloc.h>
 #include <ipctables.h>
 #include <ipcmessages.h>
+
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /* a note on threads. Since shmalloc, shmrealloc, and shmfree
    deal in shared memory they must be multi process proof.
@@ -191,7 +194,7 @@ int _mw_putbuffer_to_call (Call * callmesg, char * data, int len)
 
 static int getchunksizebyadr(chunkhead * pCHead)
 {
-  int chksize, chkindex, i, rc = 0;
+  int  chkindex, i, rc = 0;
   chunkfoot *pCFoot;
   chunkhead *pCHabove;
   int iCHead;
@@ -247,7 +250,6 @@ static int getchunksizebyadr(chunkhead * pCHead)
 */
 int _mwshmcheck(void * adr)
 {
-  int offset;
   int size;
 
   /* if SRBP then we have no heap... */
@@ -265,6 +267,24 @@ int _mwshmcheck(void * adr)
   return _mwadr2offset(adr);
 }
 
+int _mwshmgetsizeofchunk(void * adr)
+{
+  int size;
+
+  /* if SRBP then we have no heap... */
+  if (_mwHeapInfo == NULL) return -1;
+
+  /* first we make sure that adr is within the heap*/
+  if (adr < ((void *)_mwHeapInfo + sizeof(struct segmenthdr))) return -1;
+  if (adr > ((void *)_mwHeapInfo + _mwHeapInfo->segmentsize)) return -1;
+      
+  /* now we do sanity check on the chunk */
+  size = getchunksizebyadr(adr - sizeof(chunkhead));
+
+  if (size < 0)   return -1;
+  return size;
+}
+
 
 /* Shm buffer are stored in looped double linked lists, rings
    actually. I here make us two operators that push and pop chunks on
@@ -276,7 +296,7 @@ int _mwshmcheck(void * adr)
    obtained.*/
 static chunkhead * popchunk(int *iRoot, int * freecount)
 { 
-  chunkhead * pCHead, *pPrev, *pNext, *pEnd;
+  chunkhead * pCHead, *pPrev, *pNext;
   chunkfoot * pCFoot;
 
   if ( (iRoot == NULL) || (freecount == NULL) ) 
@@ -313,7 +333,7 @@ static chunkhead * popchunk(int *iRoot, int * freecount)
 
 static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount)
 {
-  chunkhead * pCHead, *pPrev, *pNext;
+  chunkhead *pPrev, *pNext;
   chunkfoot * pCFoot;
 
   if ( (pInsert == NULL) || (iRoot == NULL) || (freecount == NULL) ) 
@@ -482,8 +502,7 @@ int _mwfree(void * adr)
   struct ipcmaininfo * ipcmain;
   chunkhead *pCHead;
 
-  struct sembuf sops[2];
-  int chksize, chkindex, headeroffset, rc;
+  int chkindex, rc;
 
   if (_mwHeapInfo == NULL ) {
     ipcmain = _mw_ipcmaininfo(); 

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/08/09 20:50:15  eggestad
+ * A Major update for implemetation of events and Task API
+ *
  * Revision 1.8  2002/07/07 22:35:20  eggestad
  * *** empty log message ***
  *
@@ -109,9 +112,11 @@ int _mw_isattached(void)
 
 /* the call handle, it is inc'ed everytime we need a new, and randomly
    assigned the first time.*/
-int handle = -1;
+static int handle = -1;
+DECLAREMUTEX(callhandle);
 int _mw_nexthandle(void)
 {
+  LOCKMUTEX(callhandle);
   if (handle > 0) handle++;
 
   /* test for overflow (or init) */
@@ -121,6 +126,7 @@ int _mw_nexthandle(void)
       handle = rand() + 1;
     }; 
   }; 
+  UNLOCKMUTEX(callhandle);
   return handle;
 };
 
@@ -131,7 +137,7 @@ int mwattach(char * url, char * name,
 	     char * username, char * password, int flags)
 {
   FILE * proc;
-  int ipckey, type;
+  int type;
   char buffer[256];
   int rc;
 
@@ -366,7 +372,6 @@ int mwcall(char * svcname,
 	       int * appreturncode, int flags)
 {
   int hdl;
-  float timeleft;
   /* input sanyty checking, everywhere else we depend on params to be sane. */
   if ( (clen < 0) || (svcname == NULL) ) 
     return -EINVAL;
@@ -382,6 +387,251 @@ int mwcall(char * svcname,
   return mwfetch (hdl, rdata, rlen, appreturncode, flags);
 
 };
+
+/************************************************************************/
+
+/* events. OK quite a bit of how this works. THe primary way to
+   subscribe is by mwsucscribeCB() where you give a callback
+   function. Later we'll add a mwsubscribe() that has its own default
+   function that just queues the events and you'll fetch them from the
+   queue with someinglike mwgetnextevent().
+
+   Now the mwsubscribe*() calls will record the subscription here,
+   while also assign a subscription id. The subid is later used for
+   spesific unsubscribes.  The subscription is passed to mwd who is
+   the one that distributes events. 
+
+   In the IPC events model the same shm data buffer (if there is one)
+   is passed to all recipients. In order to free the shm all clients
+   must ack the event. Thus we break from service call convention,
+   where the ownership of the shm buffer is passed along the call. The
+   mwd once gotten ownership of the buffer always retain it.  One all
+   the recipients has acked the event, mwd can free it. If there is no
+   data buffer with the event, no ack is needed. IN the SRB version
+   the event buffer is passed on socket and all buffers are local.
+
+   So when we call the mwevent() an event message is sent to the mwd,
+   with a buffer if needed.
+
+   The problems crop up with the reception of event. Servers are
+   normally in blocking wait, and will process either, whatever comes
+   first. SRB clients can trigger on signals on the socket. But IPC
+   clients will only handle events when in call/fetch or select other
+   midway calls. IPC clients *should* regulary call mwrecvevents() to
+   process them.
+   
+*/
+
+struct subscribed_events {
+  char * pattern;
+  int subscriptionid;
+  void (*callback)(char * , char *, int);
+  int flags;
+};
+
+typedef  struct subscribed_events  subscribed_events_t;
+
+static subscribed_events_t * subscriptions = NULL;
+static int subscription_count = 0;
+static int next_subscriptionid  = 0;
+
+DECLAREMUTEX(eventmutex);
+
+static int get_subscriptionid(void)
+{
+  int id;
+  LOCKMUTEX(eventmutex);
+  id = next_subscriptionid++;
+  UNLOCKMUTEX(eventmutex);
+  return id;
+};
+
+int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char * data, int datalen))
+{
+  subscribed_events_t * se;
+  int error = 0;
+  int rc;
+
+  if (_mwaddress == NULL) return -ENOTCONN;
+
+  LOCKMUTEX(eventmutex);
+  subscriptions = realloc(subscriptions, sizeof(subscribed_events_t) * (subscription_count+1));
+  se = &subscriptions[subscription_count++];
+  UNLOCKMUTEX(eventmutex);
+
+  if (pattern == NULL) return -EINVAL;
+  if (func == NULL) return -EINVAL;
+  
+  se->callback = func;
+  se->subscriptionid = get_subscriptionid();
+  
+  if (!_mwaddress) {
+    Error("not attached");
+    error = -ENOTCONN;
+    goto errout;
+  };
+
+  
+  switch (_mwaddress->protocol) {
+    
+  case MWSYSVIPC:
+    rc =  _mw_ipc_subscribe(pattern, se->subscriptionid, flags);
+    break;
+
+  case MWSRBP:
+    rc = -EFAULT;
+    //return _mwsubscribe_srb(pattern, flags);
+    break;
+    
+  default:
+    Error("mwevent: This can't happen unknown protocol %d", 
+	  _mwaddress->protocol);
+    error = -EFAULT;
+    goto errout;
+  };
+  
+  if (rc >= 0) {
+    DEBUG1("subscription OK");
+    return se->subscriptionid;
+  };
+  error = rc;
+
+ errout:
+  LOCKMUTEX(eventmutex);
+  subscription_count--;
+  UNLOCKMUTEX(eventmutex);
+  return error;
+};
+
+int mwunsubscribe(int subid)
+{
+  subscribed_events_t * se = NULL;
+  int error = 0;
+  int i, rc;
+
+  if (subid < 0) return -EINVAL;
+
+  LOCKMUTEX(eventmutex);
+  for (i = 0; i < subscription_count; i++) {
+    if (subscriptions[i].subscriptionid == subid) {
+      se = &subscriptions[i];
+      break;
+    }
+  };
+
+  if (se == NULL) {
+    error = -ENOENT;
+    goto errout;
+  };
+
+  if (!_mwaddress) {
+    Error("not attached, but still have a subscription, this can't happen");
+    error = -ENOTCONN;
+    goto errout;
+  };
+
+  switch (_mwaddress->protocol) {
+    
+  case MWSYSVIPC:
+    rc =  _mw_ipc_unsubscribe(se->subscriptionid);
+    break;
+
+  case MWSRBP:
+    rc = -EFAULT;
+    //return _mwsubscribe_srb(pattern, flags);
+    break;
+    
+  default:
+    Error("mwevent: This can't happen unknown protocol %d", 
+	  _mwaddress->protocol);
+    error = -EFAULT;
+    goto errout;
+  };
+  
+  if (rc >= 0) {
+    DEBUG1("unsubscription OK");    
+    subscription_count--;
+    memcpy(se, &subscriptions[subscription_count], sizeof(subscribed_events_t));
+  };
+
+ errout:
+
+  UNLOCKMUTEX(eventmutex);
+  return error;
+};
+    
+int mwevent(char * event, char * data, int datalen, char * username, char * clientname) 
+{
+
+  /* input sanyty checking, everywhere else we depend on params to be sane. */
+  if ( (datalen < 0) || (event == NULL) ) 
+    return -EINVAL;
+  
+  DEBUG1("called with event %.64s", event);
+
+  /* datalen may be zero if data is null terminated */
+  if ( (data != NULL ) && (datalen == 0) ) datalen = strlen(data);
+
+  if (!_mwaddress) {
+    DEBUG1("not attached");
+    return -ENOTCONN;
+  };
+
+  switch (_mwaddress->protocol) {
+    
+  case MWSYSVIPC:
+
+    return _mw_ipcsend_event(event, data, datalen, username, clientname);
+    
+  case MWSRBP:
+    return -EFAULT;
+    //return _mwevent_srb(svcname, data, datalen, flags);
+  };
+  Error("mwevent: This can't happen unknown protocol %d", 
+	_mwaddress->protocol);
+
+  return -EFAULT;
+};
+
+void mwrecvevents(void)
+{
+  if (!_mwaddress) return;
+
+  switch (_mwaddress->protocol) {
+    
+  case MWSYSVIPC:
+    _mw_doipcevents();
+    break;  
+    
+  case MWSRBP:
+    break;
+  };
+
+  return;
+};
+
+
+/* called after receiving a IPC of SRB event message, actually
+   executes the event handler */
+void _mw_doevent(int subid, char * event, char * data, int datalen)
+{
+  int i;
+
+  DEBUG1("attempring to find callback for event %s subid %d", event, subid);
+  
+  LOCKMUTEX(eventmutex);
+  for (i = 0; i < subscription_count; i++) {
+    if (subscriptions[i].subscriptionid == subid) {
+      
+      DEBUG1("Found callback calling with data = %p, datalen = %d", data, datalen);
+      subscriptions[i].callback(event, data, datalen);
+      break;
+    }
+  };
+  UNLOCKMUTEX(eventmutex);
+};
+
+/************************************************************************/
 
 /* TRANSACTIONAL API
    these calls are currently here only to set a deadline.

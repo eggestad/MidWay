@@ -1,5 +1,5 @@
 #!/bin/sh
 
-ipcs -q -c | grep $USER | cut -b -8 | xargs -i ipcrm msq {}
-ipcs -s -c | grep $USER | cut -b -8 | xargs -i ipcrm sem {}
-ipcs -m -c | grep $USER | cut -b -8 | xargs -i ipcrm shm {}
+ipcs -q -c | grep " $USER " | cut -b -10 | xargs -i ipcrm msq {}
+ipcs -s -c | grep " $USER " | cut -b -10 | xargs -i ipcrm sem {}
+ipcs -m -c | grep " $USER " | cut -b -10 | xargs -i ipcrm shm {}

@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.24  2003/07/08 19:23:43  eggestad
+ * critcal stack corruption error in _mwfetchipc()
+ *
  * Revision 1.23  2003/07/06 22:11:40  eggestad
  * - added timepegs
  * - added debuggig
@@ -1179,7 +1182,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
     DEBUG3("copying data to local byffer, freeing shm buffer");
     *data = malloc(callmesg->datalen+1);
     memcpy(*data, _mwoffset2adr(callmesg->data), callmesg->datalen);
-    data[callmesg->datalen] = '\0';
+    (*data)[callmesg->datalen] = '\0';
     _mwfree(_mwoffset2adr(callmesg->data));
   } else {
     *data = _mwoffset2adr(callmesg->data);

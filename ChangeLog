@@ -1,6 +1,16 @@
+2004-03-01  Terje Eggestad  <te@pc-16.office.scali.no>
+
+	* change in mwfetch() params, handle is now a int pointer that
+	will be set to the hdl for the reply retrived.
+
+	* added event API for SRB clients
+
+	* serviceinfo struct (mwsvcinfo) expanded with username,
+	clientname and authentication method
+	
 2004-02-22  Terje Eggestad  <te@ia32-rhl9.office.scali.no>
 
-	* RELEASE 0.13.0 	
+	* RELEASE 0.13.2	
 
 2004-02-20  Terje Eggestad  <te@pc-16.office.scali.no>
 	

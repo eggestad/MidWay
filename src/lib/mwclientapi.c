@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.21  2004/12/29 19:59:01  eggestad
+ * handle datatype fixup
+ *
  * Revision 1.20  2004/06/16 06:53:58  eggestad
  * mwattach: If mwattach() failed the lib was still in attached state
  *
@@ -313,9 +316,9 @@ int _mw_isattached(void)
 
 /* the call handle, it is inc'ed everytime we need a new, and randomly
    assigned the first time.*/
-static int handle = -1;
+static mwhandle_t handle = -1;
 DECLAREMUTEX(callhandle);
-int _mw_nexthandle(void)
+mwhandle_t _mw_nexthandle(void)
 {
   LOCKMUTEX(callhandle);
   if (handle > 0) handle++;

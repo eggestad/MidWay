@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.22  2004/12/29 19:59:01  eggestad
+ * handle datatype fixup
+ *
  * Revision 1.21  2004/08/11 20:40:41  eggestad
  * 32/64 bit fix
  *
@@ -313,7 +316,7 @@ int mwunprovide(char * service)
   if (!_mw_isattached()) return -ENOTCONN;
   /* short cut if now services are provided.*/;
   if (!provided) return -ENOENT;
-  /* We must lookup service type somewhere LOOKATME */
+  /* We must lookup service type somewhere TODO:: FIXME: LOOKATME */
   svcid = _mw_get_service_byname(service, 0);
   if (svcid < 0 ) {
     Error("mwunprovide() failed with rc=%d",svcid);

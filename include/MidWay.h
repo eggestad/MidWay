@@ -25,6 +25,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <stdint.h>
 
 #define _MIDWAY_H
 
@@ -42,8 +43,10 @@ typedef int GATEWAYID;
 typedef int SERVICEID;
 typedef int CONVID;
 
+typedef int32_t mwhandle_t;
+
 typedef struct {
-  int handle;
+  mwhandle_t  handle;
   CLIENTID cltid;
   GATEWAYID gwid;
   SERVERID srvid;

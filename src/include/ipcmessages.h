@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.16  2004/12/29 19:59:01  eggestad
+ * handle datatype fixup
+ *
  * Revision 1.15  2004/11/17 20:47:15  eggestad
  * updated struct for IPC coexist for 32 and 64 bit apps
  *
@@ -154,7 +157,7 @@ typedef struct provide Provide;
 struct call
 {
   long mtype; 
-  int32_t handle; 
+  mwhandle_t handle; 
  
   CLIENTID cltid;
   GATEWAYID gwid;
@@ -340,7 +343,7 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid);
 
 int _mwacallipc (char * svcname, char * data, int datalen, int flags, 
 		 MWID mwid, char * instance, char * domain, MWID callerid, int hops);
-int _mwfetchipc (int * handle, char ** data, int * len, int * appreturncode, int flags);
+int _mwfetchipc (mwhandle_t * handle, char ** data, int * len, int * appreturncode, int flags);
 
 int _mw_ipcconnect(char * servicename, char * socketpath, int flags);
 int _mw_ipcdisconnect(int fd);
@@ -355,7 +358,7 @@ int _mw_ipc_getevent(Event * ev);
 
 /* additionsl for servers */
 int _mw_ipcdorequest(void);
-int _mw_ipcreply(int handle, char * data, int len, int flags);
+int _mw_ipcreply(mwhandle_t handle, char * data, int len, int flags);
 int _mw_ipcforward(char * servicename, char * data, int len, int flags);
 
 /* additional administrative for mwd */

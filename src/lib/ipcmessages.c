@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.35  2004/12/29 19:59:01  eggestad
+ * handle datatype fixup
+ *
  * Revision 1.34  2004/11/17 20:58:08  eggestad
  * Large data buffers for IPC
  *
@@ -1248,14 +1251,14 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
    NB!!!!! NOT THREAD SAFE!!!!
 */
 
-int _mwfetchipc (int * hdl, char ** data, int * len, int * appreturncode, int flags)
+int _mwfetchipc (mwhandle_t * hdl, char ** data, int * len, int * appreturncode, int flags)
 {
   int rc;
   char * buffer;
   struct timeval tv;
   Call * callmesg;
   MWID id;
-  int handle = *hdl;
+  mwhandle_t handle = *hdl;
   seginfo_t * si;
 
   /*  if (handle == 0) return -NMWNYI;*/

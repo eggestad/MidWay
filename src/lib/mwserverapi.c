@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2000/09/24 14:06:00  eggestad
+ * Fixed core dumo in a warning message
+ *
  * Revision 1.4  2000/09/21 18:44:06  eggestad
  * fastpath and attach flags are now access thru funcs, nor global vars
  *
@@ -316,7 +319,7 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
     callmesg->datalen = 0;
   }
 
-  /* return code handling. rteurncode is boolean. */
+  /* return code handling. returncode is boolean. */
   if (returncode)
     callmesg->returncode = 0;
   else 
@@ -332,7 +335,7 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
   else mwid  = callmesg->gwid;
   rc = _mw_ipc_putmessage(mwid, (char *) callmesg, sizeof(Call), IPC_NOWAIT);
   if (rc != 0) {
-    mwlog(MWLOG_WARNING,"Failure on replying to client %#x reason %s", 
+    mwlog(MWLOG_WARNING,"Failure on replying to client %#x reason %d", 
 	  callmesg->cltid, errno);
     return -errno;
   } 

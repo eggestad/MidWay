@@ -1,3 +1,11 @@
+2003-12-11  eggestad  <eggestad@pc-16.office.scali.no>
+
+	* added mwlistsvc for IPC
+
+2003-12-09  eggestad  <eggestad@pc-16.office.scali.no>
+
+	* RELEASE 0.13.1
+
 2003-12-08  eggestad  <eggestad@pc-16.office.scali.no>
 
 	* src/lib/mwlog.c: segv with efence fix (possible corruption)

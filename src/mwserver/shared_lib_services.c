@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/09/05 23:22:11  eggestad
+ * meaningless test removed
+ *
  * Revision 1.3  2002/07/07 22:29:16  eggestad
  * fixes to shared object search paths
  *
@@ -101,8 +104,6 @@ int add_library(char * libarg)
   extern char * libdir, * rundir;
   int rc;
 
-  if (libpath == NULL) return -EINVAL;
-  
   if (wd == NULL ) {
     wd = malloc(4096);
     getcwd(wd, 4090);

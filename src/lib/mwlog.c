@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2002/11/18 00:10:55  eggestad
+ * - Made vt100 colors more readable, replaceable, and potentially configurable
+ *
  * Revision 1.11  2002/11/13 16:30:18  eggestad
  * rewamped _mw_vlogf to format the whole message in a buffer, and writeit out at once. Better performance, and we got rid of the mutex locks
  *
@@ -81,17 +84,46 @@
 
 static char * RCSId UNUSED = "$Id$";
 
+
+/* vt100'ish color codes. See ctlseq.ms that float around the net,
+   which describe xterms vt100 control sequences.  */
+#ifndef NOCOLOR
+
+#define COLORNORMAL 		"\e[m"
+
+#define COLOR_RED_ON_YELLOW	"\e[37;1;43m"
+#define COLOR_RED_BOLD		"\e[31;1m"
+#define COLOR_YELLOW_BOLD	"\e[33;1m"
+#define COLOR_MAGNETA_BOLD	"\e[35;1m"
+#define COLOR_GREEN_BOLD	"\e[32;1m"
+#define COLOR_BLUE		"\e[34m"
+#define COLOR_GREY		"\e[37m"
+
+#else 
+
+#define COLORNORMAL 		
+
+#define COLOR_RED_ON_YELLOW	
+#define COLOR_RED_BOLD		
+#define COLOR_YELLOW_BOLD	
+#define COLOR_MAGNETA_BOLD	
+#define COLOR_GREEN_BOLD	
+#define COLOR_BLUE		
+#define COLOR_GREY		
+
+#endif 
+
 char levelprefix[] = { 'F', 'E', 'W', 'A', 'I', 'D', '1', '2', '3', '4' };
-char *levelheader[] = { "\e[37;1;43mFATAL: \e[m", 
-			"\e[31;1mERROR: \e[m", 
-			"\e[33;1mWarning: \e[m", 
-			"\e[35;1mALERT: \e[m", 
-			"\e[32;1minfo: \e[m", 
-			"\e[34mDebug: \e[m", 
-			"\e[37mDebug1: \e[m", 
-			"\e[37mDebug2: \e[m", 
-			"\e[30;1mDebug3: \e[m", 
-			"\e[30;1mDebug4: \e[m", 
+char *levelheader[] = { COLOR_RED_ON_YELLOW "FATAL: "  COLORNORMAL, 
+			COLOR_RED_BOLD      "ERROR: "  COLORNORMAL, 
+			COLOR_YELLOW_BOLD   "Warning: " COLORNORMAL, 
+			COLOR_MAGNETA_BOLD  "ALERT: "  COLORNORMAL, 
+			COLOR_GREEN_BOLD    "info: "   COLORNORMAL, 
+			COLOR_BLUE          "Debug: "  COLORNORMAL, 
+			COLOR_GREY          "Debug1: " COLORNORMAL, 
+			COLOR_GREY          "Debug2: " COLORNORMAL, 
+			COLOR_GREY          "Debug3: " COLORNORMAL, 
+			COLOR_GREY          "Debug4: " COLORNORMAL, 
 			NULL };
 
 static FILE *log = NULL;
@@ -141,8 +173,8 @@ sptime(char *b, int max)
   now = localtime((time_t *) &tv.tv_sec);
   
   rc = snprintf(b, max, "%4d%2.2d%2.2d %2.2d%2.2d%2.2d.%3.3d ",
-	  now->tm_year+1900, now->tm_mon+1, now->tm_mday,
-	  now->tm_hour, now->tm_min, now->tm_sec, tv.tv_usec/1000);
+		now->tm_year+1900, now->tm_mon+1, now->tm_mday,
+		now->tm_hour, now->tm_min, now->tm_sec, tv.tv_usec/1000);
   return rc;
 }
 
@@ -203,7 +235,7 @@ _mw_vlogf(int level, char * format, va_list ap)
   switchlog();
 
 #ifdef DEBUGGING_X
-    _LOCKMUTEX(logmutex);
+  _LOCKMUTEX(logmutex);
 #endif 
 
   s = LINE_MAX-2; 
@@ -297,14 +329,14 @@ int mwsetloglevel(int level)
 
 /* the if's and but's here  are getting complicated...  
 
-   if the arg lfp (LogFilePrefix) is not NULL, we check if the lfp has
-   a leading  path it's relative  to cwd.  If  not we place it  in the
-   logdir.   However, we  may not  have the  logdir until  we actually
-   mwattach(), and then only in the  case if IPC attach. The logdir is
-   default mwhome/instancename/log/. 
+if the arg lfp (LogFilePrefix) is not NULL, we check if the lfp has
+a leading  path it's relative  to cwd.  If  not we place it  in the
+logdir.   However, we  may not  have the  logdir until  we actually
+mwattach(), and then only in the  case if IPC attach. The logdir is
+default mwhome/instancename/log/. 
 
-   if lfp is NULL we use  progname as default filename, if progname is
-   NULL, we use userlog;
+if lfp is NULL we use  progname as default filename, if progname is
+NULL, we use userlog;
 */
 
 static char * logfilename = NULL;
@@ -354,14 +386,14 @@ void mwsetlogprefix(char * lfp)
   };
 
   _fprintf(stderr, "logfilename = %s logdir = %s at %s:%d\n", 
-	  logfilename?logfilename:"(null)", 
-	  logdir?logdir:"(null)", 
-	  __FUNCTION__, __LINE__);
+	   logfilename?logfilename:"(null)", 
+	   logdir?logdir:"(null)", 
+	   __FUNCTION__, __LINE__);
   
 
- /* MWHOME and MWINSTANCE is set by mwd, if their're not set we assume
-    start by  commandline and log to  stderr until we  get the ipcmain
-    info */
+  /* MWHOME and MWINSTANCE is set by mwd, if their're not set we assume
+     start by  commandline and log to  stderr until we  get the ipcmain
+     info */
 
   if (logdir == NULL) {
     mwhome = getenv ("MWHOME");
@@ -386,9 +418,9 @@ void mwsetlogprefix(char * lfp)
     };
 
     _fprintf(stderr, "logfilename = %s logdir = %s at %s:%d\n", 
-	    logfilename?logfilename:"(null)", 
-	    logdir?logdir:"(null)", 
-	    __FUNCTION__, __LINE__);
+	     logfilename?logfilename:"(null)", 
+	     logdir?logdir:"(null)", 
+	     __FUNCTION__, __LINE__);
   };
 
   if (logdir != NULL) {
@@ -405,9 +437,9 @@ void mwsetlogprefix(char * lfp)
 void mwopenlog(char * prog, char * lfp, int level)
 {
   _fprintf(stderr, "openlog(prog=%s, logprefix=%s, level=%d\n", 
-       prog?prog:"(null)", 
-       lfp?lfp:"(null)", 
-       level);
+	   prog?prog:"(null)", 
+	   lfp?lfp:"(null)", 
+	   level);
 
   if (progname != NULL)
     free (progname);

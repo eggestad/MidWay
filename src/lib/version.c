@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2001/10/03 22:46:09  eggestad
+ * mem corruption fixes
+ *
  * Revision 1.2  2000/07/20 19:38:37  eggestad
  * prototype fix up.
  *
@@ -68,7 +71,7 @@ const char * mwversion(void)
   if (strcmp(Name , rcsname2) == 0) 
     return "EXPERIMENTAL";
 
-  buf = malloc(strlen(Name));
+  buf = malloc(strlen(Name)+4);
   strcpy(buf, Name);
   t = strchr(buf, ' ');
   t++;

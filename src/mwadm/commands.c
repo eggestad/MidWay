@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2002/09/29 17:45:33  eggestad
+ * ifdef'ed ut conv stuff
+ *
  * Revision 1.10  2002/09/22 22:51:04  eggestad
  * query now return replies immediately, not after the timeout
  *
@@ -449,7 +452,9 @@ int dumpipcmain(int argc, char ** argv)
   srvtbl  = _mw_getserverentry(0);
   svctbl  = _mw_getserviceentry(0);
   gwtbl   = _mw_getgatewayentry(0);
+#ifdef CONV
   convtbl = _mw_getconv_entry(0);
+#endif
 
   printf ("\nIPCMAIN struct is located at %#X\n", ipcmain);
   

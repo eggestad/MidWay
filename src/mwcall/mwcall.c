@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.2  2000/09/24 14:08:29  eggestad
+ * Seperate len vars for input and output MW buffers
+ *
  * Revision 1.1  2000/09/21 18:15:45  eggestad
  * A simple client for testing and shell scripts
  *
@@ -66,6 +69,7 @@ static char * prog;
 int call(int argc, char ** argv) 
 {
   int i, j, len = 0, apprc, rc;
+  int rlen = 0;
   char * data = NULL, * rdata = NULL;
   struct timeval start, end;
 
@@ -123,7 +127,6 @@ int call(int argc, char ** argv)
 #ifdef TESTASYNC
   {
     int hdl1 , hdl2, hdl3;
-    int rlen;
     hdl1 = mwacall(argv[0], data, len, 0);
     hdl2 = mwacall(argv[0], data, len, 0);
     hdl3 = mwacall(argv[0], data, len, 0);
@@ -138,7 +141,7 @@ int call(int argc, char ** argv)
     rc = mwfetch(hdl2, &rdata, &rlen, &apprc, 0);
   }
 #else 
-  rc = mwcall(argv[0], data, len, &rdata, &len, &apprc, 0);
+  rc = mwcall(argv[0], data, len, &rdata, &rlen, &apprc, 0);
 #endif
 
   gettimeofday(&end, NULL); 
@@ -155,14 +158,14 @@ int call(int argc, char ** argv)
     FILE * OF;
     mwlog(MWLOG_INFO,
 	  "Call to \"%s\" succeded, returned %d bytes of data with application return code %d",  
-	    argv[0], len, apprc);
+	    argv[0], rlen, apprc);
 
     if (outputfile) {
       OF = fopen(outputfile, "w");
     } else { 
       OF = stdout;
     };
-    fwrite (rdata, len, 1, OF);
+    fwrite (rdata, rlen, 1, OF);
     /* implisitt close on exit */
   } else {
     mwlog(MWLOG_INFO,

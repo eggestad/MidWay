@@ -22,21 +22,26 @@ provide as a service.
 You can give as many -s option and libraries as arguments as you can
 fit on the command line.
 .sp
-If you want to have a start up and shutdown procedure then 
-.BR dlopen (3) 
-specify that for each library you have the function _init is run when
-the library is loaded, and _fini when the library is unloaded.  In
-addition mwserver will after having loaded all the libraries look for
-a function
-.IR mwinit . 
-The first one and only the first one found in the library list are
-executed. Likewise on graceful shutdown mwserver looks for
-.IR mwexit .
+If you want to have a start up and shutdown procedure see 
+.BR dlopen (3). 
+which specify that for each library you have, the function _init is
+run when the library is loaded, and _fini when the library is
+unloaded. (See CAVEAT). 
 
 .SH EXAMPLE
 Given a C file example.c:
 .nf
 #include <MidWay.h>
+
+void _init(void) 
+{
+   mwprovide("SERVICE", SERVICE1, 0);
+};
+
+void _fini(void)
+{
+   mwunprovide("SERVICE");
+};
 
 int SERVICE1(mwsvcinfo *si) {
 .
@@ -85,6 +90,22 @@ see
 .BR mwd (1). 
 .SH SEE ALSO
 .BR MidWay (7),  mwadm (1), mwd (1), mwservice (3C), dlopen (3)
+
+.SH CAVEAT
+One feature of 
+.BR dlopen "() and," dlclose ()
+is that they honor _init and _fini functions in your shared lib, _init
+is called when the lib is loaded, and _fini when unloaded. These can
+be used to do
+.IR mwprovide () 
+and 
+.IR mwunprovide ()
+negating the need for -s option. DO however note one slight caveat
+when linking your shared object. If using gcc, gcc link in crt0.o who
+has already _init and _fini, giving a duplicate symbol error. To avoid
+the symbol conflict, use -nostdlib to gcc (a shared lib really don't
+need crt0.o). When linking with ld, this is not an issue.
+
 .SH WARNINGS
 The intention is to make mwd start and stops servers. If a server started
 directly by giving the mwserver command, and it core dumps, it will 

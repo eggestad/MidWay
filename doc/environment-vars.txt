@@ -1,0 +1,51 @@
+
+MidWay envs:
+========================================================================
+
+MWHOME: the directory MidWay uses to place instance files in
+MWINSTANCE: the instance name. 
+MWADDRESS: the address to contact the mwd. 
+
+the log,bin,run etc directories are located in $MWHOME/$MWINSTANCE
+
+
+
+Enviroment vars for servers started my mwd
+========================================================================
+
+It's a common mistake to disregard enviroment variable settings when
+running servers.  When starting servers from the command line all the
+env set by ~/.*.sh and /etc/... files that are parsed during login. 
+
+Since MidWay instances may be started thru rc scripts, there is no
+login by the user running the instance. 
+
+Attempting to parse the files is practically impossible, since they
+depend on your shell, some set env as a part of X11 logins, like gdm,
+some tend to work remotly and only rsh or ssh into the host, etc.
+
+In order to avoid runtime problems due to incorrect set envs a
+proactive attitude to envs is necessary. For this reason the envs
+given to servers started by the server manager in mwd are NOT
+inherited directly from the shell that started mwd. The envs set are
+based on environ(5) and resemble when login(1) sets.
+
+Berfore teh config is parsed the following env are set:
+
+PATH is set to a default of _PATH_DEFPATH in /usr/include/paths.h and
+the directory where MidWay binaries are places is appended.  HOME,
+LOGNAME, USER, LANG, SHELL, and TERM is inherited from the shell
+starting mwd.  (HOME, LOGNAME, USER, and SHELL, me be set from
+/etc/passwd in the future)
+
+Thats is, no other env are set before the config is read. All changes
+must be done in the config (or a wrapper script around you server,
+remember to do an exec in the script, see guide lines on using the
+server manager).
+
+After the config is parsed, the follow changes is made to the environment:
+
+MWHOME is set, MWADDRESS is set to the ipc address to the mwd, and the
+instancename is set in MWINSTANCE. PWD is set to
+$MWHOME/$MWINSTANCE/run, as well as the actual cwd. In addition
+$MWHOME/$MWINSTANCE/bin is prepended to the PATH.

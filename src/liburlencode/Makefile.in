@@ -8,7 +8,7 @@ INSTALL = @INSTALL@
 
 LIBS = liburlencode.a # liburlencode.so 
 
-CFLAGS= @CFLAGS@ -I../include
+CFLAGS= -fpic @CFLAGS@ -I../include 
 
 COBJS=urlencoded.o urlfieldlist.o urlmap.o
 

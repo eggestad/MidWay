@@ -11,7 +11,7 @@ MINOR_LIB_VERSION = @MINOR_VERSION@
 
 INCLUDES = -I../include 
 
-CFLAGS =  @CFLAGS@ $(INCLUDES) 
+CFLAGS =  -fpic @CFLAGS@ $(INCLUDES) 
 
 IPCOBJS = mwclientipcapi.o ipctables.o ipcmessages.o mwserverapi.o shmalloc.o osdep.o
 

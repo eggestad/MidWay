@@ -1,29 +1,25 @@
 
 CC = gcc
 
-CFLAGS = 
+CFLAGS = -g -Wstrict-prototypes
+
+DIRS = liburlencode lib mwd mwadm mwserver mwgwd test
 
 
 all: 
-	(cd lib; make)
-	(cd mwd; make)
-	(cd mwadm; make)
-	(cd mwserver; make)
-	(cd test; make)
+	@ for dir in $(DIRS); do\
+	(cd $$dir; make $@)\
+	done;
 
 clean: 
-	(cd lib; make -i clean)
-	(cd mwd; make -i clean)
-	(cd mwadm; make -i clean)
-	(cd mwserver; make -i clean)
-	(cd test; make -i clean)
+	@ for dir in $(DIRS); do\
+	(cd $$dir; make $@)\
+	done;
 
 tags:
-	etags TAGS *.c *.h
-	(cd lib; make tags)
-	(cd mwd; make tags)
-	(cd mwadm; make tags)
-	(cd mwserver; make tags)
+	@ for dir in $(DIRS); do\
+	(cd $$dir; make $@)\
+	done;
 
 
 depend:

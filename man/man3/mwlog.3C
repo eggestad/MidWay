@@ -2,6 +2,8 @@
 .\"
 .\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
 .\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
 .\"
 .TH MWLOG 3  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
@@ -14,6 +16,8 @@ mwlog mwloglevel, mwlogprefix \- MidWay logging facility
 .BI "void mwloglevel(int level);"
 .br
 .BI "void mwlogprefix(char * fileprefix);"
+.br
+.BI "void mwlogprefix(char * progname, chat * fileprefix, int level);"
 .SH DESCRIPTION
 These calls constitute the logging facility in MidWay. This facility
 are used in MidWay code and is provided here to give programmers a
@@ -39,9 +43,12 @@ file we set level with
 All logging above this loglevel is ignored.
 .br
 The default log fileprefix is 
-.BI ~/MidWay/ instancename /log/MidWayLog.  YYYYMMDD
+.BI ./userlog.  YYYYMMDD
 The date suffix is alway added to the logfile and the filename is
 automatically switched after midnight.
+
+Note that progname is limited to 8 chars. If NULL, mwlog() will not
+insert blanks in the logentries.
 
 .br
 The 
@@ -78,12 +85,20 @@ back and see when servers started and stopped, when services were
 provided, and unprovided, when network connections where established
 and disconnected.
 .TP
+.B MWLOG_ALERT
+Warning messages that indicate that some action are needed in order to
+prevent loss of service.
+.TP
 .B MWLOG_WARNING
 Warning messages that will indicate conditions that will not cause
 loss of service, but threatens.
 .TP
 .B MWLOG_ERROR
 Out right errors. 
+.PP
+.TP
+.B MWLOG_FATAL
+Critical errors that will cause an abort/shutdown.
 .PP
 .SH WARNINGS
 mwlog() do not close the logfile between to writes, thus all processes

@@ -9,6 +9,7 @@ int _mw_srbsendcallreply(Connection * conn, SRBmessage * srbmsg, char * data, in
 			 int apprcode, int rcode, int flags);
 int _mw_srbsendready(Connection * conn, char * domain);
 int _mw_srbsendprovide(Connection * conn, char * service, int cost);
+int _mw_srbsendunprovide(Connection * conn, char * service);
 int _mw_srbsendgwinit(Connection * conn);
 
 int srbDoMessage(Connection * conn, char * message);

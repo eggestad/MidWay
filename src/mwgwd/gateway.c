@@ -20,6 +20,11 @@
 
 /*
  * $Log$
+ * Revision 1.15  2002/11/18 00:21:21  eggestad
+ * - gw_provideservices_to_peer() called once to many
+ * - added clean up of all imp/exp on peer disconnect
+ * - remove some junk since mwlog() now handle default log file name correctly
+ *
  * Revision 1.14  2002/10/22 21:58:21  eggestad
  * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
  *
@@ -922,7 +927,7 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
   if (pi == NULL) {
     struct sockaddr sa;
     int l;
-    DEBUG( "got an connection fro man unknown peer, adding and retrying");
+    DEBUG( "got an connection from an unknown peer, adding and retrying");
     l = sizeof(struct sockaddr_in);
     getpeername(conn->fd, &sa, &l);
     gw_addknownpeer(instance, peerdomain, &sa, &pi);    
@@ -947,7 +952,6 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
 	instance, pi->domainid, gwid&MWINDEXMASK);
   gw_setipc(pi);
 
-  gw_provideservices_to_peer(gwid);
   return 0;
 };
 
@@ -1025,6 +1029,7 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
 
   /* now, here we got the list of all services with their costs */
   for (i = 0; svcnamelist[i] != NULL; i++) {
+    DEBUG(" CALLING exportservicetopeer(%s, pi); i = %d addr: %p", svcnamelist[i], i, svcnamelist[i]); 
     exportservicetopeer(svcnamelist[i], pi);
   };
   free(svcnamelist);
@@ -1080,12 +1085,14 @@ void gw_closegateway(GATEWAYID gwid)
     return;
   };
 
-  /* TODO: first of all we must unprovde all services importet from peer. */
-
   // we get the konownpeer entry and clear it. 
   i = gw_getknownpeer_bygwid(gwid);
   DEBUG("gw_getknownpeer_bygwid(gwid=%#x) = %d", gwid, i);
   if (i >= 0) {
+
+    /* TODO: first of all we must unprovde all services importet from peer. */
+    impexp_cleanuppeer(&knownGWs[i]);
+
     knownGWs[i].gwid = UNASSIGNED;
     conn = knownGWs[i].conn;
     knownGWs[i].conn = NULL;
@@ -1273,10 +1280,7 @@ int main(int argc, char ** argv)
   char * uri = NULL;
   char c, *name;
   mwaddress_t * mwaddress;
-  char * mwhome;
-  char * instancename;
-  char logprefix[PATH_MAX];
-  
+  char logprefix[PATH_MAX] = "SYSTEM";
   pthread_t tcp_thread;
   int tcp_thread_rc;
   int rc = 0, idx;
@@ -1290,27 +1294,6 @@ int main(int argc, char ** argv)
   name = strrchr(argv[0], '/');
   if (name == NULL) name = argv[0];
   else name++;
-
-  /* MWHOME and MWINSTANCE is set by mwd, if their not set we assume
-     start by commandline and log to stderr until we get the ipcmain
-     info */
-  mwhome = getenv ("MWHOME");
-  instancename = getenv ("MWINSTANCE");
-
-  DEBUG("MWHOME = %s", mwhome);
-  DEBUG("MWINSTANCE = %s", instancename);
-
-  if (mwhome && instancename) {
-    sprintf(logprefix, "%s/%s/log/SYSTEM", mwhome, instancename);
-    mwopenlog(name, logprefix, loglevel);
-  } else {
-    logprefix[0] = '\0';
-    mwopenlog(name, name, loglevel);
-    _mw_copy_on_stderr(1);
-  };
-
-  Info("MidWay GateWay Daemon version %s starting", mwversion());
-
 
   /* first of all do command line options */
   while((c = getopt(argc,argv, "A:l:cgp:L:")) != EOF ){
@@ -1330,6 +1313,7 @@ int main(int argc, char ** argv)
 
     case 'L':
       strncpy(logprefix, optarg, PATH_MAX);
+      printf("logprefix = %s at %s:%d\n", logprefix, __FUNCTION__, __LINE__);
       break;
 
     case 'A':
@@ -1354,6 +1338,9 @@ int main(int argc, char ** argv)
     }
   }
 
+  mwopenlog(name, logprefix, loglevel);
+
+  Info("MidWay GateWay Daemon version %s starting", mwversion());
 
   if (argc == optind) {
     DEBUG( "no domain name given");
@@ -1403,14 +1390,16 @@ int main(int argc, char ** argv)
   /* the logfile revisited, of we used a default logfile above (we're
      not started by mwd we now switch to the SYSTEM defualt
      logfile. */
+
   if (logprefix[0] == '\0') {
     strncpy(logprefix, ipcmain->mw_homedir, 256);
     strcat(logprefix, "/");
     strcat(logprefix, ipcmain->mw_instance_name);
     strcat(logprefix, "/log/SYSTEM");
-    printf("logprefix = %s\n", logprefix);
+    printf("logprefix = %s at %s:%d\n", logprefix, __FUNCTION__, __LINE__);
     mwopenlog(name, logprefix, loglevel);
   };
+
 
   if (loglevel <= MWLOG_INFO)
     _mw_copy_on_stderr(0);

@@ -273,7 +273,7 @@ int urlflinit(char ** list, ...)
     return -1;
   };
   
-  *list = malloc(100);
+  *list = malloc(100*10);
   *list[0] = '\0';
   len = 0;
   va_start(ap, list);

@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.5  2002/09/26 22:33:42  eggestad
+ * - get an abort on SIGPIPE when a gw died. we now use MSG_NOSIGNAL on sendmsg() when passing the desc.
+ *
  * Revision 1.4  2002/07/07 22:33:41  eggestad
  * We now operate on Connection structs not filedesc.
  *
@@ -601,7 +604,7 @@ int sendfd(int new_fd, int gwfd, char * message, int messagelen)
     * ((int*)CMSG_DATA(cmsg)) = new_fd;
   };
   
-  rc = sendmsg(gwfd, &msg, 0);
+  rc = sendmsg(gwfd, &msg, MSG_NOSIGNAL);
   return rc;
 };
 

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.6  2003/07/13 20:38:03  eggestad
+ * robustness fixes.
+ *
  * Revision 1.5  2003/01/07 08:27:03  eggestad
  * added sum of timepegs
  *
@@ -286,15 +289,16 @@ int timepeg_sprint(char * buffer, size_t size)
   };
 
   l = 0;
-  l += snprintf(buffer + l, size - l, 
-		"\n     Entry:         File         :      Function       (line)   delta    note");
+  l += snprintf(buffer + l, size - l, "\n     Entry:         File         :      Function       (line)   delta    note");
+
   for (i = 0; i < pd->perfidx; i++) {    
     t = pd->perfarray[i].timediff;
     if ((size - l) < 100) return l;
+
     l += snprintf(buffer + l, size - l, "\n     %5d:%22s:%22s(%d) + %8lld  \"%s\"", 
 		  i,
-		  pd->perfarray[i].file, 
-		  pd->perfarray[i].function, 
+		  pd->perfarray[i].file?pd->perfarray[i].file:"------", 
+		  pd->perfarray[i].function?pd->perfarray[i].function:"------", 
 		  pd->perfarray[i].line, 
 		  t,
 		  pd->perfarray[i].note?pd->perfarray[i].note:"");
@@ -305,11 +309,14 @@ int timepeg_sprint(char * buffer, size_t size)
   return l;
 };
   
+static char tpbuffer [(MAXPEGS * 256) + 1024];
 void timepeg_log(void)
 {
-  char buffer[(MAXPEGS * 256) + 1024];
-  timepeg_sprint(buffer, (MAXPEGS * 128) + 1024);
-  Info("TIMEPEGS: %s", buffer);
+   int l, n;
+  l = (MAXPEGS * 256) + 1024;
+
+  n = timepeg_sprint(tpbuffer, l);
+  Info ("TIMEPEGS: (%d/%d) %s", n, l, tpbuffer);
   timepeg_clear();
 };
 

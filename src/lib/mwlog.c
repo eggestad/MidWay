@@ -24,27 +24,39 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:12  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:26:59  eggestad
+ * - progname added til logline.
+ * - mwlog() now threadsafe.
+ * - diffrent unspecified log file name.
+ * - New loglevels.
+ * - new function mwopenlog().
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:12  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
  *
  */
 
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
+
+
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <pthread.h>
 
 #include <MidWay.h>
 
 /*                     hours minutes seconds */
 static int DAYLENGTH =  24  *  60   *   60;
 
-char levelprefix[] = { 'E', 'W', 'I', 'D', '1', '2', '3', '4' };
-char *levelheader[] = { "ERROR: ", "Warning: ", "", 
+char levelprefix[] = { 'F', 'E', 'W', 'A', 'I', 'D', '1', '2', '3', '4' };
+char *levelheader[] = { "FATAL: ", "ERROR: ", "Warning: ", "ALERT:", "info: ", 
 			"Debug: ", "Debug1: ", "Debug2: ", "Debug3: ", "Debug4: ", 
 			NULL };
 
@@ -52,7 +64,10 @@ static FILE *log = NULL;
 static loglevel = MWLOG_INFO;
 static time_t switchtime = 0;
 static char * logprefix = NULL;
+static char * progname = NULL;
 static int copy_on_stdout = FALSE;
+
+pthread_mutex_t logmutex = PTHREAD_MUTEX_INITIALIZER;
 
 /* this is meant to be undocumented. Needed my mwd to print on stdout before 
    becoming a daemon.*/
@@ -81,13 +96,13 @@ fptime(FILE *fp)
 }
 
 static void 
-switchlog ()
+switchlog (void)
 {
   struct timeval tv;
   struct tm * now;
   static char timesuffix[100] = ""; 
   char newsuffix[100];
-  char * filename = NULL;
+  char filename[256];
   int l;
 
   if (logprefix == NULL) return ;
@@ -98,9 +113,12 @@ switchlog ()
 
   strftime(timesuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
   if (log != NULL) fclose(log);
-  l = strlen(logprefix);
-  filename = (char * ) malloc(l + 12);
-  strcpy (filename, logprefix);
+
+  if (logprefix != NULL) {
+    strcpy (filename, logprefix);
+  } else {
+    strcpy (filename, "userlog");
+  };
   strcat (filename,".");
   strcat (filename,timesuffix);
   log = fopen(filename,"a");
@@ -118,13 +136,22 @@ mwlog(int level, char * format, ...)
   switchlog();
 
   va_start(ap, format);
-  /* THREAD MUTEX FROM HERE */
+
+  pthread_mutex_lock(&logmutex);
+
+  /* print to log file if open */
   if (log != NULL) {
     fptime(log);
-    fprintf(log,"[%d] [%c]: ",getpid(), levelprefix[level]);
+    if (progname != 0) 
+      fprintf(log,"%8.8s", progname);
+    fprintf(log,"[%5d] [%c]: ",getpid(), levelprefix[level]);
     vfprintf(log, format, ap);
+    fputc('\n',log);
+
+    fflush(log);
   } 
 
+  /* copy to stdout if so has been desired */
   if ((log == NULL) || copy_on_stdout) {
     fprintf(stdout,"%s", levelheader[level]);
     vfprintf(stdout, format, ap);
@@ -133,21 +160,18 @@ mwlog(int level, char * format, ...)
   };
 
   va_end(ap);
-  if (log != NULL) {
-    fputc('\n',log);
-    fflush(log);
-  };
-  /* THREAD MUTEX TO HERE */
+
+  pthread_mutex_unlock(&logmutex);
+
   return ;
 };
 
-int
-mwsetloglevel(int level)
+int mwsetloglevel(int level)
 {
   int oldlevel;
 
   if (level == -1) return loglevel;
-  if ( (level < MWLOG_ERROR) || (level > MWLOG_DEBUG4) ) return ;
+  if ( (level < MWLOG_FATAL) || (level > MWLOG_DEBUG4) ) return ;
   oldlevel = loglevel;
   loglevel = level;
   if (level >= MWLOG_DEBUG) copy_on_stdout = TRUE;
@@ -155,10 +179,25 @@ mwsetloglevel(int level)
   return oldlevel;
 };
 
-void 
-mwsetlogprefix(char * lfp)
+void mwsetlogprefix(char * lfp)
 {
   if (lfp == NULL) return;
   if (logprefix != NULL) free (logprefix);
   logprefix = strdup(lfp);
+};
+
+void mwopenlog(char * prog, char * lfp, int level)
+{
+  
+  mwsetlogprefix(lfp);
+  mwsetloglevel(level);
+
+  if (progname != NULL)
+    free (progname);
+   
+  if (prog == NULL) {
+    progname = NULL;
+  } else {
+    progname = strdup(prog);
+  };
 };

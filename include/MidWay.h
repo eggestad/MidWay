@@ -19,11 +19,11 @@
 */
 
    
-#ifndef _MIDWAY
+#ifndef _MIDWAY_H
 
 #include <time.h>
 
-#define _MIDWAY
+#define _MIDWAY_H
 
 #define UNASSIGNED  -1
 
@@ -65,13 +65,15 @@ typedef struct {
 
 
 /****************** FLAGS ***************/
-/* Flags for mw(a)call */
+/* Flags for mw(a)call/mwfetch/mwreply */
 #define MWNOREPLY    0x00000001
 #define MWNOBLOCK    0x00000002
 #define MWNOTIME     0x00000004
 #define MWSIGRST     0x00000008
 #define MWNOTRAN     0x00000010
 #define MWUNIQUE     0x00000020
+#define MWMULTIPLE   0x00000100
+#define MWMORE       0x00000200
 
 #define MWFASTPATH   0x00000100
 #define MWSAFEPATH   0x00000200
@@ -87,15 +89,17 @@ typedef struct {
 #define MWSERVERONLY 0x03000000
 #define MWGATEWAY    0x04000000
 
-/* for use with mwlog(), got idea from CA/Unicenter Agentworks */
-#define MWLOG_ERROR     0
-#define MWLOG_WARNING   1
-#define MWLOG_INFO      2
-#define MWLOG_DEBUG     3
-#define MWLOG_DEBUG1    4
-#define MWLOG_DEBUG2    5
-#define MWLOG_DEBUG3    6
-#define MWLOG_DEBUG4    7
+/* for use with mwlog() */
+#define MWLOG_FATAL     0
+#define MWLOG_ERROR     1
+#define MWLOG_WARNING   2
+#define MWLOG_ALERT     3
+#define MWLOG_INFO      4
+#define MWLOG_DEBUG     5
+#define MWLOG_DEBUG1    6
+#define MWLOG_DEBUG2    7
+#define MWLOG_DEBUG3    8
+#define MWLOG_DEBUG4    9
 
 /* API prototypes */
 
@@ -132,7 +136,7 @@ extern "C" {
   */
   int mwattach(char * adr, char * name, 
 	       char * username, char * password, int flags);
-  int mwdetach();
+  int mwdetach(void);
 
   /* Client call API. (mwfetch has additional functoniality in servers. */
   int mwcall(char * svcname, 
@@ -144,21 +148,21 @@ extern "C" {
 
   /* server API */
   int mwforward(char * service, char * data, int len, int flags);
-  int mwreply(char * rdata, int rlen, int returncode, int appreturncode);
-#define mwreturn(rd,rl,rc,ac) mwreply( rd,rl,rc,ac); return rc
+  int mwreply(char * rdata, int rlen, int returncode, int appreturncode, int flags);
+#define mwreturn(rd,rl,rc,ac) mwreply( rd,rl,rc,ac, 0); return rc
 
   int mwprovide(char * service, int (*svcfunc)(mwsvcinfo *), int flags);
   int mwunprovide(char * service);
 
-  int mwMainLoop();
+  int mwMainLoop(int);
   int mwservicerequest(int flags);
 
   /* conversational API */
 
   /* transactional API */
   int mwbegin(float sec, int flags);
-  int mwcommit();
-  int mwabort();
+  int mwcommit(void);
+  int mwabort(void);
 
   /* shared memory buffer memory management */
   void * mwalloc(int size);
@@ -169,6 +173,7 @@ extern "C" {
 
   /* internal logging API */
   void mwsetlogprefix(char * fileprefix);
+  void mwopenlog(char * progname, char * fileprefix, int loglevel);
   int mwsetloglevel(int level);
   void mwlog(int level, char * format, ...);
 

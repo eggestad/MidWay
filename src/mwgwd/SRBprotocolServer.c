@@ -24,6 +24,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.4  2001/08/29 17:55:15  eggestad
+ * fix for changed behavior of urlmapnset
+ *
  * Revision 1.3  2000/09/24 14:10:42  eggestad
  * Changed a few mwlog()  messages to be DEBUG
  *
@@ -656,9 +659,7 @@ int _mw_srbsendcallreply(int fd, SRBmessage * srbmsg, char * data, int len,
 
   /* first update th edata field, or remove as appropreate */
   if ( (data != NULL) && (len > 0) ) {
-    rc = urlmapnset(srbmsg->map, SRB_DATA, data, len);
-    if (rc == -1)
-      srbmsg->map = urlmapnadd(srbmsg->map, SRB_DATA, data, len);
+    urlmapnset(srbmsg->map, SRB_DATA, data, len);
   } else {
     urlmapdel(srbmsg->map, SRB_DATA);
   };

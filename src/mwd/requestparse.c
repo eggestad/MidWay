@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/09/24 14:09:16  eggestad
+ * Fix of format of clientid i two messages
+ *
  * Revision 1.2  2000/07/20 19:49:01  eggestad
  * Changes to handling of attachrequest to handle SRB clients
  *
@@ -210,11 +213,11 @@ static int do_detach(void * mp)
   if (dm->client) {
     rc = delclient(dm->cltid);
     if (rc == 0) {
-      mwlog (MWLOG_INFO, "CLIENT DETACHED pid %d clientid %#x", 
-	     dm->pid, dm->cltid);
+      mwlog (MWLOG_INFO, "CLIENT DETACHED pid %d clientid %d", 
+	     dm->pid, dm->cltid&MWINDEXMASK);
     } else {
-      mwlog (MWLOG_WARNING, "FAILED TO DETACHED CLIENT pid=%d clientid %#x, rc=%d", 
-	     dm->pid, dm->cltid, rc);
+      mwlog (MWLOG_WARNING, "FAILED TO DETACHED CLIENT pid=%d clientid %d, rc=%d", 
+	     dm->pid, dm->cltid&MWINDEXMASK, rc);
     }
   };
   dm->returncode = 0;

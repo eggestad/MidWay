@@ -11,7 +11,7 @@ mwattach, mwdetach \- Attaching to a running MidWay instance
 .SH SYNOPSIS
 .B #include <MidWay.h>
 .sp
-.BI "int mwattach(int " url ", char * " name ", "
+.BI "int mwattach(char " url ", char * " name ", "
 .BI "char * " username ", char * " password ", int " flags ");"
 .br
 .BI "int mwdetach();"
@@ -33,7 +33,7 @@ for a complete description of attchment adresses.
 
 URL format: for IPC
 attachment
-.BI ipc:// key
+.BI ipc: key
 or 
 .BI ipc:// [instancename]
 instancename assumed to be "default" if absent, 

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2002/10/20 18:13:52  eggestad
+ * added sanity check
+ *
  * Revision 1.9  2002/10/06 23:51:10  eggestad
  * bug in getchunksize, rather large, so a fixup in handling of size and verification
  *
@@ -125,6 +128,7 @@ int _mwadr2offset(void * adr)
 
 void * _mwoffset2adr(int offset)
 {
+  if (offset < 0) return NULL; 
   if (_mwHeapInfo == NULL) return NULL;
   return (void *)_mwHeapInfo + offset;
 };

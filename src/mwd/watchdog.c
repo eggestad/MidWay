@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2002/02/17 18:02:14  eggestad
+ * - added missing includes
+ *
  * Revision 1.2  2000/07/20 19:54:52  eggestad
  * prototype fixup.
  *
@@ -39,12 +42,17 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <stdio.h>
 #include <sys/time.h>
 #include <unistd.h>
+#include <stdlib.h>
 
 #include <MidWay.h>
 #include <ipctables.h>
 #include "mwd.h"
 #include "tables.h"
 #include "watchdog.h"
+
+/* undocumented func in lib/mwlog.c */
+void _mw_copy_on_stdout(int flag);
+
 
 /* The periode in seconds  between every time the dog shall go on patrol */
 #ifndef INTERVAL
@@ -114,10 +122,9 @@ static int run_watchdog(void)
       mwlog(MWLOG_ERROR, "Watchdog: mwd who was my parent died unexpectantly, This Can't happen. %d != %d", ipcmain->mwdpid, getppid());
       mwlog(MWLOG_ERROR, "Watchdog: attempting to clean up everything.");
       kill_all_servers();
-      shm_destroy();
-      term_tables();
-      term_maininfo();
+
       cleanup_ipc();
+
       exit(0);
     };
 

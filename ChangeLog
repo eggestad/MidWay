@@ -1,9 +1,10 @@
-2003-07-21    <terje@3gnmy6.cm.chello.no>
+2003-07-21  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* fixed major ipc buffers corruption bug when all buffers exausted
 	* also make mwacall and mwreply retry for a while if no buffers are immediatly available
 	* better exit from mwacall
-
+	* fixed dwrong prototype in mwattach.3C man page.
+	
 2003-07-13  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* TIMEPEGS in liburl and more
@@ -15,7 +16,7 @@
 
 2003-06-07  Terje Eggestad  <terje.eggestad@iname.com>
 
-	* mutex (un)lock in now in debug3
+	* mutex (un)lock now in debug3
 	* added funcs for seting and geting ownerid of chunks
 	* introduced a table api for commands.c to return data in
 	
@@ -24,7 +25,7 @@
 	* reworked the call request queue to FIFO
 	* added data contents in message dump
 
-2003-06-12    <terje@dpc-28.office.scali.no>
+2003-06-12 Terje Eggestad  <terje.eggestad@iname.com>
 
 	* fixes in mwgwd: NULL data in got garbage out, MWIPCONLY on inbound calls from peers
 	* all now uses MW*_LOGLEVEL env vars
@@ -35,81 +36,81 @@
 	* fix for multiple instances on host with now network connection.
 	* added <env> tags for servers and mwgwd in config.
 
-2003/06/05  Terje Eggestad  <terje@localhost.localdomain>
+2003/06/05  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* made common parsing of -l option
 	
-2003/04/25  Terje Eggestad  <terje@localhost.localdomain>
+2003/04/25  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* fixes to task API
 	* much improved shutdown procedure in mwd
 	
-2003-03-17  Terje Eggestad  <terje@localhost.localdomain>
+2003-03-17  Terje Eggestad  <terje.eggestad@iname.com>
 
 	RELEASE 0.12.0 	
 
-2003-03-17  Terje Eggestad  <terje@localhost.localdomain>
+2003-03-17  Terje Eggestad  <terje.eggestad@iname.com>
 	
 	* yet more major bugfixes to mwgwd	
 
-2003-01-07  Terje Eggestad  <terje@localhost.localdomain>
+2003-01-07  Terje Eggestad  <terje.eggestad@iname.com>
 	
 	* major bugfixes to mwgwd	
 
-2002/12/17  Terje Eggestad  <terje@localhost.localdomain>
+2002/12/17  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* added X86_64 support
 	* automake 2.53 fixes
 	* Server Manager added to mwd.
 	* fixes to mwgwd
 	
-2002/11/08  Terje Eggestad  <terje@localhost.localdomain>
+2002/11/08  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* Major fixes to default logfile
 	* added color to putput to screen
 
-2002/10/22  Terje Eggestad  <terje@localhost.localdomain>
+2002/10/22  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* removed unnecessary DNS lookups. 
 	* mgwd now route calls to peer mwgwds
 
-2002/10/03  Terje Eggestad  <terje@localhost.localdomain>
+2002/10/03  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* fixes to switching of logfiles when logfilename was (re)set
 	* plugged filedescriptor leak in mwbd
 
-2002/09/26  Terje Eggestad  <terje@localhost.localdomain>
+2002/09/26  Terje Eggestad  <terje.eggestad@iname.com>
 	
 	* mwgwd no longer liste to private port per default
 	
-2002/09/05  Terje Eggestad  <terje@localhost.localdomain>
+2002/09/05  Terje Eggestad  <terje.eggestad@iname.com>
 	
 	* MWURL env var in addition to MWADDRESS
 	
-2002/08/09  Terje Eggestad  <terje@localhost.localdomain>
+2002/08/09  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* added events and task functionality and API.
 	
-2002/07/07  Terje Eggestad  <terje@localhost.localdomain>
+2002/07/07  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* added import and export of services to mwgwd, local domains now work(ish)
 	* fixes to shared object serach path in mwserver
 
-2002/02/17  Terje Eggestad  <terje@localhost.localdomain>
+2002/02/17  Terje Eggestad  <terje.eggestad@iname.com>
 	
 	* added config file
 	* changed handling of multiple replies, MWMORE is now a return code to mwreply() not a flag. 
 	* added a .midwaytab file
 
-2001-10-09  Terje Eggestad  <terje@localhost.localdomain>
+2001-10-09  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* multicast was only sendt to localhost, now fixed
 
-2001-10-04  Terje Eggestad  <terje@localhost.localdomain>
+2001-10-04  Terje Eggestad  <terje.eggestad@iname.com>
 
 	RELEASE 0.11
 	
-2001-10-04  Terje Eggestad  <terje@localhost.localdomain>
+2001-10-04  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* a lot of bugfixes, all memleaks in mwgwd now seem to be plugged.
 	* added a RC script for mwbd
@@ -117,28 +118,28 @@
 	* added multicast query and gateway table view to mwadm
         * added RPM spec file
 	
-2001-09-09  Terje Eggestad  <terje@localhost.localdomain>
+2001-09-09  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* did a lot of clean up to get a cleaner compile.
 	* the shared lib now has version number. Needed to have multiple runtime versions. 
 
-2001-09-09  Terje Eggestad  <terje@localhost.localdomain>
+2001-09-09  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* added the broker daemon, mwbd, and added the broker module to mwgwd.
 
-2001-08-20  Terje Eggestad  <terje@localhost.localdomain>
+2001-08-20  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* added autoconf
 	* renamed all Makefiles to Makefile.in, and
 	* updated make install and uninstall
 	* added depend target
 	
-2000-11-12  Terje Eggestad  <terje@localhost.localdomain>
+2000-11-12  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* Makefile changes for RedHat 7.0, 
 	  install changed behaviour and libreadline now require curses.
 	
-2000-30-11  Terje Eggestad  <terje@localhost.localdomain>
+2000-30-11  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* 0.10.1 released
 	  - Added (un)install targets in makefiles.
@@ -149,6 +150,6 @@
 	  - mwd -D fails fix
 
 	
-2000-19-10  Terje Eggestad  <terje@localhost.localdomain>	
+2000-19-10  Terje Eggestad  <terje.eggestad@iname.com>	
 
 	* 0.10.0 released

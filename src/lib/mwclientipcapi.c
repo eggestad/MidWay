@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2000/09/21 18:40:56  eggestad
+ * Minor changes due to diffrent deadline API
+ *
  * Revision 1.3  2000/08/31 21:52:16  eggestad
  * Top level API moved to mwclientapi.c.
  *
@@ -75,7 +78,7 @@ int _mwattachipc(int type, char * name, int key)
   rc = _mw_attach_ipc(key, type);
   if (rc != 0) return rc;
   
-  mwlog(MWLOG_DEBUG3, "_mwattachipc: Sending attach request to mwd type=d name = %s", type, name);
+  mwlog(MWLOG_DEBUG3, "_mwattachipc: Sending attach request to mwd type=%d name = %s", type, name);
   return _mw_ipcsend_attach(type, name, 0);
 };
 
@@ -138,5 +141,5 @@ int _mwacall_ipc(char * svcname, char * data, int datalen, int flags)
   rc = _mwsystemstate();
   if (rc) return rc;
 
-  return _mwacallipc (svcname, data, datalen, &deadline, flags);
+  return _mwacallipc (svcname, data, datalen,  flags);
 }

@@ -22,3 +22,5 @@
 int _mw_deadline(struct timeval * tv_deadline, float * ms_deadlineleft);
 int _mw_isattached(void);
 int _mw_fastpath_enabled(void);
+int _mw_nexthandle(void);
+int _mw_isattached(void);

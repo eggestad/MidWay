@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/02/17 14:14:22  eggestad
+ * missing include added
+ *
  * Revision 1.3  2000/09/21 18:42:39  eggestad
  * Changed a bit the copy_on_stdout to be either stderr or stdout.
  *
@@ -51,6 +54,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <unistd.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <pthread.h>
 
 #include <MidWay.h>
@@ -64,7 +68,7 @@ char *levelheader[] = { "FATAL: ", "ERROR: ", "Warning: ", "ALERT:", "info: ",
 			NULL };
 
 static FILE *log = NULL;
-static loglevel = MWLOG_INFO;
+static int loglevel = MWLOG_INFO;
 static time_t switchtime = 0;
 static char * logprefix = NULL;
 static char * progname = NULL;

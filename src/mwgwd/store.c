@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2000/08/31 22:10:02  eggestad
+ * DEBUG level set propper
+ *
  * Revision 1.1  2000/07/20 18:49:59  eggestad
  * The SRB daemon
  *
@@ -74,7 +77,7 @@ static struct PendingCall * freePendingCall(void)
 
   if (CallsFreeList == NULL) {
     PCtmp = (struct PendingCall *) malloc(sizeof(struct PendingCall));
-    mwlog(MWLOG_DEBUG, "Alloced new PendingCall struct");
+    mwlog(MWLOG_DEBUG2, "Alloced new PendingCall struct");
   } else {
     PCtmp = CallsFreeList;
     CallsFreeList = PCtmp->next;
@@ -96,8 +99,8 @@ void storePushCall(CLIENTID cid, int nethandle, int fd, urlmap *map)
 {
   struct PendingCall * PCtmp;
 
-  mwlog(MWLOG_DEBUG, "Pushing PendingCall id=%d, handle=%u fd=%d", 
-	cid&MWINDEXMASK, nethandle, fd);
+  mwlog(MWLOG_DEBUG2, "Pushing PendingCall id=%d, handle=%u fd=%d, map @ %#x", 
+	cid&MWINDEXMASK, nethandle, fd, map);
   PCtmp = freePendingCall();
   PCtmp->fd = fd;
   PCtmp->nethandle = nethandle;
@@ -117,7 +120,7 @@ int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map )
       *fd = -1;
     if (map != NULL)
       *map = NULL;
-    mwlog(MWLOG_DEBUG, "Failed to Pop PendingCall id=%d, ipchandle=%u empty list", 
+    mwlog(MWLOG_DEBUG2, "Failed to Pop PendingCall id=%d, ipchandle=%u empty list", 
 	  cid&MWINDEXMASK, ipchandle);
     return 0;
   }
@@ -135,7 +138,7 @@ int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map )
     PCthis->next = CallsFreeList;
     CallsFreeList = PCthis;
 
-    mwlog(MWLOG_DEBUG, "Poping PendingCall id=%d, ipchandle=%u (top)", 
+    mwlog(MWLOG_DEBUG2, "Poping PendingCall id=%d, ipchandle=%u (top)", 
 	  cid&MWINDEXMASK, ipchandle);  
     return 1;
   };
@@ -152,14 +155,14 @@ int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map )
       PCthis->next = CallsFreeList;
       CallsFreeList = PCthis;
 
-      mwlog(MWLOG_DEBUG, "Poping PendingCall id=%d, ipchandle=%u", 
+      mwlog(MWLOG_DEBUG2, "Poping PendingCall id=%d, ipchandle=%u", 
 	    cid&MWINDEXMASK, ipchandle);
       return 1;
     }
     PCprev = PCthis;
     PCthis = PCthis->next;
   };
-  mwlog(MWLOG_DEBUG, "Failed to Pop PendingCall id=%d, ipchandle=%u", 
+  mwlog(MWLOG_DEBUG2, "Failed to Pop PendingCall id=%d, ipchandle=%u", 
 	cid&MWINDEXMASK, ipchandle);
   if (fd != NULL)
     *fd = -1;
@@ -180,13 +183,13 @@ int storeSetIPCHandle(CLIENTID cid, int nethandle, int fd, int ipchandle)
 	 (PCthis->nethandle == nethandle) &&
 	 (PCthis->fd == fd) ) {
       PCthis->ipchandle = ipchandle;
-      mwlog(MWLOG_DEBUG, "Set ipc handle %#x pending call client=%d handle=%#x",
+      mwlog(MWLOG_DEBUG2, "Set ipc handle %#x pending call client=%d handle=%#x",
 	    ipchandle, cid, nethandle);
       return 0;
     };
     PCthis = PCthis->next;
   };
-  mwlog(MWLOG_DEBUG, "Set ipc handle %#x pending call client=%d handle=%#x FAILED",
+  mwlog(MWLOG_DEBUG2, "Set ipc handle %#x pending call client=%d handle=%#x FAILED",
 	ipchandle, cid, nethandle);
   return -1;
 };
@@ -195,13 +198,13 @@ pthread_mutex_t callmutex = PTHREAD_MUTEX_INITIALIZER;
 
 int  storeLockCall(void)
 {
-  mwlog(MWLOG_DEBUG, "locking callmutex");
+  mwlog(MWLOG_DEBUG2, "locking callmutex");
   pthread_mutex_lock(&callmutex);
 };
 
 int  storeUnLockCall(void)
 {
-  mwlog(MWLOG_DEBUG, "unlocking callmutex");
+  mwlog(MWLOG_DEBUG2, "unlocking callmutex");
   pthread_mutex_unlock(&callmutex);
 };
 
@@ -234,7 +237,7 @@ static struct DataBuffer * freeDataBuffer(void)
 
   if (CallsFreeList == NULL) {
     DBtmp = (struct DataBuffer *) malloc(sizeof(struct DataBuffer));
-    mwlog(MWLOG_DEBUG, "Alloced new DataBuffer struct");
+    mwlog(MWLOG_DEBUG2, "Alloced new DataBuffer struct");
   } else {
     DBtmp = DataBuffersFreeList;
     DataBuffersFreeList = DBtmp->next;
@@ -258,7 +261,7 @@ void storePushDataBuffer(unsigned int nethandle, int fd, char * data, int datale
   struct DataBuffer * DBtmp;
 
   
-  mwlog(MWLOG_DEBUG, "Pushing DataBuffer for nethandle=%u fd=%d, %d bytes", 
+  mwlog(MWLOG_DEBUG2, "Pushing DataBuffer for nethandle=%u fd=%d, %d bytes", 
 	nethandle, fd, datalen);
 
   DBtmp = freeDataBuffer();
@@ -301,7 +304,7 @@ int storePopDataBuffer(unsigned int nethandle, int fd, char ** data, int *datale
       DBthis->next = DataBuffersFreeList;
       DataBuffersFreeList = DBthis;
 
-      mwlog(MWLOG_DEBUG, "Poping DataBuffer fd=%d, nethandle=%u", 
+      mwlog(MWLOG_DEBUG2, "Poping DataBuffer fd=%d, nethandle=%u", 
 	    fd, nethandle);
 
       return 1;
@@ -309,7 +312,7 @@ int storePopDataBuffer(unsigned int nethandle, int fd, char ** data, int *datale
     DBprev = DBthis;
     DBthis = DBthis->next;
   };
-  mwlog(MWLOG_DEBUG, "Failed to Pop DataBuffer fd=%d, nethandle=%u", 
+  mwlog(MWLOG_DEBUG2, "Failed to Pop DataBuffer fd=%d, nethandle=%u", 
 	fd, nethandle);
   *data = NULL;
   *datalen = -1;
@@ -327,7 +330,7 @@ int storeAddDataBufferChunk(unsigned int nethandle, int fd, char * data, int len
       DBtmp->datalen += len;
       DBtmp->data = realloc(DBtmp->data, DBtmp->datalen);
       memcpy(DBtmp->data, data, DBtmp->datalen);
-      mwlog(MWLOG_DEBUG, "Adding %d data to DataBuffer fd=%d, nethandle=%u", 
+      mwlog(MWLOG_DEBUG2, "Adding %d data to DataBuffer fd=%d, nethandle=%u", 
 	    len, fd, nethandle);
       return DBtmp->chunk;
     }
@@ -414,7 +417,7 @@ static struct PendingAttach * freePendingAttach(void)
 
   if (AttachFreeList == NULL) {
     PAtmp = (struct PendingAttach *) malloc(sizeof(struct PendingAttach));
-    mwlog(MWLOG_DEBUG, "Alloced new PendingAttach struct");
+    mwlog(MWLOG_DEBUG2, "Alloced new PendingAttach struct");
   } else {
     PAtmp = AttachFreeList;
     AttachFreeList = PAtmp->next;
@@ -436,7 +439,7 @@ void storePushAttach(char * cname, int connid, int fd, urlmap * map)
 {
   struct PendingAttach * PAtmp;
 
-  mwlog(MWLOG_DEBUG, "Pushing PendingAttach cname=%s connid=%d, fd=%d", 
+  mwlog(MWLOG_DEBUG2, "Pushing PendingAttach cname=%s connid=%d, fd=%d", 
 	cname, connid, fd);
   PAtmp = freePendingAttach();
   PAtmp->fd = fd;
@@ -474,7 +477,7 @@ int  storePopAttach(char * cname, int *connid, int * fd, urlmap ** map)
     AttachInProgress = PAthis->next;
     PAthis->next = AttachFreeList;
     AttachFreeList = PAthis;
-    mwlog(MWLOG_DEBUG, "Poping PendingAttach cname=%s (top)", 
+    mwlog(MWLOG_DEBUG2, "Poping PendingAttach cname=%s (top)", 
 	  cname);  
     return 1;
   };
@@ -493,14 +496,14 @@ int  storePopAttach(char * cname, int *connid, int * fd, urlmap ** map)
       clearPendingAttach(PAthis);
       PAthis->next = AttachFreeList;
       AttachFreeList = PAthis;
-      mwlog(MWLOG_DEBUG, "Poping PendingAttach cname=%s", 
+      mwlog(MWLOG_DEBUG2, "Poping PendingAttach cname=%s", 
 	    cname);  
       return 1;
     }
     PAprev = PAthis;
     PAthis = PAthis->next;
   };
-  mwlog(MWLOG_DEBUG, "Failed to Pop PendingAttach cname=%s", 
+  mwlog(MWLOG_DEBUG2, "Failed to Pop PendingAttach cname=%s", 
 	cname);
   
   if (fd != NULL)
@@ -532,7 +535,7 @@ int main(int argc, char ** argv)
   map3 = urlmapdecode(m3);
 
   if (argc > 1)
-    mwsetloglevel(MWLOG_DEBUG);
+    mwsetloglevel(MWLOG_DEBUG2);
 
   /* TESTING CALL STACK */
   printf("\nCall stack tests\n");

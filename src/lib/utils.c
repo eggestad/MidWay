@@ -1,6 +1,6 @@
 /*
   MidWay
-  Copyright (C) 2001 Terje Eggestad
+  Copyright (C) 2001-4 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU  General Public License as
@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.10  2004/11/26 16:38:34  eggestad
+ * added a utility function _mw_irand() as a wrapper to random functions
+ *
  * Revision 1.9  2004/10/13 18:41:10  eggestad
  * task API updates
  *
@@ -170,6 +173,20 @@ void _mw_setrealtimer(long long usecs)
 
   return;
 };
+
+
+/* return a number between 0 and bound-1 */
+int _mw_irand(int bound)
+{
+   static int seed = -1;
+   
+   if (seed == -1) {
+      seed = time(NULL) + getpid(); // good enough
+      srand(seed);
+   };
+
+   return (int) (10.0*rand()/(RAND_MAX+1.0));
+};   
 
 /************************************************************************
  * time pegs 

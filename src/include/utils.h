@@ -1,6 +1,6 @@
 /*
   MidWay
-  Copyright (C) 2001 Terje Eggestad
+  Copyright (C) 2001-4 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU  General Public License as
@@ -22,3 +22,5 @@ unsigned long long _mw_lltimes(void);
 void _mw_setrealtimer(long long usecs);
 
 long long _mw_llgtod(void);
+
+int _mw_irand(int bound);

@@ -23,13 +23,20 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:20  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:42:34  eggestad
+ * Listing of SRB clients fix.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:20  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
  *
  */
+
+
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <stdio.h>
 #include <string.h>
@@ -71,9 +78,25 @@ int info(int argc, char ** argv)
   printf ("MidWay system \"%s\" has version %d.%d.%d\n", 
 	  ipcmain->mw_system_name==NULL?"(Anonymous)":ipcmain->mw_system_name,
 	  ipcmain->vermajor, ipcmain->verminor, ipcmain->patchlevel);
-  printf ("  master Processid = %d status = %d boottime %s\n", 
+  printf ("  master Processid = %d status = %d boottime %s", 
 	  ipcmain->mwdpid, ipcmain->status, ctime(&ipcmain->boottime));
+  printf ("  Home directory=%s\n", 
+	  ipcmain->mw_homedir);
   return 0;
+};
+
+static const char * clienttypestring(int type) 
+{
+  switch(type) {
+
+  case MWIPCCLIENT:
+  case MWNETCLIENT:
+    return "Client";
+  case MWIPCSERVER:
+    return "Server";
+  default:
+    return "      ";
+  };
 };
 
 int clients(int argc, char ** argv)
@@ -81,7 +104,6 @@ int clients(int argc, char ** argv)
   char * token;
   int i, count = 0;
   cliententry * cltent;
-  char *  clienttypestring[4] = { "N/A   ", "Client", "Server" , NULL};
   char * loc = "N/A     ";
 
   if (ipcmain == NULL) {
@@ -100,7 +122,7 @@ int clients(int argc, char ** argv)
       if (cltent[i].location == MWLOCAL)  loc = "LocalIPC";
       if (cltent[i].location == MWREMOTE) loc = "Remote  ";
       /*      if (extended) printf ("@ %#x ", &cltent[i]); */
-      printf ("%8d %-6s %-8s %-6d %-6d %s\n", i,  clienttypestring[cltent[i].type], 
+      printf ("%8d %-6s %-8s %-6d %-6d %s\n", i,  clienttypestring(cltent[i].type), 
 	      loc, cltent[i].pid, cltent[i].mqid, cltent[i].clientname);
     };
   }
@@ -279,7 +301,7 @@ int shutdown (int argc, char ** argv)
   admmesg.delay = 0;
   admmesg.cltid = _mw_get_my_clientid();
   
-  rc = _mw_ipc_putmessage(0,&admmesg, sizeof(Administrative), 0);
+  rc = _mw_ipc_putmessage(0, (char *) &admmesg, sizeof(Administrative), 0);
   if (rc != 0) fprintf(stderr, "shutdown failed, reason %d", rc);
   return rc;
 };

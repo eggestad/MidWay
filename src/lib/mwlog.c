@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.15  2002/12/12 22:45:58  eggestad
+ * last fixed was incomplete
+ *
  * Revision 1.14  2002/12/12 16:09:31  eggestad
  * We used ap in two v*printf in _mw_vlogf, and on hammer the second time continued on the stack. Turns out that it's illegal to use it twice.
  *
@@ -246,6 +249,7 @@ _mw_vlogf(int level, char * format, va_list ap)
   int l, s, rc;
 
   if (level > loglevel) return;
+  if (format == NULL) return;
 
   if (logprefix == NULL) mwsetlogprefix(NULL);
   switchlog();
@@ -254,52 +258,31 @@ _mw_vlogf(int level, char * format, va_list ap)
   _LOCKMUTEX(logmutex);
 #endif 
 
-  buffer[0] = '\0';
-  s = LINE_MAX-2; 
-  l = 0;
+  rc = vsnprintf(mesg, LINE_MAX, format, ap);
+  if (rc == LINE_MAX) mesg[LINE_MAX-1] = '\0';
+
   /* print to log file if open */
   if (log != NULL) {
+    char timestamp[40];
+
+    buffer[0] = '\0';
+    s = LINE_MAX-2; 
+    l = 0;
 
     // we don't check rc on these, since the *must* succed. 
-    rc = sptime(buffer+l, s);
-    s -= rc;
-    l += rc;
+    rc = sptime(timestamp, 40);
 
-    _fprintf (stderr, "%d (l=%d s=%d) %s\n", __LINE__, l, s, buffer);
-  
-    if (progname != 0) {
-      rc = snprintf(buffer+l, s, "%8.8s", progname);
-      s -= rc;
-      l += rc;
+    l = snprintf(buffer, s, "%s %8.8s" "[%5d] [%c]: " "%s\n",
+		 timestamp, 
+		 progname?progname:"", 
+		 getpid(), levelprefix[level], 
+		 mesg);
+    
+    if (l >= s) {
+      buffer[LINE_MAX-2] = '\n';
+      buffer[LINE_MAX-1] = '\0';
     };
-
-    _fprintf (stderr, "%d (l=%d s=%d) %s\n", __LINE__, l, s, buffer);
-          
-    rc = snprintf(buffer+l, s, "[%5d] [%c]: ",getpid(), levelprefix[level]);
-    s -= rc;
-    l += rc;
-
-    _fprintf (stderr, "%d (l=%d s=%d) %s\n", __LINE__, l, s, buffer);
-
-    // Here we might get an overflow...
-    rc = vsnprintf(mesg, LINE_MAX, format, ap);
-    if (rc == LINE_MAX) mesg[LINE_MAX-1] = '\0';
-
-    rc = snprintf(buffer+l, s, "%s", mesg);
-    l += rc;
-
-    _fprintf (stderr, "%d (l=%d s=%d) %s\n", __LINE__, l, s, buffer);
-
-    if (rc > s) {
-      s = 0;
-      buffer[l-1] = '\n';
-    } else {
-      buffer[l] = '\n';
-      buffer[l+1] = '\0';
-      l++;
-    };
-    _fprintf (stderr, "%d %s", __LINE__, buffer);
-
+    
     fwrite (buffer, 1, l, log);
   } 
 
@@ -443,7 +426,7 @@ void mwsetlogprefix(char * lfp)
 	     __FUNCTION__, __LINE__);
   };
 
-  if (logdir != NULL) {
+  if ( (logdir != NULL) && (logfilename != NULL) ) {
     if (logprefix != NULL) free (logprefix);
     logprefix = malloc(strlen(logdir) + strlen(logfilename) +1);
     sprintf(logprefix, "%s/%s", logdir, logfilename);

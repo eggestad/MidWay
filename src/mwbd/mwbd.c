@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.5  2002/09/29 17:39:06  eggestad
+ * fix of debugmessage that didn't give correct recv SRB message
+ *
  * Revision 1.4  2002/07/07 22:33:41  eggestad
  * We now operate on Connection structs not filedesc.
  *
@@ -267,8 +270,9 @@ static void  do_udp_dgram(int sd)
   fromlen = sizeof(struct sockaddr_in);
   rc = recvfrom(sd, buffer, 1024, 0, (struct sockaddr *)&from, &fromlen);
   inet_ntop(AF_INET, &from.sin_addr, addrbuf, 100);
-  debug ("from socket %d, we got a message %s sender %s:%d (%d)", 
-	sd, buffer, addrbuf , ntohs(from.sin_port), fromlen);
+
+  debug ("from socket %d, we got a message %*.*s sender %s:%d (%d)", 
+	sd, rc-2, rc-2, buffer, addrbuf , ntohs(from.sin_port), fromlen);
 
   pseudoconn.fd = sd;    
 

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.15  2004/02/19 23:42:11  eggestad
+ * setting of correct owner id in _mwalloc()
+ *
  * Revision 1.14  2003/07/20 23:16:19  eggestad
  * - major corruption fix:
  *  * added bounds check functions
@@ -615,7 +618,7 @@ void * _mwalloc(int size)
 	_mwHeapInfo->inusehighwater = _mwHeapInfo->inusecount;
       
       /* really should be CLIENTID or SERVERID or GATEWAYID ... */
-      pCHead->ownerid = getpid(); 
+      pCHead->ownerid = _mw_get_my_mwid(); 
       if (pCHead->size != 1<<i) {
 	Error("mwalloc: retrived chunk is of size %ld*%ld != %d*%ld chunk at offset %d",
 	      pCHead->size, 
@@ -693,7 +696,7 @@ int _mwfree(void * adr)
 
   d = log(pCHead->size) / log(2);
   bin = d;
-  DEBUG3("size %d Bin = %d %d %f", pCHead->size, rc, bin, d);
+  DEBUG3("size %d ownerid=%x Bin = %d %d %f", pCHead->size, pCHead->ownerid, rc, bin, d);
   pCHead->ownerid = UNASSIGNED;
 
   rc = lock(bin); /* lock sem for bin */

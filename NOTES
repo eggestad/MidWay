@@ -1,0 +1,9 @@
+
+On developing 
+=============
+
+the conf-test script runs configure with gcc additional warning flags,
+and with -DDEBUGGING which turn on some heavy debugging routines. (Or at least perceived heavy). 
+This will normally set default loglevel to debug2. 
+
+

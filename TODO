@@ -70,3 +70,7 @@
    use the mask in the SERVICEID, SERVERID, and GATEWAYID. It may be a
    good idea  to make  the MWID  a long long  to enforce  this casting
    propperly.
+
+* the _mwacall() in lib  choose randomly among services, regardless if
+  they're local or  remote. Is this right, or should  we have a policy
+  on this?

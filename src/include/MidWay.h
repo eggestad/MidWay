@@ -164,6 +164,8 @@ void _mw_vlogf(int level, char * format, va_list ap); // in mwlog.c
 /* here we introduce some short forms for the mwlog() calls. These are
    here and not the main MidWay.h so that we don't clobber the
    namespace to user applications */
+//#define NDEBUG
+
 #ifndef NDEBUG
 
 static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, ...)
@@ -220,6 +222,12 @@ pthread_mutex_lock(&name); DEBUG1("locked mutex " #name);  } while(0)
 #define UNLOCKMUTEX(name)  do { DEBUG1("unlocking mutex " #name); pthread_mutex_unlock(&name); } while(0)
 #else 
 #error "PTHREADS are currently required"
+#endif
+
+#ifndef TIMEPEGS
+#ifdef DEBUGGING
+#define TIMEPEGS
+#endif
 #endif
 
 #ifdef TIMEPEGS

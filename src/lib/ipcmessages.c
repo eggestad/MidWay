@@ -21,6 +21,10 @@
 /*
  * 
  * $Log$
+ * Revision 1.33  2004/08/11 19:01:36  eggestad
+ * - shm heap is now 32/64 bit interoperable
+ * - added large buffer alloc
+ *
  * Revision 1.32  2004/06/17 08:36:51  eggestad
  * mwevent on IPC was broken
  *
@@ -342,12 +346,12 @@ static char * popReplyQueueByHandle(long handle)
 };
 #endif
 
-static char * strdata(int dataoff, int len)
+static char * strdata(seginfo_t * si, int dataoff, int len)
 {
    static char data[80];
    char * rdata;
    int i, l;
-   rdata = _mwoffset2adr(dataoff);
+   rdata = _mwoffset2adr(dataoff, si);
    
    if (len > 72) l = 72;
    else  l = len;
@@ -415,6 +419,15 @@ static const char * messagetype(int mtype)
    case EVENTUNSUBSCRIBERPL:
       return "Unsubscribe Reply";
 
+   case ALLOCREQ:
+      return "Alloc Request";
+   case ALLOCRPL:
+      return "Alloc Reply";
+   case FREEREQ:
+      return "Free Request";
+   case FREERPL:
+      return "Free Reply";
+
   default:
       return "????";
    };
@@ -427,6 +440,7 @@ void  _mw_dumpmesg(void * mesg)
   Provide * pm;
   Call *rm;
   Event *ev;
+  Alloc * alloc;
   //  Converse *cm;
   
   mtype = (long *) mesg;
@@ -484,11 +498,11 @@ void  _mw_dumpmesg(void * mesg)
           int         forwardcount       = %d\n\
           char        service            = %.32s\n\
           char        origservice        = %.32s\n\
-          time_t      issued             = %ld\n\
+          time_t      issued             = %lld\n\
           int         uissued            = %d\n\
           int         timeout            = %d\n\
-          int         data               = %d \"%s\"\n\
-          int         datalen            = %d\n\
+          int64_t     data               = %lld \"%s\"\n\
+          int64_t     datalen            = %lld\n\
           int         appreturncode      = %d\n\
           int         flags              = %#x\n\
           char        domainname         = %.64s\n\
@@ -499,7 +513,7 @@ void  _mw_dumpmesg(void * mesg)
 	   rm->forwardcount, rm->service, rm->origservice, 
 	   rm->issued, rm->uissued, rm->timeout, 
 	   rm->data, 
-	   strdata(rm->data,  rm->datalen), 
+	   strdata(_mw_getsegment(rm->datasegmentid), rm->data,  rm->datalen), 
 	   rm->datalen, 
 	   rm->appreturncode, rm->flags, rm->domainname, rm->returncode);
     return;
@@ -516,8 +530,8 @@ void  _mw_dumpmesg(void * mesg)
 	   "            SERVERID    srvid            = %d\n"
 	   "            SERVICEID   svcid            = %d\n"
 	   "            GATEWAYID   gwid             = %d\n"
-	   "          int         data               = %d \"%s\"\n"
-	   "          int         datalen            = %d\n"
+	   "          int64_t     data               = %lld \"%s\"\n"
+	   "          int64_t     datalen            = %lld\n"
 	   "          char        username           = %.64s\n"
 	   "          char        clientname         = %.64s\n"
 	   "          int         flags              = %#x\n",
@@ -530,7 +544,7 @@ void  _mw_dumpmesg(void * mesg)
 	   SVCID2IDX(ev->senderid),
 	   GWID2IDX(ev->senderid),
 	   ev->data, 
-	   strdata(ev->data,  ev->datalen),
+	   strdata(_mw_getsegment(rm->datasegmentid), ev->data,  ev->datalen),
 	   ev->datalen, 
 	   ev->username, 
 	   ev->clientname, 
@@ -550,8 +564,8 @@ void  _mw_dumpmesg(void * mesg)
 	   "   SERVERID    srvid            = %d\n"
 	   "   SERVICEID   svcid            = %d\n"
 	   "   GATEWAYID   gwid             = %d\n"
-	   " int         data               = %d \"%s\"\n"
-	   " int         datalen            = %d\n"
+	   " int64_t     data               = %lld \"%s\"\n"
+	   " int64_t     datalen            = %lld\n"
 	   " int         flags              = %#x\n"
 	   " int         returncode         = %d\n",
 	   messagetype(ev->mtype), ev->mtype,  
@@ -563,10 +577,35 @@ void  _mw_dumpmesg(void * mesg)
 	   SVCID2IDX(ev->senderid),
 	   GWID2IDX(ev->senderid),
 	   ev->data, 
-	   strdata(ev->data,  ev->datalen),
+	   strdata(_mw_getsegment(rm->datasegmentid), ev->data,  ev->datalen),
 	   ev->datalen, 
 	   ev->flags, ev->returncode);
     return;
+
+  case ALLOCREQ:
+  case ALLOCRPL:
+  case FREEREQ:
+  case FREERPL:
+     alloc = (Alloc *) mesg;
+     DEBUG1("%s MESSAGE: %#lx\n"
+	    " MWID        senderid           = %#x\n"
+	    "   CLIENTID    cltid            = %d\n"
+	    "   SERVERID    srvid            = %d\n"
+	    "   SERVICEID   svcid            = %d\n"
+	    "   GATEWAYID   gwid             = %d\n"
+	    " int64_t     buffersize         = %lld\n"
+	    " int64_t     pages              = %lld\n"
+	    " int         bufferid           = %d\n", 
+	    messagetype(alloc->mtype), alloc->mtype,  
+	    alloc->mwid,
+	    CLTID2IDX(alloc->mwid),
+	    SRVID2IDX(alloc->mwid),
+	    SVCID2IDX(alloc->mwid),
+	    GWID2IDX(alloc->mwid),
+	    alloc->size,
+	    alloc->pages,
+	    alloc->bufferid);
+     return;
 
   default:
     DEBUG1("Unknown message type %#lx ", * (long *) mesg);
@@ -1119,7 +1158,7 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
      }
   } while (rc != 0);
   
-  DEBUG1("dataoffset %d length %d",   callmesg.data, callmesg.datalen);
+  DEBUG1("dataoffset %lld length %lld",   callmesg.data, callmesg.datalen);
 
   TIMEPEG();
   DEBUG1("getting available servers");
@@ -1143,7 +1182,8 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
       continue;
     };
  
-    DEBUG1("Sending a ipcmessage to serviceid %#x service %s on server %#x my clientid %#x buffer at offset%d len %d ", 
+    DEBUG1("Sending a ipcmessage to serviceid %#x service %s on server %#x my clientid %#x "
+	   "buffer at offset %lld len %lld ", 
 	   callmesg.svcid, callmesg.service, dest, callmesg.cltid, callmesg.data, callmesg.datalen);
 
     TIMEPEG();
@@ -1194,7 +1234,7 @@ int _mwfetchipc (int * hdl, char ** data, int * len, int * appreturncode, int fl
   Call * callmesg;
   MWID id;
   int handle = *hdl;
-
+  seginfo_t * si;
 
   /*  if (handle == 0) return -NMWNYI;*/
   
@@ -1255,21 +1295,28 @@ int _mwfetchipc (int * hdl, char ** data, int * len, int * appreturncode, int fl
 
   if (*data != NULL) free (*data);
   
-  if (callmesg->data) {
+  if (callmesg->data) {     
      id = 0;
-     _mwshmgetowner(callmesg->data, &id);
+     si = _mw_getsegment(callmesg->datasegmentid);
+     
+     if (si == NULL) {
+	Error ("failed to get the buffer accompanying the call");
+	return -EFAULT;
+     };
      DEBUG1("owner id of data is %d", id);
      
      if (! _mw_fastpath_enabled()) {
-	
+	void * shmbuf;
 	DEBUG3("copying data to local byffer, freeing shm buffer");
 	*data = malloc(callmesg->datalen+1);
-	memcpy(*data, _mwoffset2adr(callmesg->data), callmesg->datalen);
+	shmbuf = _mwoffset2adr(callmesg->data, si);
+	memcpy(*data, shmbuf, callmesg->datalen);
 	(*data)[callmesg->datalen] = '\0';
-	_mwfree(_mwoffset2adr(callmesg->data));
+	_mwfree(shmbuf);
      } else {
-	*data = _mwoffset2adr(callmesg->data);
+	*data = _mwoffset2adr(callmesg->data, si);
      }; 
+     _mwshmgetowner(*data, &id);
 
      *len = callmesg->datalen;
   } else {
@@ -1282,7 +1329,7 @@ int _mwfetchipc (int * hdl, char ** data, int * len, int * appreturncode, int fl
 
   /* deadline info is invalid even though I can provide it */
 
-  DEBUG1("returned with returncode=%d and with %d bytes of data", 
+  DEBUG1("returned with returncode=%d and with %lld bytes of data", 
 	callmesg->returncode, callmesg->datalen);
 
   if (callmesg->returncode > MWMORE) 
@@ -1499,7 +1546,7 @@ int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, 
   
   if (remoteflag) ev.flags |= MWEVENTPEERGENERATED;
 
-  DEBUG1("Sending a ipcmessage to mwd event %s id %#x buffer at offset%d len %d ", 
+  DEBUG1("Sending a ipcmessage to mwd event %s id %#x buffer at offset %lld len %lld ", 
 	 ev.event, ev.senderid, ev.data, ev.datalen);
 
   rc = _mw_ipc_putmessage(dest, (char *) &ev, sizeof (Event), 0);

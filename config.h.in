@@ -45,14 +45,17 @@
 /* Define if you have the mkdir function.  */
 #undef HAVE_MKDIR
 
-/* Define if you have the poll function.  */
-#undef HAVE_POLL
-
 /* Define if you have the regcomp function.  */
 #undef HAVE_REGCOMP
 
 /* Define if you have the select function.  */
 #undef HAVE_SELECT
+
+/* Define if you have the poll function.  */
+#undef HAVE_POLL
+
+/* Define if you have the select function.  */
+#undef HAVE_EPOLL
 
 /* Define if you have the socket function.  */
 #undef HAVE_SOCKET

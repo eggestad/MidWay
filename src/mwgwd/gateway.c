@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.25  2004/06/06 16:09:42  eggestad
+ * fix for segfault when domain are is empty
+ *
  * Revision 1.24  2004/04/12 23:05:25  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -1575,6 +1578,7 @@ int main(int argc, char ** argv)
 
   if (argc == optind) {
     DEBUG( "no domain name given");
+    globals.mydomain = "";
   } else if (argc == optind+1) {
     DEBUG( "domain name = %s", argv[optind]);
     globals.mydomain=argv[optind];

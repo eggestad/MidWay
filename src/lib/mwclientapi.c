@@ -18,11 +18,17 @@
   Boston, MA 02111-1307, USA. 
 */
 
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
+
 /*
  * $Id$
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2001/08/29 20:38:47  eggestad
+ * added RCS keys
+ *
  * Revision 1.4  2001/05/12 18:00:31  eggestad
  * changes to multiple reply handling, MWMULTIPLE are no langer sent to server, replies are cat'ed in client
  *

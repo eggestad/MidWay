@@ -1,0 +1,9 @@
+#!/bin/sh
+
+export CFLAGS='-g -DDEBUGGING -Wstrict-prototypes -Wmissing-declarations -Wimplicit -Wunused'
+#export CFLAGS='-g -DDEBUGGING -Wstrict-prototypes -fno-builtin -Wimplicit -Wunused -Wformat'
+export CFLAGS='-g -DDEBUGGING -Wstrict-prototypes -fno-builtin -Wimplicit -Wunused -Wformat'
+#export LDFLAGS='-g -m32'
+#export CFLAGS='-g -DDEBUGGING -Wstrict-prototypes  -Wimplicit'
+./configure #--libdir='${exec_prefix}/lib64'
+

@@ -11,8 +11,10 @@ urlmap * urlmapdecode(char * list)
   char * next, * key_end, * value_start, * value_end;
   urlmap * map;
 
+#ifdef DEBUG  
   fprintf (stderr, "urlmapdecode: list = %p\n", list);
   fflush(stderr);
+#endif 
 
   if (list == NULL) {
     errno = EINVAL; 
@@ -21,15 +23,20 @@ urlmap * urlmapdecode(char * list)
 
   /* count thru and find out how many key/value pairs there are. */
   len = strlen(list);
+#ifdef DEBUG  
   fprintf (stderr, "urlmapdecode: strlen(%s) = %d\n", list, len);
   fflush(stderr);
+#endif 
+
   for (i = 0; i < len; i++) {
     if (list[i] == '&') count ++;
   };
 
+#ifdef DEBUG
   fprintf (stderr, "urlmapdecode: count=%d\n", count);
-
   fflush(stderr);
+#endif 
+
   map = malloc(sizeof(urlmap)*(count + 2));
   idx = 0;
   next = list;
@@ -66,6 +73,7 @@ urlmap * urlmapdecode(char * list)
 
 #ifdef DEBUG
   fprintf(stderr, "urlmapdecode returns => %p\n", map);
+  fflush(stderr);
 #endif
 
   return map;
@@ -135,6 +143,22 @@ int urlmapnencode(char * list, int len, urlmap * map)
   listlen = 0;
   idx = 0;
 
+  /* input sanity checking */  
+  if (list == NULL) {
+    errno = EINVAL;
+    return -1;
+  };
+  if (len < 1) {
+    errno = EINVAL;
+    return -1;
+  };
+
+  /* map == NULL is OK */
+  if (map == NULL) {
+    list[0] = '\0';
+    return 0;
+  };
+
   while(map[idx].key != NULL) {
     /* if not the beginning insert the pair separator. */
     if (listlen != 0)
@@ -172,7 +196,10 @@ void urlmapfree(urlmap * map)
   int idx = 0;
 
   if (map == NULL) return ;
+#ifdef DEBUG  
   fprintf(stderr, "urlmapfree(%p)\n", map);
+  fflush(stderr);
+#endif
 
   while(map[idx].key != NULL) {
     free(map[idx].key);
@@ -296,6 +323,7 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
 
 #ifdef DEBUG
   fprintf(stderr, "urlmapnadd realloced %p to %p\n", m, map);
+  fflush(stderr);
 #endif
 
   /* make a copy and insert key */

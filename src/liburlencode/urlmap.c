@@ -21,6 +21,10 @@
 
 /* 
  * $Log$
+ * Revision 1.10  2003/06/12 07:20:28  eggestad
+ * - urlmapdecode now return NULL if decode of a value field is wrong
+ * - replaced all old printf with debug1
+ *
  * Revision 1.9  2002/10/22 21:46:55  eggestad
  * debuging was not #ifdef encapsulated
  *
@@ -60,10 +64,7 @@ urlmap * urlmapdecode(char * list)
   char * next, * key_end, * value_start, * value_end;
   urlmap * map;
 
-#ifdef DEBUG  
-  fprintf (stderr, "urlmapdecode: list = %p\n", list);
-  fflush(stderr);
-#endif 
+  debug1 ("list = %p", list);
 
   if (list == NULL) {
     errno = EINVAL; 
@@ -72,21 +73,20 @@ urlmap * urlmapdecode(char * list)
 
   /* count thru and find out how many key/value pairs there are. */
   len = strlen(list);
-#ifdef DEBUG  
-  fprintf (stderr, "urlmapdecode: strlen(%s) = %d\n", list, len);
-  fflush(stderr);
-#endif 
+  debug1("strlen(%s) = %d", list, len);
 
   for (i = 0; i < len; i++) {
     if (list[i] == '&') count ++;
   };
 
-#ifdef DEBUG
-  fprintf (stderr, "urlmapdecode: count=%d\n", count);
-  fflush(stderr);
-#endif 
+  debug1("count=%d", count);
 
   map = malloc(sizeof(urlmap)*(count + 2));
+  if (map == NULL) {
+     fatal("Out of memory");
+     abort();
+  };
+
   idx = 0;
   next = list;
   while(next) {
@@ -98,18 +98,20 @@ urlmap * urlmapdecode(char * list)
     value_end = strchr(next, '&');
     // if next = is past & then there are no value 
 
-#ifdef DEBUG
-     fprintf (stderr, "urlmapdecode: key_end=%p(next+%d) value_end=%p(next+%d) next=%s\n", 
-	      key_end, key_end-next, value_end, value_end - next, next);
-     fflush(stderr);
-#endif 
+    debug1("key_end=%p(next+%d) value_end=%p(next+%d) next=%s\n", 
+	   key_end, key_end-next, value_end, value_end - next, next);
 
-     if ((value_end != NULL) && (key_end > value_end)) key_end = NULL;
+    if ((value_end != NULL) && (key_end > value_end)) key_end = NULL;
     
     /* if there is a value decode it and set length */
-    if (key_end != NULL)
+    if (key_end != NULL) {
       map[idx].valuelen = urldecodedup(&map[idx].value, value_start);
-    else {
+      if (map[idx].valuelen == -1) {
+	 warning ("in message decode we got a incorrect formated value %s",
+		value_start);
+	 goto errout;
+      };
+    } else {
       map[idx].value = NULL;
       map[idx].valuelen = 0;
     }
@@ -129,12 +131,12 @@ urlmap * urlmapdecode(char * list)
   map[idx].value = NULL;
   map[idx].valuelen = 0;
 
-#ifdef DEBUG
-  fprintf(stderr, "urlmapdecode returns => %p\n", map);
-  fflush(stderr);
-#endif
-
+  debug1("returns => %p\n", map);
   return map;
+
+ errout:
+  urlmapfree(map);
+  return NULL;
 };
 
 char * urlmapencode(urlmap * map)
@@ -255,27 +257,22 @@ urlmap * urlmapdup(urlmap * map)
   int l;
 
   if (map == NULL) return NULL;
-#ifdef DEBUG  
-  fprintf (stderr, "beginning copy of map at %p\n", map);
-#endif
+
+  debug1("beginning copy of map at %p\n", map);
 
   /* find the number of pairs in the map. */
   for (n = 0; map[n].key != NULL;  n++) ;
   
-#ifdef DEBUG  
-  fprintf (stderr, "map to be copied has %d pairs\n", n);
-#endif
+  debug1("map to be copied has %d pairs\n", n);
 
   newmap = malloc(sizeof(urlmap) * (n+1));
   
   for (idx = 0; idx < n; idx++) {
     
-#ifdef DEBUG  
-    fprintf (stderr, "copying pair %d: key=%s :: value=%s(%d)\n",  idx,  
-	     map[idx].key, 
-	     map[idx].value!=NULL?map[idx].value:"(null)",
-	     map[idx].valuelen);
-#endif
+     debug1("copying pair %d: key=%s :: value=%s(%d)\n",  idx,  
+	    map[idx].key, 
+	    map[idx].value!=NULL?map[idx].value:"(null)",
+	    map[idx].valuelen);
 
     /* copy key */
     l = strlen(map[idx].key);
@@ -305,10 +302,8 @@ void urlmapfree(urlmap * map)
   int idx = 0;
 
   if (map == NULL) return ;
-#ifdef DEBUG  
-  fprintf(stderr, "urlmapfree(%p)\n", map);
-  fflush(stderr);
-#endif
+  
+  debug1("urlmapfree(%p)\n", map);
 
   while(map[idx].key != NULL) {
     free(map[idx].key);
@@ -460,10 +455,7 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
     return NULL;
   };
 
-#ifdef DEBUG
-  fprintf(stderr, "urlmapnadd realloced %p to %p\n", m, map);
-  fflush(stderr);
-#endif
+  debug1("realloced %p to %p\n", m, map);
 
   /* make a copy and insert key */
   l = strlen(key);

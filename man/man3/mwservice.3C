@@ -24,7 +24,7 @@ or give the shared library as an executable in the config file for
 .BR mwd "(). (see " mwd.conf (4)).
 .sp
 The input parameters to the routine is given by the struct mwsvcinfo:
-.nf
+.nf \fCR
 struct _mwsvcinfo {
   int handle;
   CLIENTID cltid;
@@ -36,7 +36,7 @@ struct _mwsvcinfo {
 
   time_t deadline; /* deadline here is pretty much a timeval struct. */
   int   udeadline; /* see gettimeofday(); */
-};
+}; \fR
 .fi
 .SS Struct Description
 .TP

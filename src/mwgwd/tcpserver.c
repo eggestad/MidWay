@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.9  2002/10/20 18:23:18  eggestad
+ * debug messages fixup
+ *
  * Revision 1.8  2002/10/09 12:30:30  eggestad
  * Replaced all unions for sockaddr_* with a new type SockAddress
  *
@@ -273,7 +276,7 @@ static void gwreadmessage(Connection * conn)
   if (conn == NULL) return;
 
   n = conn_read(conn);
-  DEBUG("read a message from fd=%d returned %d errno=%d", conn->fd, n, errno);
+  DEBUG2("read a message from fd=%d returned %d errno=%d", conn->fd, n, errno);
 
   /* read return 0 on end of file, and -1 on error. */
   if ((n == -1) || (n == 0)) {
@@ -295,7 +298,7 @@ static void gwreadmessage(Connection * conn)
 	 (conn->messagebuffer[i+1] == '\n') ) {
       conn->messagebuffer[i] = '\0';
 
-      DEBUG("read a message from fd=%d, about to process with srbDomessage", conn->fd);
+      DEBUG2("read a message from fd=%d, about to process with srbDomessage", conn->fd);
 
       _mw_srb_trace(SRB_TRACE_IN, conn, conn->messagebuffer, i);
 
@@ -507,10 +510,10 @@ void * tcpservermainloop(void * param)
 
   while(! globals.shutdownflag) {
 
-    DEBUG("%s", conn_print());
+    DEBUG2("%s", conn_print());
  
     fd = conn_select(&cond, timeout);
-    DEBUG("conn_select returned %d errno=%d", fd, errno);
+    DEBUG2("conn_select returned %d errno=%d", fd, errno);
 
     if (fd < 0) {
       if (fd == -ETIME) {
@@ -526,8 +529,8 @@ void * tcpservermainloop(void * param)
     }
 
     conn = conn_getentry(fd);
-    DEBUG("conn info listen=%d broker=%d cond=%#x", 
-	  conn->type & CONN_TYPE_LISTEN, conn->type & CONN_TYPE_BROKER, cond);
+    DEBUG("conn info fd=%d listen=%d broker=%d cond=%#x", 
+	  fd, conn->type & CONN_TYPE_LISTEN, conn->type & CONN_TYPE_BROKER, cond);
 
     if (cond & COND_ERROR) {
       rc = tcp_do_error_condiion(conn);

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2000/11/15 21:20:42  eggestad
+ * Failed to boot with -D, wrong pid in shm
+ *
  * Revision 1.3  2000/09/21 18:54:05  eggestad
  * Bug fixes around the URL, and added debug3 and 4 on -l option
  *
@@ -732,15 +735,6 @@ main(int argc, char ** argv)
   };
   mwlog(MWLOG_DEBUG,"Shm data segments created.");
 
-  init_maininfo();
-  init_tables();
-  
-  /* place MWHOME in ipcmain */
-  strncpy(ipcmain->mw_homedir, mwhome, 256);
-
-  /* module ipctables.c has a static defined ipcmain, we must set it. */
-  _mw_set_shmadr (ipcmain, clttbl, srvtbl, svctbl, gwtbl, convtbl);
-
   if (daemon) {
     rc = fork();
     if (rc == -1) {
@@ -756,6 +750,16 @@ main(int argc, char ** argv)
       exit(0);
     }
   };
+
+  init_maininfo();
+  init_tables();
+  
+  /* place MWHOME in ipcmain */
+  strncpy(ipcmain->mw_homedir, mwhome, 256);
+
+  /* module ipctables.c has a static defined ipcmain, we must set it. */
+  _mw_set_shmadr (ipcmain, clttbl, srvtbl, svctbl, gwtbl, convtbl);
+
   /*
    * main loop of mwd, apart from occational timers, alle we do is
    * to waut for administrative request in message queue.
@@ -794,8 +798,9 @@ main(int argc, char ** argv)
       kill(SIGTERM, ipcmain->mwwdpid);
     };
   }
-  mwlog(MWLOG_INFO, "MidWay daemon shutdown complete", rc);
   shm_destroy();
   term_tables();
   term_maininfo();
+
+  mwlog(MWLOG_INFO, "MidWay daemon shutdown complete", rc);
 };

@@ -1,7 +1,7 @@
 # -*- RPM-SPEC -*- 
 Summary: The MidWay service request broker
 Name: MidWay
-Version: 0.13.1
+Version: 0.13.2
 Release: 1
 Copyright: GPL,LGPL
 Group: System Environment/Base

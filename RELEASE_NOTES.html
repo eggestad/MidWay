@@ -5,6 +5,10 @@ changes, see the Changelog. The API is unchanged.
 sometimes multiple replies to a service call was returned in wrong
 order.
 
+0.13.2 is a bugfix release that fixes two full IPC msg queue
+problems. mwd(1) would hang when attempting posting events to a full
+queue, and mwreply() would drop replies when replying to a full queue.
+
 There will be a change to mwfetch() in the next release. 
 <p>
 

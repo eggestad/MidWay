@@ -1,3 +1,16 @@
+2004-02-22  Terje Eggestad  <te@ia32-rhl9.office.scali.no>
+
+	* RELEASE 0.13.0 	
+
+2004-02-20  Terje Eggestad  <te@pc-16.office.scali.no>
+	
+	* Added ability to use broadcast in addition to multicast for
+	neightbour discovery. Some ethernet switches either don't
+	understand multicast or have multicasts disabled...
+
+	* Fix in mwd for hang. When issuing events to subscribers, and a
+	subscribers msgqueue was full, mwd you be in blocking in msgsnd().
+
 2003-12-11  eggestad  <eggestad@pc-16.office.scali.no>
 
 	* added mwlistsvc for IPC

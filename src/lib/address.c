@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2001/10/03 22:45:10  eggestad
+ * added multicast quert, and mem corruption fixes
+ *
  * Revision 1.5  2000/11/29 23:16:29  eggestad
  * Parse of IPC url was wrong, IPC key ignored.
  *
@@ -61,6 +64,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #define _ADDRESS_H
 #include <address.h>
 #include <SRBprotocol.h>
+#include <multicast.h>
 
 
 /* here we have the regexps that defined the legal formats for the URL.
@@ -184,7 +188,7 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
       mwlog(MWLOG_ERROR, "user name too long");
       return -1;
     };
-    userid=malloc(len+1);
+    userid=malloc(len+1); 
     strncpy(userid, url+match[9].rm_so, len);
     userid[len] = '\0';
 
@@ -248,9 +252,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
   };
 
   if ( regcomp( & srbexp, RE_SRBP, REG_EXTENDED|REG_ICASE) != 0) {
-    //  if ( regcomp( & testexp, exp, 0) != 0) 
-    perror("parsing regexp");
-    printf ("error on compiling regex %d\n", errno);
+    mwlog(MWLOG_ERROR, "error on compiling regex %d\n", errno);
     exit;
   };
 
@@ -271,7 +273,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
   if (match[3].rm_so != -1) {
     int len;
     len = match[3].rm_eo - match[3].rm_so;
-    ipaddress = malloc(len);
+    ipaddress = malloc(len+1);
     strncpy(ipaddress, url+match[3].rm_so, len);
     ipaddress[len] = '\0'; 
     mwlog(MWLOG_DEBUG3, "ipaddress=%s", ipaddress);
@@ -281,7 +283,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
   if (match[5].rm_so != -1) {
     int len;
     len = match[5].rm_eo - match[5].rm_so;
-    port = malloc(len);
+    port = malloc(len+1);
     strncpy(port, url+match[5].rm_so, len);
     port[len] = '\0';
     mwlog(MWLOG_DEBUG3, "port=%s", port);
@@ -290,13 +292,13 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
   /* DOMAIN */
   if (match[8].rm_so != -1) {
     len = match[8].rm_eo - match[8].rm_so;
-    domain = malloc(len);
+    domain = malloc(len+1); 
     strncpy(domain, url+match[8].rm_so, len);
     domain[len] = '\0';
     mwlog(MWLOG_DEBUG3, "DOMAIN=%s", domain);
   } 
 
-  /* OK, we've obtained all teh values from the url, now we do the
+  /* OK, we've obtained all the values from the url, now we do the
      necessary copying, and convertion to binary data */
   if ( (domain == NULL) && (ipaddress == NULL) ) {
     mwlog(MWLOG_ERROR, "Either domain or ipaddress must be specified");
@@ -329,33 +331,74 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
 
   /* IP ADDRESS */
   if (ipaddress == NULL) {
-    mwlog(MWLOG_DEBUG3, "ipaddress not given, defaulting to \"localhost\"");
-    ipaddress = strdup("localhost");
-  };
-    
-  hent = gethostbyname(ipaddress);
-  if (hent == NULL) {
-    mwlog(MWLOG_ERROR, "Unable to resolve hostname %s", ipaddress);
-    return -1;
-  };
-  mwlog(MWLOG_DEBUG3, "ipaddress %s => hostname %s type = %d, addr = %#X", 
-	ipaddress, hent->h_name, hent->h_addrtype, * (int *) hent->h_addr_list[0]);
-  if (hent->h_length != 4) {
-    mwlog(MWLOG_ERROR, "Failed to resolve hostname, address length %d != 4", 
-	  hent->h_length );
-    return -1;
-  };
-  
-  /* ALL RIGHT! */
-  mwadr->ipaddress_v4 = malloc(sizeof(struct sockaddr_in));
-  mwadr->ipaddress_v4->sin_family = AF_INET;
-  mwadr->ipaddress_v4->sin_port = ns_port;
-  mwadr->ipaddress_v4->sin_addr = * (struct in_addr *) hent->h_addr_list[0];
+    int s, rc; 
+    instanceinfo is;
+    /* we've only the domain, and no IP address, do a multicast to get
+       a broker with this domain.  this should be the normal case */
+      s = socket(AF_INET, SOCK_DGRAM, 0);
+      if (s == -1) return -1;
 
-  mwlog(MWLOG_DEBUG1,  "Gateways address: family %d, port %#x ipaddress V4 %#x", 
+      rc = _mw_sendmcastquery(s, domain, NULL);
+      if (rc == -1) {
+	close(s);
+	return -1;
+      };
+
+  retry:
+      errno = 0;
+      rc =  _mw_getmcastreply(s, &is, 2.0);
+      mwlog(MWLOG_DEBUG1,  "_mw_getmcastreply returned %d, errno=%d", rc, errno);
+      if ( (rc == -1) && (errno == EBADMSG) )	goto retry;
+      
+      if (rc == -1) return -1;
+      {
+	char buf[64];
+	struct sockaddr_in * sin;
+	sin = ((struct sockaddr_in *) &is.address);
+	mwlog(MWLOG_DEBUG1,  "Gateways address: family %d, port %d ipaddress V4 %s", 
+	      sin->sin_family, 
+	      ntohs(sin->sin_port), 
+	      inet_ntop(AF_INET, &sin->sin_addr, buf, 64));
+      };
+      mwadr->ipaddress_v4 = malloc(sizeof(struct sockaddr_in));
+      memcpy(mwadr->ipaddress_v4, &is.address, sizeof(struct sockaddr_in));
+      close (s);
+      {
+	char buf[64];
+	mwlog(MWLOG_DEBUG1,  "Gateways address: family %d, port %d ipaddress V4 %s", 
+	      mwadr->ipaddress_v4->sin_family, 
+	      ntohs(mwadr->ipaddress_v4->sin_port), 
+	      inet_ntop(AF_INET, &mwadr->ipaddress_v4->sin_addr, buf, 64));
+      };
+  } else {
+    
+    hent = gethostbyname(ipaddress);
+    if (hent == NULL) {
+      mwlog(MWLOG_ERROR, "Unable to resolve hostname %s", ipaddress);
+      return -1;
+    };
+    mwlog(MWLOG_DEBUG3, "ipaddress %s => hostname %s type = %d, addr = %#X", 
+	  ipaddress, hent->h_name, hent->h_addrtype, * (int *) hent->h_addr_list[0]);
+    if (hent->h_length != 4) {
+      mwlog(MWLOG_ERROR, "Failed to resolve hostname, address length %d != 4", 
+	    hent->h_length );
+      return -1;
+    };
+    
+    /* ALL RIGHT! */
+    mwadr->ipaddress_v4 = malloc(sizeof(struct sockaddr_in));
+    mwadr->ipaddress_v4->sin_family = AF_INET;
+    mwadr->ipaddress_v4->sin_port = ns_port;
+    mwadr->ipaddress_v4->sin_addr = * (struct in_addr *) hent->h_addr_list[0];
+  };
+
+  {
+    char buf[64];
+    mwlog(MWLOG_DEBUG1,  "Gateways address: family %d, port %d ipaddress V4 %s", 
 	mwadr->ipaddress_v4->sin_family, 
-	mwadr->ipaddress_v4->sin_port, 
-	mwadr->ipaddress_v4->sin_addr);
+	ntohs(mwadr->ipaddress_v4->sin_port), 
+	inet_ntop(AF_INET, &mwadr->ipaddress_v4->sin_addr, buf, 64));
+  };
   return 0;
 };
 
@@ -425,9 +468,9 @@ mwaddress_t * _mwdecode_url(char * url)
   };
   if (0 == strncasecmp("http", url+match[1].rm_so, 4)) {
     mwadr->protocol = MWHTTP;
-      rc = url_decode_srbp(mwadr, url);
-      if (rc != 0) return NULL;
-      else return mwadr;
+    rc = url_decode_srbp(mwadr, url);
+    if (rc != 0) return NULL;
+    else return mwadr;
   };
   
   mwlog(MWLOG_ERROR, 

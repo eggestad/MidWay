@@ -191,21 +191,7 @@ extern "C" {
  order to make a thread safe MidWay lib a compile time option must be
  given. As well as a thread lib for linking. */
 
-/*
-#define EMW_INDEX 		1000
-#define EMWSHUTDOWN 		(EMW_INDEX + 1)
-#define EMWTBLFULL 		(EMW_INDEX + 2)
-#define EMWNOMEM		(EMW_INDEX + 3)
-#define EMWILREQ		(EMW_INDEX + 4)
-#define EMWLINKLIB		(EMW_INDEX + 5)
-#define EMWSIZE			(EMW_INDEX + 6)
-#define EMWCONNECTED		(EMW_INDEX + 7)
-#define EMWNOTCONNECTED		(EMW_INDEX + 8)
-#define EMWMSGIO		(EMW_INDEX + 9)
-#define EMWCANTHAPPEN		(EMW_INDEX + 10)
 
-#define EMWNYI			(EMW_INDEX + 99)
-*/
 #ifndef FALSE
 #define FALSE 0
 #endif

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/02/17 17:56:20  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.4  2001/10/03 22:41:05  eggestad
  * added a TODO marker
  *
@@ -448,7 +451,10 @@ SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
   strncpy(svctbl[svcidx].servicename, name, MWMAXSVCNAME);
   svctbl[svcidx].type = type;
   svctbl[svcidx].location = MWLOCAL;
-  
+
+  mwlog(MWLOG_DEBUG2, "service index = %d srvid = %x type = %d location = %d", 
+	svcidx,  svctbl[svcidx].server, svctbl[svcidx].type, svctbl[svcidx].location);
+
   mwlog(MWLOG_DEBUG, "Added service %s as %d for server %#x, nextid=%d", 
 	name, svcidx, srvid, nextidx);
 

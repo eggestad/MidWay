@@ -11,7 +11,8 @@ SUBDIRS = src html-doc man
 
 all: 
 	@ for dir in $(SUBDIRS); do\
-	(cd $$dir; $(MAKE) $@)\
+	(cd $$dir; $(MAKE) $@);\
+	if [[ $$? -ne 0 ]]; then exit 3; fi\
 	done;
 
 clean::
@@ -34,10 +35,14 @@ install:: all
 	if [ ! -d @mandir@/man3 ]; then install -d @mandir@/man3; fi
 	if [ ! -d @mandir@/man7 ]; then install -d @mandir@/man7; fi
 	@ for dir in $(SUBDIRS); do\
-	(cd $$dir; $(MAKE) $@)\
+	(cd $$dir; $(MAKE) $@);\
+	if [[ $$? -ne 0 ]]; then exit 3; fi\
 	done;
 	@INSTALL@ -m 644  include/MidWay.h @includedir@/MidWay.h
 
 uninstall:
+	@ for dir in $(SUBDIRS); do\
+	(cd $$dir; $(MAKE) $@);\
+	done;
 	rm -f @includedir@/MidWay.h
 

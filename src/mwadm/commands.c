@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.17  2004/08/11 20:41:21  eggestad
+ * large buffer alloc
+ *
  * Revision 1.16  2003/07/06 18:59:56  eggestad
  * introduced a table api for commands.c to return data in
  *
@@ -182,7 +185,7 @@ int do_info(int argc, char ** argv, DTable dtbl , char ** errstr)
 
    dtbl_newrow(dtbl, NULL);
    dtbl_setfield(dtbl, -1, 0,  "mwd last active"); 
-   strftime(date, 64, DATESTR, localtime(&ipcmain->lastactive));
+   strftime(date, 64, DATESTR, localtime((time_t *)&ipcmain->lastactive));
    dtbl_setfield(dtbl, -1, 1, "%s", date);
 
    dtbl_newrow(dtbl, NULL);
@@ -190,20 +193,20 @@ int do_info(int argc, char ** argv, DTable dtbl , char ** errstr)
    dtbl_setfield(dtbl, -1, 1, "%s", status_by_name[ipcmain->status]);
 
    dtbl_newrow(dtbl, NULL);
-   strftime(date, 64, DATESTR, localtime(&ipcmain->boottime));
+   strftime(date, 64, DATESTR, localtime((time_t *)&ipcmain->boottime));
    dtbl_setfield(dtbl, -1, 0, "boottime"); 
    dtbl_setfield(dtbl, -1, 1, "%s", date);
 
    if (ipcmain->configlastloaded) {
       dtbl_newrow(dtbl, NULL);
       dtbl_setfield(dtbl, -1, 0,  "configlastloaded"); 
-      strftime(date, 64, DATESTR, localtime(&ipcmain->configlastloaded));
+      strftime(date, 64, DATESTR, localtime((time_t *)&ipcmain->configlastloaded));
       dtbl_setfield(dtbl, -1, 1, "%s", date);
    };
    if (ipcmain->shutdowntime) {
       dtbl_newrow(dtbl, NULL);
       dtbl_setfield(dtbl, -1, 0,  "shutdowntime"); 
-      strftime(date, 64, DATESTR, localtime(&ipcmain->shutdowntime));
+      strftime(date, 64, DATESTR, localtime((time_t *)&ipcmain->shutdowntime));
       dtbl_setfield(dtbl, -1, 1, "%s", date);
    };
    dtbl_newrow(dtbl, NULL);
@@ -618,14 +621,15 @@ int dumpipcmain(int argc, char ** argv)
    printf ("MW System name       = %s\n", ipcmain->mw_instance_name);
    printf ("MW System ID         = %s\n", ipcmain->mw_instance_id);
    printf ("Home Directory       = %s\n", ipcmain->mw_homedir);
+   printf ("Data Directory       = %s\n", ipcmain->mw_bufferdir);
 
 
    printf ("Status               = (%d)%s\n", 
 	   ipcmain->status, status_by_name[ipcmain->status]);
-   printf ("Boottime             = %s", ctime(&ipcmain->boottime));
-   printf ("lastactive           = %s", ctime(&ipcmain->lastactive));
-   printf ("configlastloaded     = %s", ctime(&ipcmain->configlastloaded));
-   printf ("shutdown time        = %s", ctime(&ipcmain->shutdowntime));
+   printf ("Boottime             = %s", ctime((time_t*)&ipcmain->boottime));
+   printf ("lastactive           = %s", ctime((time_t*)&ipcmain->lastactive));
+   printf ("configlastloaded     = %s", ctime((time_t*)&ipcmain->configlastloaded));
+   printf ("shutdown time        = %s", ctime((time_t*)&ipcmain->shutdowntime));
 
    printf("\n");
    printf ("Heap ipcid          = %d\n", ipcmain->heap_ipcid);

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.17  2004/08/11 20:41:21  eggestad
+ * large buffer alloc
+ *
  * Revision 1.16  2004/04/12 11:19:08  eggestad
  * - fix for wrong detach() return code
  *
@@ -164,8 +167,8 @@ void _mw_do_ipcevent(Event * ev)
   doack = 0;
   if (ev->data != 0) {
     doack = 1;
-    dbuf = _mwoffset2adr(ev->data);
-    DEBUG3("ev->data %d, addr = %p data = %s", ev->data, dbuf, dbuf); 
+    dbuf = _mwoffset2adr(ev->data, NULL);
+    DEBUG3("ev->data %lld, addr = %p data = %s", ev->data, dbuf, dbuf); 
   }	
     
   _mw_doevent(ev->subscriptionid, ev->event, dbuf, ev->datalen);

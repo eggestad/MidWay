@@ -3,6 +3,8 @@
 
 extern char * _mw_srbmessagebuffer;
 
+int srb_flush_ipc_fifo(void);
+
 int _mw_srbsendready(Connection * conn, char * domain);
 int _mw_srbsendinitreply(Connection * conn, SRBmessage * srbmsg, int rcode, char * field);
 int _mw_srbsendcallreply(Connection * conn, SRBmessage * srbmsg, char * data, int len, 

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.22  2004/11/17 20:54:11  eggestad
+ * added a IPC fifo queue incase dest IPC message queues are full
+ *
  * Revision 1.21  2004/04/12 23:05:24  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -470,6 +473,134 @@ static void srbunprovide(Connection * conn, SRBmessage * srbmsg)
   return;
 };
 
+
+/* this is a wrapper to _mw_ipc_putmessage() that handles full
+   queues. If a queue is full, we do a single 100us-1ms sleep to allow
+   the scheduler the possibility to schedule the receipient process to
+   process it's message queue, then we put it into a fifo queue of
+   pending messages and schedule a tasklet to retry in the future. The
+   tasklet must be active as long there are messages in the queue. We
+   use a FIFO ensure that messages to a single recepient are delivered
+   in order. For this reason we must always try to flush the FIFO
+   every time called. We make a seperate function to flush the fifo,
+   srb_flush_ipc_fifo() that return the number if pending messages in the quere. 
+ */
+struct ipcfifo {
+   MWID mwid;
+   void * message;
+   int msglen;
+   struct ipcfifo * next, * prev;
+};
+static struct ipcfifo * head = NULL, * tail = NULL;
+static int ipcfifolen = 0;
+
+static inline struct ipcfifo * del_fifo_entry(struct ipcfifo * qe)
+{
+   free(qe->message);
+   if (qe->next) qe->next->prev  = qe->prev;
+   if (qe->prev) qe->prev->next  = qe->next;
+   if (qe == head) head = qe->prev;
+   if (qe == tail) tail = qe->next;
+   free(qe);
+   ipcfifolen--;
+   return qe->next;
+};
+
+int srb_flush_ipc_fifo(void)
+{
+   struct ipcfifo * qe;
+   Call * cmsg;
+   seginfo_t * dataseg;
+   int rc;
+
+   if (ipcfifolen == 0) return 0;
+   
+   DEBUG("flushing ipc fifo which has %d entries",ipcfifolen); 
+
+   qe = tail;
+   while (qe != NULL) {
+      DEBUG("entry has dest %x", qe->mwid);
+      rc = _mw_ipc_putmessage(qe->mwid, qe->message, qe->msglen, IPC_NOWAIT);
+      switch(rc) {
+      case 0: // message sent OK
+	 DEBUG("message sent, removing entry");
+	 qe = del_fifo_entry(qe);
+	 break;
+	 
+      case -EAGAIN:
+      case -ENOMEM: // should never happen, but is a retry case
+	 qe = qe->next;
+	 break;
+	 
+      default:
+	 // all other errors are drop message;
+	 Error("failed to send message to %#x errno = %d", qe->mwid, rc);
+	 cmsg  = (Call *) qe->message;
+	 dataseg = _mw_getsegment_byid(cmsg->datasegmentid);
+	 _mwfree(_mwoffset2adr(cmsg->data, dataseg));
+	 if (cmsg->datasegmentid > LOW_LARGE_BUFFER_NUMBER) _mw_detach_mmap(dataseg);
+	 qe = del_fifo_entry(qe);
+	 break;
+      }
+   }
+   return ipcfifolen;
+};
+
+static void ipc_sendmessage(MWID id, void * message, int mesgsize)
+{
+   int rc, retry_count = 0;
+   Call * cmsg;
+   struct ipcfifo * qe;
+   cmsg = (Call *) message;
+   seginfo_t * dataseg;
+
+   srb_flush_ipc_fifo();
+
+   dataseg = _mw_getsegment_byid(cmsg->datasegmentid);
+   
+ retry:
+   DEBUG("Sending message retry = %d", retry_count);
+   rc = _mw_ipc_putmessage(id, message, mesgsize, IPC_NOWAIT);
+   
+   if (rc == 0) {
+      DEBUG("Message sent OK");
+      if (cmsg->datasegmentid > LOW_LARGE_BUFFER_NUMBER) 
+	 _mw_detach_mmap(dataseg);
+      return;
+   };
+   
+   if (rc == -EAGAIN) {
+      if (retry_count < 2) {
+	 retry_count++;
+	 usleep(1000); // 1 mS sleep
+	 goto retry;
+      };
+      
+      qe = malloc(sizeof(struct ipcfifo));
+      qe->mwid = id;
+      qe->message = message;
+      qe->msglen = mesgsize;
+
+      DEBUG("message send failed due to queue full, enqueing"); 
+      qe->next = NULL;   
+      
+      if (head == NULL) {
+	 qe->prev = NULL;
+	 head = tail = qe;
+      };
+      ipcfifolen++;
+      head->next = qe;
+      qe->prev = head;
+      head = qe;
+      wake_fast_task();
+      return;
+   };
+   Error("failed to send message to %#x errno = %d", id, rc);
+   _mwfree(_mwoffset2adr(cmsg->data, dataseg));
+   if (cmsg->datasegmentid > LOW_LARGE_BUFFER_NUMBER) _mw_detach_mmap(dataseg);
+   return;
+ };
+
 static void srbcall_rpl(Connection * conn, SRBmessage * srbmsg)
 {
   int rc;
@@ -636,15 +767,19 @@ static void srbcall_rpl(Connection * conn, SRBmessage * srbmsg)
   */
   //  iGetOptField(conn, srbmsg,  SRB_SECTOLIVE, &sectolive);
 
-  rc = _mw_ipc_putmessage(mwid, (void *) &cmsg, sizeof(Call), IPC_NOWAIT);
-  if (rc != 0) {
-    Error ("_mw_ipc_putmessage(%x, , , ,) failed rc=%d", mwid,rc);
-    if (data) {
-      _mwfree(_mwoffset2adr(cmsg.data));
-    };
-  };
+  ipc_sendmessage(mwid, (void *) &cmsg, sizeof(Call));
   return;
      
+};
+
+static void srbdata(Connection * conn, SRBmessage * srbmsg)
+{
+  int rc;
+  char * data = NULL;
+  int datalen = 0;
+  unsigned long handle = 0xffffffff;
+  char * instance = NULL;
+
 };
 
 static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
@@ -1040,7 +1175,7 @@ static void srbevent(Connection * conn, SRBmessage * srbmsg)
       break;
    };
    
-   if (!(event = szGetReqField(conn, srbmsg, SRB_EVENT))) {
+   if (!(event = szGetReqField(conn, srbmsg, SRB_NAME))) {
       return;
    };
    
@@ -1065,7 +1200,7 @@ static void srbevent(Connection * conn, SRBmessage * srbmsg)
 
 static void srbsubscribe(Connection * conn, SRBmessage * srbmsg)
 {
-   int flags, id;
+   int flags = 0, id;
    char * pattern, *match;
 
    switch (srbmsg->marker) {
@@ -1251,9 +1386,10 @@ int srbDoMessage(Connection * conn, SRBmessage * srbmsg)
   };
 
  out:  
-  if (srbmsg->map != NULL)
+  if (srbmsg->map != NULL) {
     urlmapfree(srbmsg->map);
-
+    srbmsg->map = NULL;
+  }
   TIMEPEGNOTE("end");
   return 0;
 };
@@ -1436,3 +1572,9 @@ int _mw_srbsendgwinit(Connection * conn)
   urlmapfree(srbmsg.map);
   return rc;
 };
+
+/* Emacs C indention
+Local variables:
+c-basic-offset: 2
+End:
+*/

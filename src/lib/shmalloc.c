@@ -23,6 +23,13 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2003/07/20 23:16:19  eggestad
+ * - major corruption fix:
+ *  * added bounds check functions
+ *  * push got into wrong bin, probably double to int conv problem (weird)
+ *  * imporved perf of pushchunk
+ *  * made debugging a little more intelligent
+ *
  * Revision 1.13  2003/07/06 22:06:14  eggestad
  * -debugging now in debug3
  * - added funcs for seting and geting ownerid
@@ -123,17 +130,46 @@ chunkfoot * _mwfooter(chunkhead * head)
 
   fadr = (void *)head + sizeof(chunkhead) + 
     head->size * _mwHeapInfo->basechunksize;
+
   DEBUG3("footer for %p is at %p + %p + %p * %p = %p",
 	head, head, sizeof(chunkhead),  head->size,  _mwHeapInfo->basechunksize,
 	fadr) ;
+  DEBUG3("head offset %d foot offset %d", _mwadr2offset(head),  _mwadr2offset(fadr));
   return (chunkfoot *) fadr;
+};
+
+static int check_offset_bounds(int offset)
+{
+   int min, max;
+
+   min = sizeof(struct segmenthdr);
+   if (offset < min ) {
+      DEBUG3("offset %d below heap min %d", offset, min );
+      return  -1;
+   };
+   
+   max = _mwHeapInfo->segmentsize;
+   if (offset >= max ) {
+      DEBUG3("offset %d above heap max %d", offset , max);
+      return 1;
+   };
+   
+   return 0;
+};
+
+static int check_heap_bounds(void * adr)
+{
+   int offset;
+
+   offset = _mwadr2offset(adr);
+   return check_offset_bounds(offset);
 };
 
 /* conversion between offset and adresses */
 int _mwadr2offset(void * adr)
 {
-  if (_mwHeapInfo == NULL) return -1;
-  return (long) adr - (long) _mwHeapInfo;
+   if (_mwHeapInfo == NULL) return -1;   
+   return (long) adr - (long) _mwHeapInfo;
 };
 
 void * _mwoffset2adr(int offset)
@@ -205,6 +241,7 @@ int _mw_putbuffer_to_call (Call * callmesg, char * data, int len)
       dbuf = _mwalloc(len);
       if (dbuf == NULL) {
 	Error("mwalloc(%d) failed reason %d", len, (int) errno);
+	DEBUG1("mwalloc(%d) failed reason %d", len, (int) errno);
 	return -errno;
       };
       memcpy(dbuf, data, len);
@@ -228,18 +265,21 @@ static int getchunksizebyadr(chunkhead * pCHead)
   chunkfoot *pCFoot;
   chunkhead *pCHabove;
   int iCHead;
-
+  double d;
+  
   /* if order to do this fast when OK, we want to know if
      the above pointer in the footer points to the head.
      If so we're OK.*/
 
   /* needed for core dump (segfault) prevention */
-  if ( ((void*)pCHead < (void*)_mwHeapInfo) || 
-       ((void*)pCHead > (void*)(_mwHeapInfo + _mwHeapInfo->segmentsize)) )
-    return -1;
   
-  bin = log(pCHead->size) / log(2);
-  
+  if (check_heap_bounds(pCHead) != 0) {     
+     return -1;
+  };
+
+  d = log(pCHead->size) / log(2);
+  bin = d;
+  DEBUG3("size %d Bin = %d %f", pCHead->size, bin, d);
   /* if corrupt pCHead->size */ 
   if ( (bin < 0) || (bin >= _mwHeapInfo->numbins) ) {
     pCHead->size = 0;
@@ -277,30 +317,37 @@ static int getchunksizebyadr(chunkhead * pCHead)
 */
 int _mwshmcheck(void * adr)
 {
-  int size, bin;
-  
+  int size, bin, rc;
+  int offset; 
+
   /* if SRBP then we have no heap... */
   if (_mwHeapInfo == NULL) return -1;
 
-  DEBUG3(" testing to see if byffer is %x < %x < %x", 
+  offset = _mwadr2offset(adr);
+  DEBUG3(" testing to see if buffer is %x < %x < %x", 
 	 (void *)_mwHeapInfo + sizeof(struct segmenthdr), 
 	 adr, 
 	 (void *)_mwHeapInfo + _mwHeapInfo->segmentsize);
 
-  /* first we make sure that adr is within the heap*/
-  if (adr < ((void *)_mwHeapInfo + sizeof(struct segmenthdr))) return -1;
-  if (adr > ((void *)_mwHeapInfo + _mwHeapInfo->segmentsize)) return -1;
-      
+  DEBUG3(" testing to see if buffer is %d < %d < %d", 
+	 sizeof(struct segmenthdr), 
+	 offset, 
+	 _mwHeapInfo->segmentsize);
+
+  rc = check_heap_bounds(adr);
+  if (rc != 0) return -1;
+
   /* now we do sanity check on the chunk */
   size = getchunksizebyadr(adr - sizeof(chunkhead));
 
   if (size < 0)   return -1;
   bin = log(size)/log(2);
   DEBUG3("buffer at %p has size %d * %d, bin = %d of max %d", 
+	 adr,
 	 size, _mwHeapInfo->basechunksize, bin, _mwHeapInfo->numbins);
   if (bin >= _mwHeapInfo->numbins) return -1;
 
-  return _mwadr2offset(adr);
+  return offset;
 }
 
 int _mwshmgetsizeofchunk(void * adr)
@@ -333,7 +380,7 @@ int _mwshmgetsizeofchunk(void * adr)
 static chunkhead * popchunk(int *iRoot, int * freecount)
 { 
   chunkhead * pCHead, *pPrev, *pNext;
-  chunkfoot * pCFoot;
+  chunkfoot * pCFoot, * ptmpfoot;;
 
   if ( (iRoot == NULL) || (freecount == NULL) ) 
     return NULL;
@@ -360,8 +407,10 @@ static chunkhead * popchunk(int *iRoot, int * freecount)
   /* close the remaing ring. */
   pPrev = _mwoffset2adr(pCFoot->prev);
   pNext = _mwoffset2adr(pCFoot->next);
-  _mwfooter(pPrev)->next = _mwadr2offset(pNext);
-  _mwfooter(pNext)->prev = _mwadr2offset(pPrev);
+  ptmpfoot = _mwfooter(pPrev);
+  ptmpfoot->next = _mwadr2offset(pNext);
+  ptmpfoot = _mwfooter(pNext);
+  ptmpfoot->prev = _mwadr2offset(pPrev);
 
   *iRoot = pCFoot->next;
   (*freecount) --;
@@ -378,34 +427,46 @@ static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount)
 {
   chunkhead *pPrev, *pNext;
   chunkfoot * pCFoot;
-
+  int iInsert, iNext, iPrev;
+  
   if ( (pInsert == NULL) || (iRoot == NULL) || (freecount == NULL) ) 
     return -EINVAL;
+
+  iInsert = _mwadr2offset(pInsert);
+
+  DEBUG3("intering buffer at offset %d", iInsert);
 
   pCFoot = _mwfooter(pInsert);
 
   if (_mwoffset2adr(pCFoot->above) != pInsert) {
-    Warning(	  "possible shm buffer corruption, error in chunk at %p", pInsert);
-    pCFoot->above = _mwadr2offset(pInsert);
+    Warning("possible shm buffer corruption, error in chunk at %p", pInsert);
+    pCFoot->above = iInsert;
   };
 
   /* if ring is empty */
   if (*iRoot == 0) {
-    *iRoot = _mwadr2offset(pInsert);
-    /* a ring with one element is still a ring */
-    pCFoot->next = _mwadr2offset(pInsert);
-    pCFoot->prev = _mwadr2offset(pInsert);
-    (*freecount)++;
-    return 0;
+     DEBUG3("Empty buffer ring");
+     *iRoot = iInsert;
+     /* a ring with one element is still a ring */
+     pCFoot->next = iInsert;
+     pCFoot->prev = iInsert;
+     (*freecount)++;
+     return 0;
   };
   
   /* We're getting the element above and below the new element */
-  pNext = _mwoffset2adr(_mwfooter(_mwoffset2adr(*iRoot))->next);
-  pPrev = _mwoffset2adr(*iRoot);
-  _mwfooter(pInsert)->next = _mwadr2offset(pNext);
-  _mwfooter(pInsert)->prev = _mwadr2offset(pPrev);
-  _mwfooter(pNext)->prev = _mwadr2offset(pInsert);
-  _mwfooter(pPrev)->next = _mwadr2offset(pInsert);
+  iNext = _mwfooter(_mwoffset2adr(*iRoot))->next;
+  iPrev = *iRoot;
+
+  DEBUG3("prev buffer head at offset %d next at offset %d", iPrev, iNext);
+
+  pPrev = _mwoffset2adr(iPrev);
+  pNext = _mwoffset2adr(iNext);
+
+  pCFoot->next = iNext;
+  pCFoot->prev = iPrev;
+  _mwfooter(pNext)->prev = iInsert;
+  _mwfooter(pPrev)->next = iInsert;
   (*freecount)++;
   return 0;
 };
@@ -556,9 +617,13 @@ void * _mwalloc(int size)
       /* really should be CLIENTID or SERVERID or GATEWAYID ... */
       pCHead->ownerid = getpid(); 
       if (pCHead->size != 1<<i) {
-	Error("mwalloc: retrived chunk is of size %ld*%ld != %d*%ld",
-	      pCHead->size, _mwHeapInfo->basechunksize , 
-	      1<<i, _mwHeapInfo->basechunksize);       
+	Error("mwalloc: retrived chunk is of size %ld*%ld != %d*%ld chunk at offset %d",
+	      pCHead->size, 
+	      _mwHeapInfo->basechunksize , 
+	      1<<i, 
+	      _mwHeapInfo->basechunksize, 
+	      _mwadr2offset(pCHead));
+	Error ("get cgetchunksizebyadr = %d", getchunksizebyadr(pCHead));
       };
 
       DEBUG1("_mwalloc(%d) return a chunk with size %d at %p ", 
@@ -612,6 +677,7 @@ int _mwfree(void * adr)
 {
   chunkhead *pCHead;
   int bin, rc;
+  double d;
 
   rc = attachheap();
   if (rc != 0) {
@@ -624,7 +690,10 @@ int _mwfree(void * adr)
   
   rc = getchunksizebyadr(pCHead);
   if (rc < 0) return -ENOENT;
-  bin = log(pCHead->size) / log(2);
+
+  d = log(pCHead->size) / log(2);
+  bin = d;
+  DEBUG3("size %d Bin = %d %d %f", pCHead->size, rc, bin, d);
   pCHead->ownerid = UNASSIGNED;
 
   rc = lock(bin); /* lock sem for bin */

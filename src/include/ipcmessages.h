@@ -204,7 +204,7 @@ int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force);
 SERVICEID _mw_ipcsend_provide(char * servicename, int flags);
 int _mw_ipcsend_unprovide(char * servicename);
 
-int _mwacallipc (char * svcname, char * data, int datalen, struct timeval *, int flags);
+int _mwacallipc (char * svcname, char * data, int datalen, int flags);
 int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int flags);
 
 int _mw_ipcconnect(char * servicename, char * socketpath, int flags);

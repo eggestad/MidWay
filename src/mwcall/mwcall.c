@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2004/06/21 21:31:48  eggestad
+ * Input from file bug
+ *
  * Revision 1.9  2004/05/31 19:48:33  eggestad
  * main API changes
  *
@@ -127,7 +130,7 @@ int call(int argc, char ** argv)
       exit(-1);
     };
     fd = open(inputfile, O_RDONLY);
-    if (fd != 0) {
+    if (fd < 0) {
       perror("Failed to open inputfile:");
       exit(-1);
     };

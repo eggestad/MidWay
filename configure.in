@@ -23,9 +23,9 @@ dnl version information
 AC_REVISION($Name$)
 MAJOR_VERSION="0"
 AC_SUBST(MAJOR_VERSION)
-MINOR_VERSION="10"
+MINOR_VERSION="11"
 AC_SUBST(MINOR_VERSION)
-PATCH_VERSION="2"
+PATCH_VERSION="0"
 AC_SUBST(PATCH_VERSION)
 
 dnl Process this file with autoconf to produce a configure script.
@@ -106,4 +106,6 @@ AC_OUTPUT(html-doc/mans/Makefile html-doc/Makefile src/Makefile
 	src/lib/Makefile src/liburlencode/Makefile src/mwadm/Makefile 
 	src/mwcall/Makefile src/mwd/Makefile src/mwgwd/Makefile src/mwbd/Makefile 
 	src/mwserver/Makefile src/test/Makefile Makefile
-	man/Makefile man/man1/Makefile man/man3/Makefile man/man7/Makefile scripts/MidWay.spec)
+	man/Makefile man/man1/Makefile man/man3/Makefile 
+	man/man7/Makefile man/man8/Makefile 
+	scripts/MidWay.spec scripts/midway.rc)

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2004/02/16 07:27:56  eggestad
+ * - fix for '-' in host names
+ * - default post is broker not mwgwd private
+ *
  * Revision 1.11  2002/10/22 21:58:20  eggestad
  * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
  *
@@ -107,7 +111,7 @@ static char * RCSId UNUSED = "$Id$";
    must check for thsi below.*/
 // regexp match numbers
 //               0     12   3                4 5                 67  8
-#define RE_SRBP "^srbp:((//)([[:alnum:]\\.]+)(:([[:alnum:]]*))?)?((/)([[:alnum:]]+))?$"
+#define RE_SRBP "^srbp:((//)([[:alnum:]\\.\\-]+)(:([[:alnum:]]*))?)?((/)([[:alnum:]]+))?$"
 
 /* http is missing here. */
 
@@ -344,7 +348,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
       ns_port = sent->s_port;
     };
   } else 
-    ns_port = htons(SRB_DEFAULT_PORT);
+    ns_port = htons(SRB_BROKER_PORT);
 
 
   /* IP ADDRESS */

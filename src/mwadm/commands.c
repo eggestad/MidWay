@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2001/09/15 23:42:56  eggestad
+ * fix for changing ipcmain systemname to instance name
+ *
  * Revision 1.5  2001/08/29 17:57:59  eggestad
  * had declared a shutdown() function that collided with the syscall, renamed to cmd_shutdown
  *
@@ -85,7 +88,7 @@ int info(int argc, char ** argv)
   };
 
   printf ("MidWay system \"%s\" has version %d.%d.%d\n", 
-	  ipcmain->mw_system_name==NULL?"(Anonymous)":ipcmain->mw_system_name,
+	  ipcmain->mw_instance_name==NULL?"(Anonymous)":ipcmain->mw_instance_name,
 	  ipcmain->vermajor, ipcmain->verminor, ipcmain->patchlevel);
   printf ("  master Processid = %d status = %d boottime %s", 
 	  ipcmain->mwdpid, ipcmain->status, ctime(&ipcmain->boottime));
@@ -344,7 +347,7 @@ int dumpipcmain(int argc, char ** argv)
   printf ("master mwd pid       = %d\n", ipcmain->mwdpid);
   printf ("Watchdog pid         = %d\n", ipcmain->mwwdpid);
   printf ("Mwds Message queueid = %d\n", ipcmain->mwd_mqid);
-  printf ("MW System name       = %s\n", ipcmain->mw_system_name);
+  printf ("MW System name       = %s\n", ipcmain->mw_instance_name);
   printf ("Status               = (%d)%s\n", 
 	  ipcmain->status, status_by_name[ipcmain->status]);
   printf ("Boottime             = %s", ctime(&ipcmain->boottime));

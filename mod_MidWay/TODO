@@ -1,0 +1,10 @@
+
+ * reattach if mwd dies and restarts while apache do not.
+
+ * missing content-length -> ap_set_content_length()
+
+ * location directives, should we be able attach to diffrent mwd instances
+   from diffrent loactions? Yes but really need support in client API.
+   Reconsider this with domain thougth in networking.
+
+ * timeout directives.?

@@ -8,7 +8,7 @@ CFLAGS =  $(INCLUDES) -g
 all: testsuiteserver.so testsuiteclient
 
 clean: 
-	rm mwserver *.o *.so
+	rm testsuiteclient *.o *.so
 
 test: 
 	runtestsuite.pl

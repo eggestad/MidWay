@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.6  2002/10/17 22:08:24  eggestad
+ * - we're now using the mwlog() API
+ *
  * Revision 1.5  2002/09/26 22:33:42  eggestad
  * - get an abort on SIGPIPE when a gw died. we now use MSG_NOSIGNAL on sendmsg() when passing the desc.
  *
@@ -99,7 +102,7 @@ void markfd(int fd)
 {
   FD_SET(fd, &open_fdset);
   if (fd > maxfd) maxfd = fd;
-  debug("fd=%d is now set for select() maxfd = %d", fd, maxfd);
+  DEBUG("fd=%d is now set for select() maxfd = %d", fd, maxfd);
   return;
 };
 
@@ -107,19 +110,19 @@ void unmarkfd(int fd)
 {
   int i;
   FD_CLR(fd, &open_fdset);
-  debug( "fd=%d is now unset for select()", fd);
+  DEBUG( "fd=%d is now unset for select()", fd);
 
   if (fd != maxfd) return;
-  debug( "fd==maxfd we must find a new maxfd");
+  DEBUG( "fd==maxfd we must find a new maxfd");
 
   for (i = maxfd-1; i >= 0; i--) {
     if (FD_ISSET(i, &open_fdset)) {
       maxfd = i; 
-      debug( "maxfd is now %d", maxfd);
+      DEBUG( "maxfd is now %d", maxfd);
       return;
     };
   };
-  error( "fd=%d was the last open file", maxfd);
+  Error( "fd=%d was the last open file", maxfd);
   maxfd = -1;
 };
 
@@ -133,23 +136,23 @@ void dump_fd_list(struct fd_info ** fd_root, struct fd_info ** fd_tail)
   struct fd_info * gw;
   
   if (fd_root == NULL) {
-    debug("no root of fd_info list");
+    DEBUG("no root of fd_info list");
     return;
   };
 
   if (*fd_root == NULL) {
-    debug("empty fd_info list");
+    DEBUG("empty fd_info list");
     return;
   };
-  debug("  ********************************* DUMP BEGIN");
-  debug(" root = %p  tail = %p", *fd_root, *fd_tail);
+  DEBUG("  ********************************* DUMP BEGIN");
+  DEBUG(" root = %p  tail = %p", *fd_root, *fd_tail);
   for (gw = *fd_root, i = 0; gw != NULL; i++, gw = gw->next) {
-    debug("  %d %p fd=%d %s %s", i, gw, gw->fd, 
+    DEBUG("  %d %p fd=%d %s %s", i, gw, gw->fd, 
 	  (*fd_root == gw)?"<-root":"", 
 	  (*fd_tail == gw)?"<-tail":"");
   
   };
-  debug("  ********************************* DUMP ENDS");
+  DEBUG("  ********************************* DUMP ENDS");
   return;
 };
 
@@ -159,7 +162,7 @@ static void add_fd_info(int fd, struct fd_info ** fd_root, struct fd_info ** fd_
 
   newgw = (struct fd_info *) malloc(sizeof(struct fd_info));
   if (!newgw) {
-    error ("out of memory!");
+    Error ("out of memory!");
     unmarkfd(fd);
     close(fd);
   };
@@ -172,7 +175,7 @@ static void add_fd_info(int fd, struct fd_info ** fd_root, struct fd_info ** fd_
   newgw->incomplete_mesg = NULL;
   newgw->next = NULL;
   
-  debug ("added fd info for %d", fd);
+  DEBUG ("added fd info for %d", fd);
   if (*fd_root == NULL) {
     *fd_root = newgw;
   } else {
@@ -202,11 +205,11 @@ static void del_fd_info(int fd, struct fd_info ** fd_root, struct fd_info ** fd_
   /* special case of deleting the first gw */
   gw = *fd_root;
   if (gw->fd == fd) {
-    debug ("deleting first member in fd_info list");
+    DEBUG ("deleting first member in fd_info list");
     /* if the only in the list*/ 
     if ((* fd_tail) ==  gw) {
       * fd_tail = NULL;
-      debug ("and the only gw!");
+      DEBUG ("and the only gw!");
     } 
     *fd_root = gw->next;;
     free(gw);
@@ -223,7 +226,7 @@ static void del_fd_info(int fd, struct fd_info ** fd_root, struct fd_info ** fd_
     };
     
   };
-  error("attempting to delete a gw reference, not none found!");
+  Error("attempting to delete a gw reference, not none found!");
   return;
 };
 
@@ -248,22 +251,22 @@ struct fd_info * find_gw(char * domain, char *instance)
   
   for (gw = gw_root; gw != NULL; gw = gw->next) {
 
-    if (domain) debug("testing if domain \"%s\" != \"%s\", skipping is so", 
+    if (domain) DEBUG("testing if domain \"%s\" != \"%s\", skipping is so", 
 			  gw->domain, domain);
 
     if ((domain) && (strncmp(gw->domain, domain, MWMAXNAMELEN) != 0))
       continue;
 
-    if (instance) debug("testing if instance \"%s\" != \"%s\", skipping is so", 
+    if (instance) DEBUG("testing if instance \"%s\" != \"%s\", skipping is so", 
 			    gw->instance, instance);
     if ((instance) && 
 	(strncmp(gw->instance, instance, MWMAXNAMELEN) != 0))
       continue;
 
-    debug ("ok instance is a candidate");
+    DEBUG ("ok instance is a candidate");
     if (!candidate || (candidate->lastused > gw->lastused)) 
       candidate = gw;      
-    debug("new candidate selected");
+    DEBUG("new candidate selected");
   };
 
   if (candidate) candidate->lastused = time(NULL);
@@ -278,7 +281,7 @@ static struct fd_info * find_fd_info_byfd(int fd, struct fd_info * root)
   gw = root;
 
   while(gw != NULL) {
-    debug("  checking if %d == %d", gw->fd, fd);
+    DEBUG("  checking if %d == %d", gw->fd, fd);
     if (gw->fd == fd) {
       return gw;
     };
@@ -290,13 +293,13 @@ static struct fd_info * find_fd_info_byfd(int fd, struct fd_info * root)
 
 struct fd_info * find_gw_byfd(int fd)
 {
-  debug("looking for %d among the gatways", fd);
+  DEBUG("looking for %d among the gatways", fd);
   return find_fd_info_byfd(fd, gw_root);
 };
 
 struct fd_info * find_c_byfd(int fd)
 {
-  debug("looking for %d among the clients", fd);
+  DEBUG("looking for %d among the clients", fd);
   return find_fd_info_byfd(fd, client_root);
 };
 
@@ -344,12 +347,12 @@ int opensockets(void)
 
   unix_socket = socket(PF_UNIX, SOCK_STREAM, 0);
   if (unix_socket == -1) {
-    error( "socket for unix failed errno=%d", errno);
+    Error( "socket for unix failed errno=%d", errno);
     return -1;
   };
   rc = connect (unix_socket, (struct sockaddr*) &unixsockaddr, sizeof(struct sockaddr_un));
   if (rc == 0) {
-    error( "mwbd already running");
+    Error( "mwbd already running");
     return -1;
   };
   errno = 0;
@@ -357,13 +360,13 @@ int opensockets(void)
   unlink(unixsockaddr.sun_path);
   rc = bind(unix_socket, (struct sockaddr*) &unixsockaddr, sizeof(struct sockaddr_un));
   if (rc == -1) {
-    error( "bind for unix socket on %s failed errno=%d", errno, unixsockaddr.sun_path);
+    Error( "bind for unix socket on %s failed errno=%d", errno, unixsockaddr.sun_path);
     return -1;
   };
 
   rc = chmod (unixsockaddr.sun_path, 0777);
   if (rc == -1)  
-    error( "chmod for unix socket on %s failed errno=%d", errno, unixsockaddr.sun_path);
+    Error( "chmod for unix socket on %s failed errno=%d", errno, unixsockaddr.sun_path);
 
 
   /****************************** TCP ******************************/
@@ -374,19 +377,19 @@ int opensockets(void)
 
   tcp_socket = socket(PF_INET, SOCK_STREAM, 0);
   if (tcp_socket == -1) {
-    error( "socket for tcp failed errno=%d", errno);
+    Error( "socket for tcp failed errno=%d", errno);
     return -1;
   };
 
   iOpt= 1;
   rc = setsockopt(tcp_socket, SOL_SOCKET, SO_REUSEADDR, &iOpt, sizeof(int));
-  debug("setsockopt(tcp_socket, SOL_SOCKET, SO_REUSEADDR)=%d errno=%d", 
+  DEBUG("setsockopt(tcp_socket, SOL_SOCKET, SO_REUSEADDR)=%d errno=%d", 
 	rc, errno);
 
 
   rc = bind(tcp_socket, (struct sockaddr*) &tcpsockaddr, sizeof(struct sockaddr_in));
   if (rc == -1) {
-    error( "bind for tcp failed errno=%d", errno);
+    Error( "bind for tcp failed errno=%d", errno);
     return -1;
   };
 
@@ -401,21 +404,21 @@ int opensockets(void)
 
   rc = bind(udp_socket, (struct sockaddr *)&udpsockaddr, sizeof(struct sockaddr_in));
   if (rc == -1) {
-    error( "bind for udp failed errno=%d", errno);
+    Error( "bind for udp failed errno=%d", errno);
     return -1;
   };
   rc = setsockopt(udp_socket, SOL_SOCKET, SO_REUSEADDR, &iOpt, sizeof(int));
-  debug( "setsockopt(tcp_socket, SOL_SOCKET, SO_REUSEADDR)=%d errno=%d", 
+  DEBUG( "setsockopt(tcp_socket, SOL_SOCKET, SO_REUSEADDR)=%d errno=%d", 
 	 rc, errno);
 
 
   optlen = sizeof(int);
 
   rc = listen(tcp_socket, 30);
-  debug( "listen for tcp returned %d errno=%d", rc, errno);
+  DEBUG( "listen for tcp returned %d errno=%d", rc, errno);
 
   rc = listen(unix_socket, 30);
-  debug( "listen for unix returned %d errno=%d", rc, errno);
+  DEBUG( "listen for unix returned %d errno=%d", rc, errno);
 
   /* init the fd_set and mark the listen sockets */
   FD_ZERO(&open_fdset);
@@ -435,7 +438,7 @@ int accept_tcp(void)
   int sd;
 
   sd = accept(tcp_socket, NULL, 0);
-  debug( "accept on tcp returned %d errno =%d", sd, errno);
+  DEBUG( "accept on tcp returned %d errno =%d", sd, errno);
   if (sd == -1) return sd;;
 
   markfd(sd);
@@ -449,7 +452,7 @@ int accept_unix(void)
   int newfd;
   
   newfd = accept(unix_socket, NULL, 0);
-  debug( "accept on unix returned fd=%d", newfd);
+  DEBUG( "accept on unix returned fd=%d", newfd);
   if (newfd != -1) markfd(newfd);
   add_gw(newfd);
 
@@ -471,10 +474,10 @@ void client_clean(void)
   now = time(NULL);
  restart:
   for (cfi = client_root; cfi != NULL; cfi = cfi->next) {
-    debug("checking if fd=%d has exired %d < %d", fd, cfi->lastused,  now - 10);
+    DEBUG("checking if fd=%d has exired %d < %d", fd, cfi->lastused,  now - 10);
     if (cfi->lastused < now - 10) {
       fd = cfi->fd;
-      info("closing client withfd=%d due to timeout", fd);
+      Info("closing client withfd=%d due to timeout", fd);
       unmarkfd(fd);
       del_c(fd); 
       /* since we're going thru the list and have it changed thru
@@ -509,7 +512,7 @@ int waitdata(int * fd, int * operation)
   to.tv_sec = 30;
   to.tv_usec = 0;
   errno = 0;
-  debug( "about to select(%d, , , , %d.%d) ", maxfd, to.tv_sec, to.tv_usec);
+  DEBUG( "about to select(%d, , , , %d.%d) ", maxfd, to.tv_sec, to.tv_usec);
   {
     char line[256];
     int i, len = 0;
@@ -519,17 +522,17 @@ int waitdata(int * fd, int * operation)
       if (FD_ISSET(i, &rfdset)) {
 	len += sprintf (line+len, "%d, ", i);
 	if (len > 250) {
-	  debug("  %s", line);
+	  DEBUG("  %s", line);
 	  len = 0;
 	  line[0] = '\0';
 	};
       };
     };
-    if (len) debug("  %s", line);
+    if (len) DEBUG("  %s", line);
   };
   n = select (maxfd+1, &rfdset, NULL, &efdset, &to);
 
-  debug( "select() returned %d errno=%d", n, errno);
+  DEBUG( "select() returned %d errno=%d", n, errno);
 
   if (n == 0) {
     client_clean();

@@ -22,6 +22,9 @@
 
 /* 
  * $Log$
+ * Revision 1.2  2002/10/17 22:08:10  eggestad
+ * - we're now using the mwlog() API
+ *
  * Revision 1.1  2001/09/15 23:40:09  eggestad
  * added the broker daemon
  *
@@ -36,35 +39,6 @@ extern int debugging;
 
 #include <stdio.h>
 #include <syslog.h>
-
-#ifdef DEBUG
-#define error(m...) do { \
-fprintf(stderr, "ERROR: " __FILE__ ":%d:" __FUNCTION__ ": ", __LINE__);\
-fprintf(stderr, m); \
-fprintf(stderr, "\n"); } while(0)
- 
-#define warn(m...) do { \
-fprintf(stderr, "WARNING: " __FILE__ ":%d:" __FUNCTION__ ": ", __LINE__);\
-fprintf(stderr, m); \
-fprintf(stderr, "\n"); } while(0)
-
-#define debug(m...) do { \
-fprintf(stderr, "DEBUG: " __FILE__ ":%d:" __FUNCTION__ ": ", __LINE__);\
-fprintf(stderr, m); \
-fprintf(stderr, "\n"); } while(0)
-
-#define info(m...) do { \
-fprintf(stderr, "INFO: " __FILE__ ":%d:" __FUNCTION__ ": ", __LINE__);\
-fprintf(stderr, m); \
-fprintf(stderr, "\n"); } while(0)
-
-#else 
-#define error(m...)   syslog(LOG_ERR, m)
-#define warn(m...)    syslog(LOG_WARNING, m)
-#define debug(m...)   do { if (debugging) syslog(LOG_DEBUG, m); } while(0)
-#define info(m...)    syslog(LOG_INFO, m)
-#endif /* DEBUG */
-
 
 #define MWMAXNAMELEN 64 + 1
 

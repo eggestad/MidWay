@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2002/10/03 21:04:03  eggestad
+ * - split  up ipc_(un)provide()  and  created ipc_(un)provide_for_id  so
+ *   gateways can send (un)provides on behalf on foreign gateways
+ *
  * Revision 1.13  2002/09/26 22:34:34  eggestad
  * added cost to the debug dump of provide message
  *
@@ -593,22 +597,32 @@ int _mw_ipcsend_detach(int force)
   return rc;
 };
 
-
-
-int _mw_ipcsend_provide(char * servicename, int cost, int flags)
+/* we need this  for gateways where a gw has entries  in the gwtbl for
+   foreign/peer  gateways, and  the gwid  shall  be the  gwid for  the
+   foreign,  and not the  local gw.   We made  however a  more general
+   function here so that in the  future we can conduct such madness as
+   having a single process be more than one server.*/
+int _mw_ipcsend_provide_for_id(MWID mwid, char * servicename, int cost, int flags)
 {
   Provide providemesg;
   int rc;
-
+  
   memset(&providemesg, '\0', sizeof(Provide));
   
   providemesg.mtype = PROVIDEREQ;
-  providemesg.srvid = _mw_get_my_serverid();
-  providemesg.gwid = _mw_get_my_gatewayid();
+  providemesg.srvid = SRVID(mwid);
+  providemesg.gwid = GWID(mwid);
   providemesg.cost = cost;
+  providemesg.svcid = UNASSIGNED;
   strncpy(providemesg.svcname, servicename, MWMAXSVCNAME);
   providemesg.flags = flags;
 
+  if ( (providemesg.srvid == UNASSIGNED) && 
+       (providemesg.gwid == UNASSIGNED) ) {
+    Error("both srvid and gwid is unassigned mwid = %#x", mwid);
+    return -EINVAL;
+  };
+  
   DEBUG1("Sending a provide message for service %s",  providemesg.svcname);
   /* THREAD MUTEX BEGIN */
   rc = _mw_ipc_putmessage(0, (char *) &providemesg, 
@@ -618,6 +632,19 @@ int _mw_ipcsend_provide(char * servicename, int cost, int flags)
     /* MUTEX END */
   };
   return rc;
+};
+
+int _mw_ipcsend_provide(char * servicename, int cost, int flags)
+{
+  SERVERID srvid;
+  GATEWAYID gwid;
+  
+  srvid =  _mw_get_my_serverid();
+  if (srvid != UNASSIGNED) 
+    return _mw_ipcsend_provide_for_id(srvid, servicename, cost, flags);
+ 
+  gwid = _mw_get_my_gatewayid();
+  return _mw_ipcsend_provide_for_id(srvid, servicename, cost, flags);
 };
 
 SERVICEID _mw_ipc_provide(char * servicename, int flags)
@@ -647,16 +674,35 @@ SERVICEID _mw_ipc_provide(char * servicename, int flags)
 
 int _mw_ipcsend_unprovide(char * servicename,  SERVICEID svcid)
 {
+  SERVERID srvid;
+  GATEWAYID gwid;
+  
+  srvid =  _mw_get_my_serverid();
+  if (srvid != UNASSIGNED) 
+    return _mw_ipcsend_unprovide_for_id(srvid, servicename, svcid);
+ 
+  gwid = _mw_get_my_gatewayid();
+  return _mw_ipcsend_unprovide_for_id(srvid, servicename, svcid);
+};
+
+int _mw_ipcsend_unprovide_for_id(MWID mwid, char * servicename,  SERVICEID svcid)
+{
   Provide unprovidemesg;
   int rc;
 
   memset(&unprovidemesg, '\0', sizeof(Provide));
   
   unprovidemesg.mtype = UNPROVIDEREQ;
-  unprovidemesg.srvid = _mw_get_my_serverid();
-  unprovidemesg.gwid = _mw_get_my_gatewayid();
+  unprovidemesg.srvid = SRVID(mwid);
+  unprovidemesg.gwid = GWID(mwid);
   unprovidemesg.svcid = svcid;
   unprovidemesg.flags = 0;
+
+  if ( (unprovidemesg.srvid == UNASSIGNED) && 
+       (unprovidemesg.gwid == UNASSIGNED) ) {
+    Error("both srvid and gwid is unassigned mwid = %#x", mwid);
+    return -EINVAL;
+  };
 
   rc = _mw_ipc_putmessage(0, (char *) &unprovidemesg, 
 			  sizeof(Provide),0);

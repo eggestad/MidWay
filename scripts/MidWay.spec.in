@@ -1,0 +1,67 @@
+Summary: The MidWay service request broker
+Name: MidWay
+Version: @MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@
+Release: 1
+Copyright: GPL,LGPL
+Group: System Environment/Base
+Source: ftp://ftp.mid-way.org/pub/sourceforge/MidWay/MidWay-%{version}.tgz
+URL: http://www.mid-way.org
+
+BuildRoot: /var/tmp/%{name}-buildroot
+
+%description
+MidWay is a service request broker. It provides a simple way for server processes to provide services, 
+and clients to call these services. It's primary design goal is hig performance. 
+It also provides a session level environment handling users, and authentication.
+
+%package devel
+Summary: Development envronment for MidWay
+Group: System Environment/Base
+%description devel
+This is the development part of midway, thats the include file, the libraries, 
+and man pages for the library. 
+
+%prep
+%setup -q
+
+%build
+configure --prefix=${RPM_BUILD_ROOT}/usr 
+make
+
+%install
+rm -rf $RPM_BUILD_ROOT
+make install
+
+%clean
+rm -rf $RPM_BUILD_ROOT
+
+%post 
+service mwbd start
+ln -s /usr/lib/libMidWay.so.0.10 /usr/lib/libMidWay.so.0
+
+%preun
+service mwbd stop
+
+%post devel
+ln -s /usr/lib/libMidWay.so.0.10 /usr/lib/libMidWay.so
+
+%preun devel 
+rm /usr/lib/libMidWay.so
+ 
+%files
+%defattr(-,root,root)
+%doc README NOTES ChangeLog html-doc
+
+/usr/bin/*
+/usr/sbin/*
+/usr/lib/libMidWay.so.0.10
+/usr/man/man1/*
+/usr/man/man7/*
+
+%files devel
+/usr/man/man3/*
+/usr/include/MidWay.h
+/usr/lib/libMidWay.a
+/usr/lib/liburlencode.a
+
+%changelog

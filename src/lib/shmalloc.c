@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.16  2004/04/12 12:53:41  eggestad
+ * _mw_putbuffer_to_call() failed if data is "", caused mwalloc(0), which returned -ENOMEM
+ *
  * Revision 1.15  2004/02/19 23:42:11  eggestad
  * setting of correct owner id in _mwalloc()
  *
@@ -134,7 +137,7 @@ chunkfoot * _mwfooter(chunkhead * head)
   fadr = (void *)head + sizeof(chunkhead) + 
     head->size * _mwHeapInfo->basechunksize;
 
-  DEBUG3("footer for %p is at %p + %p + %p * %p = %p",
+  DEBUG3("footer for %p is at %p + %u + %ld * %ld = %p",
 	head, head, sizeof(chunkhead),  head->size,  _mwHeapInfo->basechunksize,
 	fadr) ;
   DEBUG3("head offset %d foot offset %d", _mwadr2offset(head),  _mwadr2offset(fadr));
@@ -235,22 +238,27 @@ int _mw_putbuffer_to_call (Call * callmesg, char * data, int len)
   /* First we handle return buffer. If data is not NULL, and len is 0,
      datat is NULL terminated. if buffer is not a shared memory
      buffer, get one and copy over. */
-    
+  
+  // we must check for a special case: we could still have a "" as
+  // data => len == 0, which we treat as NULL
   if (data != NULL) {
-    if (len == 0) len = strlen(data);
+     if (len == 0) len = strlen(data);
+     if (len == 0) data = NULL;
+  };
 
+  if (data != NULL) {
     dataoffset = _mwshmcheck(data);
     if (dataoffset == -1) {
-      dbuf = _mwalloc(len);
-      if (dbuf == NULL) {
-	Error("mwalloc(%d) failed reason %d", len, (int) errno);
-	DEBUG1("mwalloc(%d) failed reason %d", len, (int) errno);
-	return -errno;
-      };
-      memcpy(dbuf, data, len);
-      dataoffset = _mwshmcheck(dbuf);
+       dbuf = _mwalloc(len);
+       if (dbuf == NULL) {
+	  Error("mwalloc(%d) failed reason %d", len, (int) errno);
+	  return -errno;
+       };
+       memcpy(dbuf, data, len);
+       dataoffset = _mwshmcheck(dbuf);
     }
-    
+  };
+  
     callmesg->data = dataoffset;
     callmesg->datalen = len;
   } else {
@@ -327,7 +335,7 @@ int _mwshmcheck(void * adr)
   if (_mwHeapInfo == NULL) return -1;
 
   offset = _mwadr2offset(adr);
-  DEBUG3(" testing to see if buffer is %x < %x < %x", 
+  DEBUG3(" testing to see if buffer is %p < %p < %p", 
 	 (void *)_mwHeapInfo + sizeof(struct segmenthdr), 
 	 adr, 
 	 (void *)_mwHeapInfo + _mwHeapInfo->segmentsize);

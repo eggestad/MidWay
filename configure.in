@@ -27,15 +27,6 @@ dnl
 dnl ******************************      ******************************
 
 
-dnl version information
-AC_REVISION($Name$)
-MAJOR_VERSION="0"
-AC_SUBST(MAJOR_VERSION)
-MINOR_VERSION="11"
-AC_SUBST(MINOR_VERSION)
-PATCH_VERSION="0"
-AC_SUBST(PATCH_VERSION)
-
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(src/mwd/mwd.c)
 AC_CONFIG_HEADER(config.h)
@@ -120,6 +111,16 @@ dnl fi
 
 readlinelib="$rlnlib"
 AC_SUBST(readlinelib)
+
+dnl version information
+AC_REVISION($Name$)
+MAJOR_VERSION="0"
+AC_SUBST(MAJOR_VERSION)
+MINOR_VERSION="11"
+AC_SUBST(MINOR_VERSION)
+PATCH_VERSION="0"
+AC_SUBST(PATCH_VERSION)
+
 
 dnl End link options for readline
 

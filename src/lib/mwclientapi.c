@@ -23,27 +23,83 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.2  2000/09/21 18:39:36  eggestad
+ * - issue of handle now moved here
+ * - deadline handling now placed here
+ * - lots of changes to deadline handling
+ * - fastpath flag now private and added func to access it.
+ *
  * Revision 1.1  2000/08/31 19:37:30  eggestad
  * This file is used for implementing SRB client side
  *
  *
  */
 
+
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <sys/time.h>
+#include <math.h>
+
+#include <MidWay.h>
+#include <address.h>
+#include <ipcmessages.h>
+#include <shmalloc.h>
+
 static struct timeval deadline = {0, 0};
 
+int _mw_deadline(struct timeval * tv_deadline, float * ms_deadlineleft)
+{
+  struct timeval now;
+  float timeleft;
+
+  if (deadline.tv_sec == 0) return 0;
+  gettimeofday(&now, NULL);
+
+  if (ms_deadlineleft != NULL) {
+    timeleft = now.tv_sec;
+    timeleft -= deadline.tv_sec;
+    timeleft += now.tv_usec / 1000000;
+    timeleft -= deadline.tv_usec / 1000000;
+    *ms_deadlineleft = timeleft;
+  };
+  
+  if (tv_deadline != NULL) {
+    tv_deadline->tv_sec = deadline.tv_sec;
+    tv_deadline->tv_usec = deadline.tv_usec; 
+  };
+  
+  return 0 ;
+};
+
 mwaddress_t * _mwaddress;
+
+int _mw_isattached(void)
+{
+  if (_mwaddress == NULL) return 0;
+  return 1;
+};
+
 /*
   fastpath flag. This spesify weither programs are passed a copy
   of the data passed thru shared memoery or a pointer to shared
   memory directly.
   (Does it need to be global??)
 */
-int _mw_fastpath = 0;
+static int _mw_fastpath = 0;
+
+int _mw_fastpath_enabled(void) 
+{
+  return _mw_fastpath;
+};
 
 /* the call handle, it is inc'ed everytime we need a new, and randomly
    assigned the first time.*/
 int handle = -1;
-static int nexthandle(void)
+int _mw_nexthandle(void)
 {
   if (handle > 0) handle++;
 
@@ -73,13 +129,14 @@ int mwattach(char * url, char * name,
     return -EISCONN;;
 
   rc = _mwsystemstate();
+  mwlog(MWLOG_DEBUG3, "_mwsystemstate returned %d", rc);
   if (rc == 0) return -EISCONN;;
   if (rc != 1) return rc;
 
   errno = 0;
   _mwaddress = _mwdecode_url(url);
   if (_mwaddress == NULL) {
-    mwlog(MWLOG_ERROR, "The URL %s is invalid, decode returned %d", url, rc);
+    mwlog(MWLOG_ERROR, "The URL %s is invalid, decode returned %d", url, errno);
     return -EINVAL;
   };
 
@@ -186,12 +243,23 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
 int mwacall(char * svcname, char * data, int datalen, int flags) 
 {
   int handle;
+  float timeleft;
   /* input sanyty checking, everywhere else we depend on params to be sane. */
   if ( (data == NULL ) || (datalen < 0) || (svcname == NULL) ) 
     return -EINVAL;
   
   mwlog(MWLOG_DEBUG1, "mwacall called for service %.32s", svcname);
-  
+
+  if ( _mw_deadline(NULL, &timeleft)) {
+    /* we should maybe say that a few ms before a deadline, we call it expired? */
+    if (timeleft <= 0.0) {
+      /* we've already timed out */
+      mwlog(MWLOG_DEBUG1, "call to %s was made %d ms after deadline had expired", 
+	    timeleft, svcname);
+      return -ETIME;
+    };
+  };
+
   /* datalen may be zero if data is null terminated */
   if (datalen == 0) datalen = strlen(data);
 
@@ -200,15 +268,15 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
     return -ENOTCONN;
   };
 
-  handle = nexthandle();
+  handle = _mw_nexthandle();
   switch (_mwaddress->protocol) {
     
   case MWSYSVIPC:
 
-    return _mwacall_ipc(handle, data, datalen, flags);
+    return _mwacall_ipc(svcname, data, datalen, flags);
     
   case MWSRBP:
-    return _mwacall_srb(handle, data, datalen, flags);
+    return _mwacall_srb(svcname, data, datalen, flags);
   };
   mwlog(MWLOG_ERROR, "mwacall: This can't happen unknown protocol %d", 
 	_mwaddress->protocol);
@@ -221,7 +289,9 @@ int mwcall(char * svcname,
 	       char ** rdata, int * rlen, 
 	       int * appreturncode, int flags)
 {
-  int handle;
+  int hdl;
+  float timeleft;
+
   /* input sanyty checking, everywhere else we depend on params to be sane. */
   if ( (cdata == NULL ) || (clen < 0) || (svcname == NULL) ) 
     return -EINVAL;
@@ -230,6 +300,16 @@ int mwcall(char * svcname,
 
   mwlog(MWLOG_DEBUG1, "mwcall called for service %.32s", svcname);
 
+  if ( _mw_deadline(NULL, &timeleft)) {
+    /* we should maybe say that a few ms before a deadline, we call it expired? */
+    if (timeleft <= 0.0) {
+      /* we've already timed out */
+      mwlog(MWLOG_DEBUG1, "call to %s was made %d ms after deadline had expired", 
+	    timeleft, svcname);
+      return -ETIME;
+    };
+  };
+
   /* clen may be zero if cdata is null terminated */
   if (clen == 0) clen = strlen(cdata);
 
@@ -237,19 +317,21 @@ int mwcall(char * svcname,
     mwlog(MWLOG_DEBUG1, "not attached");
     return -ENOTCONN;
   };
-  handle = nexthandle();
+  
   switch (_mwaddress->protocol) {
     
   case MWSYSVIPC:
-    hdl = _mwacallipc (handle, svcname, cdata, clen, &deadline, flags);
+    mwlog(MWLOG_DEBUG1, "mwcall using  SYSVIPC");
+    hdl = _mwacall_ipc (svcname, cdata, clen, flags);
     if (hdl < 0) return hdl;
-    hdl = _mwfetchipc (handle, rdata, rlen, appreturncode, flags);
+    hdl = _mwfetchipc (hdl, rdata, rlen, appreturncode, flags);
     return hdl;
     
   case MWSRBP:
-    hdl = _mwacall_srb (handle, svcname, cdata, clen, &deadline, flags);
+    mwlog(MWLOG_DEBUG1, "mwcall using  SRBP");
+    hdl = _mwacall_srb (svcname, cdata, clen, flags);
     if (hdl < 0) return hdl;
-    hdl = _mwfetch_srb (handle, rdata, rlen, appreturncode, flags);
+    hdl = _mwfetch_srb (hdl, rdata, rlen, appreturncode, flags);
     return hdl;
 
   };
@@ -299,11 +381,6 @@ int mwabort()
   deadline.tv_usec = 0;
 };
 
-float _mw_leftOfDeadline()
-{
-  return deadline.tv_sec + (deadline.tv_usec / 1000000);
-};
-
 /**********************************************************************
  * Memory allocation 
  **********************************************************************/
@@ -312,7 +389,7 @@ float _mw_leftOfDeadline()
 void * mwalloc(int size) 
 {
   if (size < 1) return NULL;
-  if ( !_mwaddress || (_mwaddress->proto != MWSYSVIPC)) {
+  if ( !_mwaddress || (_mwaddress->protocol != MWSYSVIPC)) {
     mwlog(MWLOG_DEBUG3, "mwalloc: using malloc");
     return malloc(size);
   } else {
@@ -337,7 +414,8 @@ int mwfree(void * adr)
 {
   if (_mwshmcheck(adr) == -1) {
     mwlog(MWLOG_DEBUG3, "mwfree: using free");
-    return free(adr);
+    free(adr);
+    return 0;
   } else {
     mwlog(MWLOG_DEBUG3, "mwfree: using _mwfree");
     return _mwfree( adr);

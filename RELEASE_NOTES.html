@@ -1,10 +1,14 @@
-There are quite significant changes in this release, the API however
-is virtually unchanged. There are two major additions. 
+This is mainly a bugfix release, but it required quite significant changes, see the Changelog. The API is unchanged. 
+
+There will be a change to mwfetch() in the next release. 
 <p>
-1) is the mwd ability to manage servers. There is a config file, that
-is placed under ~/Midway/&ltuserid&gt/config. (For info in how to change
-the place of this directory, see MidWay(7)). The file has an XML
-format, and here is an example:
+
+I haven't made a man page for the config so here is the corrently only doc of it. 
+
+The config file is placed under ~/Midway/&ltuserid&gt/config. (For
+info in how to change the place of this directory, see MidWay(7)). The
+file has an XML format, and here is an example:
+
 <pre>
 &lt;?xml version="1.0"?&gt
 &lt;MidWay&gt
@@ -21,6 +25,9 @@ format, and here is an example:
   &lt/mwd&gt
 
   &lt;mwgwd&gt
+  &lt;env&gt
+MWGWD_LOGLEVEL=debug
+  &lt;/env&gt
    &lt;domain name="testdom"&gt
    &lt/domain&gt
   &lt/mwgwd&gt
@@ -35,27 +42,3 @@ is implemented in a library shell.so.
 <br>
 b) start a mwgwd in the domain testdom. 
 <p>
-There will be an interface in mwadm to start and stop servers. 
-<p>
-
-
-2) The MidWay Gateway daemon (mwgwd) is now able to interconnect all
-mwgwd in the same domain. This mean that a service available in one
-instance will be available in other instances if they have mwgwd
-running in the same domain. The mwgwd will route the service call to
-the instance where the server is running. 
-
-<p>
-Documentation of new features are incomplete, most notably teh config
-file format is undocumented, and will be extended beyond what is
-described here.
-<p>
-
-
-* Configuration file for mwd
-<p>
-* the gateway daemon now interconnect instances in the same domain
-<p>
-* event partially work. They work inside a instance, but not distributed among the instances within a domain, which they shall. 
-<p>
-* quite a few bugfixes. 

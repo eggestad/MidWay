@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.22  2004/08/11 18:58:04  eggestad
+ * - shm tables is now 32/64 bit interoperable
+ *
  * Revision 1.21  2004/06/06 16:08:54  eggestad
  * better test on system state
  *
@@ -112,6 +115,7 @@
 #include <MidWay.h>
 #include <ipctables.h>
 #include <ipcmessages.h>
+#include <shmalloc.h>
 
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
@@ -240,6 +244,7 @@ int _mw_attach_ipc(key_t key, int type)
   _mwHeapInfo = shmat (ipcmain->heap_ipcid, NULL, 0);
   if (_mwHeapInfo != NULL) {
     DEBUG1("heap attached");
+    _mw_addsegment(0, -1, _mwHeapInfo, ((void*)_mwHeapInfo) + _mwHeapInfo->segmentsize);
   };
   /* THREAD MUTEX ENDS */
   return 0;

@@ -50,16 +50,16 @@
 
 struct cliententry
 {
-  int type; /* 0 client only, 1 server
+  int32_t type; /* 0 client only, 1 server
 	     * I originally had somethink like this in mind;
 	     * MWTYPEIPC, MWTYPETCP, MWTYPEUDP, MWTYPESERVER or MWTYPEGATEWAY 
 	     * MWTYPESERVER and MWTYPEGATEWAY implies IPC. 
 	     But server only servers don't show up here at all. 
 	     remote clients will probably don't either. */
-  int location; /* MWLOCAL, MWIMPORTED */
-  int status;
+  int32_t location; /* MWLOCAL, MWIMPORTED */
+  int32_t status;
   pid_t pid;
-  int mqid;
+  int32_t mqid;
   
   GATEWAYID gwid;;
   SERVERID srvid;
@@ -69,14 +69,14 @@ struct cliententry
   
   char addr_string[MWMAXNAMELEN];
 
-  int authtype; /* MWAUTHNONE, MWAUTHPASSWD */;
-  long authref;
+  int32_t authtype; /* MWAUTHNONE, MWAUTHPASSWD */;
+  int64_t authref;
   
-  time_t connected;
-  time_t last_request;
-  int idle_timeout;
+  int64_t connected;
+  int64_t last_request;
+  int32_t idle_timeout;
 
-  int requests;
+  int32_t requests;
 
 };
 typedef struct cliententry cliententry;
@@ -85,18 +85,18 @@ struct serverentry
 {
 
   char servername[MWMAXNAMELEN];
-  int mqid;
+  int32_t mqid;
   pid_t pid;
   
-  int status;
+  int32_t status;
   char statustext[MWMAXSVCNAME];
   SERVICEID nowserving;
   
-  int mwdblock; /* MWNORMAL MWSHUTDOWN, MWBLOCKED, MWDEAD */;
-  int trace;
+  int32_t mwdblock; /* MWNORMAL MWSHUTDOWN, MWBLOCKED, MWDEAD */;
+  int32_t trace;
 
-  time_t booted;
-  time_t lastsvccall;
+  int64_t booted;
+  int64_t lastsvccall;
 
   float percbusy1, percbusy5, percbusy15; 
   float count1, count5, count15;
@@ -112,13 +112,13 @@ typedef struct serverentry serverentry;
 
 struct serviceentry
 {
-  int type; /* MWCALLSVC, MWCONVSVC or UNASSIGNED */
-  int location; /* GW* or UNASSIGNED (unused flag) */;
+  int32_t type; /* MWCALLSVC, MWCONVSVC or UNASSIGNED */
+  int32_t location; /* GW* or UNASSIGNED (unused flag) */;
 
   SERVERID server;
   GATEWAYID gateway;
   char mwname[MWMAXNAMELEN];
-  int cost;
+  int32_t cost;
   /* the address for the functions does not really belong here But it
      spares us having a separate table in private memory of the
      server. Of counse it is only valid for location = LOCAL;*/
@@ -133,21 +133,21 @@ struct gatewayentry
   char instancename[MWMAXNAMELEN];
   char domainname[MWMAXNAMELEN];
 
-  int location; /* GW* */
-  int srbrole; /* only used for local */
+  int32_t location; /* GW* */
+  int32_t srbrole; /* only used for local */
 
-  int mqid;
+  int32_t mqid;
   pid_t pid;
-  int status ;
-  time_t connected;
-  time_t last_call;
+  int32_t status ;
+  int64_t connected;
+  int64_t last_call;
 
-  int trace;
-  int mesgsent;
-  int mesgrecv;
+  int32_t trace;
+  int32_t mesgsent;
+  int32_t mesgrecv;
 
-  int imported_svc;
-  int exported_svc;
+  int32_t imported_svc;
+  int32_t exported_svc;
 
   char addr_string[MWMAXNAMELEN];
 
@@ -157,16 +157,16 @@ typedef struct gatewayentry gatewayentry;
 
 struct conv_entry
 {
-  int localserver;
+  int32_t localserver;
   SERVERID srvid;
   GATEWAYID gwid;
   CLIENTID cltid;
 
-  time_t connected;
-  int idle_timeout; /* millisec */;
-  time_t lastsend;
-  int bytes_exchanged;
-  int sends_exchanged;
+  int64_t connected;
+  int32_t idle_timeout; /* millisec */;
+  int64_t lastsend;
+  int32_t bytes_exchanged;
+  int32_t sends_exchanged;
 };
 typedef struct conv_entry conv_entry;
 
@@ -174,33 +174,35 @@ typedef struct conv_entry conv_entry;
 struct ipcmaininfo
 {
   char magic[8];
-  int vermajor, verminor, patchlevel;
+  int32_t vermajor, verminor, patchlevel;
   pid_t mwdpid, mwwdpid;
-  int mwd_mqid;
+  int32_t mwd_mqid;
   char mw_instance_name[MWMAXNAMELEN];
   char mw_instance_id[MWMAXNAMELEN];
   char mw_homedir[256];
+  char mw_bufferdir[256];
 
-  int status; /* BOOTING, RUNNING, SHUTDOWN*/
-  time_t boottime;
-  time_t lastactive;
-  time_t configlastloaded;
-  time_t shutdowntime;
+  int32_t status; /* BOOTING, RUNNING, SHUTDOWN*/
+  int64_t boottime;
+  int64_t lastactive;
+  int64_t configlastloaded;
+  int64_t shutdowntime;
 
-  int heap_ipcid;
-  int clttbl_ipcid;
-  int srvtbl_ipcid;
-  int svctbl_ipcid;
-  int gwtbl_ipcid;
-  int convtbl_ipcid;
+  int32_t heap_ipcid;
+  int32_t clttbl_ipcid;
+  int32_t srvtbl_ipcid;
+  int32_t svctbl_ipcid;
+  int32_t gwtbl_ipcid;
+  int32_t convtbl_ipcid;
 
-  int clttbl_length;
-  int srvtbl_length;
-  int svctbl_length;
-  int gwtbl_length;
-  int convtbl_length;
+  int32_t clttbl_length;
+  int32_t srvtbl_length;
+  int32_t svctbl_length;
+  int32_t gwtbl_length;
+  int32_t convtbl_length;
 
-  int gwtbl_nextidx;  int gwtbl_lock_sem;
+  int32_t gwtbl_nextidx;  
+  int32_t gwtbl_lock_sem;
 };
 
 typedef struct ipcmaininfo ipcmaininfo;
@@ -219,7 +221,7 @@ gatewayentry * _mw_getgatewayentry(int);
 conv_entry   * _mw_getconv_entry(int);
 
 
-int  _mw_attach_ipc(key_t, int);
+int32_t  _mw_attach_ipc(key_t, int);
 void _mw_detach_ipc(void);
 void _mw_set_shmadr (ipcmaininfo * im, cliententry * clt, serverentry * srv, 
 		     serviceentry * svc, gatewayentry * gw, conv_entry * conv);

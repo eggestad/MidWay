@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.4  2002/09/29 17:44:34  eggestad
+ * added unproviding and importlist now has a mutex
+ *
  * Revision 1.3  2002/09/22 22:54:57  eggestad
  * - removed getsvccost, new and improved lies in gateway.c
  * - added unexportservice()
@@ -31,6 +34,8 @@
  * *** empty log message ***
  *
  */
+
+#include <errno.h>
 
 #include <MidWay.h>
 #include <ipctables.h>
@@ -51,11 +56,46 @@ static char * RCSName UNUSED = "$Name$";
 static Export * exportlist = NULL;
 static Import * importlist = NULL;
 
+DECLAREMUTEX(impmutex);
+
+/* find the Import element in the import list if it exist, or return NULL) */
+static Import * impfind(char * service)
+{
+  Import *  imp;
+  if (importlist == NULL) {
+    return NULL;
+  };
+  
+  for (imp = importlist; imp != NULL; imp = imp->next) 
+    if ( strcmp(imp->servicename, service) == 0) return imp;
+  return NULL;
+};
+    
+void impsetsvcid(char * service, SERVICEID svcid)
+{
+  Import * imp;
+  
+  LOCKMUTEX(impmutex);
+
+  imp = impfind(service);
+  if (imp) {
+    DEBUG("imported service %s has serviceid %d", service, SVCID2IDX(svcid));
+    imp->svcid = svcid;
+  } else {
+    DEBUG("Apparently the peer unprovided %s before mwd replied with svcid, sending unprovide to mwd");
+    _mw_ipcsend_unprovide (service, 0);
+  };
+  
+  UNLOCKMUTEX(impmutex);
+};
+
+
+  
 /* add service to Import list if it's isn't there already, else return old
    entry. send a provide to mwd if it was there from before.  */
 static Import *  condnewimport(char * service, int cost) 
 {
-  Import * imp, **previmp;
+  Import * imp;
   
   /* special case: empty list */
   if (importlist == NULL) {
@@ -73,9 +113,7 @@ static Import *  condnewimport(char * service, int cost)
     return imp;
   };
   
-  previmp = &importlist;
-  for (imp = importlist; imp != NULL; previmp = &imp->next, imp = imp->next) 
-    if ( strcmp(imp->servicename, service) == 0) break;
+  imp = impfind(service);
   
   // if the for loop found a match we return it. 
   if (imp != NULL) {
@@ -83,18 +121,15 @@ static Import *  condnewimport(char * service, int cost)
     return imp;
   };
 
-  if (*previmp != NULL) {
-    Fatal("Internal error: didn't find service %s imported but *previmp  is not NULL", service);
-  };
-
-  DEBUG("adding service %s to the end of importlist", service);
+  DEBUG("adding service %s to the top of importlist", service);
   imp = malloc(sizeof(Import));
   imp->svcid = UNASSIGNED;
   imp->next = NULL;
   imp->peerlist = NULL;
   strncpy(imp->servicename, service, MWMAXSVCNAME);
+  imp->next = importlist;
+  importlist->next = imp;
   
-  *previmp = imp;
   _mw_ipcsend_provide (service, cost, 0);
   
   return imp;
@@ -107,6 +142,7 @@ int importservice(char * service, int cost, struct gwpeerinfo * peerinfo)
   Import * imp;
   peerlink ** ppl, * pl;
 
+  LOCKMUTEX(impmutex);
   imp = condnewimport(service, cost);
 
   /* find the last peerlink, but we check to see if we already has a
@@ -115,6 +151,7 @@ int importservice(char * service, int cost, struct gwpeerinfo * peerinfo)
     if ( (*ppl)->peer == peerinfo) {
       DEBUG("Hmmm import of service from a peer we already have an import from, " 
 	    "this is probably a repeat from peer, OK!");
+      UNLOCKMUTEX(impmutex);
       return 0;
     };
   };
@@ -122,9 +159,68 @@ int importservice(char * service, int cost, struct gwpeerinfo * peerinfo)
   *ppl = pl = malloc(sizeof(peerlink));
   pl->next = NULL;
   pl->peer = peerinfo;
+  UNLOCKMUTEX(impmutex);
   return 0;
 };
 
+int unimportservice(char * service, struct gwpeerinfo * pi)
+{
+  int error;
+  Import * imp, **pimp;
+  peerlink ** ppl, * pl;
+  
+  if ( (service == NULL) || (pi == NULL) ) return -EINVAL;
+
+  LOCKMUTEX(impmutex);
+
+  imp = impfind(service);
+  
+  if (imp == NULL) {
+    Warning("attempted unimport of a service we've not imported");
+    goto out;
+  };
+  
+  for(ppl =  &imp->peerlist; *ppl != NULL; ppl = &(*ppl)->next) {
+    pl = * ppl;
+    if ( pl->peer != pi) continue;
+    
+    DEBUG("found the peerlist emelemt, removing");
+    *ppl = pl->next;
+    free(pl);
+    
+    if (imp->peerlist != NULL)  {
+      DEBUG("Not the last peer to provide %s, not sending unprovide to mwd", service); 
+      // TODO: recalc cost
+      goto out;
+    };
+    DEBUG("last peer to provide %s (%d), sending unprovide to mwd", service, SVCID2IDX(imp->svcid));
+
+    if (imp->svcid != UNASSIGNED) 
+      _mw_ipcsend_unprovide (service, imp->svcid);
+    else 
+      DEBUG("we got an unimport before svcid has been assigned, probably because mwd has not yet answered."
+	    " we're not sending unprovide to mwd, it will be done in the impsetsvcid()"
+	    " when the provide replyy comes. ");
+
+    DEBUG("now we must remove the  Import element from the importlist %p", importlist);
+    for (pimp = &importlist; *pimp != NULL; *pimp = (*pimp)->next) {
+      DEBUG(" pimp = %p *pimp = %p imp = %p", pimp, *pimp, imp);
+      if (imp ==  *pimp) {
+	pimp = &imp->next;
+	free(imp);
+	goto out;
+      }; 
+    };
+    Error("unable to find the import elemennt (we just found it before)");
+    error= -EFAULT;
+    goto out;
+  };
+  Warning("Hmm went thru the peerlist but didn't find the peer, could ab a dublicate unprovide message");
+
+ out:
+  UNLOCKMUTEX(impmutex);
+  return error;
+};
 
 /* add service to Export list if it's isn't there already, else return old
    entry. send a provide to mwd if it was there from before.  */

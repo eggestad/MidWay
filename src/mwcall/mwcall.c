@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/12/12 16:10:57  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.6  2002/11/19 12:43:54  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -125,16 +128,19 @@ int call(int argc, char ** argv)
     
     toread = if_stat.st_size;
     data = (char *) malloc(if_stat.st_size+1);
+
+    // this generate an "comparison is always false due to limited
+    // range of data type" while compilingon 64bit platforms, which is ok.
     while(toread > SSIZE_MAX) {
       readed += read (fd, data + readed, SSIZE_MAX);
       toread -= toread;
     };
     readed += read (fd, data + readed, toread);
-
+    
     close(fd);
     len = readed;
   };
-
+  
 
   DEBUG("about to call(%s, %s, %d, ...)", argv[0], data, len);
   gettimeofday(&start, NULL); 

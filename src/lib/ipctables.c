@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.15  2003/03/25 02:29:52  cstup
+ * Fixed DEBUG statement in _mw_attach_ipc()
+ *
  * Revision 1.14  2002/11/18 00:11:38  eggestad
  * - _mw_ipcmaininfo prtotype fixup
  *
@@ -123,7 +126,6 @@ void _mw_set_shmadr (ipcmaininfo * im, cliententry * clt, serverentry * srv,
 int _mw_attach_ipc(key_t key, int type)
 {
   int mainid, readonly;
-  int rc;
 
   extern struct segmenthdr * _mwHeapInfo;
   /* already connected,  */
@@ -170,7 +172,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->clttbl_ipcid, strerror(errno));
     return -errno;
   };
-  DEBUG1("client table attached at 0x%x 0x%x ",clttbl, rc);
+  DEBUG1("client table attached at 0x%x 0x%x ",clttbl);
   
   srvtbl = shmat(ipcmain->srvtbl_ipcid, NULL, readonly);
   if (srvtbl == (void *) -1) {

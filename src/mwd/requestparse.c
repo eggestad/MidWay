@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2003/03/16 23:53:53  eggestad
+ * bug fixes
+ *
  * Revision 1.12  2002/11/19 12:43:55  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -142,20 +145,17 @@ static int do_attach(void * mp)
     return send_reply(areq, sizeof(Attach) -sizeof(long),areq->ipcqid);
   };
 
-  /* check to see if it was a client handling gateway or an IPC agent */
-  if (areq->gwid != -1) {
-    if (areq->server) {
-      areq->returncode = -EUCLEAN;
-      return send_reply(areq, sizeof(Attach) -sizeof(long),areq->ipcqid);
-    };
-    type = MWNETCLIENT;
-  } else {
-    type = MWIPCCLIENT; 
-  };
   areq->returncode = 0;
 
   /* Request is now deemed OK */
   if (areq->server) {
+
+    // servers are illegal on gateways.
+    if (areq->gwid != -1) {
+      areq->returncode = -EUCLEAN;
+      return send_reply(areq, sizeof(Attach) -sizeof(long),areq->ipcqid);
+    };
+    
     areq->srvid = addserver(areq->srvname,areq->ipcqid, areq->pid);
     DEBUG("pid=%d, on queue id=%d attached as server %#x",
 	  areq->pid, areq->ipcqid, areq->srvid);
@@ -171,30 +171,40 @@ static int do_attach(void * mp)
 	  areq->pid, areq->srvid);
   };
 
+  /* check to see if it was a client handling gateway or an IPC agent */
   if (areq->client) {
-    if (areq->srvid > 0) {
-      type = MWIPCSERVER;
-      id = (int) areq->srvid;
+    if (areq->gwid != -1) {
+      type = MWNETCLIENT;
+      id = areq->gwid;
+    } else {
+      if (areq->srvid > 0) {
+	id = (int) areq->srvid;
+ 	type = MWIPCSERVER;
+      } else {
+	id = areq->cltid;
+	type = MWIPCCLIENT; 
+      };
     };
+  
     areq->cltid = addclient(type, areq->cltname,areq->ipcqid, areq->pid, id);
     DEBUG("pid=%d, on queue id=%d attached as client %#x, type=%d",
-	  areq->pid, areq->ipcqid, areq->cltid, type);
+	  areq->pid, areq->ipcqid, id, type);
     if (areq->cltid < 0) {
       areq->returncode = areq->cltid;
       areq->cltid = UNASSIGNED;
-      Warning(	    "Failed to register client pid=%d, on queue id=%d reason=%d",
-	    areq->pid, areq->ipcqid, areq->returncode);
+      Warning("Failed to register client pid=%d, on queue id=%d reason=%d",
+	      areq->pid, areq->ipcqid, areq->returncode);
     }
-  };
-  if (type == MWIPCCLIENT) 
-    Info("CLIENT ATTACHED: pid %d clientid %d",
-	  areq->pid, areq->cltid & MWINDEXMASK);
-  else
-    Info("CLIENT ATTACHED: on gateway %d clientid %d",
-	  areq->gwid & MWINDEXMASK, areq->cltid & MWINDEXMASK);
     
+    if (type == MWIPCCLIENT) {
+      Info("CLIENT ATTACHED: pid %d clientid %d",
+	   areq->pid, areq->cltid & MWINDEXMASK);
+    } else {
+      Info("CLIENT ATTACHED: on gateway %d clientid %d",
+	   areq->gwid & MWINDEXMASK, areq->cltid & MWINDEXMASK);
+    }; 
+  };
   return send_reply(areq, sizeof(Attach) -sizeof(long),areq->ipcqid);
-
 };
 
 static int do_detach(void * mp)

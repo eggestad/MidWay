@@ -263,6 +263,7 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
 
 #define DECLAREMUTEX(name) static pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
 #define DECLAREGLOBALMUTEX(name)  pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
+#define DECLAREEXTERNMUTEX(name)  extern pthread_mutex_t name
 #define _LOCKMUTEX(name)   do {pthread_mutex_lock(&name); }   while(0)
 #define _UNLOCKMUTEX(name) do {pthread_mutex_unlock(&name); } while(0)
 #define LOCKMUTEX(name)    do { DEBUG1("locking mutex " #name " ..." );  \

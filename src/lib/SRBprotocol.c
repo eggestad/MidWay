@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.9  2003/03/16 23:53:53  eggestad
+ * bug fixes
+ *
  * Revision 1.8  2003/01/07 08:26:48  eggestad
  * * major fixup of trace, added desc propper and fixup direction indicator.
  * * added newline before SRB message in DBEUG for readability on log.
@@ -329,6 +332,7 @@ void _mw_srb_setfieldx (SRBmessage * srbmsg, char * key, unsigned int value)
   sprintf (hex, "%8.8x", value);
 #endif
 
+  DEBUG1("value %x = > %s", value, hex);
   map = urlmapnadd(srbmsg->map, key, hex, 8);
   if (map == NULL) 
     urlmapnset(srbmsg->map, key, hex, 8);

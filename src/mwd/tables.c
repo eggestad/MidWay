@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2003/03/16 23:53:53  eggestad
+ * bug fixes
+ *
  * Revision 1.13  2002/10/22 21:50:50  eggestad
  * addresses in ipctables are now strings and not struct sockaddr_*
  *
@@ -292,7 +295,7 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
   int cltidx = UNASSIGNED, i;
   static int nextidx = 0;
 
-  DEBUG(	"addclient(type=%d, name=\"%s\", mqid=%d, pid=%d, gwid=%d",
+  DEBUG("(type=%d, name=\"%s\", mqid=%d, pid=%d, gwid=%d",
 	type, name, mqid, pid, gwid);
   
   ipcmain = getipcmaintable();
@@ -343,14 +346,14 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
   case MWIPCSERVER:
     clttbl[cltidx].location = GWLOCAL ;
     clttbl[cltidx].gwid = UNASSIGNED ;
-    DEBUG(	  "addclient: added client %s to index %#x adr %#x mqid = %d pid = %d", 
+    DEBUG("added client %s to index %#x adr %#x mqid = %d pid = %d", 
 	  name, cltidx, (long) &clttbl[cltidx], mqid, pid);
     
     break;
   case MWNETCLIENT:
     clttbl[cltidx].location = GWCLIENT ;
     clttbl[cltidx].gwid = gwid ;
-    DEBUG(	  "addclient: added client %s to index %#x  gatewayid = %d pid = %d", 
+    DEBUG("added client %s to index %#x  gatewayid = %d pid = %d", 
 	  name, cltidx, gwid, pid);
     
     break;

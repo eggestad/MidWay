@@ -33,8 +33,8 @@
 /* Service name length is max 32, historic to be 
  * tuxedo compatible, really should be the same here.
  */
-#define MWMAXSVCNAME 32 + 1
-#define MWMAXNAMELEN 64 + 1
+#define MWMAXSVCNAME (32 + 1)
+#define MWMAXNAMELEN (64 + 1)
 
 typedef int SERVERID;
 typedef int CLIENTID;

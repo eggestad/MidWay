@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.17  2003/03/16 23:53:53  eggestad
+ * bug fixes
+ *
  * Revision 1.16  2003/01/07 08:26:58  eggestad
  * * reset log suffix for earlier debugging that where committed
  * * added a hidden _mwgetloglevel() that return the pointer to debuglevel, for faster DEBUGN
@@ -285,7 +288,7 @@ _mw_vlogf(int level, char * format, va_list ap)
       buffer[LINE_MAX-1] = '\0';
     };
     
-    fwrite (buffer, 1, l, log);
+    write (fileno(log), buffer, l);
   } 
 
   //  copy_on_FILE = 0;
@@ -436,7 +439,7 @@ void mwsetlogprefix(char * lfp)
 
   if ( (logdir != NULL) && (logfilename != NULL) ) {
     if (logprefix != NULL) free (logprefix);
-    logprefix = malloc(strlen(logdir) + strlen(logfilename) +1);
+    logprefix = malloc(strlen(logdir) + strlen(logfilename) + 10);
     sprintf(logprefix, "%s/%s", logdir, logfilename);
     _force_switchlog = 1;
     _fprintf(stderr, "logprefix = %s at %s:%d\n", logprefix, __FUNCTION__, __LINE__);

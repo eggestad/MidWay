@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.19  2003/03/16 23:53:53  eggestad
+ * bug fixes
+ *
  * Revision 1.18  2002/10/22 21:58:20  eggestad
  * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
  *
@@ -243,6 +246,7 @@ void  _mw_dumpmesg(void * mesg)
           SERVERID    srvid              = %#x\n\
           SERVICEID   svcid              = %#x\n\
           GATEWAYID   gwid               = %#x\n\
+          MWID        callerid           = %#x\n\
           int         forwardcount       = %d\n\
           char        service            = %.32s\n\
           char        origservice        = %.32s\n\
@@ -256,7 +260,7 @@ void  _mw_dumpmesg(void * mesg)
           char        domainname         = %.64s\n\
           int         returncode         = %d", 
 	  rm->mtype, rm->handle, 
-	  rm->cltid, rm->srvid, rm->svcid, rm->gwid,
+	  rm->cltid, rm->srvid, rm->svcid, rm->gwid, rm->callerid,
 	  rm->forwardcount, rm->service, rm->origservice, 
 	  rm->issued, rm->uissued, rm->timeout, 
 	  rm->data, rm->datalen, 

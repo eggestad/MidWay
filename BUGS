@@ -78,6 +78,8 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
   servermanager. However it really should be @exec_prefix@ from
   autoconf.
 
+* in mwbd change read()/write() to sendmsg/recvmsg to avoid SIGPIPE's
+
 -----------------------------------------------------------------------
 
 Minor BUGS:

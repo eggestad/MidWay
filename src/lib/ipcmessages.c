@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.21  2003/06/19 21:45:31  eggestad
+ * fix of pop of pending received call reply
+ *
  * Revision 1.20  2003/06/12 07:43:21  eggestad
  * added MWIPCONLY flag to _mwipcacall, to force local service
  *
@@ -172,11 +175,14 @@ static char * popReplyQueueByHandle(long handle)
   Call * callmesg;
   char * m; 
   qelm = replyQueue;
-  
+
+  if (!qelm)
+     DEBUG3("queue empty");
+
   while( qelm != NULL) {
-    DEBUG3("in  popReplyQueueByHandle tetsing qelm at %p", qelm);
+    DEBUG3("in  popReplyQueueByHandle testing qelm at %p", qelm);
     callmesg = (Call *) qelm->message;    
-    if (callmesg->handle == handle) {
+    if (callmesg && (callmesg->handle == handle)) {
       m = qelm->message;
       qelm->message = NULL;
       DEBUG1("popReplyQueueByHandle returning message at %p", m);
@@ -244,7 +250,7 @@ void  _mw_dumpmesg(void * mesg)
   case SVCREPLY:
     rm = (Call * )  mesg;
     DEBUG1("CALL/FRD/REPLY MESSAGE: %#x\n\
-          int         handle             = %d\n\
+          int         handle             = %#x\n\
           CLIENTID    cltid              = %#x\n\
           SERVERID    srvid              = %#x\n\
           SERVICEID   svcid              = %#x\n\

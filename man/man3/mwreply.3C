@@ -7,29 +7,34 @@
 ..\"
 .TH MWREPLY 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwreply \- Returning data from service routines
+mwreply, mwreturn \- Returning data from service routines
 .SH SYNOPSIS
 .B #include <MidWay.h>
 .sp
-.BI "void mwreply(char * reply, int replylen, int successflag, int applicationreturncode );"
+.BI "void mwreply(char * reply, int replylen, int successflag, int applicationreturncode);"
+.sp
+.BI "void mwreturn(char * reply, int replylen, int successflag, int applicationreturncode);"
 .SH DESCRIPTION
-This fuction is used in a service routine to return a reply to the service request.
+mwreturn is quite simply an alias for mwreply followed by a return (successflag). 
+It is offered as a convenience only.
+
+This function is used in a service routine to return a reply to the service request.
 The 
 .I reply 
-argument is a pinter to the data to be sent. If NULL no data is returned, only return codes, 
-and the calling client gets confirmation that the call was executed.
-If 
+argument is a pointer to the data to be sent. If NULL no data is
+returned, only return codes, and the calling client gets confirmation
+that the call was executed.  If
 .I replylen 
 is 0, we assume a NULL terminated reply string. The 
 .I successflag 
-is interpreded by MidWay as 
-success of failure. (Not really used, but important for future support for the XA interface.)
-Zero on failure, non zero for success. 
+is interpreted by MidWay as success of failure. (Not really used, but
+important for future support for the XA interface, where a failure
+causes a rollback.)  Zero on failure, non zero for success.
 .BR mwfetch ()
 on the client will return EFAULT if this flag is zero.
 In addition to successflag programmers may pass another return code, 
 .I applicationreturncode
-for private use. MidWay ignore this, so it is optional.
+for private use. MidWay ignore it, so it is optional.
 .sp
 If the service perform a normal C return without calling 
 .BR  mwreply ()
@@ -41,16 +46,18 @@ had  the
 .B MWNOREPLY
 flag set (see mwservice()) this call is silently ignored and may be omitted.
 .SH WARNINGS
-It is very bad practice to omit this call. If you do a mwrealloc() on the input buffer and return 
-by C return, you will pass back the original buffer, and cause a buffer leak. I may change this 
-practice in the future if I find that is as bad an idea I belive it to be.
+It is very bad practice to omit this call. If you do a mwrealloc() on
+the input buffer and return by C return, you will pass back the
+original buffer, and cause a buffer leak. I may change this practice
+in the future, if I find that is as bad an idea as I believe it to be.
+
 .SH EXAMPLES
 
 .SH BUGS 
 
 .SH "SEE ALSO"
 
-.BR mwservice (3C), mwmwcall (3C), mwmwacall (3C), mwfetch (3C), mwalloc (3C), mwrealloc (3C), mwfree (3C) 
+.BR mwservice (3C), mwcall (3C), mwacall (3C), mwfetch (3C), mwalloc (3C), mwrealloc (3C), mwfree (3C) 
 
 .SH STANDARDS
 NONE

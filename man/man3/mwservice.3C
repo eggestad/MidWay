@@ -14,16 +14,16 @@
 .BI "int " functionname "(mwsvcinfo * si);"
 .SH DESCRIPTION
 This is the prototype for writing service routines in C. 
-A function must be registered as a MidWay service routinewith 
+A function must be registered as a MidWay service routine with 
 .BR mwprovide ()
-where you give what name it should be announced with in the MidWay instance.
-You can either do mwprovide directly or by compile the C function 
-into a shared library and use either 
+where you give what name it should be announced with in the MidWay
+instance.  You can either do mwprovide directly or by compile the C
+function into a shared library and use either
 .BR mwserver ()
 or give the shared library as an executable in the config file for 
 .BR mwd "(). (see" mwd.conf (4)).
 .sp
-The input params to the routine is given by the struct mwsvcinfo:
+The input parameters to the routine is given by the struct mwsvcinfo:
 .nf
 struct _mwsvcinfo {
   int handle;
@@ -46,7 +46,7 @@ The handle returned by
 This is for info only.
 .TP
 .B cltid
-The Client ID of the instance menber that performed the 
+The Client ID of the instance member that performed the 
 .BR mwacall ().
 .TP
 .B srvid
@@ -57,7 +57,8 @@ call the id of the
 server who did this is recorded here, UNASSIGNED (-1) otherwise.
 .TP
 .B data / datalen
-The input data to the service function. datalen is never 0 even if 0 in the 
+The input data to the service function. datalen is never 0 even if 0
+in the
 .BR mw(a)call (). 
 .TP 
 .B flags
@@ -67,23 +68,24 @@ The flags given in the client process to
 .B service
 The service name used in the 
 .BR mw(a)call "() or " mwforward ()
-call. This is needed incase you have registered the same C functions as service routines for 
-multiple services.
+call. This is needed in case you have registered the same C functions
+as service routines for multiple services.
 .TP
 .B deadline / udeadline
 If the client had set a deadline with 
 .BR mwbegin ()
 it is given here. You can compare with 
 .BR gettimeofday ()
-is find out how much time remains. If you know that your routine will not complete in time
-you might as well return with ETIME immediately. This is optional, and is probably only 
-needed in near realtime applications.
+is find out how much time remains. If you know that your routine will
+not complete in time you might as well return with ETIME
+immediately. This is optional, and is probably only needed in near
+realtime applications.
 .PP
-If your service routine need to return data or an application level return code you need to
-call 
+If your service routine need to return data or an application level
+return code you need to call
 .BR mwreply ()
-to do so. 
-The C return shall only return success (0) or failure (!0) of the service call.
+to do so.  The C return shall only return success (0) or failure (!0)
+of the service call.
 
 .SH WARNINGS
 

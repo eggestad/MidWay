@@ -7,27 +7,30 @@
 .\"
 .TH MWSERVER 1 "DATE" Linux "MidWay Users Manual"
 .SH NAME
-mwd \- The MidWay generic server.
+mwserver \- The MidWay generic server.
 .SH SYNOPSIS
 .B mwserver [-A url] [-l \fIdebuglevel\fP] {-s \fIservice[:function]\fP} \fIlibrarys\fP...
 .SH DESCRIPTION
-This program provides the simplest way of making a service routice in C. You write your 
-functions as spesified in 
+This program provides the simplest way of making a service routine in
+C. You write your functions as specified in
 .BR mwservice (3C). 
 Then you link it into a shared library. You give this library as argument to 
 .B mwserver
-and you tell it via the -s option which functions that you want to provide as a service.
+and you tell it via the -s option which functions that you want to
+provide as a service.
 .br
-You can give as many -s option and libraries as arguments as you can fit on the command line.
+You can give as many -s option and libraries as arguments as you can
+fit on the command line.
 .sp
 If you want to have a start up and shutdown procedure then 
 .BR dlopen (3) 
-specify that for each library you have the function _init is run when the library is loaded, 
-and _fini when the library is unloaded.
-In addition mwserver will after having loaded all the libraries look for a function 
+specify that for each library you have the function _init is run when
+the library is loaded, and _fini when the library is unloaded.  In
+addition mwserver will after having loaded all the libraries look for
+a function
 .IR mwinit . 
-The first one and only the first one found in the library list are executed. Likewise on gracefull
-shutdown mwserver looks for 
+The first one and only the first one found in the library list are
+executed. Likewise on graceful shutdown mwserver looks for
 .IR mwexit .
 
 .SH EXAMPLE
@@ -63,10 +66,10 @@ check with
 .B LD_LIBRARY_PATH
 If you don't give the full path of your lib to 
 .BR mwserver, 
-it will look for your library
-in the current working directory, then in the bin directory of your MidWay instance (see 
+it will look for your library in the current working directory, then
+in the bin directory of your MidWay instance (see
 .BR mwd (1). 
-After that it will follow the spesification of 
+After that it will follow the specification of 
 .BR dlopen (3)
 with says that it will use 
 .BR LD_LIBRARY_PATH , 
@@ -83,9 +86,13 @@ see
 .SH SEE ALSO
 .BR MidWay (7),  mwadm (1), mwd (1), mwservice (3C), dlopen (3)
 .SH WARNINGS
-The intention is to make mwd start and stopp servers. If a server started
+The intention is to make mwd start and stops servers. If a server started
 directly by giving the mwserver command, and it core dumps, it will 
-take som 60 - 120 seconds for mwd to clean up (NYI). 
+take some 60 - 120 seconds for mwd to clean up (NYI). 
 mwserver is intended for development use only.
 .SH BUGS
-It is not possible to provide the same function/symbol in two librarys.
+It is not possible to provide the same function/symbol in two libraries.
+
+If the dld implementaion I have on Linux RH 6.0, I can't have _init
+and _fini function in a library and load it with dlopen(), as the man
+page says I can do.

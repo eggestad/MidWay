@@ -5,20 +5,53 @@
 .\"
 .TH MWCALL 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwcall mwacall, mwfetch \- MidWay service calls
+mwforward \- MidWay service calls
 .SH SYNOPSIS
 .B #include <MidWay.h>
 .sp
-.BI "int mwcall(char * servicename, char * cdata, int clen, char ** rdata, int * rlen, int * appreturncode, int flags);"
-.sp
-.BI "int mwacall(char * svcname, char * data, int len, int flags);"
-.br
-.BI "int mwfetch(int handle, char ** data, int * len, mwsvcinfo * si);"
+.BI "int mwforward(char * svcname, char * data, int len, int flags);"
 .SH DESCRIPTION
-These calls are used to serve a service request to a given service see mwserver(
+This is used by service routines only. It enables the service routine to forward the 
+request to another service. Note that the request never return back to the service routine
+but is returned directly back to the client from the next service handler. 
+That means of course that 
+.BR mwreply ()
+and 
+.BR mwforward ()
+are mutually exclusive.
+
+This is often used to make a pipeline, where different services handle
+separate parts of the request.
+
+The only flags legal is MWNOBLOCK.
+
 .SH "RETURN VALUES"
+0 on success else -error.
 
 .SH "ERRORS"
+
+.TP
+.B ENOENT
+There are no service with servicename available.
+.TP 
+.B ENOTCONN 
+The calling process has not performed a successful mwattach() 
+and is thus not attach to a running system.
+.TP 
+.B EINVAL
+flags has a undefined flag set.
+.TP 
+.B EINTR
+The subroutine was interrupted by a signal. (Actually one of the
+underlying msgrcv() or select() system calls were.)
+.TP
+.B ENOBUFS
+We are out of MidWays shared memory buffers, see 
+.BR mwd (1).
+ 
+.TP
+.B EAGAIN
+The call would block and MWNOBLOCK flags was set. 
 
 .SH WARNINGS
 
@@ -28,7 +61,7 @@ These calls are used to serve a service request to a given service see mwserver(
 
 .SH "SEE ALSO"
 
-.BR lseek (2)
+.BR mwacall (3C)
 
 .SH STANDARDS
 NONE

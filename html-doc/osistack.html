@@ -35,7 +35,7 @@ SNA, SNA is very much in the prehistory of MidWay since TP monitors are
 child of the mainframe. Supposedly OSI has seven layers since SNA also
 has seven layers.
 
-<p>CCITT, which is a french abbreviation I forget, but means <u>the Committee
+<p>CCITT, which is a French abbreviation I forget, but means <u>the Committee
 for standardization of international telephone and telegraph</u>. Again
 they make committee style standards. CCITT is responsible for many things,
 among them cabling and plugging, such as V.24 (*almost* RS232, think of
@@ -110,21 +110,21 @@ the wire.
 <dt>1. Physical: 
 <dd>The nuts and bolts layer. Here is where the cable, connector
 and signaling specifications are defined.
-
-<p>There are actually a lession in connection orientated and
-connectless comminucation here. X.25 is connection orientated.&nbsp;
-You can either have a switched virtual circuit(SVC) or a permananet
+</dl>
+<p>There are actually a lesson in connection orientated and
+connectless communication here. X.25 is connection orientated.&nbsp;
+You can either have a switched virtual circuit(SVC) or a permanent
 virtual circuit. (PVC).&nbsp; Between two host you have one or more
 switches, think of them as routers.  Every switch must know about
 every VC going thru it, packets have only the VC&nbsp;number. not the
-end point adress like in IP.&nbsp; The VC&nbsp;number on the two
+end point address like in IP.&nbsp; The VC&nbsp;number on the two
 interfaces on the switch a connection go thru are not identical.
-Should IP&nbsp;use the same scheme, the Internett backbone routers
+Should IP&nbsp;use the same scheme, the Internet backbone routers
 know about all the millions of TCP&nbsp;connections that go thru
 them.&nbsp; They have enough trouble finding space for the routing
-tables already.  (Routing tables in the internett backbone routers
+tables already.  (Routing tables in the Internet backbone routers
 grow 1.5 times the rate RAM&nbsp;chips grow.). In TCP/IP&nbsp;only the
-end nodes are avare that an connection exist. In all fairness OSI
+end nodes are aware that an connection exist. In all fairness OSI
 envisioned that only one X.25 VC&nbsp;should exist between two
 hosts. Sessions should be multiplexed on the single VC.
 

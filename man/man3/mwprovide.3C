@@ -17,14 +17,16 @@ mwprovide mwunprovide \- The act of making services available in the MidWay inst
 .SH DESCRIPTION
 These calls control which services a server provides to the MidWay instance. The
 .I service
-argument gives the name the service shall be known under in the instance. The max length of teh 
-service name is 32 (see MidWay.h). Legal characters in the name is all upper and 
-lower characters (a-z) all digits, underscore, minus, plus, and period. 
-Service names with leading periodes will not be exported to other instances thru gateways 
-unless explisitly named and renamed to a name without a leading periode. 
+argument gives the name the service shall be known under in the
+instance. The max length of the service name is 32 (see
+MidWay.h). Legal characters in the name is all upper and lower
+characters (a-z) all digits, underscore, minus, plus, and period.
+Service names with leading periods will not be exported to other
+instances thru gateways unless explicitly named and renamed to a name
+without a leading period.
 .br
 The 
-.I srvfunc
+.I svcfunc
 is a pointer to the C function that is the service routine. See 
 .BR mwservice (3C) 
 on how to write these functions. The supported flags are:
@@ -39,8 +41,8 @@ available on filedescriptor 0 (stdin) and 1 (stdout).
 .B MWUNIQUE
 If 
 .BR mwprovide ()
-succeds, this server will be the one and only service providing this service.
-(with in the instance?? or globally???)
+succeeds, this server will be the one and only service providing this service.
+NYI! (with in the instance?? or globally???)
 
 
 .SH "RETURN VALUES"

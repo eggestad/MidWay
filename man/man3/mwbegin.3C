@@ -5,22 +5,65 @@
 .\"
 .TH MWCALL 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwcall mwacall, mwfetch \- MidWay service calls
+mwbegin, mwcommit, mwabort \- MidWay Global transaction control
 .SH SYNOPSIS
 .B #include <MidWay.h>
 .sp
-.BI "int mwcall(char * servicename, char * cdata, int clen, char ** rdata, int * rlen, int * appreturncode, int flags);"
+.BI "int mwbegin(float secs, int flags);"
 .sp
-.BI "int mwacall(char * svcname, char * data, int len, int flags);"
+.BI "int mwcommit();"
 .br
-.BI "int mwfetch(int handle, char ** data, int * len, mwsvcinfo * si);"
+.BI "int mwabort();"
+
 .SH DESCRIPTION
-These calls are used to serve a service request to a given service see mwserver(
+These calls are intended to start and end a global transaction. 
+All work done will be commit upon a 
+.BR mwcommit () 
+or all rolled back on 
+.BR mwabort ().
+However if the deadline is reached a 
+.BR mwabort () 
+is implicit, except for a deadline reset is not performed.
+
+However this requires that all stable storage support the XA interface, 
+or something similar. In addition MidWay need a XA compatible 
+transaction manager. This is not yet implemented in MidWay. 
+
+Another purpose of these calls are to set a deadline on service calls.
+If secs is not 0.0, the API will mark all service calls with a
+deadline, if processing in the server begins after the deadline
+expires, the server will return the request immediately with ETIME
+without sending it to the service routine. This is actually a
+important practice in all high availability application. It is always
+a possibility that you may experience a burst of requests that exceed
+the servers ability to process them.  Without a deadline the servers
+will process them all and you may have a situation where the servers
+processes really old requests. Another reason may be that a service
+routine hangs for a long time, and a lot of requests that not longer
+of interest are queued. Since the server will discard requests overdue, 
+the recovery time of a hang or overload is substantially shorter.
+mwcommit and abort currently only set the deadline back to 0 (no deadline).
+
+This functionality will be supported in the future by setting the 
+.B MWNOTRAN
+flag. In order to be forward compatible MWNOTRAN should always be set
+when you are only in need of a deadline.  
+
+
 .SH "RETURN VALUES"
+They all always return 0.
 
 .SH "ERRORS"
 
 .SH WARNINGS
+Not that if you set the deadline with 
+.BR mwbegin ()
+you must clear it with 
+.BR mwcommit () 
+or 
+.BR mwabort ()
+or all mw(a)calls after the deadline expires will return with timeout (-ETIME)
+immediately.
 
 .SH EXAMPLES
 
@@ -28,7 +71,5 @@ These calls are used to serve a service request to a given service see mwserver(
 
 .SH "SEE ALSO"
 
-.BR lseek (2)
-
 .SH STANDARDS
-NONE
+X/Open XA

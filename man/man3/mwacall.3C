@@ -17,22 +17,24 @@ mwcall mwacall, mwfetch \- MidWay service calls
 .br
 .BI "int mwfetch(int handle, char ** rdata, int * rlen, int flags);"
 .SH DESCRIPTION
-These calls are used to send a service request to a given service see mwservice(3C)/mwprovide(3C). 
-mwcall() is really a mwacall() mwfetch() pair, and is provided as a convinace. 
+These calls are used to send a service request to a given service see
+mwservice(3C)/mwprovide(3C).  mwcall() is really a mwacall() mwfetch()
+pair, and is provided as a convince.
 .sp
-Servicename is a null terminated string of max 32 characters long. In order for this call to succed
-some server in the MidWay must have provided a service with name 
+Servicename is a null terminated string of max 32 characters long. In
+order for this call to succeed some server in the MidWay must have
+provided a service with name
 .IR servicename .
 .I Data
 is a pointer to the request buffer passed to the service routine. 
 The number of bytes of data is given by
 .IR len . 
-Id data is a NULL terminated string len may be 0. Similary 
+Id data is a NULL terminated string len may be 0. Similarly 
 .I rdata
 and 
 .I rlen
-is used for receiving the return buffer from the service routine. The return buffer
-is alway allocated with 
+is used for receiving the return buffer from the service routine. The
+return buffer is alway allocated with
 .B mwalloc()
 and must be freed by 
 .BR mwfree() .
@@ -41,59 +43,65 @@ It is not required that the request buffer is allocated by
 If it is not mw(a)call will allocate one automatically of the needed size, and free it 
 on the return.
 .sp
-Typically when you pass C structs or C++ objects around you will need to copy the data in the 
-return buffer into the struct or have a pointer to it. Note that if you are using fastpath
-you may cause a possible shared memory buffer leak. (see 
+Typically when you pass C structs or C++ objects around you will need
+to copy the data in the return buffer into the struct or have a
+pointer to it. Note that if you are using fastpath you may cause a
+possible shared memory buffer leak. (see
 .BR mwalloc() ). 
 
 .I Appreturncode 
-is probided for the servoce routine to pass back an application level return/exit code.
-The use of this is not mandatory. It may be NULL. 
+is provided for the service routine to pass back an application level
+return/exit code.  The use of this is not mandatory. It may be NULL.
 .I Handle
-is used if you have made several mwacall() and  want it retrive a spesific reply.
-If handle is 0 the first reply is returned. 
+is used if you have made several mwacall() and want it retrieve a
+specific reply.  If handle is 0 the first reply is returned.
 
 The 
 .I flags
-parameter controls som aspects of the calls. There are currently these flags.
+parameter controls some aspects of the calls. There are currently these flags.
 .TP
 .B MWNOREPLY
-Used in mwcall() and mwacall() only. It tells the server that no reply is needed. Note that 
-you don't get any confirmation that the request ever gets processed.
+Used in mwcall() and mwacall() only. It tells the server that no reply
+is needed. Note that you don't get any confirmation that the request
+ever gets processed.
 .TP
 .B MWNOBLOCK
-Used in all calls, spesifies that the calls should fail if they encounter a condition 
-where they wold block. There are one condition, mwcall() will of course block while reading
-our own message queue while waiting for the reply from a server. If you want to avoid that 
-condition you must used mwacall() and mwfetch() explisitly. 
+Used in all calls, specifies that the calls should fail if they
+encounter a condition where they would block. There are one condition,
+mwcall() will of course block while reading our own message queue
+while waiting for the reply from a server. If you want to avoid that
+condition you must used mwacall() and mwfetch() explicitly.
+
 .SH "RETURN VALUES"
-On success mwcall() and mwfetch return 0. mwacall() return the handel that may be used 
-with mwfetch to retrive the reply.
-On failure we get a negative number for local errors. The number is a negative errno. 
-On server side errors we get a positive errno.
-We dispreciate errno in order to be pthread optimised. 
+On success mwcall() and mwfetch return 0. mwacall() return the handle
+that may be used with mwfetch to retrieve the reply.  On failure we
+get a negative number for local errors. The number is a negative
+errno.  On server side errors we get a positive errno.  We dispreciate
+errno in order to be pthread optimized.
 .SH "ERRORS"
 .TP
 .B ENOENT
-There are no service with serivename available.
+There are no service with servicename available.
 .TP 
 .B ENOTCONN 
-The calling process has not performed a succesful mwattach() 
+The calling process has not performed a successful mwattach() 
 and is thus not attach to a running system.
 .TP 
 .B EINVAL
 flags has a undefined flag set.
 .TP 
 .B EINTR
-The subroutine was interruptet by a signal. (Actually one of the underlying msgrcv() of select()
-system calls were.)
+The subroutine was interrupted by a signal. (Actually one of the
+underlying msgrcv() or select() system calls were.)
 .TP
 .B ETIME
-The deadline set by mwbegin() was reached, while we were waiting for one or more replys, or 
-before mwcall was called..
+The deadline set by mwbegin() was reached, while we were waiting for
+one or more replys, or before mwcall was called..
 .TP
 .B ENOBUFS
-We are out of MidWays shared memory buffers, see mwd(1). 
+We are out of MidWays shared memory buffers, see 
+.BR mwd (1).
+ 
 .TP
 .B EAGAIN
 The call would block and MWNOBLOCK flags was set. 

@@ -13,22 +13,22 @@ mwMainLoop \- Main loop in a MidWay server
 .sp
 .BI "int mwMainLoop(int flags);"
 .SH DESCRIPTION
-This is called by a server after it has attached it selv to the domain with 
+This is called by a server after it has attached it self to the domain with 
 .BR mattach ()
 and provided all its service routines with
 .BR mwprovide ().
 .BR mwMainLoop ()
 essentially calls 
 .BR mwservicerequest ()
-indefinitly. 
+indefinitely. 
 .br
 If 
 .B MWSIGRST 
 is not set it will return on a signal, with return code -EINTR. 
 .sp
-Programmers may feel the need roll their own mwMainLoop, espesially if you want to 
+Programmers may feel the need roll their own mwMainLoop, especially if you want to 
 incorporate a MidWay server in a program that has a main loop else where. Thats 
-pretty much OK, just be carefull. An example mwMainLoop is shown below, taken from 
+pretty much OK, just be careful. An example mwMainLoop is shown below, taken from 
 .IR MidWay/src/lib/mwserver.c .
 You may also look in the code for 
 .BR mwserver (1)
@@ -39,13 +39,13 @@ After
 exits you are
 .I required
 to call 
-.BR mwdetach() .
-Failure to do so will leave ipc resources undeleted, and the info tables in shared memory 
+.BR mwdetach ().
+Failure to do so will leave IPC resources undeleted, and the info tables in shared memory 
 will still hold information about this server, and some service calls may fail 
 since they may still be addressed to this server.
 When 
 .BR mwMainLoop ()
-returns te status if theis server is set to "(suspended)". 
+returns the status if the server is set to "(suspended)". 
 .SH "RETURN VALUES"
 The return value is always a negative errno, giving the reason why the loop aborted.
 .SH "ERRORS"
@@ -53,7 +53,7 @@ The return value is always a negative errno, giving the reason why the loop abor
 .B EINTR
 A signal was delivered to the program 
 .IR "while in msgrcv" . 
-If you want to know which one, or to vatch signals during execution of service routines, 
+If you want to know which one, or to watch signals during execution of service routines, 
 install a signal handler.
 .TP
 .B ENOTCONN
@@ -76,14 +76,14 @@ in the last service request a
 .BR mwunprovide ()
 was called on the last service this server provided. To continue 
 .BR mwMainLoop () 
-would be futine since the only "service" we can perform is a 
+would be futile since the only "service" we can perform is a 
 shutdown instruction from 
 .BR mwd (1).
 If you wanted to suspend a service in such a way it can be resumed from 
 .BR mwadm (1), 
 use 
 .BR
-mw****** (). 
+mw****** (). (Future functionality.)
 .SH WARNINGS
 
 .SH EXAMPLES

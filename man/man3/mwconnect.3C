@@ -5,17 +5,10 @@
 .\"
 .TH MWCALL 3  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwcall mwacall, mwfetch \- MidWay service calls
-.SH SYNOPSIS
-.B #include <MidWay.h>
-.sp
-.BI "int mwcall(char * servicename, char * cdata, int clen, char ** rdata, int * rlen, int * appreturncode, int flags);"
-.sp
-.BI "int mwacall(char * svcname, char * data, int len, int flags);"
-.br
-.BI "int mwfetch(int handle, char ** data, int * len, mwsvcinfo * si);"
+mwconnect, mwdisconnect \- MidWay Conversational service calls
 .SH DESCRIPTION
-These calls are used to serve a service request to a given service see mwserver(
+Future functionality.
+
 .SH "RETURN VALUES"
 
 .SH "ERRORS"
@@ -27,8 +20,6 @@ These calls are used to serve a service request to a given service see mwserver(
 .SH BUGS 
 
 .SH "SEE ALSO"
-
-.BR lseek (2)
 
 .SH STANDARDS
 NONE

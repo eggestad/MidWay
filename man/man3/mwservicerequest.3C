@@ -7,18 +7,23 @@
 ..\"
 .TH MWSERVICEREQUEST 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwservicerequest () \- Gets a service request of the input queue and executes the function for the service.
+mwservicerequest () \- Gets a service request of the input queue and
+executes the function for the service.
 .SH SYNOPSIS
 .B #include <MidWay.h>
 .sp
 .BI "int mwservicerequest(int flags);"
 .SH DESCRIPTION
-For every time this is called it gets a service request of the IPC message queue the server
-has to receive MidWay data on. It then lookup the registered (with 
+This function is only legal if attached as a server.
+
+For every time this is called it gets a service request of the IPC
+message queue the server has to receive MidWay data on. It then lookup
+the registered (with
 .BR mwprovide ()) 
 function that shall perform the service request. 
 .br 
-If the next request is not a service request then it exits with a propper return code.
+If the next request is not a service request then it exits with a
+propper return code.
 .SH "RETURN VALUES"
 0 on success, otherwise a negative errno.
 .SH "ERRORS"
@@ -26,8 +31,8 @@ If the next request is not a service request then it exits with a propper return
 .B EINTR
 A signal was delivered to the program 
 .IR "while in msgrcv" . 
-If you want to know which one, or to watch signals during execution of service routines, 
-install a signal handler.
+If you want to know which one, or to watch signals during execution of
+service routines, install a signal handler.
 .TP
 .B EAGAIN
 .I flags
@@ -38,7 +43,7 @@ is true and now service calls are wainting on the message queue.
 .B ENOTCONN
 Either 
 .BR mwattach ()
-has not yet been called, or it failed, or 
+has not yet been called, or it failed, or attached as client only, or 
 .BR mwdetach ()
 has been called.
 .B ESHUTDOWN
@@ -47,7 +52,7 @@ The MidWay daemon
 has sent us an instruction to exit. We are required to do so.
 .TP
 .B ENOENT
-There are currently not service handles registered by 
+There are currently no service handles registered by 
 .BR mwprovide (). 
 
 .SH WARNINGS

@@ -21,8 +21,13 @@
 
 /*
  * $Log$
+ * Revision 1.6  2002/10/17 22:02:05  eggestad
+ * - added _mw_srb_setfieldx()
+ * - changed a debug() to Error() (if remote didn't want rejects we now log the reject as error locally)
+ * - added a debug so that  reject is always logged
+ *
  * Revision 1.5  2002/07/07 22:35:20  eggestad
- * *** empty log message ***
+ * added urlmapdup
  *
  * Revision 1.4  2001/10/03 22:43:59  eggestad
  * added api for manipulate SRBmessage's, before urlmap* had to be used directly
@@ -305,6 +310,38 @@ void _mw_srb_setfieldi (SRBmessage * srbmsg, char * key, int value)
   return;
 };
 
+#ifdef FAST_ENHEX
+static char _hex_digit [16] = { '0', '1', '2', '3', '4', '5', '6', '7', 
+				'8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+#endif
+void _mw_srb_setfieldx (SRBmessage * srbmsg, char * key, unsigned int value)
+{
+  urlmap * map;
+  char hex[9];
+
+  if (srbmsg == NULL) return;
+  if (key == NULL) return;
+  
+#ifdef FAST_ENHEX
+  // this would be faster, but, I'm really unsure how much it matters,
+  // besides, There would need to be a big-endian version of this
+  for (i = 0; i < 8; i++) {
+    hex[7-i] = _hex_digit[value&0xF];
+    value >>= 4;
+  };
+#else
+  sprintf (hex, "%8.8x", value);
+#endif
+
+  map = urlmapnadd(srbmsg->map, key, hex, 8);
+  if (map == NULL) 
+    urlmapnset(srbmsg->map, key, hex, 8);
+  else 
+    srbmsg->map = map;
+
+  return;
+};
+
 void _mw_srb_setfield (SRBmessage * srbmsg, char * key, char * value)
 {
   urlmap * map;
@@ -469,9 +506,14 @@ int _mw_srbsendreject(Connection * conn, SRBmessage * srbmsg,
   int rc;
 
   if ( (srbmsg == NULL) || (conn == NULL) ) {
-    DEBUG("not sending a reject since either conn %p or srbmessage %p is NULL", conn, srbmsg);
+    Error("not sending a reject since either conn %p or srbmessage %p is NULL", conn, srbmsg);
     return -EINVAL;
   };
+
+  DEBUG("sending a reject causefield \"%s\" causevalue \"%s\", rcode = %d", 
+	causefield?causefield:"", 
+	causevalue?causevalue:"", 
+	rcode);
 
   srbmsg->marker = SRB_REJECTMARKER;
   

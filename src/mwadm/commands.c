@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2002/10/22 21:47:59  eggestad
+ * addresses in ipctables are now string not struct sockaddr_*
+ *
  * Revision 1.12  2002/10/03 21:12:31  eggestad
  * - clean up of output info, getting closer to a tabular output
  * - services output better
@@ -189,7 +192,7 @@ int clients(int argc, char ** argv)
   cltent = _mw_getcliententry(0);
   /*if (extended) printf ("table address %#x \n", 
     (long)cltent); */
-  printf ("ClientID Type   Location Pid    msgqid Clientname\n");
+  printf ("ClientID Type   Location Pid    msgqid Clientname address\n");
   for (i = 0; i < ipcmain->clttbl_length; i++) {
     if (cltent[i].status != UNASSIGNED) {
       count ++;
@@ -197,7 +200,9 @@ int clients(int argc, char ** argv)
       if (cltent[i].location == GWCLIENT) loc = "Network ";
       /*      if (extended) printf ("@ %#x ", &cltent[i]); */
       printf ("%8d %-6s %-8s %-6d %-6d %s\n", i,  clienttypestring(cltent[i].type), 
-	      loc, cltent[i].pid, cltent[i].mqid, cltent[i].clientname);
+	      loc, cltent[i].pid, cltent[i].mqid, 
+	      cltent[i].clientname, 
+	      cltent[i].addr_string);
     };
   }
   printf ("\n %d/%d (%5.3f%%) entries used\n", count,i, 
@@ -294,7 +299,7 @@ int gateways(int argc, char ** argv)
 	      gwent[i].pid, 
 	      gwent[i].mqid, 
 	      gwent[i].status,
-	      gwent[i].instancename, _mw_sprintsa(&gwent[i].addr.sa, NULL));
+	      gwent[i].instancename, gwent[i].addr_string);
       
     };
   }

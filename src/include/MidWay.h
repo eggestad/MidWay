@@ -211,11 +211,14 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
   
   if (debuglevel == NULL) debuglevel = _mwgetloglevel();
   if (*debuglevel < MWLOG_DEBUG + N) return 0;
-  
-  timepeg_pause(); // we're attempting to remove debugging overhead from timepegs bookkeeping
-  va_start(ap, m);
-  if(strlen(m) > 4000) return 0;
 
+  timepeg_pause(); // we're attempting to remove debugging overhead from timepegs bookkeeping
+  
+  va_start(ap, m);
+  if(strlen(m) > 4000) {
+     timepeg_resume(); 
+     return 0;
+  }
   sprintf(buffer, "%s(%d): %s", func, line, m);
   _mw_vlogf(MWLOG_DEBUG + N, buffer, ap);
   

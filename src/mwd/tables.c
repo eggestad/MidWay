@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.17  2004/02/19 23:44:09  eggestad
+ * adding debug messages for msgctl(RM)
+ *
  * Revision 1.16  2003/06/12 07:33:15  eggestad
  *  numerous fixes to check_tables()
  *
@@ -743,15 +746,19 @@ void hard_disconnect_ipc(void)
   /* I'm not even sure I *should* try to do this to the clients. */
   if (clttbl != NULL) {
     for (i = 0; i< ipcmain->clttbl_length; i++) 
-      if (clttbl[i].mqid > 1) 
-	msgctl(clttbl[i].mqid, IPC_RMID, NULL);
+       if (clttbl[i].mqid > 1) {
+	  DEBUG("removing mqueue for CLT %x", IDX2CLTID(i));
+	  msgctl(clttbl[i].mqid, IPC_RMID, NULL);
+       };
   };
 
   /* hmmmm, well we're just  have to see about this when we make gateways.*/
   if (gwtbl != NULL) {
     for (i = 0; i< ipcmain->gwtbl_length; i++) 
-      if (gwtbl[i].mqid > 1) 
-	msgctl(gwtbl[i].mqid, IPC_RMID, NULL);
+       if (gwtbl[i].mqid > 1) {
+	  DEBUG("removing mqueue for GW %x", IDX2GWID(i));
+	  msgctl(gwtbl[i].mqid, IPC_RMID, NULL);
+       };
   };
 };
 

@@ -1,153 +1,157 @@
+-*- Text -*- 
 
 NON CRITICAL BUGS LIST, needed for production 1.0.0
-=======================================================================================
+=======================================================================
 
-* mwd must perform the statistic calc's. This will cause a task that will increase
-  with an increase in the number of servers. To prevent thrashing by mwd, 
-  use /proc/stat cpu line to detect low idle time on system and suspend stats calcs.
-  The fourth number gives the nummber of jiffies (1/100 sec) the the system has been 
-  in idle since boot. NB the idle numbver wraps around when uptime passes 2^32 /100 secs.
-  (hey! thats is only 1.4 years!!!!!). Actually worse, divide by number of cpu's.
-  see /usr/src/linux/fs/proc/array.c
+* mwd must perform the statistic calc's. This will cause a task that
+  will increase with an increase in the number of servers. To prevent
+  thrashing by mwd, use /proc/stat cpu line to detect low idle time on
+  system and suspend stats calcs. The fourth number gives the nummber
+  of jiffies (1/100 sec) the the system has been in idle since
+  boot. NB the idle numbver wraps around when uptime passes 2^32 /100
+  secs.  (hey!  thats is only 1.4 years!!!!!). Actually worse, divide
+  by number of cpu's.  see /usr/src/linux/fs/proc/array.c
 
-(FIXED) * mwd don't clean up on ^C
+(shutdown command, OK) * we need at all ends to handle disappearing
+  message queues. (probably server only.)  mwd fixed
 
-(OK) * mwd need to have a propper shut down proc.
-
-OK on boot. * mwd need to be able to clean up old shm junk.
-
-(shutdown command, OK) * we need at all ends to handle disappearing message queues. (probably server only.)
-  * mwd fixed
+* mwadm don't detach ipc when issuing a shutdown command.
 
 (watchdog made) * Propper clean up of kill -9 and core dumping servers.
   garbage collect in mwd.
 
 * stats, *IDEA: the decay filter is applied when mwadm (or its likes)
-  get the statinfo, and decays according to who long its been since the
-  server updated it's stats.
-  thus the server at every completed service calls sets what's right.
+  get the statinfo, and decays according to who long its been since
+  the server updated it's stats.  thus the server at every completed
+  service calls sets what's right.
 
-FIXED * mwsetloglevel() should return the old level. If -1 as arg, just return the currect level.
+* _mwrealloc() handles malloc() buffers, it shouldn't. (??)
 
-FIXED * testmiddleway (soon to become mwserver) need to have a propper shutdown proc.
-
-* _mwrealloc() handles malloc() buffers, it shouldn't.
-
-* I don't think I'm going to have a network lib and IPC lib anymore. clean up. 
-  The way an URI for selection IPC or TCP/IP removes the need. 
-  THE only thing that may change my mind is if the lib should get so big that
-  the TCP/IP lib should be taken out. 
+* I don't think I'm going to have a network lib and IPC lib
+  anymore. clean up.  The way an URI for selection IPC or TCP/IP
+  removes the need.  THE only thing that may change my mind is if the
+  lib should get so big that the TCP/IP lib should be taken out.
   
-* I question the way I get ipcmain info. I call _mw_ipcmaininfo() in every function 
-  where it's needed. I really should have a global var.
+* I question the way I get ipcmain info. I call _mw_ipcmaininfo() in
+  every function where it's needed. I really should have a global var.
 
 * completion in mwadm is incomplete, works only on the command verb.
 
-FIXED * mwforward missing completely
+* the max number of times a request may be forwarded is hardcoded to
+  100 in mwforward.  We should have a way to set a IP'ish TTL
+  (TimeToLive).
 
-* the max number of times a request may be forwarded is hardcoded to 100 in mwforward.
-  We should have a way to set a IP'ish TTL (TimeToLive). 
+* mwlog used to print on stdout if loglevel >= debug, i liked that, I
+  changed it for start of mwd thru mwadm, but I think I should just
+  cut stdout and stderr for mwd.
 
-* mwlog used to print on stdout if loglevel >= debug, i liked that, I changed it 
-  for start of mwd thru mwadm, but I think I should just cut stdout and stderr for mwd.
+* shm buffer leaks has been pluggen for non fastpath. Test fast path
+  and check that memory leaks are plugged when it comes to passing of
+  buffers.
 
-* shm buffer leaks has been pluggen for non fastpath. Test fast path and check that 
-  memory leaks are plugged when it comes to passing of buffers.
+* in start_watch_dog we don't check for heap being attached. (It's a
+  CANTHAPPEN anyway).
 
-* in start_watch_dog we don't check for heap being attached. (It's a CANTHAPPEN anyway).
+(fixed?) * shutdown servers on msgqueue remove, works, but services
+  are not clean up.
 
-(FIXED) * watchdog don't clean services on periodic clean up
- 
-* shutdown servers on msgqueue remove, works, but services are not clean up.
+* mwlogsetprefix() should if not a absolute path arg, go to ipcmain
+  and get mw_homedir, if that fail try MWHOME, and finally relate to
+  cwd. (diff between relpath and no path prefix)
 
-------------------------------------------------------------------------------------
+* The shutdown command in mwadm don't indicate if successfull, and
+  should detach IPC resources.
+
+* SRBP imp don't support SVCDATA.
+
+* in the urlencode lib - when a empty value &name=& the = is required.
+
+
+-----------------------------------------------------------------------
 
 Minor BUGS:
-=======================================================================================
+=======================================================================
 
-FIXED * heap info in mwadm is wrong. Highwatermark is either not cleared or freecount is wrong
+* buffers shall be auto NULL terminated, thus the byte following the
+  last char in a buffer shall be NULL no matter what. (just in case.).
 
-* buffers shall be auto NULL terminated, thus the byte following the last char 
-  in a buffer shall be NULL no matter what. (just in case.).
-
-* In ipcmessages.c, if we never picked up a message and it didn't have a
-  timeout, the internal queue will grow and never be cleaned up. This can't be
-  avoided. The alternative is to record the handle before sending the
-  reply. However, on a failing server which never sends a reply, this too will
-  grow and cause a memory leak. Since the latter is more likely, the former
-  approach minimizes the leak.
+* In ipcmessages.c, if we never picked up a message and it didn't have
+  a timeout, the internal queue will grow and never be cleaned
+  up. This can't be avoided. The alternative is to record the handle
+  before sending the reply. However, on a failing server which never
+  sends a reply, this too will grow and cause a memory leak. Since the
+  latter is more likely, the former approach minimizes the leak.
 
 * in mwadm R&D commands are available when not in R&D mode.
 
-* Outside lib's and mw programs SERVERID, CLIENTID and SERVICEID should have stripped
-  the prefix, leaving only the  "index" .
+* mwadm boot should do a implicit mwattach. (in R&D mode only.)
 
-FIXED * In mwadm->heap the freecount is wrong
+* call in mwadm require an arg to the service, but no arg is OK.
 
-FIXED, errno != 0 on entry. * after boot command in mwadm, mwattach fails with -22. 
-
-* boot should do a implicit mwattach
+* Outside lib's and mw programs SERVERID, CLIENTID and SERVICEID
+  should have stripped the prefix, leaving only the "index" .
 
 (FIXED) mwlog.c::switchlog() don't seem to work
 
 * sigchld on mwd master is recorded but not used.
 
-* in mwd/tables.c:stop_server() requests in the servers queue are not redistibuted.
+* in mwd/tables.c:stop_server() requests in the servers queue are not
+  redistibuted.
 
 * in mwadm the "clients" command print the internal int for type.
   Also missing client name
 
-* Hmm, I can't do a msgctl( , IPC_STAT, ) on a queue "I" have write presmission on. 
-  I belive this is a bug in Linux, fix it? (seems easy).
-  msgqueues are set apart from sem and shm in that it is prefectly OK to only have 
-  write permission to a queue, and thus I still should be able to stat it.
+* Hmm, I can't do a msgctl( , IPC_STAT, ) on a queue "I" have write
+  presmission on.  I belive this is a bug in Linux, fix it? (seems
+  easy).  msgqueues are set apart from sem and shm in that it is
+  prefectly OK to only have write permission to a queue, and thus I
+  still should be able to stat it.  (update) Hmm, seems to be correct
+  in the way it is, really causes a problem.  This breaks the
+  selection algo of servers. If msgsnd() fails on one server, we will
+  not be able to select another.
 
-* update doc, autoclean up don't work on Linux if /proc don't exists.
+* update doc, autocleanup don't work on Linux if /proc don't exists.
 
-(FIXED) mwcall() and friends didn't do proper sanity checks on params, notably
-  if a buffer length was gives as 0, a null terminatted buffer is assumed, but 
-  length was passed as 0 to server, now strlen() is called in mw(a)call. 
+(FIXED) mwcall() and friends didn't do proper sanity checks on params,
+  notably if a buffer length was gives as 0, a null terminatted buffer
+  is assumed, but length was passed as 0 to server, now strlen() is
+  called in mw(a)call.
 
----------------------------------------------------------------------------------------
+-----------------------------------------------------------------------
 
 CRITICAL BUGS:
-=======================================================================================
+=======================================================================
 
-FIXED * Another reason we need an internal reply queue is that you get a problem if you 
-  do more mwacall's than there are space for replay in your clients message queue. 
-  Servers hang.
+FIXED (tested?) * mwreply can be called several times and they all
+  send replys.
 
-FIXED (tested?) * mwreply can be called several times and they all send replys.
+FIXED * handling of accidental deletion of shm segments. On HP-UX key
+  is set to IPC_PRIVATE (0) on shmctl(IPC_RMID). On Linux, attempting
+  to attach a segment marked destroyed. results in EIDRM.  Posix.4
+  (1003.1b) handles deletion with shm_unlink() which works like
+  unlink.  THe Inode isn't deleted until the last process closes it.
+  Thus on this edition of sysVIPC on linux is wrong. Made fix to
+  kernel, sendt to Linus.
 
-FIXED * handling of accidental deletion of shm segments. On HP-UX key is set to
-  IPC_PRIVATE (0) on shmctl(IPC_RMID). On Linux, attempting to attach a segment
-  marked destroyed. results in EIDRM.
-  Posix.4 (1003.1b) handles deletion with shm_unlink() which works like unlink.
-  THe Inode isn't deleted until the last process closes it. 
-  Thus on this edition of sysVIPC on linux is wrong. Made fix to kernel, sendt
-  to Linus.
+(FIXED?) * there is something so wrong in mwfetch after mwd and
+  mwservers are down and I'm ^C mwadm.
 
-(FIXED?) * there is something so wrong in mwfetch after mwd and mwservers are down and I'm ^C mwadm.
+(GONE?) * ^C doesn't work in normal mode. May be a problem with the
+  previous problem.  INT and QUIT is caught in mwadm. I doubt
+  interrupt handling is OK in mwadm.  (can't really reproduce this
+  one.)
 
-(GONE?) * ^C doesn't work in normal mode. May be a problem with the previous problem.
-  INT and QUIT is caught in mwadm. I doubt interrupt handling is OK in mwadm.
-  (can't really reproduce this one.)
-
-FIXED * when detaching a server no services are cleaned up.
-
-(FIXED, thru -D or mwadm) * mwd should go into daemon state after boot.
+(FIXED, thru -D or mwadm) * mwd should go into daemon state after
+  boot.
 
 (PARTIAL) * mwd need to accept a shutdown command somehow.
 
 (FIXED) * mwadm need shutdown and boot commands.
 
-FIXED * it is possible to attach as neither client nor server
-
-* requests on the queue to  a server is junked on mwdetach(), they should be 
-  redirected to another server if available, or returned with failure to client.
-
-FIXED * the dealloc of shmbuffers are not propperly considered, we need a policy.
-
+* requests on the queue to a server is junked on mwdetach(), they
+  should be redirected to another server if available, or returned
+  with failure to client.  (only if the server only in shutdown down,
+  if the entire instance is going down, ignor it.)
 
 
 

@@ -1,3 +1,4 @@
+-*- Text -*- 
 
      MAJOR TODO LIST
 =======================================================================
@@ -36,6 +37,11 @@
 
  * server mangament, Tuxedo style
 
- * config file
+ * config file (XML)
 
+ * authentication in gateway. Requires config 
 
+ * allow multiple replies to a service request. Solves the html
+   problem, and simple to implement.
+
+ * in doc, add refernce to pthreads programming ch3. THread pools p98

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2002/11/19 12:43:54  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.12  2002/09/29 17:37:54  eggestad
  * improved the _mw_get[client|server|service|gateway]entry functions and removed duplicates in mwd.c
  *
@@ -397,7 +400,7 @@ create_ipc(int mode)
   ipcmain->clttbl_ipcid = shmget(IPC_PRIVATE, sizeof(struct cliententry) * maxclients,tablemode);
   if (ipcmain->clttbl_ipcid == -1) {
     Error("Failed to attach client table with id = %d reason %s",
-	  clttbl, strerror(errno));
+	  ipcmain->clttbl_ipcid, strerror(errno));
     return -errno;
   };
   clttbl = (cliententry *) shmat(ipcmain->clttbl_ipcid, NULL, 0);
@@ -409,7 +412,7 @@ create_ipc(int mode)
 				 tablemode);
   if (ipcmain->srvtbl_ipcid == -1) {
     Error("Failed to attach Server table with id = %d reason %s",
-	  srvtbl, strerror(errno));
+	  ipcmain->srvtbl_ipcid, strerror(errno));
     return -errno;
   };
   srvtbl = (serverentry *) shmat(ipcmain->srvtbl_ipcid, (void *) 0, 0);
@@ -1305,5 +1308,5 @@ int main(int argc, char ** argv)
 
   cleanup_ipc();
 
-  Info("MidWay daemon shutdown complete", rc);
+  Info("MidWay daemon shutdown complete");
 };

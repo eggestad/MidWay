@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/11/19 12:43:54  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.5  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -163,8 +166,8 @@ int call(int argc, char ** argv)
     fwrite (rdata, rlen, 1, OF);
     /* implisitt close on exit */
   } else {
-    Info(	  "Call to \"%s\" succeded, returned no data with application return code %d",  
-	    argv[0], data, len, apprc);
+    Info("Call to \"%s\" succeded, returned no data with application return code %d",  
+	    argv[0], apprc);
   };
 
   

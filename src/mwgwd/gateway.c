@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.16  2002/11/19 12:43:55  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.15  2002/11/18 00:21:21  eggestad
  * - gw_provideservices_to_peer() called once to many
  * - added clean up of all imp/exp on peer disconnect
@@ -565,7 +568,7 @@ int ipcmainloop(void)
       break;
 
     default:
-      Warning("got a unknown message with message type = %#x", *mtype);
+      Warning("got a unknown message with message type = %#lx", *mtype);
     } /* end switch */
   } /* end while */
   return 1; /* going down on signal */
@@ -889,7 +892,7 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
 
   if ( (instance == NULL) || (conn == NULL) ){
     Error( "Internal error: " 
-	   " %s Was called with invalid params instance=%#x conn=%#x",  __FUNCTION__, instance, conn);
+	   " %s Was called with invalid params instance=%p conn=%p",  __FUNCTION__, instance, conn);
     return -1;
   };
 

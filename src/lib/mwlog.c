@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2002/11/19 12:43:53  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.12  2002/11/18 00:10:55  eggestad
  * - Made vt100 colors more readable, replaceable, and potentially configurable
  *
@@ -172,7 +175,7 @@ sptime(char *b, int max)
   gettimeofday(&tv,NULL);
   now = localtime((time_t *) &tv.tv_sec);
   
-  rc = snprintf(b, max, "%4d%2.2d%2.2d %2.2d%2.2d%2.2d.%3.3d ",
+  rc = snprintf(b, max, "%4d%2.2d%2.2d %2.2d%2.2d%2.2d.%3.3ld ",
 		now->tm_year+1900, now->tm_mon+1, now->tm_mday,
 		now->tm_hour, now->tm_min, now->tm_sec, tv.tv_usec/1000);
   return rc;

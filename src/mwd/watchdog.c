@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/11/19 12:43:55  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.6  2002/09/04 07:19:12  eggestad
  * mwd now sends an event on service (un)provide
  *
@@ -195,8 +198,8 @@ int start_watchdog(void)
   nice(10);
   ipcmain->lastactive = time(NULL);
   inst_sighandlers();
-  Info("MidWay WatchDog daemon startup  complete", rc);
+  Info("MidWay WatchDog daemon startup  complete");
   rc = run_watchdog();
-  Info("MidWay WatchDog daemon shutdown complete", rc);
+  Info("MidWay WatchDog daemon shutdown complete");
   exit(0);
 };

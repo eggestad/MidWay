@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2002/11/19 12:43:53  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.13  2002/10/20 18:13:22  eggestad
  * fixes for receiving calls from gateways as in peers, not srb clients
  *
@@ -453,7 +456,7 @@ int mwforward(char * svcname, char * data, int len, int flags)
 
   rc = _mw_ipc_putmessage(dest, (char *) callmesg, sizeof(Call), ipcflags);
   if (rc != 0) {
-    Warning("Failure on replying to client %#x reason %s", 
+    Warning("Failure on replying to client %#x reason %d", 
 	  callmesg->cltid, errno);
     return -errno;
   } 
@@ -537,7 +540,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
       _mw_do_ipcevent((Event *) buffer);
       continue;
     };
-    Error("Ignoring event of type %#x", *mtype);
+    Error("Ignoring event of type %#lx", *mtype);
   } while(1);
       
   if (rc < 0) {

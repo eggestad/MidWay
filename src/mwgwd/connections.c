@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.15  2002/11/19 12:43:55  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.14  2002/11/18 00:19:36  eggestad
  * - added setting of address string for Multicast pseudo connect
  * - peeraddress fix
@@ -392,7 +395,7 @@ void conn_setpeername (Connection * conn)
   len = sizeof(conn->peeraddr);
   rc = getpeername(conn->fd, &conn->peeraddr.sa, &len);
   if (rc == -1) {
-    sprintf (conn->peeraddr_string, "%s id %d error: getpeername returned %s", strerror(errno));
+    sprintf (conn->peeraddr_string, "%s id %d error: getpeername returned %s", role, id, strerror(errno));
     return;
   };
 
@@ -591,7 +594,7 @@ char * conn_print(void)
 	       "fd role version mtu cid gwid state type connected lasttx lastrx peerinfo");
   for (i = 0; i<maxsocket+1; i++) {
     if (connections[i].fd != -1) {
-      l += sprintf (output+l, "\n%2d %4d %7d %3d %3d %4d %5d %4d %9d %6d %6d %p", 
+      l += sprintf (output+l, "\n%2d %4d %7d %3d %3d %4d %5d %4d %9ld %9ld %9ld %p", 
 		    connections[i].fd, connections[i].role, connections[i].version, 
 		    connections[i].mtu, 
 		    connections[i].cid != UNASSIGNED ? connections[i].cid & MWINDEXMASK : -1,

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.15  2002/11/19 12:43:54  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.14  2002/11/08 00:14:32  eggestad
  * was missing home dir in ipcmain command
  *
@@ -202,8 +205,12 @@ int clients(int argc, char ** argv)
       if (cltent[i].location == GWLOCAL)  loc = "LocalIPC";
       if (cltent[i].location == GWCLIENT) loc = "Network ";
       /*      if (extended) printf ("@ %#x ", &cltent[i]); */
-      printf ("%8d %-6s %-8s %-6d %-6d %s\n", i,  clienttypestring(cltent[i].type), 
-	      loc, cltent[i].pid, cltent[i].mqid, 
+      printf ("%8d %-6s %-8s %-6d %-6d %s %s\n", 
+	      i,  
+	      clienttypestring(cltent[i].type), 
+	      loc, 
+	      cltent[i].pid, 
+	      cltent[i].mqid, 
 	      cltent[i].clientname, 
 	      cltent[i].addr_string);
     };
@@ -322,9 +329,9 @@ int heapinfo(int argc, char ** argv)
     printf("shm head not attached\n");
     return -1;
   };
-  printf ("magic %x segnment size %d semid %d\n", 
+  printf ("magic %x segnment size %ld semid %ld\n", 
 	  _mwHeapInfo->magic, _mwHeapInfo->segmentsize, _mwHeapInfo->semid);
-  printf (" Basechunksize %d chunkspersize %d Bins %d\n", 
+  printf (" Basechunksize %ld chunkspersize %d Bins %d\n", 
 	  _mwHeapInfo->basechunksize, _mwHeapInfo->chunkspersize, BINS);
   printf (" Chunks inuse=%d highwater=%d average=%d avgcount=%d\n", 
 	  _mwHeapInfo->inusecount, _mwHeapInfo->inusehighwater, 
@@ -338,7 +345,7 @@ int heapinfo(int argc, char ** argv)
   };
   printf ("Chunksize freecount locked\n");
   for (i = 0; i < BINS; i++) {
-    printf(" %8d  %8d   %s\n", 
+    printf(" %8ld  %8d   %s\n", 
 	   (1<<i) * _mwHeapInfo->basechunksize, 
 	   _mwHeapInfo->freecount[i], 
 	   semarray[i] ? "no " : "yes");
@@ -495,7 +502,7 @@ int dumpipcmain(int argc, char ** argv)
   convtbl = _mw_getconv_entry(0);
 #endif
 
-  printf ("\nIPCMAIN struct is located at %#X\n", ipcmain);
+  printf ("\nIPCMAIN struct is located at %p\n", ipcmain);
   
   printf ("Magic                = %-8s\n", ipcmain->magic);
   printf ("Versions             = %d.%d.%d\n", 
@@ -519,15 +526,15 @@ int dumpipcmain(int argc, char ** argv)
 
   printf("\n");
   printf ("Heap ipcid          = %d\n", ipcmain->heap_ipcid);
-  printf ("Client  table ipcid = %d length = %7d at address %#X\n", 
+  printf ("Client  table ipcid = %d length = %7d at address %p\n", 
 	  ipcmain->clttbl_ipcid, ipcmain->clttbl_length, clttbl);
-  printf ("Server  table ipcid = %d length = %7d at address %#X\n", 
+  printf ("Server  table ipcid = %d length = %7d at address %p\n", 
 	  ipcmain->srvtbl_ipcid, ipcmain->srvtbl_length, srvtbl);
-  printf ("Service table ipcid = %d length = %7d at address %#X\n", 
+  printf ("Service table ipcid = %d length = %7d at address %p\n", 
 	  ipcmain->svctbl_ipcid, ipcmain->svctbl_length, svctbl);
-  printf ("Gateway table ipcid = %d length = %7d at address %#X\n", 
+  printf ("Gateway table ipcid = %d length = %7d at address %p\n", 
 	  ipcmain->gwtbl_ipcid,  ipcmain->gwtbl_length,  gwtbl);
-  printf ("Convers table ipcid = %d length = %7d at address %#X\n", 
+  printf ("Convers table ipcid = %d length = %7d at address %p\n", 
 	  ipcmain->convtbl_ipcid, ipcmain->convtbl_length, convtbl);
   return 0 ;
 }
@@ -572,7 +579,8 @@ int event(int argc, char ** argv)
   return rc ;
 
   usage:
-  fprintf(stderr, "error in event: wrong number of args event [-u username] [-c clientname] eventname [data]\n", argc);
+  fprintf(stderr, 
+	  "error in event: wrong number of args event [-u username] [-c clientname] eventname [data]\n");
   return 0;
 };
 

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.15  2002/11/19 12:43:55  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.14  2002/11/18 00:14:59  eggestad
  * - when a connection is established not not UP in SRB context, we need
  *   to handle SRB INIT special, and reject everything else
@@ -250,7 +253,7 @@ static void srbhello(Connection * conn, SRBmessage * srbmsg)
   switch (srbmsg->marker) {
     
   case SRB_REQUESTMARKER:
-    sprintf(buffer, "%d.%06d", now.tv_sec, now.tv_usec);
+    sprintf(buffer, "%ld.%06ld", now.tv_sec, now.tv_usec);
     _mw_srb_setfield(srbmsg, SRB_REMOTETIME, buffer);
 
     srbmsg->marker = SRB_RESPONSEMARKER;
@@ -823,7 +826,7 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
       rc = gwattachclient(conn, name, user, passwd, srbmsg->map);
       if (rc >= 0) {
  	srbmsg->map = NULL;
-	Info("Client %s %s%s ID=%#u connected from %s", 
+	Info("Client %s %s%s ID=%d connected from %s", 
 	     name, user?"Username=":"", user?user:"",
 	     rc , conn->peeraddr_string);
 	rc = rc | MWCLIENTMASK;

@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.7  2002/11/19 12:43:54  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.6  2002/10/17 22:08:24  eggestad
  * - we're now using the mwlog() API
  *
@@ -360,13 +363,13 @@ int opensockets(void)
   unlink(unixsockaddr.sun_path);
   rc = bind(unix_socket, (struct sockaddr*) &unixsockaddr, sizeof(struct sockaddr_un));
   if (rc == -1) {
-    Error( "bind for unix socket on %s failed errno=%d", errno, unixsockaddr.sun_path);
+    Error( "bind for unix socket on %s failed errno=%d", unixsockaddr.sun_path, errno);
     return -1;
   };
 
   rc = chmod (unixsockaddr.sun_path, 0777);
   if (rc == -1)  
-    Error( "chmod for unix socket on %s failed errno=%d", errno, unixsockaddr.sun_path);
+    Error( "chmod for unix socket on %s failed errno=%d", unixsockaddr.sun_path, errno);
 
 
   /****************************** TCP ******************************/

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2002/11/19 12:43:55  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.11  2002/10/03 21:13:25  eggestad
  * - cost field in provide was ignored, now correctly done
  *
@@ -201,7 +204,7 @@ static int do_detach(void * mp)
 
   dm = mp;
   if (dm->mtype != DETACHREQ) {
-    Error("Expected a detach request but got 0x%x", dm->mtype);
+    Error("Expected a detach request but got 0x%lx", dm->mtype);
     return -EUCLEAN;
   };
   
@@ -373,7 +376,7 @@ static int do_unprovide(void * mp)
       if (gwent) mqid = gwent->mqid;
     };
   } else {
-    Warning("Failed to unprovide service \"%s\" from server %#x reason ", 
+    Warning("Failed to unprovide service \"%s\" from server %#x reason %d", 
 	    pmesg->svcname, pmesg->srvid, pmesg->returncode); 
   }
 

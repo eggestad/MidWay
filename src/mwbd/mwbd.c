@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.7  2002/11/19 12:43:54  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.6  2002/10/17 22:07:44  eggestad
  * - we're now using the mwlog() api
  * - improved handling of SRB fields
@@ -580,7 +583,7 @@ void usage(char * prog)
 	  "  -t : enable trace on %s or %s\n "
 	  "  -l level : set loglevel [fatal|error|warning|info|debug|debug2|debug3|debug4]\n" 
 	  "  -L logfilename : use file as logprefix\n "
-	  "  -d : enable debugging in syslog\n", TRACEFILE1, TRACEFILE2);
+	  "  -d : enable debugging in syslog\n", prog, TRACEFILE1, TRACEFILE2);
   exit(1);
 };
 

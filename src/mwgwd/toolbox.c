@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.4  2002/11/19 12:43:55  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.3  2002/11/18 00:24:26  eggestad
  * - charlistadd() just didnæt work, major corruption if realloc returned
  *   buffer at another address.
@@ -135,7 +138,7 @@ char ** _charlistadd(char ** list, char * addon, int flags)
     
     DEBUG4("1: list at %p", list);
     list[0] = ((char * ) list) + sizeof(char *) * 2;
-    DEBUG4("1: list[0] at %p  offset %d\n", list[0], (int)list[0] - (int)list);
+    DEBUG4("1: list[0] at %p  offset %ld\n", list[0], (long)list[0] - (long)list);
     list[1] = NULL;
     
     strcpy(list[0], addon);
@@ -162,7 +165,7 @@ char ** _charlistadd(char ** list, char * addon, int flags)
      the last string */
   entries = n;
   n--;
-  oldsize = (int) list[n] + strlen (list[n]) + 1 - (int) list;
+  oldsize = (long) list[n] + strlen (list[n]) + 1 - (long) list;
   DEBUG4("list has  %d entries and is %d long", entries, oldsize);
 
   /* the new size if the old size plus a new entry in the char * [n+1]
@@ -212,8 +215,8 @@ char ** _charlistadd(char ** list, char * addon, int flags)
   dst = list[0];
   len = oldsize - (sizeof(char*)*(entries+1));
   
-  DEBUG4("list at %p: memmove(%p(%d), %p(%d), %d)", 
-	   list, dst, (int)dst - (int) list, src, (int)src - (int) list, len);
+  DEBUG4("list at %p: memmove(%p(%ld), %p(%ld), %d)", 
+	 list, dst, (long)dst - (long) list, src, (long)src - (long) list, len);
   memmove(dst, src, len);
   
   memprint((char*) list, newsize);

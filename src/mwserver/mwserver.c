@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/11/19 12:43:55  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.5  2002/11/08 00:12:59  eggestad
  * Major fixup on default logfile
  *
@@ -202,8 +205,8 @@ int main(int argc, char ** argv)
 
   for (i = optind; i < argc; i++ ) {
     if ((rc = add_library(argv[i])) != 0) {
-      Error("%s: failed to load shared library %s reason ", 
-	      argv[0],argv[i], rc);
+      Error("%s: failed to load shared library %s reason %s", 
+	      argv[0],argv[i], strerror(-rc));
       exit(rc);
     };
   };

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2002/11/19 12:43:54  eggestad
+ * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
+ *
  * Revision 1.10  2002/10/20 18:13:52  eggestad
  * added sanity check
  *
@@ -363,7 +366,7 @@ static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount)
   pCFoot = _mwfooter(pInsert);
 
   if (_mwoffset2adr(pCFoot->above) != pInsert) {
-    Warning(	  "possible shm buffer corruption, error in chunk at %#x", pInsert);
+    Warning(	  "possible shm buffer corruption, error in chunk at %p", pInsert);
     pCFoot->above = _mwadr2offset(pInsert);
   };
 
@@ -493,7 +496,7 @@ void * _mwalloc(int size)
       /* really should be CLIENTID or SERVERID or GATEWAYID ... */
       pCHead->ownerid = getpid(); 
       if (pCHead->size != 1<<i) {
-	Error("mwalloc: retrived chunk is of size %d*%d != %d*%d",
+	Error("mwalloc: retrived chunk is of size %ld*%ld != %d*%ld",
 	      pCHead->size, _mwHeapInfo->basechunksize , 
 	      1<<i, _mwHeapInfo->basechunksize);       
       };
@@ -568,7 +571,7 @@ int _mwfree(void * adr)
   rc = pushchunk(pCHead, &_mwHeapInfo->chunk[bin], 
 		 &_mwHeapInfo->freecount[bin]);
   if (rc != 0) {
-    Error("mwfree: shm chunk of size %d lost, reason %d", 
+    Error("mwfree: shm chunk of size %ld lost, reason %d", 
 	  pCHead->size, rc);
   };
   _mwHeapInfo->inusecount --;

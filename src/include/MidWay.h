@@ -80,11 +80,14 @@ typedef int MWID;
 #define IDX2SVCID(id)  ((id & MWINDEXMASK) | MWSERVICEMASK) 
 #define  IDX2GWID(id)  ((id & MWINDEXMASK) | MWGATEWAYMASK) 
 
-/* gcc hack in order to avoid unused warnings (-Wunused) on cvstags */
 #ifdef __GNUC__
+/* gcc hack in order to avoid unused warnings (-Wunused) on cvstags */
 #define UNUSED __attribute__ ((unused))
+/* gcc hack in order to get wrong arg type in mwlog() */
+#define FORMAT_PRINTF __attribute__ ((format (printf, 2, 3)))
 #else
 #define UNUSED 
+#define FORMAT_PRINTF 
 #endif
 
 

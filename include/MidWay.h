@@ -175,7 +175,15 @@ extern "C" {
   void mwsetlogprefix(char * fileprefix);
   void mwopenlog(char * progname, char * fileprefix, int loglevel);
   int mwsetloglevel(int level);
-  void mwlog(int level, char * format, ...);
+
+
+#ifdef __GNUC__
+/* gcc hack in order to get wrong arg type in mwlog() */
+#define FORMAT_PRINTF __attribute__ ((format (printf, 2, 3)))
+#else
+#define FORMAT_PRINTF 
+#endif
+  void mwlog(int level, char * format, ...) FORMAT_PRINTF;
 
 
   /* event API */

@@ -29,7 +29,7 @@ int servicehandler1(mwsvcinfo * si)
   if (strcmp(buffer, "date") == 0) {
     gettimeofday(&tv, NULL);
     
-    sprintf (buffer, "%s.%d %d.%6.6d", ctime(&tv.tv_sec), tv.tv_usec/1000, tv.tv_sec, tv.tv_usec);
+    sprintf (buffer, "%s.%ld %ld.%6.6ld", ctime(&tv.tv_sec), tv.tv_usec/1000, tv.tv_sec, tv.tv_usec);
     mwreply (buffer, 0, TRUE, 666, 0);
     return 0;
   };

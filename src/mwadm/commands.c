@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2001/05/12 17:57:08  eggestad
+ * call didn't print return buffer on failed service
+ *
  * Revision 1.3  2000/11/29 23:19:54  eggestad
  * No data to service in call was illegal, now legal
  *
@@ -401,15 +404,13 @@ int call(int argc, char ** argv)
   rc = mwcall(argv[1], data, j, &rdata, &len, &apprc, 0);
   gettimeofday(&end, NULL); 
 
-  if (rc != 0) {
-    printf("Call failed with reason %d\n", rc);
-    return rc;
-  };
+  
   printf("call returned in %f\n", 
 	 (float)(end.tv_sec - start.tv_sec) 
 	 +(float)(end.tv_usec - start.tv_usec)/1000000); 
   
-  if (rdata != NULL) {
+  if ( (rdata != NULL) && (len > 0) ) {
+    data = NULL;
     data = realloc(data,len*3);
     j = 0;
     for (i = 0; i < len; i++) {
@@ -420,16 +421,16 @@ int call(int argc, char ** argv)
 	data[j++] = rdata[i];
       };
     };
-    data[j] = '\0';
-    printf ("Call to \"%s\" succeded, returned data \"%.*s\" %d bytes\n",  
-	    argv[1], j, data, len);
-    printf ("  with application return code %d\n", apprc);
-  } else {
-    printf ("Call to \"%s\" succeded, returned no data\n",  
-	    argv[1], data, len);
-    printf ("  with application return code %d\n", apprc);
     
+    
+    data[j] = '\0';
+    printf ("Call to \"%s\" returned %d(%s), with data \"%.*s\" %d bytes\n",  
+	    argv[1], rc, rc?"failed":"succeded", j, data, len);
+  } else {
+    printf ("Call to \"%s\" returned %d(%s), without data\n",  
+	    argv[1], rc, rc?"fail":"success");    
   };
+  printf ("  with application return code %d\n", apprc);
 
 
   mwlog(MWLOG_DEBUG,"call to %s returned %s len %d bytes rc = %d apprc=%d)", 

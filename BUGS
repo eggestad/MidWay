@@ -67,6 +67,8 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 * testnet to mwbd and send TERM!, mwbd replies with TERM~ missing init
   before disconnecting
 
+* mwbd fails with hang is another mwbd is already running
+
 -----------------------------------------------------------------------
 
 Minor BUGS:

@@ -1,13 +1,35 @@
-001112  Makefile changes for RedHat 7.0, 
-	   install changed behaviour and libreadline now require curses.
+2001-09-09  Terje Eggestad  <terje@localhost.localdomain>
+
+	* did a lot of clean up to get a cleaner compile.
+	* the shared lib now has version number. Needed to have multiple runtime versions. 
+
+2001-09-09  Terje Eggestad  <terje@localhost.localdomain>
+
+	* added the broker daemon, mwbd, and added the broker module to mwgwd.
+
+2001-08-20  Terje Eggestad  <terje@localhost.localdomain>
+
+	* added autoconf
+	* renamed all Makefiles to Makefile.in, and
+	* updated make install and uninstall
+	* added depend target
 	
-003011	0.10.1 released
-	- Added (un)install targets in makefiles.
-	- Fixed error in parsing of ipc url, ipckey was ignored.
-	- NULL as data in mw(a)call was incorrectly illegal
-	- added two very minor support function for native Perl module
-	- mwadm created it own default ipc url
-	- mwd -D fails fix
+2000-11-12  Terje Eggestad  <terje@localhost.localdomain>
+
+	* Makefile changes for RedHat 7.0, 
+	  install changed behaviour and libreadline now require curses.
+	
+2000-30-11  Terje Eggestad  <terje@localhost.localdomain>
+
+	* 0.10.1 released
+	  - Added (un)install targets in makefiles.
+	  - Fixed error in parsing of ipc url, ipckey was ignored.
+	  - NULL as data in mw(a)call was incorrectly illegal
+	  - added two very minor support function for native Perl module
+	  - mwadm created it own default ipc url
+	  - mwd -D fails fix
 
 	
-001910	0.10.0 released
+2000-19-10  Terje Eggestad  <terje@localhost.localdomain>	
+
+	* 0.10.0 released

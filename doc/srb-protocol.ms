@@ -40,8 +40,9 @@ This is the description of the TCP/IP protocol.
 
 Why not IIOP? K.I.S.S.! I wanted somthing simpler.
 
-ISO OSI defined a protocol called OSITP, that should implement any of teh same features, 
-but you have to buy the spec. and I be dammed if I'mm pay for it!
+ISO OSI defined a protocol called OSITP, that should implement any of
+the same features, but you have to buy the spec. and I be dammed if
+I'mm pay for it!
 
 keywords are to be interpreted as described in RFC 2119.
 
@@ -54,12 +55,14 @@ are different on some commands.
 This protocol is loosely based on http[1] and URI[2], or is inspired by
 these, depending of your point of view.
 
+
 We require a reliable connection to implement the protocol over.
 It may or may not be a a octet stream (TCP), but it must be in sequence (!?!)
 
 Service calls shall only be passed in the same direction as the TCP
 sessions was established, unless calling side passes REVERSE=YES in SRB INIT.
 
+.ti 1
 .ti 0
 Glossary
 
@@ -72,8 +75,8 @@ of servers that provides services in a specific domain.
 
 broker - a daemon on a node that keep track of all the instances on a
 node, and can mediate the connection between clients and an instance.
-It is however not requiered in order to operate, if the instance is
-listening on it own TCP port, and the client know of the port.
+It is however not required for operation, if the instance is listening
+on it own TCP port, and the client know of the port.
 
 NIS - Network information system (RFC: ?)
 
@@ -82,6 +85,18 @@ MTU - Maximun Transfer Unit
 XDM - X Display Manager
 
 srb message - 
+
+.ti 0 
+Instances
+
+Each instance need to have an unique instance name of the form
+userid@host:port or userd@host/ipckey. This field is limited to 64
+octets, and is canonical name becomes to long, the numerical IP
+address shall be used. Considering the IPv6 address is max 42
+in [abcd:...] form this is unlikely to happen.
+
+The 64 octet limit may cause problem with POSIX ipc paths instead of
+syv ipc keys.
 
 .ti 0
 Domains 
@@ -95,7 +110,11 @@ sending an UDP packet to a given port.  The UDP packet shall contain a
 SRB READY
 .I request
 with the requested domain. All brokers that has an instance with the
-given domain respond with a UDP packet containing a SRB READY repsponse.
+given domain respond with UDP packet(s) containing SRB READY
+responds(s). Weither the broker keep one reply per packet, or bundles
+them in UDP packets is optional.
+
+The broker shall handle multicast packets on address 225.0.0.100.
 
 .ti 0 
 Error handling
@@ -110,7 +129,7 @@ If a srb message misses a field, or has an illegal value the message
 shall be returned with a reject marker '~', and the field CAUSEFIELD
 and REASONCODE must be set.  If the value of the field was the source
 of the error a CAUSEVALUE must be set.  An optional field REASON may
-bve set, containing a free text describing the cause.
+be set, containing a free text describing the cause.
 
 .ti 0
 Large Amount of Data
@@ -285,7 +304,7 @@ CAUSE;1*token;n/a;oi;the cause RC!=0
 .TE
 
 
-.ti 0
+.ti 1
 SRB READY
 event !
 
@@ -305,6 +324,7 @@ AGENTVERSION;1*64token;oi;;
 .TE
 
 
+.ti 1
 TERM
 Request/Response ?.
 
@@ -320,6 +340,7 @@ Parameter name;value ABNF;req;rpy;comment
 GRACE;1*DIGIT;m;;
 .TE
 
+.ti 1
 PROVIDE
 event !
 Shall not be sent to clients.
@@ -337,12 +358,14 @@ DOMAIN;1*64token;o;;(??)
 UNIQUE;"yes"|"NO";o;;
 .TE
 
+.ti 1
 UNPROVIDE
 event !
 
 same as PROVIDE
 
 
+.ti 1
 HELLO  
 Request/Response ?.
 
@@ -362,6 +385,7 @@ REMOTETIME;1*DIGIT "." 6DIGIT;o;r;
 
 
 
+.ti 1
 SVCCALL
 Request/Response/event ?.! 
 
@@ -400,6 +424,7 @@ APPLICATIONRC;1*10DIGIT;n/a;m;
 .TE
 
 
+.ti 1
 SVCDATA
 event !
 used in the case DATACHUNKS is set in SVCCALL, this is the way we 
@@ -421,6 +446,7 @@ HANDLE;8HEXDIG;o;m;optional only if
 .TE
 
 
+.ti 1
 SUBSCRIBE
 event !
 Subscribe to an event with given regexp, shall not be sent to clients.
@@ -435,6 +461,7 @@ NAME;1*token;m;;regexp for a event name
 DOMAIN;1*64token;o;;from which domain
 .TE
 
+.ti 1
 UNSUBSCRIBE
 event!
 
@@ -442,6 +469,7 @@ same as SUBSCRIBE
 
 
 
+.ti 1
 EVENT  
 event !
 
@@ -459,6 +487,7 @@ DOMAIN;1*64token;o;;(??)
 .TE
 
 
+.ti 1
 REJECT
 event !
 

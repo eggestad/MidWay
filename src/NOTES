@@ -18,3 +18,4 @@ didn't like the consept of doing a msgrcv() from a signal handler.
 A untried method is to send a message to command a shutdown, but it don't handle
 server crashes, (i.e. core dumps). 
 
+* mwbd don't regard the role, do we still want the consept of roles??

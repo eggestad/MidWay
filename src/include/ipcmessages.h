@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.15  2004/11/17 20:47:15  eggestad
+ * updated struct for IPC coexist for 32 and 64 bit apps
+ *
  * Revision 1.14  2004/08/10 19:38:10  eggestad
  * - ipcmessages is now 32/64 bit interchangeable
  * - added messages for large buffer alloc
@@ -91,21 +94,21 @@ struct attach
 {
   long mtype; /* ATTACH & DETACH */
 
-  int ipcqid;
+  int32_t ipcqid;
   pid_t pid;
 
-  int server; /* true/false */
+  int32_t server; /* true/false */
   char srvname[MWMAXNAMELEN];
   SERVERID srvid;
 
-  int client; /* true/false */
+  int32_t client; /* true/false */
   char cltname[MWMAXNAMELEN];
   CLIENTID cltid;
 
   GATEWAYID gwid;
 
-  int flags;
-  int returncode;
+  int32_t flags;
+  int32_t returncode;
 };
 
 typedef struct attach Attach;
@@ -125,9 +128,9 @@ struct provide
 
   char svcname[MWMAXSVCNAME];
 
-  int cost;
-  int flags;
-  int returncode;
+  int32_t cost;
+  int32_t flags;
+  int32_t returncode;
 };
 
 typedef struct provide Provide;
@@ -151,36 +154,36 @@ typedef struct provide Provide;
 struct call
 {
   long mtype; 
-  int handle; 
+  int32_t handle; 
  
   CLIENTID cltid;
   GATEWAYID gwid;
   SERVERID srvid;
   SERVICEID svcid;
 
-  int forwardcount;
+  int32_t forwardcount;
 
   char service[MWMAXSVCNAME];
   char origservice[MWMAXSVCNAME];
   
   int64_t issued;
-  int uissued;
-  int timeout; /* millisec */
+  int32_t uissued;
+  int32_t timeout; /* millisec */
 
-  int datasegmentid;
+  int32_t datasegmentid;
   int64_t data;
   int64_t datalen;
-  int appreturncode;
+  int32_t appreturncode;
 
-  int flags;
+  int32_t flags;
 
   // used for 
   char instance[MWMAXNAMELEN];
   char domainname[MWMAXNAMELEN];
   MWID callerid;
-  int hops;
+  int32_t hops;
 
-  int returncode;
+  int32_t returncode;
 };
 
 typedef struct call  Call;
@@ -206,10 +209,10 @@ struct conversation
   int64_t data;
   int64_t datalen;
 
-  int flags;
+  int32_t flags;
 
   CONVID convid;
-  int returncode;
+  int32_t returncode;
 };
 
 typedef struct conversation  Converse;;
@@ -228,9 +231,9 @@ typedef struct conversation  Converse;;
 
 typedef struct {
   long mtype; 
-  int opcode; 
+  int32_t opcode; 
   CLIENTID cltid;
-  int delay;
+  int32_t delay;
 } Administrative;
 
 /* Large buffer allocs. Used to get mwd to create a buffer file in the
@@ -246,7 +249,7 @@ typedef struct {
    MWID mwid;
    int64_t size;
    int64_t pages;
-   int bufferid;
+   int32_t bufferid;
 } Alloc;
 
 
@@ -281,18 +284,19 @@ struct event {
   long mtype;
   
   char event[MWMAXNAMELEN];
-  int eventid;
-  int subscriptionid;
-  int senderid;
+  int32_t eventid;
+  int32_t subscriptionid;
+  int32_t senderid;
   
+  int32_t datasegmentid;
   int64_t data;
   int64_t datalen;
   
   char username[MWMAXNAMELEN];
   char clientname[MWMAXNAMELEN];
   
-  int flags;
-  int returncode;
+  int32_t flags;
+  int32_t returncode;
 };
 #define MWEVENTPEERGENERATED 0x10000000
 

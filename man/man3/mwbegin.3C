@@ -3,7 +3,7 @@
 .\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
 .\" May be distributed under the GNU General Public License.
 .\"
-.TH MWCALL 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
+.TH MWBEGIN 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
 mwbegin, mwcommit, mwabort \- MidWay Global transaction control
 .SH SYNOPSIS

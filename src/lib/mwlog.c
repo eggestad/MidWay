@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2002/12/12 16:09:31  eggestad
+ * We used ap in two v*printf in _mw_vlogf, and on hammer the second time continued on the stack. Turns out that it's illegal to use it twice.
+ *
  * Revision 1.13  2002/11/19 12:43:53  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -87,7 +90,6 @@
 
 static char * RCSId UNUSED = "$Id$";
 
-
 /* vt100'ish color codes. See ctlseq.ms that float around the net,
    which describe xterms vt100 control sequences.  */
 #ifndef NOCOLOR
@@ -136,7 +138,7 @@ static char * logprefix = NULL;
 static char * progname = NULL;
 static FILE * copy_on_FILE = NULL;
 
-
+//#define DEBUGGING_X
 // we can use DEBUG here, since we an error here will likely stop all logging 
 #ifdef DEBUGGING_X
 DECLAREMUTEX(logmutex);
@@ -181,13 +183,14 @@ sptime(char *b, int max)
   return rc;
 }
 
+  static char timesuffix[100] = ""; 
+  static char newsuffix[100];
+  static char filename[256];
+
 static void 
 switchlog (void)
 {
   struct timeval tv;
-  static char timesuffix[100] = ""; 
-  char newsuffix[100];
-  char filename[256];
 
 
   if (logprefix == NULL) return ;
@@ -198,13 +201,21 @@ switchlog (void)
   if (_force_switchlog) {
     _force_switchlog = 0;
   } else {
-    strftime(newsuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
+    //strftime(newsuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
+    strcpy(timesuffix, "XYZ");  
     if (strcmp(newsuffix, timesuffix) == 0) {
       return;
     };
   };
   
-  strftime(timesuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
+  {
+    int i;
+    for (i = 0; i < 256; i++) 
+      filename [i] = '\0';
+  };
+
+  //  strftime(timesuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
+  strcpy(timesuffix, "XYZ");
 
   if (logprefix != NULL) {
     strcpy (filename, logprefix);
@@ -215,21 +226,23 @@ switchlog (void)
   strcat (filename,timesuffix);
 
   if (log != NULL) {
-    mwlog(MWLOG_INFO, "Switching to New Log %s", filename);
+    //    mwlog(MWLOG_INFO, "Switching to New Log %s", filename);
     fclose(log);
   };
   
   log = fopen(filename,"a");
   
-  mwlog(MWLOG_INFO, "Switched to New Log %s", filename);
+  //mwlog(MWLOG_INFO, "Switched to New Log %s", filename);
   return;
 }
 
-  
+static   char buffer[LINE_MAX];
+static char mesg[LINE_MAX];
+
 void 
 _mw_vlogf(int level, char * format, va_list ap)
 {
-  char buffer[LINE_MAX];
+
   int l, s, rc;
 
   if (level > loglevel) return;
@@ -241,6 +254,7 @@ _mw_vlogf(int level, char * format, va_list ap)
   _LOCKMUTEX(logmutex);
 #endif 
 
+  buffer[0] = '\0';
   s = LINE_MAX-2; 
   l = 0;
   /* print to log file if open */
@@ -268,7 +282,10 @@ _mw_vlogf(int level, char * format, va_list ap)
     _fprintf (stderr, "%d (l=%d s=%d) %s\n", __LINE__, l, s, buffer);
 
     // Here we might get an overflow...
-    rc = vsnprintf(buffer+l, s, format, ap);
+    rc = vsnprintf(mesg, LINE_MAX, format, ap);
+    if (rc == LINE_MAX) mesg[LINE_MAX-1] = '\0';
+
+    rc = snprintf(buffer+l, s, "%s", mesg);
     l += rc;
 
     _fprintf (stderr, "%d (l=%d s=%d) %s\n", __LINE__, l, s, buffer);
@@ -286,12 +303,12 @@ _mw_vlogf(int level, char * format, va_list ap)
     fwrite (buffer, 1, l, log);
   } 
 
+  //  copy_on_FILE = 0;
+
   /* copy to stdout/stderr if so has been desired */
   if (copy_on_FILE) {
-    fprintf(copy_on_FILE,"%s", levelheader[level]);
-    vfprintf(copy_on_FILE, format, ap);
-    fprintf(copy_on_FILE,"\n");
-    fflush(copy_on_FILE);
+    fprintf(copy_on_FILE,"%s%s\n", levelheader[level], mesg);
+    //    fflush(copy_on_FILE);
   };
 
 #ifdef DEBUGGING_X

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.8  2002/10/09 12:30:30  eggestad
+ * Replaced all unions for sockaddr_* with a new type SockAddress
+ *
  * Revision 1.7  2002/10/03 21:23:46  eggestad
  * - fix for changed retcode from conn_select (now return -errno, not -1 with errno set on error)
  *
@@ -100,10 +103,7 @@ int tcpstartlisten(int port, int role)
   char buffer [1024];
   int blen = 1024;
   Connection  * conn;
-  union {
-    struct sockaddr sa;
-    struct sockaddr_in sa_in;
-  } addr;
+  SockAddress addr;
 
   if ( (role < 1) || (role > 3) ) {
     errno = EINVAL;
@@ -127,9 +127,9 @@ int tcpstartlisten(int port, int role)
 
   /* at some point we shall be able to specify which local interfaces
      we listen on but for now we use any. */
-  addr.sa_in.sin_addr.s_addr = INADDR_ANY ;
-  addr.sa_in.sin_port = htons(port);
-  addr.sa_in.sin_family = AF_INET;
+  addr.sin4.sin_addr.s_addr = INADDR_ANY ;
+  addr.sin4.sin_port = htons(port);
+  addr.sin4.sin_family = AF_INET;
   len = sizeof(struct sockaddr_in);
 
   rc = bind(s, &addr.sa, len);
@@ -166,10 +166,7 @@ int tcpstartlisten(int port, int role)
 static Connection *  tcpnewconnection(Connection * listensocket)
 {
   int mtu=-1, rc, fd, len;
-  union {
-    struct sockaddr_in sain;
-    struct sockaddr sa;
-  } addr;
+  SockAddress addr;
 
   Connection * conn;
 
@@ -190,9 +187,8 @@ static Connection *  tcpnewconnection(Connection * listensocket)
 
   conn = conn_add(fd,  listensocket->role, CONN_TYPE_CLIENT);
   
-  if (addr.sain.sin_family == AF_INET) {
-    memcpy(&conn->peeraddr.ip4, &addr.sa, len);
-  };
+  memcpy(&conn->peeraddr.sa, &addr.sa, len);
+
 
   _mw_srbsendready(conn, globals.mydomain);
   /* Now we get the MTU of the socket. if MTU is less than
@@ -202,8 +198,8 @@ static Connection *  tcpnewconnection(Connection * listensocket)
   len = sizeof(int);
   rc = getsockopt(fd, SOL_IP, IP_MTU, &mtu, &len);
   DEBUG("Got new connection fd = %d, MTU=%d errno = %s from %s:%d",
-          fd, mtu, strerror(errno), inet_ntoa(addr.sain.sin_addr),
-	  ntohs(addr.sain.sin_port));
+          fd, mtu, strerror(errno), inet_ntoa(addr.sin4.sin_addr),
+	  ntohs(addr.sin4.sin_port));
 
   return conn;
 };

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.10  2002/10/09 12:30:30  eggestad
+ * Replaced all unions for sockaddr_* with a new type SockAddress
+ *
  * Revision 1.9  2002/10/03 21:15:34  eggestad
  * - conn_select now return -errno on error, not -1 with errno set.
  *
@@ -568,8 +571,8 @@ int conn_read(Connection * conn)
 	      SRBMESSAGEMAXLEN-conn->leftover, 0, &conn->peeraddr.sa, &l);
     
     DEBUG("UDP: read %d bytes from %s:%d", rc, 
-	  inet_ntop(AF_INET, &conn->peeraddr.ip4.sin_addr, buffer, 64),
-	  ntohs(conn->peeraddr.ip4.sin_port)); 
+	  inet_ntop(AF_INET, &conn->peeraddr.sin4.sin_addr, buffer, 64),
+	  ntohs(conn->peeraddr.sin4.sin_port)); 
   } else {    
     rc = read(conn->fd, conn->messagebuffer+conn->leftover, 
 	      SRBMESSAGEMAXLEN-conn->leftover);

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.2  2002/10/09 12:30:30  eggestad
+ * Replaced all unions for sockaddr_* with a new type SockAddress
+ *
  * Revision 1.1  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -50,18 +53,23 @@
    a COnnection pointer. 
 
 */
+
+union _SockAddress {
+  struct sockaddr sa;
+  struct sockaddr_in  sin4;
+  struct sockaddr_in6 sin6;
+  struct sockaddr_un sun;
+};
+
+typedef union _SockAddress SockAddress;
+
 typedef struct {
   int fd;
   int role;
   int version;
 
   int protocol;
-  union  {
-    struct sockaddr sa;
-    struct sockaddr_in  ip4;
-    struct sockaddr_in6 ip6;
-    struct sockaddr_un un;
-  } peeraddr;
+  SockAddress peeraddr;
   int    mtu;
   int 	 rejects;
   char * domain;

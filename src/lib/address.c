@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2002/10/09 12:30:30  eggestad
+ * Replaced all unions for sockaddr_* with a new type SockAddress
+ *
  * Revision 1.9  2002/09/05 23:25:33  eggestad
  * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
  * MWURL is now used in addition to MWADDRESS
@@ -498,11 +501,7 @@ const char * _mw_sprintsa(struct sockaddr * sa, char * buffer)
 {
   static char sbuffer[256];
   char buff[16];
-  union {
-    struct sockaddr_in  * sin;
-    struct sockaddr_in6 * sin6;
-    struct sockaddr * sa;
-  } addr;
+  SockAddress addr;
 
   if (buffer == NULL) buffer = sbuffer;
 
@@ -511,29 +510,28 @@ const char * _mw_sprintsa(struct sockaddr * sa, char * buffer)
     return buffer;
   };
 
-  addr.sa = sa;
+  memcpy(&addr.sa, sa, sizeof(SockAddress));
 
-
-  switch (addr.sa->sa_family) {
+  switch (addr.sa.sa_family) {
     
   case 0:
     buffer[0] = '\0';
     return buffer;
 
   case AF_INET:
-    inet_ntop(AF_INET, &addr.sin->sin_addr, buffer, 255);
-    sprintf (buff, ":%d", ntohs(addr.sin->sin_port));
+    inet_ntop(AF_INET, &addr.sin4.sin_addr, buffer, 255);
+    sprintf (buff, ":%d", ntohs(addr.sin4.sin_port));
     strcat (buffer, buff);
     return buffer;
 
   case AF_INET6:
-    inet_ntop(AF_INET6, &addr.sin6->sin6_addr, buffer, 255);
-    sprintf (buff, ":%d", ntohs(addr.sin6->sin6_port));
+    inet_ntop(AF_INET6, &addr.sin6.sin6_addr, buffer, 255);
+    sprintf (buff, ":%d", ntohs(addr.sin6.sin6_port));
     strcat (buffer, buff);
     return buffer;
 
   default:
-    sprintf (buffer, "unknown family %d", addr.sa->sa_family);
+    sprintf (buffer, "unknown family %d", addr.sa.sa_family);
     return buffer;
   };
 

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2000/09/21 18:44:06  eggestad
+ * fastpath and attach flags are now access thru funcs, nor global vars
+ *
  * Revision 1.3  2000/08/31 21:53:42  eggestad
  * DEBUG level set propper. fix for NOREPLY
  *
@@ -66,8 +69,6 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 static char buffer[MWMSGMAX];
 static Call * callmesg = (Call *) buffer;
 
-extern int _mw_attached;
-extern int _mw_fastpath;
 static int provided = 0;
 
 /*
@@ -175,9 +176,9 @@ static void install_sigactions(int flag)
   sigaction(SIGINT, &sa, NULL);
   sigaction(SIGTERM, &sa, NULL);
   sigaction(SIGQUIT, &sa, NULL);
-  sigaction(SIGSEGV, &sa, NULL);
-  sigaction(SIGFPE, &sa, NULL);
-  sigaction(SIGILL, &sa, NULL);
+  /*  sigaction(SIGSEGV, &sa, NULL);*/
+  /*  sigaction(SIGFPE, &sa, NULL);*/
+  /* sigaction(SIGILL, &sa, NULL);*/
 };
 
 
@@ -198,7 +199,7 @@ int mwprovide(char * service, int (*svcfunc) (mwsvcinfo*), int flags)
   int len;
   int rc;
   
-  if (! _mw_attached) return -ENOTCONN;
+  if (! _mw_isattached()) return -ENOTCONN;
   rc = _mwsystemstate();
   if (rc) return rc;
 
@@ -233,7 +234,7 @@ int mwunprovide(char * service)
   SERVICEID svcid;
   int rc;
 
-  if (!_mw_attached) return -ENOTCONN;
+  if (!_mw_isattached()) return -ENOTCONN;
   /* short cut if now services are provided.*/;
   if (!provided) return -ENOENT;
   /* We must lookup service type somewhere LOOKATME */
@@ -449,7 +450,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   serverentry * srvent;
   mwsvcinfo * svcreqinfo;
 
-  if (!_mw_attached) { errno = ENOTCONN; return NULL;}
+  if (!_mw_isattached()) { errno = ENOTCONN; return NULL;}
   if (!provided) { errno = ENOENT; return NULL;};
 
   mesglen = MWMSGMAX;
@@ -562,7 +563,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   strncpy(svcreqinfo->service, callmesg->service, MWMAXSVCNAME);
 
   /* transfer of the data buffer, unless in fastpath where we recalc the pointer. */
-  if (_mw_fastpath) {
+  if (_mw_fastpath_enabled()) {
     svcreqinfo->data = _mwoffset2adr(callmesg->data);
     svcreqinfo->datalen = callmesg->datalen;
   } else {

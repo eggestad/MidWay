@@ -24,6 +24,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.4  2001/10/03 22:43:59  eggestad
+ * added api for manipulate SRBmessage's, before urlmap* had to be used directly
+ *
  * Revision 1.3  2001/09/16 00:07:14  eggestad
  * * Licence header was missing
  * * trace api changes inorder to trace explicitly and to a separate file.
@@ -47,6 +50,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -208,6 +212,133 @@ int _mw_errno2srbrc(int err)
   return 600 + err;
 };
 
+/************************************************************************
+ * these functions deal vith manipulation of SRBmessages 
+ ************************************************************************/
+static void vfill_map(SRBmessage * srbmsg, va_list ap) 
+{
+  char * key, * value;
+  urlmap * map;
+
+  for (key = va_arg(ap, char *); key != NULL; key = va_arg(ap, char *)) {
+    value = va_arg(ap, char *);
+    map = urlmapadd(srbmsg->map, key, value);
+    if (map == NULL) {
+      urlmapset(srbmsg->map, key, value);
+    };
+    srbmsg->map = map;
+  };
+  return;
+};  
+
+void _mw_srb_init(SRBmessage * srbmsg, char * command, char marker, ...)
+{
+  va_list ap;
+
+  if (srbmsg == NULL) return;
+  
+  if (command != NULL) {
+    strncpy(srbmsg->command, command, MWMAXSVCNAME);
+    if (strlen(command) == MWMAXSVCNAME) 
+      srbmsg->command[MWMAXSVCNAME] = '\0';
+  };
+  srbmsg->marker = marker;
+  srbmsg->map = NULL;
+
+  va_start(ap, marker);
+  vfill_map(srbmsg, ap);
+  va_end(ap);
+  
+  return;
+};
+
+
+SRBmessage * _mw_srb_create(char * command, char marker, ...)
+{
+  SRBmessage * srbmsg;
+  va_list ap;
+
+  srbmsg = (SRBmessage *) malloc(sizeof(SRBmessage));
+  _mw_srb_init(srbmsg, command, marker, NULL);
+  
+  va_start(ap, marker);
+  vfill_map(srbmsg, ap);
+  va_end(ap);
+
+  return srbmsg;
+};
+
+void _mw_srb_destroy (SRBmessage * srbmsg)
+{
+  if (srbmsg == NULL) return;
+
+  urlmapfree(srbmsg->map);
+  free(srbmsg);
+};
+
+void _mw_srb_setfieldi (SRBmessage * srbmsg, char * key, int value)
+{
+  urlmap * map;
+
+  if (srbmsg == NULL) return;
+  if (key == NULL) return;
+  
+  map = urlmapaddi(srbmsg->map, key, value);
+  if (map == NULL) 
+    urlmapseti(srbmsg->map, key, value);
+  else 
+    srbmsg->map = map;
+
+  return;
+};
+
+void _mw_srb_setfield (SRBmessage * srbmsg, char * key, char * value)
+{
+  urlmap * map;
+
+  if (srbmsg == NULL) return;
+  if (key  == NULL) return;
+  
+  map = urlmapadd(srbmsg->map, key, value);
+  if (map == NULL) 
+    urlmapset(srbmsg->map, key, value);
+  else 
+    srbmsg->map = map;
+
+  return;
+};
+
+void _mw_srb_nsetfield (SRBmessage * srbmsg, char * key, void * value, int vlen)
+{
+  urlmap * map;
+
+  if (srbmsg == NULL) return;
+  if (key  == NULL) return;
+ 
+  map = urlmapnadd(srbmsg->map, key, value, vlen);
+  if (map == NULL) 
+    urlmapnset(srbmsg->map, key, value, vlen);
+  else 
+    srbmsg->map = map;
+  return;
+};
+
+char * _mw_srb_getfield (SRBmessage * srbmsg, char * key)
+{
+  if (srbmsg == NULL) return NULL;
+  if (key  == NULL) return;
+
+  return urlmapgetvalue(srbmsg->map,key);
+};
+
+void _mw_srb_delfield (SRBmessage * srbmsg, char * key)
+{
+  urlmapdel(srbmsg->map, key);
+  return;
+};
+
+/* encode decode functions */
+
 SRBmessage * _mw_srbdecodemessage(char * message)
 {
   char * szTmp, * ptr;
@@ -228,7 +359,7 @@ SRBmessage * _mw_srbdecodemessage(char * message)
       }
   commandlen = ptr - message;
   srbmsg = malloc(sizeof (SRBmessage));
-  
+
   strncpy(srbmsg->command, message, commandlen);
   srbmsg->command[commandlen] = '\0';
   srbmsg->marker = *ptr;
@@ -322,14 +453,14 @@ int _mw_srbsendreject(int fd, SRBmessage * srbmsg,
 
   srbmsg->marker = SRB_REJECTMARKER;
   
-  srbmsg->map = urlmapaddi(srbmsg->map, SRB_REASONCODE, rcode);
-  srbmsg->map = urlmapadd(srbmsg->map, SRB_REASON, _mw_srb_reason(rcode));
+  _mw_srb_setfieldi(srbmsg, SRB_REASONCODE, rcode);
+  _mw_srb_setfield(srbmsg, SRB_REASON, _mw_srb_reason(rcode));
 
   if (causefield != NULL) 
-    srbmsg->map = urlmapadd(srbmsg->map, SRB_CAUSEFIELD, causefield);
+    _mw_srb_setfield(srbmsg, SRB_CAUSEFIELD, causefield);
 
   if (causevalue != NULL) 
-    srbmsg->map = urlmapadd(srbmsg->map, SRB_CAUSEVALUE, causevalue);
+    _mw_srb_setfield(srbmsg, SRB_CAUSEVALUE, causevalue);
 
   rc = _mw_srbsendmessage(fd,srbmsg);
   return rc;
@@ -344,15 +475,14 @@ int _mw_srbsendreject_sz(int fd, char *message, int offset)
 
   if (message == NULL) return -EINVAL;
 
-  strncpy(srbmsg.command, SRB_REJECT, MWMAXSVCNAME);
-  srbmsg.marker = SRB_NOTIFICATIONMARKER;
-  srbmsg.map = NULL;
-  srbmsg.map = urlmapaddi(srbmsg.map, SRB_REASONCODE, SRB_PROTO_FORMAT);
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_REASON, _mw_srb_reason(SRB_PROTO_FORMAT));
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_MESSAGE, message);
+  _mw_srb_init(&srbmsg, SRB_REJECT,SRB_NOTIFICATIONMARKER, 
+	       SRB_REASON, _mw_srb_reason(SRB_PROTO_FORMAT), 
+	       SRB_MESSAGE, message, 
+	       NULL);
+
+  _mw_srb_setfieldi(&srbmsg, SRB_REASONCODE, SRB_PROTO_FORMAT);
   if (offset > 0) 
-    srbmsg.map = urlmapaddi(srbmsg.map, SRB_OFFSET, offset);
-  
+    _mw_srb_setfieldi(&srbmsg, SRB_OFFSET, offset);
   rc = _mw_srbsendmessage(fd, &srbmsg);
   urlmapfree(srbmsg.map);
   return rc;
@@ -369,7 +499,7 @@ int _mw_srbsendterm(int fd, int grace)
     srbmsg.marker = SRB_NOTIFICATIONMARKER;    
   } else {
     srbmsg.marker = SRB_REQUESTMARKER;
-    srbmsg.map = urlmapaddi(srbmsg.map, SRB_GRACE, grace);
+    _mw_srb_setfieldi(&srbmsg, SRB_GRACE, grace);
   };
   rc = _mw_srbsendmessage(fd, &srbmsg);
   urlmapfree(srbmsg.map);
@@ -387,28 +517,24 @@ int _mw_srbsendinit(int fd, char * user, char * password,
     return -EINVAL;
   };
 
-  strncpy(srbmsg.command, SRB_INIT, MWMAXSVCNAME);
-  srbmsg.marker = SRB_REQUESTMARKER;
-  srbmsg.map = NULL;
-
-  /* mandatory felt */
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_VERSION, SRBPROTOCOLVERSION);
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_TYPE, SRB_TYPE_CLIENT);
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_NAME, name);
-
+  _mw_srb_init(&srbmsg, SRB_INIT, SRB_REQUESTMARKER, 
+	       SRB_VERSION, SRBPROTOCOLVERSION, 
+	       SRB_TYPE, SRB_TYPE_CLIENT, 
+	       SRB_NAME, name, 
+	       NULL);
   /* optional */
   if (user != NULL) {
     auth = SRB_AUTH_UNIX;
-    srbmsg.map = urlmapadd(srbmsg.map, SRB_USER, user);
+    _mw_srb_setfield(&srbmsg, SRB_USER, user);
   };
 
   if (password != NULL)
-    srbmsg.map = urlmapadd(srbmsg.map, SRB_PASSWORD, password);
+    _mw_srb_setfield(&srbmsg, SRB_PASSWORD, password);
 
   if (domain != NULL)
-    srbmsg.map = urlmapadd(srbmsg.map, SRB_DOMAIN, domain);
+    _mw_srb_setfield(&srbmsg, SRB_DOMAIN, domain);
 
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_AUTHENTICATION, auth);
+  _mw_srb_setfield (&srbmsg, SRB_AUTHENTICATION, auth);
 
   rc = _mw_srbsendmessage(fd, &srbmsg);
   urlmapfree(srbmsg.map);
@@ -430,15 +556,14 @@ int _mw_srbsendcall(int fd, int handle, char * svcname, char * data, int datalen
   /* input validation done before in mw(a)call:mwclientapi.c */
   strncpy(srbmsg.command, SRB_SVCCALL, MWMAXSVCNAME);
   srbmsg.map = NULL;
-
   if (noreply) {
-    srbmsg.marker = SRB_NOTIFICATIONMARKER;
+    _mw_srb_init(&srbmsg, SRB_SVCCALL, SRB_NOTIFICATIONMARKER, NULL);
   } else {
-    srbmsg.marker = SRB_REQUESTMARKER;
+    _mw_srb_init(&srbmsg, SRB_SVCCALL, SRB_REQUESTMARKER, NULL);
     sprintf(hdlbuf, "%8.8X", (unsigned int) handle);
-    srbmsg.map = urlmapnadd(srbmsg.map, SRB_HANDLE, hdlbuf, 8);
+    _mw_srb_nsetfield(&srbmsg, SRB_HANDLE, hdlbuf, 8);
   };
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_SVCNAME, svcname);
+  _mw_srb_setfield(&srbmsg, SRB_SVCNAME, svcname);
   if (data != NULL) {
     if (datalen == 0) {
       datalen = strlen(data);
@@ -448,14 +573,14 @@ int _mw_srbsendcall(int fd, int handle, char * svcname, char * data, int datalen
       urlmapfree(srbmsg.map);
       return -ENOSYS;
     };
-    srbmsg.map = urlmapnadd(srbmsg.map, SRB_DATA, data, datalen);
+    _mw_srb_nsetfield(&srbmsg, SRB_DATA, data, datalen);
   };
   
   if ( _mw_deadline(NULL, &timeleft)) {
-    srbmsg.map = urlmapaddi(srbmsg.map, SRB_SECTOLIVE, (int) timeleft);
+    _mw_srb_setfieldi(&srbmsg, SRB_SECTOLIVE, (int) timeleft);
   };
 
-  srbmsg.map = urlmapaddi(srbmsg.map, SRB_HOPS, 0);
+  _mw_srb_setfieldi(&srbmsg, SRB_HOPS, 0);
   
   rc = _mw_srbsendmessage(fd, &srbmsg);
   urlmapfree(srbmsg.map);

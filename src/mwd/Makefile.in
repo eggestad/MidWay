@@ -10,7 +10,7 @@ INSTALL = @INSTALL@
 
 LIBS = -lMidWay -lm
 
-CFLAGS = @CFLAGS@ -I../include -I../liburl -DINTERVAL=1200
+CFLAGS = @CFLAGS@ -I../include -I../liburl 
 
 OBJS = mwd.o shmallocfmt.o requestparse.o tables.o watchdog.o
 

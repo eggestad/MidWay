@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/02/17 16:16:18  eggestad
+ * added missing include
+ *
  * Revision 1.4  2001/10/16 16:18:09  eggestad
  * Fixed for ia64, and 64 bit in general
  *
@@ -50,6 +53,7 @@
 #include <ipctables.h>
 #include <shmalloc.h>
 #include "mwd.h"
+#include "shmallocfmt.h"
 
 static char * RCSId = "$Id$";
 static char * RCSName = "$Name$"; /* CVS TAG */

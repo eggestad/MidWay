@@ -226,3 +226,21 @@ char * _mw_srb_reason(int rc);
 int _mw_errno2srbrc(int err);
 
 #endif /* _SRBPROTOCOL_H */
+
+
+#ifdef DEBUGGGING
+static inline void dbg_srbprintmap(SRBmessage * srbmsg)
+{
+  int idx = 0;
+  if (mwsetloglevel(-1) >= mwlog_debug2)  { 
+    while(srbmsg->map[idx].key != NULL) {
+      DEBUG2("  Field %s(%p) => %s(%p)", 
+	     srbmsg->map[idx].key, srbmsg->map[idx].key, srbmsg->map[idx].value, srbmsg->map[idx].value);
+      idx++;
+    };
+  }; 
+};
+#else 
+#define dbg_srbprintmap(x);
+#endif
+

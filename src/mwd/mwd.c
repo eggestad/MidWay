@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2003/04/25 13:03:08  eggestad
+ * - fix for new task API
+ * - new shutdown procedure, now using a task
+ *
  * Revision 1.13  2002/11/19 12:43:54  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -635,7 +639,7 @@ int cleanup_ipc(void)
   int rc; 
     
   int mainid;
-
+  DEBUG("begin");
   if (ipcmain != NULL) {
     /* 1 attaching ipcmain */
     mainid = shmget(masteripckey, 0, 0);
@@ -671,13 +675,92 @@ int cleanup_ipc(void)
   if (gwtbl == (void *) -1) gwtbl = NULL;
 
   /* 3 we have a proc for killing every one. */ 
-  rc = kill_all_servers();
+  rc = kill_all_servers(SIGKILL);
 
    /* 4 and 5 deleting */
   shm_destroy();
   term_tables();
   term_maininfo();
 };
+
+PTask shutdowntask = NULL;
+static int signallist[5] = { SIGTERM, SIGHUP, SIGQUIT, SIGKILL, 0 };
+
+int do_shutdowntrigger(PTask pt)
+{
+   int rc;
+   rc = mwwaketask(shutdowntask);
+   if (rc != 0) Fatal ("attempted to wake shutdown task %p but got error (%d) %s", 
+		       (void *) shutdowntask, rc, strerror(-rc));
+
+   return 0;
+};
+
+int do_shutdowntask(PTask pt)
+{
+   static int countdown = 5;
+   int n, rc;
+
+   if (countdown == 5) {
+      Info ("beginning shutdown");
+      mwsettaskinterval(pt, 1000);
+   };
+
+   DEBUG ("shutdown task countdown %d\n", countdown);
+
+   switch (countdown) {
+      
+   case 5:
+      DEBUG("shutdown phase %d", countdown);
+      countdown--;
+      Info("MidWay daemon initiated shutdown ");
+      ipcmain->shutdowntime = time(NULL);
+      ipcmain->status = MWSHUTDOWN;
+
+      n = stop_server(-1); /* give the command to every server */
+      DEBUG("Signalled %d servers to stop", n);
+      if (n != 0) break;
+      
+   case 4:  
+      DEBUG("shutdown phase %d", countdown);
+      rc = kill_all_servers(SIGTERM);
+      DEBUG("kill_all_servers() returned %d", rc);
+      countdown--;
+      
+
+   case 3:
+      DEBUG("shutdown phase %d", countdown);
+      rc = kill_all_servers(SIGINT);
+      DEBUG("kill_all_servers() returned %d", rc);
+      countdown--;
+
+   case 2:
+      DEBUG("shutdown phase %d", countdown);
+      rc = kill_all_servers(SIGHUP);
+      DEBUG("kill_all_servers() returned %d", rc);
+      countdown--;
+
+   case 1:
+      DEBUG("shutdown phase %d", countdown);
+      countdown--;
+      Info("Watchdog: termination, kill all servers and connecting members.");
+      kill(SIGTERM, ipcmain->mwwdpid);
+
+      rc = kill_all_servers(SIGKILL);
+      DEBUG("kill_all_servers() returned %d", rc);
+      ipcmain->status = MWDEAD;
+      hard_disconnect_ipc();
+      break;
+      
+   case 0: 
+      DEBUG("shutdown phase %d", countdown);
+      flags.terminate = 1;      
+   };
+   
+   countdown--;
+   return 0;   
+}; 
+
 
 /* we're now going to make an instance name of netaddr/ipckey we go
    thru the network devices and look for our primary ip address.  if
@@ -690,25 +773,29 @@ int cleanup_ipc(void)
 
 void sighandler(int sig)
 {
-  switch(sig) {
-    
-  case SIGALRM:
-    flags.alarm++;
-    return;
+   switch(sig) {
+      
+   case SIGALRM:      
+      flags.alarm++;
+      return;
+      
+   case SIGTERM:
+   case SIGINT:
+      mwaddtaskdelayed(do_shutdowntrigger, -1, 1);
+      DEBUG("normal shutdown sig=%d", sig);
+      return;
 
-  case SIGTERM:
-  case SIGINT:
-    flags.terminate = sig;
-    return;
-  case SIGHUP:
-  case SIGQUIT:
-    kill(sig,ipcmain->mwwdpid);
-    /* fast track down */
-    shm_destroy();
-    term_tables();
-    term_maininfo();
-    exit(-1);
+   case SIGHUP:
+   case SIGQUIT:
 
+      DEBUG("fast track shutdown");
+      kill(sig,ipcmain->mwwdpid);
+      /* fast track down */
+      shm_destroy();
+      term_tables();
+      term_maininfo();
+      exit(-1);
+      
   case SIGCHLD:
     flags.childdied++;
     return;
@@ -876,6 +963,7 @@ static void mainloop(void)
 
   srvmgrtask = mwaddtask(smgrTask, 5000);
   eventtask = mwaddtask(do_events, 5000);
+  shutdowntask = mwaddtask(do_shutdowntask, -1);
 
   mwwaketask(srvmgrtask);
   
@@ -895,13 +983,10 @@ static void mainloop(void)
       flags.childdied = 0;
     };
 
-
     if (flags.terminate) {
-      Info("MidWay daemon initiated shutdown on signal %d", 
-	    flags.terminate);
-      ipcmain->shutdowntime = time(NULL);
-      kill(SIGTERM, ipcmain->mwwdpid);
+       break;
     };
+
   };
   
   /* clean up provided services, completly redundant, but clean code

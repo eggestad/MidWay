@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2003/04/25 13:03:05  eggestad
+ * - fix for new task API
+ * - new shutdown procedure, now using a task
+ *
  * Revision 1.3  2002/09/22 23:01:16  eggestad
  * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
  *
@@ -545,7 +549,7 @@ static int do_event(void)
 /* THis is called as a tasklet. we only do events for 10ms before
    returning the remaining queuelen. THis is to ensure thay the mwd is
    not hung by an event storm. */
-int do_events(void)
+int do_events(PTask pt)
 {
   clock_t clk;
   int rc;

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2003/04/25 13:03:09  eggestad
+ * - fix for new task API
+ * - new shutdown procedure, now using a task
+ *
  * Revision 1.13  2003/03/16 23:53:53  eggestad
  * bug fixes
  *
@@ -407,7 +411,10 @@ static int do_admin(void * mp)
   switch(admmsg->opcode) {
   case ADMSHUTDOWN:
     ipcmain->shutdowntime = time(NULL) + admmsg->delay;
-    Info("Received a shutdown request from client %d, shutdown in %d seconds", admmsg->cltid & MWINDEXMASK, admmsg->delay);
+    mwaddtaskdelayed(do_shutdowntrigger, -1, admmsg->delay*1000);
+
+    Info("Received a shutdown request from client %d, shutdown in %d seconds", 
+	 admmsg->cltid & MWINDEXMASK, admmsg->delay);
 
     rc = kill(ipcmain->mwwdpid, SIGALRM);
     if (rc != 0) {
@@ -416,7 +423,7 @@ static int do_admin(void * mp)
 
     return 0;
   }
-  Warning(	"Got an unknown request code %d on an administrative request from client %d" , 
+  Warning("Got an unknown request code %d on an administrative request from client %d" , 
 	admmsg->opcode, admmsg->cltid & MWINDEXMASK);
   return -EBADRQC;
 };
@@ -532,7 +539,7 @@ int parse_request(int nonblock)
   char hex[330], shex[4];
 
   rc = msgrcv(mymqid(), (void *) mesgbuffer, MWMSGMAX, 0, nonblock?IPC_NOWAIT:0); 
-  DEBUG("rc = %d max = %d", rc, MWMSGMAX);
+  DEBUG("rc = %d max = %d errno = %d", rc, MWMSGMAX, errno);
   /*  timeout is handleled by an alarm() else where, we simply return EINTR */
   
   if (rc == -1) {
@@ -540,10 +547,13 @@ int parse_request(int nonblock)
        shutdown arrived. It really is the watchdog process that shou do */
     if ((errno == EINTR) || (errno == ENOMSG)) {
       if (ipcmain->status ==  MWDEAD) return -ESHUTDOWN;
+
+      /* 
       if (flags.terminate) {
 	ipcmain->status = MWSHUTDOWN;
 	ipcmain->shutdowntime = time(NULL);
       }
+      */
       return -errno;
     }
     

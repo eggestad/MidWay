@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2003/04/25 13:03:12  eggestad
+ * - fix for new task API
+ * - new shutdown procedure, now using a task
+ *
  * Revision 1.7  2002/11/19 12:43:55  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -52,6 +56,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <signal.h>
 
 #include <MidWay.h>
 #include <ipctables.h>
@@ -117,22 +122,12 @@ static int run_watchdog(void)
     DEBUG("watchdog awoke after going to sleep for %d, with %d remaining", 
 	  sleeping, remaining);
 
-    /* id shutdown time has arrived.  */
-    if ( ((ipcmain->shutdowntime > ipcmain->boottime) && (now >= ipcmain->shutdowntime) ) ||
-	 (flags.terminate > 0) ) {
-      Info("Watchdog: termination, kill all servers and connecting members.");
-      ipcmain->status = MWSHUTDOWN;
-      rc = kill_all_servers();
-      DEBUG("kill_all_servers() returned %d", rc);
-      ipcmain->status = MWDEAD;
-      break;
-    };
-
     /* basic sanity checks */
     if (ipcmain->mwdpid != getppid()) {
-      Error("Watchdog: mwd who was my parent died unexpectantly, This Can't happen. %d != %d", ipcmain->mwdpid, getppid());
+      Error("Watchdog: mwd who was my parent died unexpectantly, This Can't happen. %d != %d", 
+	    ipcmain->mwdpid, getppid());
       Error("Watchdog: attempting to clean up everything.");
-      kill_all_servers();
+      kill_all_servers(SIGKILL);
 
       cleanup_ipc();
 
@@ -149,7 +144,7 @@ static int run_watchdog(void)
 	    sleeping, remaining);
       if (ipcmain->status == MWSHUTDOWN) {
 	Info("MWD Watchdog: ordered to take everything down");
-	kill_all_servers();
+	kill_all_servers(SIGTERM);
 	ipcmain->status = MWDEAD;
       };
     } else {

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2003/04/25 13:03:11  eggestad
+ * - fix for new task API
+ * - new shutdown procedure, now using a task
+ *
  * Revision 1.2  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -116,7 +120,7 @@ void smgrDumpTree(void);
 
 
 int smgrDoWaitPid(void);
-int smgrTask(void);
+int smgrTask(PTask pt);
 
 void smgrInit(void);
 

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2003/04/25 13:03:10  eggestad
+ * - fix for new task API
+ * - new shutdown procedure, now using a task
+ *
  * Revision 1.4  2002/09/05 23:21:08  eggestad
  * smgrTask() shall not try to start servers in unclean system state
  *
@@ -923,7 +927,7 @@ int smgrDoWaitPid(void)
  * whatever smgrTask returns.
  ************************************************************************/
     
-int smgrTask(void) 
+int smgrTask(PTask pt) 
 {
   int i;
   struct ServerGroup * SG;

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2003/04/25 13:03:09  eggestad
+ * - fix for new task API
+ * - new shutdown procedure, now using a task
+ *
  * Revision 1.4  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -65,6 +69,8 @@ extern char * instancename;
 #endif
 
 void inst_sighandlers(void);
+
+int do_shutdowntrigger(PTask pt);
 
 typedef enum  { MAXCLIENTS = 10, MAXSERVERS, MAXSERVICES, MAXGATEWAYS, MAXCONVS, 
 	       BUFFERBASESIZE, MASTERIPCKEY, NUMBUFFERS } IPCPARAM;

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2003/04/25 13:03:12  eggestad
+ * - fix for new task API
+ * - new shutdown procedure, now using a task
+ *
  * Revision 1.7  2002/10/03 21:14:30  eggestad
  * - cost field in provide was ignored, now correctly done
  *
@@ -79,6 +83,7 @@ int delallservices(SERVERID srvid);
 
 serverentry *  _mw_get_server_byid(SERVERID);
 
-int kill_all_servers(void);
+int kill_all_servers(int);
+void hard_disconnect_ipc(void);
 int check_tables(void);
 int get_pids(int *, int **);

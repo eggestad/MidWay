@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2003/04/25 13:03:07  eggestad
+ * - fix for new task API
+ * - new shutdown procedure, now using a task
+ *
  * Revision 1.2  2002/09/04 07:13:31  eggestad
  * mwd now sends an event on service (un)provide
  *
@@ -45,6 +49,6 @@ int event_ack(Event * evmsg) ;
 int internal_event_enqueue(char * event, void * data, int datalen, char * user, char * client);
 
 int event_enqueue(Event * evmsg);
-int do_events(void);
+int do_events(PTask pt);
 
 #endif // _EVENTS_C

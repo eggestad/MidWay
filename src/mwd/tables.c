@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.15  2003/04/25 13:03:11  eggestad
+ * - fix for new task API
+ * - new shutdown procedure, now using a task
+ *
  * Revision 1.14  2003/03/16 23:53:53  eggestad
  * bug fixes
  *
@@ -628,14 +632,20 @@ int get_pids(int * npids, int ** plist)
    };
   */
   if (srvtbl != NULL) {
-    for (i = 0; i< ipcmain->srvtbl_length; i++) 
-      if (srvtbl[i].pid > 1) 
-	pidlist[n++] = srvtbl[i].pid;
+     DEBUG2("getting pids from the srvtbl");
+     for (i = 0; i< ipcmain->srvtbl_length; i++) 
+	if ( (srvtbl[i].pid > 1)  && (srvtbl[i].pid != ipcmain->mwdpid) ) {
+	   DEBUG2(" pid %d = %d", n, srvtbl[i].pid);
+	   pidlist[n++] = srvtbl[i].pid;
+	};
   };
   if (gwtbl != NULL) {
-    for (i = 0; i< ipcmain->gwtbl_length; i++) 
-      if (gwtbl[i].pid > 1) 
-	pidlist[n++] = gwtbl[i].pid;
+     DEBUG2("getting pids from the gwtbl");
+     for (i = 0; i< ipcmain->gwtbl_length; i++) 
+	if (gwtbl[i].pid > 1) {
+	   DEBUG2(" pid %d = %d", n, srvtbl[i].pid);
+	   pidlist[n++] = gwtbl[i].pid;
+	};
   };
 
   *npids = n;
@@ -650,26 +660,29 @@ int get_pids(int * npids, int ** plist)
 */
 int stop_server(SERVERID sid)
 {
-  int all = 0;
-  int count = 0;
-  int i;
-  /* can't happen but saves us core dumps. */
-  if (ipcmain == NULL) return -ENOTCONN;
-
-  /* if sid = -1, then do everybody */
-  if (sid == -1) all = 1;
-  sid &= MWINDEXMASK;
-  if (srvtbl != NULL) {
-    for (i = 0; i< ipcmain->srvtbl_length; i++) 
-      if ( (srvtbl[i].mqid > 1) && ( all || (sid == i) )) {
-	Info("Commanding server %d to stop.", i);
-	srvtbl[i].mwdblock = TRUE;
-	/* if not all, redistribute the remainding requests already in the queue.*/
-	msgctl(srvtbl[i].mqid, IPC_RMID, NULL);
-	count ++;
+   int all = 0;
+   int count = 0;
+   int i;
+   /* can't happen but saves us core dumps. */
+   if (ipcmain == NULL) return -ENOTCONN;
+   
+   /* if sid = -1, then do everybody */
+   if (sid == -1) all = 1;
+   sid &= MWINDEXMASK;
+   if (srvtbl != NULL) {
+      for (i = 0; i< ipcmain->srvtbl_length; i++) {
+	 if (srvtbl[i].mqid <= 0) continue; // if mqid is 0 or neg, its down
+	 if (srvtbl[i].mqid == ipcmain->mwd_mqid) continue; // mwd's servers are left out
+	 if ( all || (sid == i) ) {
+	    Info("Commanding server %d to stop.", i);
+	    srvtbl[i].mwdblock = TRUE;
+	    /* if not all, redistribute the remainding requests already in the queue.*/
+	    msgctl(srvtbl[i].mqid, IPC_RMID, NULL);
+	    count ++;
+	 };
       };
-  };
-  return count;
+   };
+   return count;
 };
 /* procedure for killing all members are:
    1 - create an array, pidlist, long enough to hold all passible pids, sum(ipcmain->???tbl_length)
@@ -679,9 +692,8 @@ int stop_server(SERVERID sid)
    5 - go thru tables one again, and check to see id their message queues still existsint 
 */
 
-static int signallist[5] = { SIGTERM, SIGHUP, SIGQUIT, SIGKILL, 0 };
 
-int kill_all_servers(void)
+int kill_all_servers(int signal)
 {
   int n, i, j, rc; 
   pid_t * pidlist;
@@ -690,35 +702,40 @@ int kill_all_servers(void)
   /* 1 - create kill list (array). */
   /* 2, and 3 collect pids */
   
-  n = stop_server(-1); /* give the command to every server */
-  sleep(1);
-
   /* 4 kills */
-  for (j = 0; j < 5; j++) {
-    /* get the currect list of server to kill */
-    rc = get_pids(&n, & pidlist);
-    DEBUG("There are %d servers to kill", n);
 
-    if (rc==0) break;
+  /* get the currect list of server to kill */
+  rc = get_pids(&n, & pidlist);
+  DEBUG("There are %d servers to kill", n);
 
-    for (i = 0; i < n; i++) {
-      if (pidlist[i]> 0)
-	rc = kill (pidlist[i], signallist[j]);
-      else 
-	Error("Was about to do kill(%d, %d) illegal PID", pidlist[i], signallist[j]);
-      Info("Did a kill(pid=%d, sig=%d)", pidlist[i], signallist[j]);
-      if (rc == 0) 
-	if (signallist[j] == 0)
-	  Info("The process %d refused to die!!!", pidlist[i]);
-	else
-	  Info("Server pid=%d is slow to die, sending the signal %d", 
-		pidlist[i], signallist[j]);
-      else 
+  if (rc < 0) rc;
+  
+  for (i = 0; i < n; i++) {
+     char cmd[1024];
+     if (pidlist[i]> 0) {
+	if (*_mwgetloglevel() > MWLOG_INFO) {
+	   sprintf (cmd, "ps -f -p %d",  pidlist[i]);
+	   system(cmd);
+	};
+	rc = kill (pidlist[i], signal);
+     } else {
+	Error("Was about to do kill(%d, %d) illegal PID", pidlist[i], signal);
+     };
+
+     Info("Did a kill(pid=%d, sig=%d)", pidlist[i], signal);
+     if (rc == 0) 
+	Info("The process %d refused to die!!!", pidlist[i]);
+     else 
 	pidlist[i] = -1;
-    }
-    sleep(2*j);
   };
 
+  free( pidlist);
+  return n;
+};
+
+void hard_disconnect_ipc(void)
+{
+   int i;
   /* 5 deleting msg queues */
   /* I'm not even sure I *should* try to do this to the clients. */
   if (clttbl != NULL) {
@@ -733,10 +750,8 @@ int kill_all_servers(void)
       if (gwtbl[i].mqid > 1) 
 	msgctl(gwtbl[i].mqid, IPC_RMID, NULL);
   };
-
-  free( pidlist);
-  return n;
 };
+
 
 /* go thru all the tables and clean up after those that  died without telling us. 
    used by the watchdog

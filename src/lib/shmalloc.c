@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/08/31 21:56:00  eggestad
+ * DEBUG level set propper. moved out test for malloc()
+ *
  * Revision 1.2  2000/07/20 19:36:21  eggestad
  * core dump on mwfree() on malloc()'d buffer fix.
  *
@@ -72,9 +75,9 @@ chunkfoot * _mwfooter(chunkhead * head)
 
   fadr = (int)head + sizeof(chunkhead) + 
     head->size * _mwHeapInfo->basechunksize;
-  /*  mwlog(MWLOG_DEBUG1, "footer for %#x is at %#x + %#x + %#x * %#x = %#x",
+  mwlog(MWLOG_DEBUG3, "footer for %#x is at %#x + %#x + %#x * %#x = %#x",
 	head, head, sizeof(chunkhead),  head->size,  _mwHeapInfo->basechunksize,
-	fadr) ;*/
+	fadr) ;
   return (chunkfoot *) fadr;
 };
 
@@ -362,10 +365,7 @@ void * _mwrealloc(void * adr, int newsize)
   void * newbuffer;
   if (adr == NULL ) return NULL; 
 
-  /* We check to see if we were passed a pointer a shm buffer or a 
-     malloc(), we return a pointer to the same type of buffer.
-     (this test really should be inm mwreallco() )
-  */
+ 
   size = getchunksizebyadr(adr - sizeof(chunkhead));
   if (size > 0) {
     /* check to see if newsize nedd teh same size of buffer. */
@@ -377,13 +377,10 @@ void * _mwrealloc(void * adr, int newsize)
     if (size < newsize) copylength = size;
     else copylength = newsize;
     memcpy(newbuffer, adr, copylength);
-    mwfree(adr);
+    _mwfree(adr);
     return newbuffer;
   }
 
-  /* else size > 0 */
-  return realloc(adr, newsize);
-    
   return NULL;
 };
 

@@ -21,6 +21,10 @@
 /*
  * 
  * $Log$
+ * Revision 1.22  2003/06/26 17:03:53  eggestad
+ * - reworked the call request queue to FIFO
+ *  - added data contents in message dump
+ *
  * Revision 1.21  2003/06/19 21:45:31  eggestad
  * fix of pop of pending received call reply
  *
@@ -119,12 +123,114 @@
 
 static char * RCSId UNUSED = "$Id$";
 
+
+struct CallReplyQueue
+{
+  Call * callmessage;
+  struct CallReplyQueue * next;
+};
+
+static struct CallReplyQueue * callReplyQueue = NULL;
+static struct CallReplyQueue * callReplyFreeList = NULL;
+
+static void debugReplyQueue(void) 
+{
+   struct CallReplyQueue * elm;
+   int q = 0, f = 0;
+
+   DEBUG1(" Callreply queue length = %d free %d", q, f);   
+   for (elm = callReplyQueue; elm != NULL; elm = elm->next) q++;
+   DEBUG1(" Callreply queue length = %d free %d", q, f);
+   for (elm = callReplyFreeList; elm != NULL; elm = elm->next) f++;
+   
+   DEBUG1(" Callreply queue length = %d free %d", q, f);
+};
+ 
+static int pushCallReply(Call * callmsg)
+{
+   struct CallReplyQueue * newelm;
+
+   DEBUG1("pushing call with handle %d", callmsg->handle);
+   debugReplyQueue();
+
+   if (callReplyFreeList == NULL) {
+      DEBUG1("new elm");
+      newelm = malloc(sizeof(struct CallReplyQueue));
+   } else {
+      DEBUG1("new elm poping from freelist ");
+      newelm = callReplyFreeList;
+      callReplyFreeList = callReplyFreeList->next;
+   };
+   DEBUG1("newelm %p callReplyQueue %p newelm->next %p", newelm, callReplyQueue, newelm->next);
+   newelm->callmessage = callmsg;
+   newelm->next = callReplyQueue;
+   callReplyQueue = newelm;
+   DEBUG1("newelm %p callReplyQueue %p newelm->next %p", newelm, callReplyQueue, newelm->next);
+   debugReplyQueue();
+   return 0;
+};
+
+static Call * popCallReplyByHandle(int handle)
+{
+   struct CallReplyQueue ** pelm, *elm;
+   Call * callptr = NULL;
+
+   DEBUG1("poping call with handle %d", handle);
+
+   debugReplyQueue();
+
+   if (callReplyQueue == NULL) goto out;
+
+   if (handle == -1) {
+      DEBUG1("pop any queue = %p", callReplyQueue);
+      if (callReplyQueue) {
+	 elm = callReplyQueue;
+	 callReplyQueue = callReplyQueue->next;
+
+	 callptr =  elm->callmessage;
+	 elm->callmessage = NULL;
+	 elm->next = callReplyFreeList;
+	 callReplyFreeList = elm;
+      };
+      goto out;
+   };
+      
+   pelm = &callReplyQueue;
+      
+   do {
+      elm = *pelm;
+      if (elm == NULL) goto out;
+      if (elm->callmessage->handle == handle) {
+	 callptr = elm->callmessage;
+	 elm->callmessage = NULL;
+	 *pelm = elm->next;
+	 elm->next = callReplyFreeList;
+	 callReplyFreeList = elm;
+	 goto out;
+      };
+      if (elm->next == NULL) goto out;
+      pelm = &elm->next;
+   } while(pelm);
+   return NULL;
+
+ out:
+   debugReplyQueue();
+   if (callptr)
+      DEBUG1("pop returned call with handle %d", callptr->handle);
+   else 
+      DEBUG1("pop returned NULL");
+   return callptr;
+};
+
+   
+#if 0
 /* 
    really need to get all messages into private memory. 
    Or else we may get full ipc queues on a lot of garbage. 
 
    however I kinda want to avoid it.
 */
+
 struct InputQueue
 {
   char * message;
@@ -193,7 +299,32 @@ static char * popReplyQueueByHandle(long handle)
   DEBUG1("popReplyQueueByHandle no reply with handle %#x", handle);
   return NULL;  
 };
+#endif
 
+static char * data(int dataoff, int len)
+{
+   static char data[80];
+   char * rdata;
+   int i, l;
+   rdata = _mwoffset2adr(dataoff);
+   
+   if (len > 72) l = 72;
+   else  l = len;
+
+   for (i = 0; i < l; i++) {
+      if (isprint(rdata[i])) data[i] = rdata[i];
+      else data[i] = '?';
+
+   };
+   if (l < len) {
+      data[i++] = '.'; 
+      data[i++] = '.'; 
+      data[i++] = '.'; 
+   };
+   data[i] = '\0'; 
+   return data;
+};
+	  
 /* for debugging purposes: */
 void  _mw_dumpmesg(void * mesg)
 {
@@ -250,7 +381,7 @@ void  _mw_dumpmesg(void * mesg)
   case SVCREPLY:
     rm = (Call * )  mesg;
     DEBUG1("CALL/FRD/REPLY MESSAGE: %#x\n\
-          int         handle             = %#x\n\
+          int         handle             = %d\n\
           CLIENTID    cltid              = %#x\n\
           SERVERID    srvid              = %#x\n\
           SERVICEID   svcid              = %#x\n\
@@ -262,18 +393,21 @@ void  _mw_dumpmesg(void * mesg)
           time_t      issued             = %d\n\
           int         uissued            = %d\n\
           int         timeout            = %d\n\
-          int         data               = %d\n\
+          int         data               = %d \"%s\"\n\
           int         datalen            = %d\n\
           int         appreturncode      = %d\n\
           int         flags              = %#x\n\
           char        domainname         = %.64s\n\
           int         returncode         = %d", 
-	  rm->mtype, rm->handle, 
-	  rm->cltid, rm->srvid, rm->svcid, rm->gwid, rm->callerid,
-	  rm->forwardcount, rm->service, rm->origservice, 
-	  rm->issued, rm->uissued, rm->timeout, 
-	  rm->data, rm->datalen, 
-	  rm->appreturncode, rm->flags, rm->domainname, rm->returncode);
+	   rm->mtype, rm->handle, 
+	   rm->cltid, rm->srvid, rm->svcid, rm->gwid, 
+	   rm->callerid,
+	   rm->forwardcount, rm->service, rm->origservice, 
+	   rm->issued, rm->uissued, rm->timeout, 
+	   rm->data, 
+	   strdata(rm->data,  rm->datalen), 
+	   rm->datalen, 
+	   rm->appreturncode, rm->flags, rm->domainname, rm->returncode);
     return;
 
   case EVENT:
@@ -288,7 +422,7 @@ void  _mw_dumpmesg(void * mesg)
 	   "            SERVERID    srvid            = %d\n"
 	   "            SERVICEID   svcid            = %d\n"
 	   "            GATEWAYID   gwid             = %d\n"
-	   "          int         data               = %d\n"
+	   "          int         data               = %d \"%s\"\n"
 	   "          int         datalen            = %d\n"
 	   "          char        username           = %.64s\n"
 	   "          char        clientname         = %.64s\n"
@@ -301,7 +435,9 @@ void  _mw_dumpmesg(void * mesg)
 	   SRVID2IDX(ev->senderid),
 	   SVCID2IDX(ev->senderid),
 	   GWID2IDX(ev->senderid),
-	   ev->data, ev->datalen, 
+	   ev->data, 
+	   strdata(ev->data,  ev->datalen),
+	   ev->datalen, 
 	   ev->username, 
 	   ev->clientname, 
 	   ev->flags);
@@ -320,7 +456,7 @@ void  _mw_dumpmesg(void * mesg)
 	   "   SERVERID    srvid            = %d\n"
 	   "   SERVICEID   svcid            = %d\n"
 	   "   GATEWAYID   gwid             = %d\n"
-	   " int         data               = %d\n"
+	   " int         data               = %d \"%s\"\n"
 	   " int         datalen            = %d\n"
 	   " int         flags              = %#x\n"
 	   " int         returncode         = %d\n",
@@ -332,7 +468,9 @@ void  _mw_dumpmesg(void * mesg)
 	   SRVID2IDX(ev->senderid),
 	   SVCID2IDX(ev->senderid),
 	   GWID2IDX(ev->senderid),
-	   ev->data, ev->datalen, 
+	   ev->data, 
+	   strdata(ev->data,  ev->datalen),
+	   ev->datalen, 
 	   ev->flags, ev->returncode);
     return;
 
@@ -962,7 +1100,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
 
   /* first we check in another call to _mwfetch() retived it and placed 
      in the internal queue.*/
-  callmesg = (Call *) popReplyQueueByHandle(handle);
+  callmesg = popCallReplyByHandle(handle);
 
   /* prepare for while loop */
   if (callmesg == NULL) {
@@ -994,10 +1132,11 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
       };
       
       DEBUG1("Got a reply I was not awaiting with handle %d, enqueuing it internally", callmesg->handle);
-      if (pushQueue(&replyQueue, buffer) != 0) {
+      if (pushCallReply(callmesg) != 0) {
 	Error("ABORT: failed in enqueue on internal buffer, this can't happen");
 	exit(8);
       };
+      callmesg = NULL;
       buffer = malloc(MWMSGMAX);
       continue;
     };

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.9  2003/01/07 08:26:41  eggestad
+ * added TCP_NODELAY
+ *
  * Revision 1.8  2002/09/05 23:25:33  eggestad
  * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
  * MWURL is now used in addition to MWADDRESS
@@ -49,6 +52,7 @@
  */
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/tcp.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -376,6 +380,7 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
 		  char * username, char * password, int flags)
 {
   int s, rc;
+  int val = 1, len;
   SRBmessage * srbmsg;
   if (mwadr == NULL) return -EINVAL;
 
@@ -439,7 +444,11 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
   urlmapfree(srbmsg->map);
   free(srbmsg);
 
-
+  len = sizeof(val);
+  rc = setsockopt(s, SOL_TCP, TCP_NODELAY, &val, len);
+  DEBUG1("Nodelay is set to 1 rc %d errno %d", rc, errno);
+    
+ 
   /* send init */  
   rc = _mw_srbsendinit(&connectionstate, username, password, name, connectionstate.domain);
   if (rc <= 0){

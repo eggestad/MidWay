@@ -12,4 +12,4 @@ int _mw_srbsendprovide(Connection * conn, char * service, int cost);
 int _mw_srbsendunprovide(Connection * conn, char * service);
 int _mw_srbsendgwinit(Connection * conn);
 
-int srbDoMessage(Connection * conn, char * message);
+int srbDoMessage(Connection * conn, SRBmessage * srbmsg);

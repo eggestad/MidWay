@@ -63,11 +63,11 @@
 #define URLLOG_DEBUG4    9
 
 #ifndef  NDEBUG
-#define debug(m, ...)  mwlog(URLLOG_DEBUG,  "%s:%d: " m, __FUNCTION__, __LINE__, ## __VA_ARGS__)
-#define debug1(m, ...) mwlog(URLLOG_DEBUG1, "%s:%d: " m, __FUNCTION__, __LINE__, ## __VA_ARGS__)
-#define debug2(m, ...) mwlog(URLLOG_DEBUG2, "%s:%d: " m, __FUNCTION__, __LINE__, ## __VA_ARGS__)
-#define debug3(m, ...) mwlog(URLLOG_DEBUG3, "%s:%d: " m, __FUNCTION__, __LINE__, ## __VA_ARGS__)
-#define debug4(m, ...) mwlog(URLLOG_DEBUG4, "%s:%d: " m, __FUNCTION__, __LINE__, ## __VA_ARGS__)
+#define debug(m, ...)  mwlog(URLLOG_DEBUG,  "%s(%d) " m, __FUNCTION__, __LINE__, ## __VA_ARGS__)
+#define debug1(m, ...) mwlog(URLLOG_DEBUG1, "%s(%d) " m, __FUNCTION__, __LINE__, ## __VA_ARGS__)
+#define debug2(m, ...) mwlog(URLLOG_DEBUG2, "%s(%d) " m, __FUNCTION__, __LINE__, ## __VA_ARGS__)
+#define debug3(m, ...) mwlog(URLLOG_DEBUG3, "%s(%d) " m, __FUNCTION__, __LINE__, ## __VA_ARGS__)
+#define debug4(m, ...) mwlog(URLLOG_DEBUG4, "%s(%d) " m, __FUNCTION__, __LINE__, ## __VA_ARGS__)
 
 #else 
 #define debug(...)

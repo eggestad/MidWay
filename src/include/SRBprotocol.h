@@ -167,9 +167,11 @@
 
 /* a struct used internally to hold a decoded message */
 typedef struct {
-  char command[32];
-  char marker;
-  urlmap * map;
+   char command[32];
+   char marker;
+   urlmap * map;
+   int payloadlen;
+   char * payload;
 } SRBmessage;
 
 
@@ -191,7 +193,8 @@ char * _mw_srb_getfield (SRBmessage * srbmsg, char * key);
 void _mw_srb_delfield   (SRBmessage * srbmsg, char * key); 
 
 /* encode decode */
-SRBmessage * _mw_srbdecodemessage(char * message);
+SRBmessage * _mw_srbdecodemessage(Connection * conn, char * message);
+SRBmessage * _mw_srb_recvmessage(Connection * conn, int blocking);
 
 int _mw_srbsendmessage(Connection * conn, SRBmessage * srbmsg);
 int _mw_srbencodemessage(SRBmessage * srbmsg, char * buffer, int buflen);
@@ -221,18 +224,18 @@ int _mw_srb_traceoff(void );
 
 void _mw_srb_trace(int dir_in, Connection * conn, char * message, int messagelen);
 
+
 /* conversion func between SRBP error codes, and errno */
 char * _mw_srb_reason(int rc);
 int _mw_errno2srbrc(int err);
 
-#endif /* _SRBPROTOCOL_H */
 
 
-#ifdef DEBUGGGING
+#ifdef DEBUGGING
 static inline void dbg_srbprintmap(SRBmessage * srbmsg)
 {
   int idx = 0;
-  if (mwsetloglevel(-1) >= mwlog_debug2)  { 
+  if (mwsetloglevel(-1) >= MWLOG_DEBUG2)  { 
     while(srbmsg->map[idx].key != NULL) {
       DEBUG2("  Field %s(%p) => %s(%p)", 
 	     srbmsg->map[idx].key, srbmsg->map[idx].key, srbmsg->map[idx].value, srbmsg->map[idx].value);
@@ -244,3 +247,4 @@ static inline void dbg_srbprintmap(SRBmessage * srbmsg)
 #define dbg_srbprintmap(x);
 #endif
 
+#endif /* _SRBPROTOCOL_H */

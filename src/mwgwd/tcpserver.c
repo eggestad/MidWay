@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.15  2003/08/06 23:16:19  eggestad
+ * Merge of client and mwgwd recieving SRB messages functions.
+ *
  * Revision 1.14  2003/07/13 22:42:17  eggestad
  * added timepegs
  *
@@ -292,72 +295,33 @@ void tcpcloseall(void)
 static void gwreadmessage(Connection * conn)
 {
   int i, n, end, start = 0;
+  SRBmessage * srbmsg;
 
   if (conn == NULL) return;
 
   TIMEPEGNOTE("begin");
 
-  n = conn_read(conn);
+  errno = 0;
+  srbmsg = _mw_srb_recvmessage(conn, CONN_NONBLOCKING);
   TIMEPEG();
-  DEBUG2("read a message from fd=%d returned %d errno=%d", conn->fd, n, errno);
+
+  DEBUG2("read a message from fd=%d returned %p errno=%d", conn->fd,  srbmsg, errno);
 
   /* read return 0 on end of file, and -1 on error. */
-  if ((n == -1) || (n == 0)) {
-    tcpcloseconnection(conn);
-    return ;
+  if (srbmsg == NULL) {
+     switch (errno) {
+
+     case EAGAIN:
+     case ENOMSG:
+	return;
+
+     default:
+	tcpcloseconnection(conn);
+	return ;
+     };
   };
 
-  end = conn->leftover + n;
-  DEBUG2("readmessage(fd=%d) read %d bytes + %d leftover buffer now:%.*s", 
-	 conn->fd, n, conn->leftover, end, conn->messagebuffer);
-
-  TIMEPEG();
-  /* we start at leftover since there can't be a \r\n in what was
-     leftover from the last time we read from the connection. */
-  for (i = conn->leftover ; i < end; i++) {
-    
-    /* if we find a message end, process it */
-    if ( (conn->messagebuffer[i] == '\r') && 
-	 (conn->messagebuffer[i+1] == '\n') ) {
-      conn->messagebuffer[i] = '\0';
-
-      TIMEPEG();
-      DEBUG2("read a message from fd=%d, about to process with srbDomessage", conn->fd);
-
-      _mw_srb_trace(SRB_TRACE_IN, conn, conn->messagebuffer+start, i);
-
-      conn->lastrx = time(NULL);
-      TIMEPEG();
-      srbDoMessage(conn, conn->messagebuffer+start);
-      TIMEPEG();
-      DEBUG("srbDomessage completed");
-
-      i += 2;
-      start = i;
-    };
-  };
-  
-  /* nothing leftover, normal case */
-  if (start == end) { 
-    conn->leftover = 0;
-    return;
-  };
-  
-  /* test for message overflow */
-  if ( (end - start) >= SRBMESSAGEMAXLEN) {
-    Warning("readmessage(fd=%d) message buffer was exceeded, "
-	  "rejecting it, next message should be rejected", conn->fd);
-    conn->leftover = 0;
-    return;
-  };  
-
-  /* now there must be left over, move it to the beginning of the
-     message buffer */
-  conn->leftover = end - start;
-  DEBUG2("memcpy %d leftover %p => %p", 
-	conn->leftover, conn->messagebuffer + start,conn->messagebuffer);
-  memcpy(conn->messagebuffer, conn->messagebuffer + start, 
-	 conn->leftover);
+  srbDoMessage(conn, srbmsg);
 
   return;
 };
@@ -418,6 +382,7 @@ int tcp_do_read_condiion(Connection * conn)
   int fd;
   char * msg;
   int len, c_fd;
+  SRBmessage * srbmsg;
 
   fd = conn->fd;
   DEBUG("read condition on fd=%d", conn->fd);
@@ -455,9 +420,17 @@ int tcp_do_read_condiion(Connection * conn)
     conn->lastrx = time(NULL);
     conn->messagebuffer = msg;	 
     TIMEPEG();
-    srbDoMessage(conn, conn->messagebuffer);
-    
-    DEBUG("srbDomessage completed");
+
+    srbmsg = _mw_srbdecodemessage(conn, conn->messagebuffer);
+
+    if (srbmsg) {
+       srbDoMessage(conn, srbmsg);
+       DEBUG("srbDomessage completed");
+    } else {
+       Warning ("got a message from broker that's wrongly formated");
+       conn_del(conn->fd);
+    };
+
     return 0;
   };
       

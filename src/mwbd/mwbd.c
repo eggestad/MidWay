@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.9  2003/08/06 23:16:19  eggestad
+ * Merge of client and mwgwd recieving SRB messages functions.
+ *
  * Revision 1.8  2003/01/07 08:27:21  eggestad
  * * fixed infinite loop on error on sendfd
  * * added empty SIGPIPE handler, to ignore SIGPIPE, but solution incomplete
@@ -165,7 +168,7 @@ void read_from_client(int fd, struct fd_info * cinfo)
     _mw_srbsendreject_sz(&pseudoconn, "Message too long", SRBMESSAGEMAXLEN);
     goto clean;
   };
-  srbmsg = _mw_srbdecodemessage(buffer);
+  srbmsg = _mw_srbdecodemessage(&pseudoconn, buffer);
   if (srbmsg == NULL) {
     Error("received an undecodable message");
     _mw_srbsendreject_sz(&pseudoconn, "Expected SRB INIT?....", 0);
@@ -289,7 +292,7 @@ static void  do_udp_dgram(int sd)
 
   _mw_srb_trace(SRB_TRACE_IN, &pseudoconn, buffer, rc);
   
-  srbmsg_req = _mw_srbdecodemessage(buffer);
+  srbmsg_req = _mw_srbdecodemessage(&pseudoconn, buffer);
   if (srbmsg_req == NULL) {
     DEBUG("unintelligble messgage, ignoring");
     return;
@@ -457,7 +460,7 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
     };
 
 
-    srbmsg = _mw_srbdecodemessage(buffer);
+    srbmsg = _mw_srbdecodemessage(&pseudoconn, buffer);
 
     if (srbmsg == NULL) {
       Error ("got an incomprehensible message");

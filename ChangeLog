@@ -1,3 +1,11 @@
+2003-08-07  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* There was a critical bug in client SRB buffering of incomming
+	data, causing dropped messages. As a result the code in mwgwd and
+	client is now much more merged. There are in the lib functions for
+	reading/writeing to a connection (prep for TLS), parsing of an
+	incomming SRB message (needed for inline binary data). 
+	
 2003-07-21  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* fixed major ipc buffers corruption bug when all buffers exausted

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.20  2003/08/06 23:16:19  eggestad
+ * Merge of client and mwgwd recieving SRB messages functions.
+ *
  * Revision 1.19  2003/07/13 22:42:04  eggestad
  * added timepegs
  *
@@ -803,36 +806,6 @@ static void copy_fd_set(fd_set * copy, fd_set * orig, int n)
 };
 
 
-/* at some poing we're going to do OpenSSL. Then conn_read, and
-   conn_write will hide the SSL, and the rest of MidWay can treat it
-   as a stream connection. */
-int conn_read(Connection * conn)
-{
-  int rc, l;
-  char buffer[64];
-  /* if it is the mcast socket, this is a UDP socket and we use
-     recvfrom. The conn->peeraddr wil lthen always hold the address of
-     sender for the last recv'ed message, which is OK, with UDPO we
-     must either get the whole message or not at all. */
-  if (conn->type == CONN_TYPE_MCAST) {
-    DEBUG("UDP recv, leftover = %d, better be 0!", conn->leftover); 
-    assert ( conn->leftover == 0);
-    l = sizeof(conn->peeraddr);
-    TIMEPEGNOTE("doing recvfrom");
-    rc = recvfrom(conn->fd, conn->messagebuffer+conn->leftover, 
-	      SRBMESSAGEMAXLEN-conn->leftover, 0, &conn->peeraddr.sa, &l);
-    TIMEPEGNOTE("done");
-    DEBUG("UDP: read %d bytes from %s:%d", rc, 
-	  inet_ntop(AF_INET, &conn->peeraddr.sin4.sin_addr, buffer, 64),
-	  ntohs(conn->peeraddr.sin4.sin_port)); 
-  } else {    
-    TIMEPEGNOTE("doing read");
-    rc = read(conn->fd, conn->messagebuffer+conn->leftover, 
-	      SRBMESSAGEMAXLEN-conn->leftover);
-    TIMEPEGNOTE("done");
-  };
-  return rc;
-};
 
 /* 
   int conn_write(Connection * conn, char * buffer, int len);

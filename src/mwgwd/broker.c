@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.6  2003/08/06 23:16:19  eggestad
+ * Merge of client and mwgwd recieving SRB messages functions.
+ *
  * Revision 1.5  2003/03/16 23:50:24  eggestad
  * Major fixups
  *
@@ -95,7 +98,7 @@ int connectbroker(char * domain, char * instance)
   
   if (rc == -1) return -1;
   _mw_srb_trace(SRB_TRACE_IN, brokerconn, buffer, rc);
-  srbmsg_ready = _mw_srbdecodemessage(buffer);
+  srbmsg_ready = _mw_srbdecodemessage(brokerconn, buffer);
   if (srbmsg_ready == NULL) {
     DEBUG("failed to decode message from broker");
     errno = EBADMSG;

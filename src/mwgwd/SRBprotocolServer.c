@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.19  2003/08/06 23:16:19  eggestad
+ * Merge of client and mwgwd recieving SRB messages functions.
+ *
  * Revision 1.18  2003/06/12 07:45:01  eggestad
  * - added MWIPCONLY flag to _mwipcacall, to force local service
  * - added check for error in message decode
@@ -1007,129 +1010,98 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
  **********************************************************************/
 
   
-int srbDoMessage(Connection * conn, char * message)
+int srbDoMessage(Connection * conn, SRBmessage * srbmsg)
 {
   int commandlen;
-  char * ptr;
-  SRBmessage srbmsg;
 
-  TIMEPEG();  
-  if ( (ptr = strchr(message, SRB_REQUESTMARKER)) == NULL)
-    if ( (ptr = strchr(message, SRB_RESPONSEMARKER)) == NULL)
-      if ( (ptr = strchr(message, SRB_NOTIFICATIONMARKER)) == NULL) {
-	if ( (ptr = strchr(message, SRB_REJECTMARKER)) != NULL) {
-	  return 0;
-	} else { 
-	  _mw_srbsendreject_sz(conn, message, -1);
-	  return -1;
-	}
-      }
-  commandlen = ptr - message;
-  if (commandlen > 32) {
-    _mw_srbsendreject_sz(conn, message, commandlen);
-    return -1;
-  };
-  strncpy(srbmsg.command, message, commandlen);
-  srbmsg.command[commandlen] = '\0';
-  srbmsg.marker = *ptr;
-  TIMEPEG();
-  srbmsg.map = urlmapdecode(message+commandlen+1);
-  TIMEPEG();
+  TIMEPEGNOTE("begin");
 
-  DEBUG2("srbDoMessage: command=%*.*s marker=%c on fd=%d", 
-	commandlen, commandlen, message, *ptr, conn->fd);
-
-  if (srbmsg.map == NULL) {
-     Warning ("rejected message due to error in decode: message \"%s\"", message);
-     _mw_srbsendreject_sz(conn, message, -1);
-     goto out;
-  };
-
-  dbg_srbprintmap(srbmsg); 
-  TIMEPEG();
 
   /* if the connection is not initiated, we handle it special */
   if (conn->state != CONNECT_STATE_UP) {
-    if ( strcasecmp(srbmsg.command, SRB_INIT) == 0) {
-      srbinit(conn, &srbmsg);
-    } else if ( strcasecmp(srbmsg.command, SRB_READY) == 0) {
-      srbready(conn, &srbmsg);
+    if ( strcasecmp(srbmsg->command, SRB_INIT) == 0) {
+      srbinit(conn, srbmsg);
+    } else if ( strcasecmp(srbmsg->command, SRB_READY) == 0) {
+      srbready(conn, srbmsg);
     } else {
-      _mw_srbsendreject(conn, &srbmsg, NULL, NULL, SRB_PROTO_NOINIT);    
+      _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_NOINIT);    
     };
     goto out;
   };    
-
+  commandlen = strlen(srbmsg->command);
+  DEBUG2("command = %s (len %d)", srbmsg->command, commandlen);
+  
   /* switch on command length in order to speed up (avoiding excessive
      strcmp()'s */
   switch(commandlen) {
   case 4:
-    if ( strcasecmp(srbmsg.command, SRB_TERM) == 0) {
-      srbterm(conn, &srbmsg);
+    if ( strcasecmp(srbmsg->command, SRB_TERM) == 0) {
+      srbterm(conn, srbmsg);
       break ;
     };
     break;
 
   case 5:
-    if ( strcasecmp(srbmsg.command, SRB_HELLO) == 0) {
-      srbhello(conn, &srbmsg);
+    if ( strcasecmp(srbmsg->command, SRB_HELLO) == 0) {
+      srbhello(conn, srbmsg);
       break;
     }
     break;
 
   case 6:
-    if ( strcasecmp(srbmsg.command, SRB_REJECT) == 0) {
-      srbreject(conn, &srbmsg);
+    if ( strcasecmp(srbmsg->command, SRB_REJECT) == 0) {
+      srbreject(conn, srbmsg);
       break;
     }
     break;
 
   case 7:
-    if ( strcasecmp(srbmsg.command, SRB_SVCCALL) == 0) {
+    if ( strcasecmp(srbmsg->command, SRB_SVCCALL) == 0) {
       TIMEPEG();  
-      if ( (srbmsg.marker == SRB_REQUESTMARKER) || 
-	   (srbmsg.marker == SRB_NOTIFICATIONMARKER) )
-	srbcall_req(conn, &srbmsg);
-      else if (srbmsg.marker == SRB_RESPONSEMARKER)
-	srbcall_rpl(conn, &srbmsg);
+      if ( (srbmsg->marker == SRB_REQUESTMARKER) || 
+	   (srbmsg->marker == SRB_NOTIFICATIONMARKER) )
+	srbcall_req(conn, srbmsg);
+      else if (srbmsg->marker == SRB_RESPONSEMARKER)
+	srbcall_rpl(conn, srbmsg);
       else 
 	// TODO: reject
 	;
 
       break;
     }
-    if ( strcasecmp(srbmsg.command, SRB_PROVIDE) == 0) {
-      srbprovide(conn, &srbmsg);
+    if ( strcasecmp(srbmsg->command, SRB_PROVIDE) == 0) {
+      srbprovide(conn, srbmsg);
       break;
     }
     break;
 
   case 8:
-    if ( strcasecmp(srbmsg.command, SRB_INIT) == 0) {
-      srbinit(conn, &srbmsg);
+    if ( strcasecmp(srbmsg->command, SRB_INIT) == 0) {
+      srbinit(conn, srbmsg);
       break;
     }
     break;
 
   case 9:
-    if ( strcasecmp(srbmsg.command, SRB_READY) == 0) {
-      srbready(conn, &srbmsg);
+    if ( strcasecmp(srbmsg->command, SRB_READY) == 0) {
+      srbready(conn, srbmsg);
       break;
     }
-    if ( strcasecmp(srbmsg.command, SRB_UNPROVIDE) == 0) {
-      srbunprovide(conn, &srbmsg);
+    if ( strcasecmp(srbmsg->command, SRB_UNPROVIDE) == 0) {
+      srbunprovide(conn, srbmsg);
       break;
     }
     break;
 
   default:
-    _mw_srbsendreject_sz(conn, message, 0);
+    _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_FORMAT);
   };
 
  out:  
-  if (srbmsg.map != NULL)
-    urlmapfree(srbmsg.map);
+  if (srbmsg->map != NULL)
+    urlmapfree(srbmsg->map);
 
+  TIMEPEGNOTE("end");
   return 0;
 };
 

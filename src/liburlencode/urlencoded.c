@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2003/08/06 23:16:19  eggestad
+ * Merge of client and mwgwd recieving SRB messages functions.
+ *
  * Revision 1.8  2003/07/14 22:05:27  eggestad
  * Timepeg fix
  *
@@ -87,15 +90,15 @@ static int unhex(char high, char low)
    if (isdigit(high)) high = (0xf & high);
    else if (isxdigit(high)) high = (0xf & high) + 9;
    else return -1;
-   debug3("highnibble %x", (int) high);
+   //   debug3("highnibble %x", (int) high);
    if (isdigit(low)) low = (0xf & low);
    else if (isxdigit(low)) low = (0xf & low) + 9;
    else return -1;
-   debug3("low nibble %x", (unsigned int) low);
+   //   debug3("low nibble %x", (unsigned int) low);
    res = high & 0xf;
    res <<= 4;
    res += low & 0xf;
-   debug3("char value is %d", res);
+   //   debug3("char value is %d", res);
    return res;
 };
 

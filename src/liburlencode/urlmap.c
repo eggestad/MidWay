@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.12  2003/08/06 23:16:19  eggestad
+ * Merge of client and mwgwd recieving SRB messages functions.
+ *
  * Revision 1.11  2003/07/13 22:41:47  eggestad
  * - added timepegs
  * - removed some trailing newline in debug messages
@@ -69,7 +72,7 @@ urlmap * urlmapdecode(char * list)
   urlmap * map;
 
   URLTIMEPEGNOTE("mapdecode begin");
-  debug1 ("list = %p", list);
+  debug3 ("list = %p", list);
 
   if (list == NULL) {
     errno = EINVAL; 
@@ -78,13 +81,13 @@ urlmap * urlmapdecode(char * list)
 
   /* count thru and find out how many key/value pairs there are. */
   len = strlen(list);
-  debug1("strlen(%s) = %d", list, len);
+  debug3("strlen(%s) = %d", list, len);
 
   for (i = 0; i < len; i++) {
     if (list[i] == '&') count ++;
   };
 
-  debug1("count=%d", count);
+  debug3("count=%d", count);
 
   map = malloc(sizeof(urlmap)*(count + 2));
   if (map == NULL) {
@@ -103,7 +106,7 @@ urlmap * urlmapdecode(char * list)
     value_end = strchr(next, '&');
     // if next = is past & then there are no value 
 
-    debug1("key_end=%p(next+%d) value_end=%p(next+%d) next=%s", 
+    debug3("key_end=%p(next+%d) value_end=%p(next+%d) next=%s", 
 	   key_end, key_end-next, value_end, value_end - next, next);
 
     if ((value_end != NULL) && (key_end > value_end)) key_end = NULL;
@@ -136,7 +139,7 @@ urlmap * urlmapdecode(char * list)
   map[idx].value = NULL;
   map[idx].valuelen = 0;
 
-  debug1("returns => %p", map);
+  debug3("returns => %p", map);
   URLTIMEPEGNOTE("mapdecode end");
   return map;
 
@@ -270,18 +273,18 @@ urlmap * urlmapdup(urlmap * map)
   URLTIMEPEGNOTE("mapdup begin");
   if (map == NULL) return NULL;
 
-  debug1("beginning copy of map at %p", map);
+  debug3("beginning copy of map at %p", map);
 
   /* find the number of pairs in the map. */
   for (n = 0; map[n].key != NULL;  n++) ;
   
-  debug1("map to be copied has %d pairs", n);
+  debug3("map to be copied has %d pairs", n);
 
   newmap = malloc(sizeof(urlmap) * (n+1));
   
   for (idx = 0; idx < n; idx++) {
     
-     debug1("copying pair %d: key=%s :: value=%s(%d)",  idx,  
+     debug3("copying pair %d: key=%s :: value=%s(%d)",  idx,  
 	    map[idx].key, 
 	    map[idx].value!=NULL?map[idx].value:"(null)",
 	    map[idx].valuelen);
@@ -316,7 +319,7 @@ void urlmapfree(urlmap * map)
 
   if (map == NULL) return ;
   
-  debug1("urlmapfree(%p)", map);
+  debug3("urlmapfree(%p)", map);
 
   while(map[idx].key != NULL) {
     free(map[idx].key);
@@ -474,7 +477,7 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
     return NULL;
   };
 
-  debug1("realloced %p to %p", m, map);
+  debug3("realloced %p to %p", m, map);
 
   /* make a copy and insert key */
   l = strlen(key);

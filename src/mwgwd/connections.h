@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.6  2003/08/06 23:16:19  eggestad
+ * Merge of client and mwgwd recieving SRB messages functions.
+ *
  * Revision 1.5  2003/03/16 23:50:24  eggestad
  * Major fixups
  *
@@ -68,9 +71,6 @@ Connection * conn_getbroker(void);
 Connection * conn_getmcast(void);
 Connection * conn_getgateway(GATEWAYID gwid);
 Connection * conn_getclient(CLIENTID cid);
-
-int conn_read(Connection * conn);
-int conn_write(Connection * conn, char * buffer, int len);
 
 int conn_select(int * cause, time_t timeout);
 

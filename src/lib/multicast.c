@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.7  2003/08/06 23:16:19  eggestad
+ * Merge of client and mwgwd recieving SRB messages functions.
+ *
  * Revision 1.6  2003/06/12 07:26:15  eggestad
  * standalone fix, added unicast to loopback, if multicast fails
  *
@@ -228,7 +231,7 @@ int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
   _mw_srb_trace(SRB_TRACE_IN, &pseudoconn, buffer, rc);
   DEBUG1("got a message %d bytes long", rc);
 
-  srbrpy = _mw_srbdecodemessage(buffer);
+  srbrpy = _mw_srbdecodemessage(&pseudoconn, buffer);
   if (srbrpy == NULL) {
     DEBUG1("failed to decode, discarding");
     errno = EBADMSG;

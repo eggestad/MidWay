@@ -15,7 +15,7 @@ CFLAGS =  -fpic @CFLAGS@ $(INCLUDES)
 
 IPCOBJS = mwclientipcapi.o ipctables.o ipcmessages.o mwserverapi.o shmalloc.o osdep.o 
 
-NETOBJS = SRBclient.o SRBprotocol.o multicast.o
+NETOBJS = SRBclient.o SRBprotocol.o multicast.o connection.o
 
 COMMONOBJS = mwlog.o version.o address.o mwclientapi.o utils.o tasks.o
 

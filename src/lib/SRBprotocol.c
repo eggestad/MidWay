@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.10  2003/08/06 23:16:18  eggestad
+ * Merge of client and mwgwd recieving SRB messages functions.
+ *
  * Revision 1.9  2003/03/16 23:53:53  eggestad
  * bug fixes
  *
@@ -389,11 +392,15 @@ void _mw_srb_delfield (SRBmessage * srbmsg, char * key)
 
 /* encode decode functions */
 
-SRBmessage * _mw_srbdecodemessage(char * message)
+SRBmessage * _mw_srbdecodemessage(Connection * conn, char * message)
 {
   char * szTmp, * ptr;
   SRBmessage * srbmsg;
   int commandlen;
+
+  TIMEPEGNOTE("begin");
+
+  DEBUG3("starting on %s(%d) ", conn->peeraddr_string, conn->fd);
 
   /* message may be both end (\r\n) terminated or, \0 terminated.  if
      we find the end marker, we temporary set it to \0 */
@@ -403,27 +410,166 @@ SRBmessage * _mw_srbdecodemessage(char * message)
   if ( (ptr = strchr(message, SRB_REQUESTMARKER)) == NULL)
     if ( (ptr = strchr(message, SRB_RESPONSEMARKER)) == NULL)
       if ( (ptr = strchr(message, SRB_NOTIFICATIONMARKER)) == NULL) {
-	DEBUG1("_mw_srbdecodemessage: unable to find marker");
-	errno = EBADMSG;
-	return NULL;
+	if ( (ptr = strchr(message, SRB_REJECTMARKER)) != NULL) {
+	   DEBUG3("no legal marker found");
+	   errno = EBADMSG;
+	   return NULL;
+	} else { 
+	   Warning ("rejected message due to missing srb marker: message \"%s\"", message);
+	   _mw_srbsendreject_sz(conn, message, -1);
+	   errno = EBADMSG;
+	   return NULL;
+	}
+	
       }
+  TIMEPEG();
+
   commandlen = ptr - message;
+  if (commandlen > 32) {
+     Warning ("rejected message due to too long srb command: message \"%s\"", message);
+    _mw_srbsendreject_sz(conn, message, commandlen);
+    errno = EBADMSG;
+    return NULL;
+  };
+  DEBUG3("command = %*.*s marker = %c", commandlen, commandlen, message, *ptr);
+
+  TIMEPEG();
+
   srbmsg = malloc(sizeof (SRBmessage));
 
   strncpy(srbmsg->command, message, commandlen);
   srbmsg->command[commandlen] = '\0';
   srbmsg->marker = *ptr;
-  
-  srbmsg->map = urlmapdecode(message+commandlen+1);
-  /* replacing end marker */
-  if (szTmp != NULL) *szTmp = '\r';
 
-  DEBUG3("_mw_srbdecodemessage: command=%*.*s marker=%c", 
-	commandlen, commandlen, message, *ptr);
-  DEBUG1("_mw_srbdecodemessage: command=%s marker=%c", 
+  TIMEPEG();  
+  srbmsg->map = urlmapdecode(message+commandlen+1);
+  TIMEPEG();
+
+  if (srbmsg->map == NULL) {
+     Warning ("rejected message due to error in decode: message \"%s\"", message);
+     _mw_srbsendreject_sz(conn, message, -1);
+     free(srbmsg);
+     errno = EBADMSG;
+     return NULL;
+  };     
+
+  TIMEPEG();
+
+  /* replacing end of mesg marker */
+  if (szTmp != NULL) *szTmp = '\r';
+  
+  DEBUG1("good return on command=%s marker=%c", 
 	srbmsg->command, srbmsg->marker);
+  dbg_srbprintmap(srbmsg); 
+  TIMEPEGNOTE("end");
   return srbmsg;
 }
+
+/**********************************************************************
+ * Function for receiving messages 
+ **********************************************************************/
+
+SRBmessage * _mw_srb_recvmessage(Connection * conn, int blocking)
+{  
+   int i, n, end, start = 0;
+   int eof = 0, err = 0;
+   char * msgptr;
+   SRBmessage * srbmsg;
+
+   
+   TIMEPEGNOTE("begin");
+   DEBUG3("starting conn=%p blocking=%d", conn, blocking);
+   if (!conn) {
+      errno = EINVAL;
+      return NULL;
+   };
+   if (conn->messagebuffer == NULL) {
+      conn->messagebuffer = malloc(SRBMESSAGEMAXLEN+8);
+   };
+   n = _mw_conn_read(conn, blocking);
+
+   TIMEPEG();
+   DEBUG3("read a message from fd=%d returned %d errno=%d", conn->fd, n, errno);
+
+   if ((n == -1) || (n == 0)) {
+      eof = 1;
+      n = 0;
+   };
+   
+   end = conn->leftover + n;
+   DEBUG3("readmessage(fd=%d) read %d bytes + %d leftover buffer now:%.*s", 
+	  conn->fd, n, conn->leftover, end, conn->messagebuffer);
+
+   TIMEPEG();
+
+   for (i = 0 ; i < end; i++) {
+      
+      /* if we find a message end, process it */
+      if ( (conn->messagebuffer[i] == '\r') && 
+	   (conn->messagebuffer[i+1] == '\n') ) {
+
+	 conn->messagebuffer[i] = '\0';
+
+	 DEBUG3("got a message end marker i = %d end = %d", i, end);
+	 TIMEPEG();
+	 _mw_srb_trace(SRB_TRACE_IN, conn, conn->messagebuffer+start, i);
+	 
+
+	 i += 2;
+	 start = i;
+	 conn->lastrx = time(NULL);
+	 TIMEPEG();
+	 
+	 msgptr = conn->messagebuffer+start;
+	 TIMEPEG();
+	 
+	 if ( (end - start) >= SRBMESSAGEMAXLEN) {
+	    Warning("readmessage(fd=%d) message length was exceeded, "
+		    "rejecting it, next message should be rejected", conn->fd);
+	    conn->leftover = 0;
+	    errno = EBADMSG;
+	    return NULL;	    
+	    
+	 } else {
+	    errno = 0;
+	    srbmsg = _mw_srbdecodemessage(conn, conn->messagebuffer);
+	    err = errno;
+	 };
+
+	 if (start == end) { 
+	    conn->leftover = 0;
+	 } else {
+	    conn->leftover = end - start;
+	    DEBUG2("memcpy %d leftover %p => %p", 
+		   conn->leftover, msgptr,conn->messagebuffer);
+	    memcpy(conn->messagebuffer, msgptr, conn->leftover);	    
+	    msgptr[conn->leftover] = '\0';
+	 };
+
+	 if (err) {
+	    DEBUG3("Got error %d", err);
+	    errno = err;
+	    TIMEPEGNOTE("end error");
+	    return NULL;
+	 };
+	 	 
+	 /* if inline data we must do something to get it now */
+	 TIMEPEGNOTE("end msg");
+	 DEBUG3("good end");
+	 return srbmsg;
+	 
+      };
+   }
+   if (eof)
+      errno = EPIPE;
+   else
+      errno = EAGAIN;
+   
+   TIMEPEGNOTE("end no msg");
+   DEBUG3("end no message");
+   return NULL;
+};
+
 
 /**********************************************************************
  * Functions for Sending messages, semi public.  the functions here
@@ -497,7 +643,7 @@ int _mw_srbsendmessage(Connection * conn, SRBmessage * srbmsg)
 
   TIMEPEG();  
   errno = 0;
-  len = write(conn->fd, _mw_srbmessagebuffer, len);
+  len = _mw_conn_write(conn, _mw_srbmessagebuffer, len, CONN_BLOCKING);
   TIMEPEGNOTE("just did write(2)");
   DEBUG3("_mw_srbsendmessage: write returned %d errno=%d", len, errno);
   /* MUTEX ENDS */

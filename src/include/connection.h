@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2003/08/06 23:16:18  eggestad
+ * Merge of client and mwgwd recieving SRB messages functions.
+ *
  * Revision 1.4  2003/01/07 08:26:32  eggestad
  * redefined CONN_TYPE for simpled debuging info
  *
@@ -113,6 +116,13 @@ enum {  CONNECT_STATE_CONNWAIT = 1,
 	CONNECT_STATE_UP, 
 	CONNECT_STATE_CLOSING };
 
+
+#define CONN_BLOCKING      0x0000
+#define CONN_NONBLOCKING   0x0001
+
+
 #endif // _CONNECTION_H
 
 
+int _mw_conn_read(Connection * conn, int blocking);
+int _mw_conn_write(Connection * conn, char * msg, int mlen, int flags);

@@ -69,10 +69,10 @@ typedef int MWID;
 #define  GWID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWGATEWAYMASK) >= 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
 
 /* filters */
-#define CLTID(id)  ((id & MWCLIENTMASK)  >= 0 ? id : UNASSIGNED)
-#define SRVID(id)  ((id & MWSERVERMASK)  >= 0 ? id : UNASSIGNED)
-#define SVCID(id)  ((id & MWSERVICEMASK) >= 0 ? id : UNASSIGNED)
-#define  GWID(id)  ((id & MWGATEWAYMASK) >= 0 ? id : UNASSIGNED)
+#define CLTID(id)  ((id & MWCLIENTMASK)  != 0 ? id : UNASSIGNED)
+#define SRVID(id)  ((id & MWSERVERMASK)  != 0 ? id : UNASSIGNED)
+#define SVCID(id)  ((id & MWSERVICEMASK) != 0 ? id : UNASSIGNED)
+#define  GWID(id)  ((id & MWGATEWAYMASK) != 0 ? id : UNASSIGNED)
 
 /* turn a given idex into a type. */
 #define IDX2CLTID(id)  ((id & MWINDEXMASK) | MWCLIENTMASK)  
@@ -213,7 +213,8 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
 #define DECLAREGLOBALMUTEX(name)  pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
 #define _LOCKMUTEX(name)   do {pthread_mutex_lock(&name); }   while(0)
 #define _UNLOCKMUTEX(name) do {pthread_mutex_unlock(&name); } while(0)
-#define LOCKMUTEX(name)    do { DEBUG1("locking mutex " #name);   pthread_mutex_lock(&name);   } while(0)
+#define LOCKMUTEX(name)    do { DEBUG1("locking mutex " #name " ..." );  \
+pthread_mutex_lock(&name); DEBUG1("locked mutex " #name);  } while(0)
 #define UNLOCKMUTEX(name)  do { DEBUG1("unlocking mutex " #name); pthread_mutex_unlock(&name); } while(0)
 #else 
 #error "PTHREADS are currently required"
@@ -222,7 +223,7 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
 #ifdef TIMEPEGS
 
 #define TIMEPEGNOTE(note) __timepeg(__FUNCTION__, __FILE__, __LINE__, note)
-#define TIMEPEG __timepeg(__FUNCTION__, __FILE__, __LINE__, NULL)
+#define TIMEPEG() __timepeg(__FUNCTION__, __FILE__, __LINE__, NULL)
 void  __timepeg(char * function, char * file, int line, char * note);
 void timepeg_clear(void);
 int timepeg_sprint(char * buffer, size_t size);
@@ -231,7 +232,7 @@ void timepeg_log(void);
 #else
 
 #define TIMEPEGNOTE(note)
-#define TIMEPEG
+#define TIMEPEG()
 
 #define timepeg_clear()
 #define timepeg_sprint(a,b)

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2004/08/10 19:39:09  eggestad
+ * - shm heap is now 32/64 bit interoperable
+ * - added large buffer alloc
+ *
  * Revision 1.7  2003/07/06 22:06:14  eggestad
  * -debugging now in debug3
  * - added funcs for seting and geting ownerid
@@ -137,24 +141,46 @@
 #ifndef _SHMALLOC_H
 #define _SHMALLOC_H
 
+#include <stdint.h>
 #include <ipcmessages.h>
 
 struct _chunkhead {
-  long ownerid;
-  long size; /* in # of basechunksizes */
+  MWID ownerid;
+  int64_t size; /* in # of basechunksizes in IPC segements, bytes on mmap with one buffer */
 };
 typedef struct _chunkhead chunkhead ;
 
 struct _chunkfoot {
-  int above;
-  int next;
-  int prev;
+  int64_t above;
+  int64_t next;
+  int64_t prev;
 };
 typedef struct _chunkfoot chunkfoot ;
 
+/* the heap number that distinguish between many buffer heaps. 
+   0 being shm
+   1 - LOW_LARGE_BUFFER_NUMBER being heaps on files (currently unused)
+   LOW_LARGE_BUFFER_NUMBER - INTMAX is single buffer files alloced by mwd
+*/
+#define LOW_LARGE_BUFFER_NUMBER 999
+
+/* the struct used in shmalloc.c to keep track of buffer heaps. It's
+   either ipc shm or a mmaped file. This struct is really only used in
+   shmalloc.c, but _mwadr2offset() is used in event.c, but then we
+   pass NULL for seginfo_t * */
+struct shm_segment {
+   int segmentid;
+   int fd;
+   void * start;
+   void * end;
+} ;
+
+typedef struct shm_segment seginfo_t;
+
+
 /* conversion between offset and adresses */
-int _mwadr2offset(void *);
-void * _mwoffset2adr(int);
+long _mwadr2offset(void *, seginfo_t *);
+void * _mwoffset2adr(long, seginfo_t *);
 
 chunkfoot * _mwfooter(chunkhead *);
 
@@ -164,40 +190,51 @@ int _mwshmcheck(void * adr);
 #define BINS 6
 
 struct segmenthdr {
-  short magic; 
-  short chunkspersize;
-  long basechunksize;
-  long segmentsize;
-  long semid;
+  int16_t magic; 
+  int16_t chunkspersize;
+  int32_t basechunksize;
+  int64_t segmentsize;
+  int64_t semid;
 
-  long top, bottom; // the max and min offsets into the heap that may be buffers
-  int inusecount;
-  int inusehighwater;
-  int inuseaverage;
-  int inuseavgcount;
-  int numbins;
-  int chunk[BINS];
-  int freecount[BINS];
+  int64_t top, bottom; // the max and min offsets into the heap that may be buffers
+  int32_t inusecount;
+  int32_t inusehighwater;
+  int32_t inuseaverage;
+  int32_t inuseavgcount;
+  int32_t numbins;
+  int32_t chunk[BINS];
+  int32_t freecount[BINS];
 };
 
+seginfo_t * _mw_getsegment(int segid);
+seginfo_t *  _mw_addsegment(int id, int fd, void * start, void * end);
 
-void * _mwalloc(int size);
-void * _mwrealloc(void * adr, int newsize);
+void * _mwalloc(size_t size);
+void * _mwrealloc(void * adr, size_t newsize);
 int _mwfree(void * adr);
 
 int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg);
-int _mw_putbuffer_to_call (Call * callmesg, char * data, int len);
+int _mw_putbuffer_to_call (Call * callmesg, char * data, size_t len);
 
 int _mw_fastpath_enabled(void) ;
 
-int _mwadr2offset(void * adr);
-void * _mwoffset2adr(int offset);
-
 int _mwshmcheck(void * adr);
-int _mwshmgetsizeofchunk(void * adr);
+size_t _mwshmgetsizeofchunk(void * adr);
 
-int _mwshmgetowner(int offset, MWID * id);
-int _mwshmsetowner(int offset, MWID id);
+int _mwshmgetowner(void * adr, MWID * id);
+int _mwshmsetowner(void * adr, MWID id);
+
+static inline size_t get_pagesize(void)
+{
+   static size_t pgsz = 0;
+   
+   if (pgsz == 0) {
+      pgsz = sysconf(_SC_PAGESIZE);
+   };
+   return pgsz;
+};
+
+
 
 #endif /* _SHMALLOC_H */
 

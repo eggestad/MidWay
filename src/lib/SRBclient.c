@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.17  2004/04/12 22:55:17  eggestad
+ * - fix of bug where readmessage returned error while actually read a message
+ *
  * Revision 1.16  2004/04/08 10:34:05  eggestad
  * introduced a struct with pointers to the functions implementing the midway functions
  * for a given protocol.
@@ -623,10 +626,16 @@ int _mw_drain_socket(int flags)
       errno = 0;
       if (srbmsg) 
 	 _mw_srb_destroy(srbmsg);
+
       srbmsg = _mw_srb_recvmessage(&cltconn, flags);
 
       if (srbmsg == NULL) {
 	 DEBUG1("readmessage failed with errno=%d", errno);
+	 if (rc) {
+	    DEBUG1("but we've already read a message, returning OK");
+	    return rc;
+	 };
+
 	 switch (errno) {
 	 
 	 case EPIPE:
@@ -705,7 +714,7 @@ int _mwfetch_srb(int *hdl, char ** data, int * len, int * appreturncode, int fla
    int idx= -1, rc;
    int handle = *hdl;
 
-   DEBUG1("ENTER hdl=%#x ");
+   DEBUG1("ENTER hdl=%#x ", handle);
    TIMEPEGNOTE("begin");
 
    // first of all drain the socket, not optimal for the client (the

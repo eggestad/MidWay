@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2004/03/01 12:56:14  eggestad
+ * added event API for SRB client
+ *
  * Revision 1.2  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -38,6 +41,9 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
 		  char * username, char * password, int flags);
 int _mwdetach_srb(void);
 int _mwacall_srb(char * svcname, char * data, int datalen, int flags);
-int _mwfetch_srb(int handle, char ** data, int * len, int * appreturncode, int flags);
+int _mwfetch_srb(int * handle, char ** data, int * len, int * appreturncode, int flags);
 
 
+int _mwevent_srb(char * evname, char * data, int datalen, char * username, char * clientname);
+int _mwsubscribe_srb(char * pattern, int flags);
+int _mwunsubscribe_srb(char * pattern, int flags); 

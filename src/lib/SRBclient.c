@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.14  2004/03/01 12:56:14  eggestad
+ * added event API for SRB client
+ *
  * Revision 1.13  2003/09/28 10:45:59  eggestad
  * duplicate initalizer
  *
@@ -663,13 +666,14 @@ static urlmap * _mw_read_svcreply(int flags)
 };
 
   
-int _mwfetch_srb(int handle, char ** data, int * len, int * appreturncode, int flags)
+int _mwfetch_srb(int *hdl, char ** data, int * len, int * appreturncode, int flags)
 {
    urlmap * map = NULL;
    char szHdl[9];
    int idx= -1, rc;
    int blocking;
-  
+   int handle = *hdl;
+
    DEBUG1("ENTER hdl=%#x ");
    TIMEPEGNOTE("begin");
 
@@ -746,6 +750,7 @@ int _mwfetch_srb(int handle, char ** data, int * len, int * appreturncode, int f
 
    /* now return the data, and RC's */
    DEBUG1("_mwfetch_srb: about to return %d bytes of data and RC=%d", * len, rc);
+   TIMEPEGNOTE("getting return params");
 
    idx = urlmapget(map, SRB_DATA);
    if (idx != -1) {
@@ -766,6 +771,22 @@ int _mwfetch_srb(int handle, char ** data, int * len, int * appreturncode, int f
       *appreturncode = 0;
    };
 
+   idx = urlmapget(map, SRB_APPLICATIONRC);
+   if (idx != -1) {
+      /* negative?? */
+      *appreturncode = atoi(map[idx].value);
+   } else {
+      *appreturncode = 0;
+   };
+
+   idx = urlmapget(map, SRB_HANDLE);
+   if (idx == -1) {
+      Fatal("failed to find HANDLE in a SRB CALL reply");
+   };
+   handle = strtol(map[idx].value, NULL, 16);
+   DEBUG1("handle = %s => %#x", map[idx].value, handle);
+   *hdl = handle;
+
  errout:
    if (map) urlmapfree(map);
    TIMEPEGNOTE("end");
@@ -773,4 +794,18 @@ int _mwfetch_srb(int handle, char ** data, int * len, int * appreturncode, int f
    return rc; 
 
 };
-  
+
+int _mwevent_srb(char * evname, char * data, int datalen, char * username, char * clientname)
+{
+   return _mw_srbsendevent(&cltconn, evname, data, datalen, username, clientname);
+};
+
+int _mwsubscribe_srb(char * pattern, int flags) 
+{
+   return _mw_srbsendsubscribe(&cltconn, pattern, flags);
+};
+
+int _mwunsubscribe_srb(char * pattern, int flags) 
+{
+   return _mw_srbsendunsubscribe(&cltconn, pattern, flags);
+};

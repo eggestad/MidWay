@@ -79,13 +79,15 @@
 #define SRB_DATA 		"DATA"
 #define SRB_DATACHUNKS 		"DATACHUNKS"
 #define SRB_DOMAIN 		"DOMAIN"
-#define SRB_EVENTNAMEEVENTID 	"EVENTNAMEEVENTID"
+#define SRB_EVENT 		"EVENT"
+#define SRB_EVENTID 		"EVENTID"
 #define SRB_GLOBALTRANID 	"GLOBALTRANID"
 #define SRB_GRACE 		"GRACE"
 #define SRB_HANDLE 		"HANDLE"
 #define SRB_HOPS 		"HOPS"
 #define SRB_INSTANCE 		"INSTANCE"
 #define SRB_LOCALTIME 		"LOCALTIME"
+#define SRB_MATCH 		"MATCH"
 #define SRB_MAXHOPS 		"MAXHOPS"
 #define SRB_MESSAGE 		"MESSAGE"
 #define SRB_MORE 		"MORE"
@@ -95,6 +97,7 @@
 #define SRB_OFFSET 		"OFFSET"
 #define SRB_OS 			"OS"
 #define SRB_PASSWORD 		"PASSWORD"
+#define SRB_PATTERN 		"PATTERN"
 #define SRB_PEERDOMAIN 		"PEERDOMAIN"
 #define SRB_REASON 		"REASON"
 #define SRB_REASONCODE 		"REASONCODE"
@@ -129,6 +132,11 @@
 #define SRB_ROLE_CLIENT   		1
 #define SRB_ROLE_GATEWAY  		2
 
+/* event subscription */
+#define SRB_SUBSCRIBE_STRING  		"STRING"
+#define SRB_SUBSCRIBE_GLOB  		"GLOB"
+#define SRB_SUBSCRIBE_REGEXP  		"REGEXP"
+#define SRB_SUBSCRIBE_EXTREGEXP		"EXTREGEXP"
 
 /*************************************************
  * Return codes 
@@ -213,6 +221,14 @@ int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, 
 
 int _mw_get_returncode(urlmap * map);
 int _mw_srb_checksrbcall(Connection * conn, SRBmessage * srbmsg) ;
+
+int _mw_srbsendevent(Connection * conn, 
+		     char * event,  char * data, int datalen, 
+		     char * username, char * clientname);
+
+int _mw_srbsendsubscribe(Connection * conn, char * pattern, int flags);
+int _mw_srbsendunsubscribe(Connection * conn, char * pattern, int flags);
+
 
 /* tracing API */
 int _mw_srb_traceonfile(FILE * fp);

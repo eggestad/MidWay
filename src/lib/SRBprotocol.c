@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.12  2004/03/01 12:56:14  eggestad
+ * added event API for SRB client
+ *
  * Revision 1.11  2003/09/25 19:36:17  eggestad
  * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
  * - also improved logic in blocking/nonblocking of reading on Connection objects
@@ -759,6 +762,89 @@ int _mw_srbsendreject_sz(Connection * conn, char *message, int offset)
   return rc;
 };
 
+/************************************************************************/ 
+// EVENTS
+
+int _mw_srbsendevent(Connection * conn, 
+		     char * event,  char * data, int datalen, 
+		     char * username, char * clientname)
+{
+  int rc;
+  SRBmessage srbmsg;
+  srbmsg.map = NULL;
+
+  if (conn == NULL) return -EINVAL;
+
+  strncpy(srbmsg.command, SRB_EVENT, MWMAXSVCNAME);
+  srbmsg.marker = SRB_NOTIFICATIONMARKER;    
+
+  _mw_srb_setfield(&srbmsg, SRB_EVENT, event);
+  if (data) {
+     if (datalen > 3000) {
+	Warning("not yet capable to send event with more than 3000 octets or data");
+	return -ENOSYS;
+     };
+     _mw_srb_nsetfield(&srbmsg, SRB_DATA, data, datalen);
+  };
+  if (username) {     
+     _mw_srb_setfield(&srbmsg, SRB_USER, username);
+  };
+
+  if (clientname) {     
+     _mw_srb_setfield(&srbmsg, SRB_CLIENTNAME, clientname);
+  };
+
+  rc = _mw_srbsendmessage(conn, &srbmsg);
+  urlmapfree(srbmsg.map);
+  return rc;
+};
+
+
+
+static int _mw_srb_do_sendsubscribe(int sub_unsub, Connection * conn, char * pattern, int flags)
+{
+  int rc;
+  SRBmessage srbmsg;
+  srbmsg.map = NULL;
+
+  if (conn == NULL) return -EINVAL;
+
+  if (sub_unsub) 
+     strncpy(srbmsg.command, SRB_SUBSCRIBE, MWMAXSVCNAME);
+  else 
+     strncpy(srbmsg.command, SRB_UNSUBSCRIBE, MWMAXSVCNAME);
+  
+  srbmsg.marker = SRB_NOTIFICATIONMARKER;    
+
+  _mw_srb_setfield(&srbmsg, SRB_PATTERN, pattern);
+  
+  if (flags & MWEVGLOB)
+     _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_GLOB);
+  else if (flags & MWEVREGEXP)
+     _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_REGEXP);
+  else if (flags & MWEVEREGEXP)
+     _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_EXTREGEXP);
+  else 
+     _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_STRING);
+
+  rc = _mw_srbsendmessage(conn, &srbmsg);
+  urlmapfree(srbmsg.map);
+  return rc;
+};
+
+int _mw_srbsendsubscribe(Connection * conn, char * pattern, int flags)
+{
+   return _mw_srb_do_sendsubscribe(1, conn, pattern, flags);
+};
+
+int _mw_srbsendunsubscribe(Connection * conn, char * pattern, int flags)
+{
+   return _mw_srb_do_sendsubscribe(0, conn, pattern, flags);
+};
+
+/************************************************************************/ 
+// Session control 
+
 int _mw_srbsendterm(Connection * conn, int grace)
 {
   int rc;
@@ -812,6 +898,9 @@ int _mw_srbsendinit(Connection * conn, char * user, char * password,
   urlmapfree(srbmsg.map);
   return rc;
 };
+
+/************************************************************************/ 
+// SERVICE call/reply 
 
 int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, int datalen, 
 		    int flags)

@@ -23,8 +23,11 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:24  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:44:00  eggestad
+ * prototype fixup.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:24  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
@@ -47,13 +50,13 @@ extern ipcmaininfo * ipcmain;
 
 #include <MidWay.h>
 
-void inst_sighandlers();
+void inst_sighandlers(void);
 
-ipcmaininfo * getipcmaintable(); 
+ipcmaininfo * getipcmaintable(void); 
 cliententry * getcliententry(int i);
 serverentry * getserverentry(int i);
 serviceentry * getserviceentry(int i);
 gatewayentry * getgatewayentry(int i);
 conv_entry * getconv_entry(int i);
 
-void usage();
+void usage(void);

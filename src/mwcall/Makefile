@@ -1,5 +1,6 @@
 
 CC = gcc
+INSTALL = /usr/bin/install
  
 INCLUDES = -I../include 
 
@@ -25,6 +26,12 @@ depend:
 
 clean:
 	rm -f mwcall $(OBJ) core 
+
+install:
+	$(INSTALL) -D mwcall $(INSTALLDIR)/bin
+
+uninstall:
+	rm -f $(INSTALLDIR)/bin/mwcall
 
 tags:
 	etags -a -o ../TAGS *.c *.h

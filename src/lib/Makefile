@@ -1,6 +1,7 @@
 
 CC = gcc
- 
+INSTALL = /usr/bin/install
+
 INCLUDES = -I../include 
 
 CFLAGS =  $(INCLUDES) -g -Wstrict-prototypes 
@@ -17,6 +18,14 @@ all: $(LIBS) testmidway
 
 clean: 
 	rm -f $(LIBS) $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) testmidway core 
+
+install:
+	$(INSTALL) -D libMidWay.so $(INSTALLDIR)/lib
+	$(INSTALL) -D -m 644 libMidWay.a $(INSTALLDIR)/lib
+
+uninstall:
+	rm -f $(INSTALLDIR)/lib/libMidWay.so
+	rm -f $(INSTALLDIR)/lib/libMidWay.a
 
 tags:
 	etags -a -o ../TAGS *.c *.h

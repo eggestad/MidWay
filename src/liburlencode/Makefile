@@ -1,4 +1,7 @@
 
+CC = gcc
+INSTALL = /usr/bin/install
+
 LIBS = liburlencode.a # liburlencode.so 
 
 all:  $(LIBS)  test-liburlencode
@@ -7,6 +10,12 @@ xall:  $(LIBS) liburl++.a test-liburlencode
 
 clean: 
 	rm -f $(LIBS) *.o
+
+install:
+	$(INSTALL) -D -m 644 liburlencode.a $(INSTALLDIR)/lib
+
+uninstall:
+	rm -f $(INSTALLDIR)/lib/liburlencode.a
 
 tags:
 	etags -a -o ../TAGS *.c *.h

@@ -3,8 +3,10 @@ CC = gcc
 
 CFLAGS = -g -Wstrict-prototypes
 
-DIRS = liburlencode lib mwd mwadm mwserver mwgwd mwcall test
+DIRS = liburlencode lib mwd mwadm mwserver mwgwd mwcall 
 
+INSTALLDIR=/usr/local
+export INSTALLDIR
 
 all: 
 	@ for dir in $(DIRS); do\
@@ -23,9 +25,20 @@ tags:
 	done;
 	etags -a -o TAGS include/*.h
 
+test:
+	(cd $@; make $@)
 
 depend:
 	makedepend -Y *.c
 
 
+install:
+	@ for dir in $(DIRS); do\
+	(cd $$dir; make  $@)\
+	done;
+
+uninstall:
+	@ for dir in $(DIRS); do\
+	(cd $$dir; make $@)\
+	done;
 

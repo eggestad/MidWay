@@ -2,7 +2,8 @@
 MDHOME = ../..
 
 CC = gcc
- 
+INSTALL = /usr/bin/install
+
 LIBS = -lMidWay -lm
 
 CFLAGS = -I../include -I../liburl -g  -Wstrict-prototypes -DINTERVAL=1200
@@ -16,6 +17,12 @@ all: $(EXE)
 
 clean:
 	rm -f $(EXE) $(OBJS) core
+
+install:
+	$(INSTALL) -D mwd $(INSTALLDIR)/bin
+
+uninstall:
+	rm -f $(INSTALLDIR)/bin/mwd
 
 mwd: ../lib/libMidWay.a $(OBJS)
 	$(CC) -o $@ -g $(OBJS) -L../lib $(LIBS) 

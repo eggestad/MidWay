@@ -1,5 +1,6 @@
 
 CC = gcc
+INSTALL = /usr/bin/install
  
 INCLUDES = -I../include 
 
@@ -25,6 +26,12 @@ depend:
 
 clean:
 	rm -f mwadm $(OBJ) core 
+
+install:
+	$(INSTALL) -D mwadm $(INSTALLDIR)/bin
+
+uninstall:
+	rm -f $(INSTALLDIR)/bin/mwadm
 
 tags:
 	etags -a -o ../TAGS *.c *.h

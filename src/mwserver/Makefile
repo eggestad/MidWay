@@ -1,5 +1,6 @@
 
 CC = gcc
+INSTALL = /usr/bin/install
  
 INCLUDES = -I../include 
 
@@ -11,6 +12,12 @@ all: mwserver testservices.so
 
 clean: 
 	rm -f mwserver *.o *.so core
+
+install:
+	$(INSTALL) -D mwserver $(INSTALLDIR)/bin
+
+uninstall:
+	rm -f $(INSTALLDIR)/bin/mwserver
 
 test: 
 	./mwserver -s test1:servicehandler1 -s servicehandler1 -s sleep1 testservices.so

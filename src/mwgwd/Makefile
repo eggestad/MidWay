@@ -1,4 +1,6 @@
+
 CC = gcc
+INSTALL = /usr/bin/install
 
 LIBS = -lMidWay -lurlencode -lpthread
 
@@ -14,6 +16,12 @@ all: $(EXE)
 
 clean:
 	rm -f $(EXE) $(OBJS) core store
+
+install:
+	$(INSTALL) -D mwgwd $(INSTALLDIR)/bin
+
+uninstall:
+	rm -f $(INSTALLDIR)/bin/mwgwd
 
 tags:
 	etags -a -o ../TAGS *.c *.h

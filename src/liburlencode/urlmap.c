@@ -11,22 +11,25 @@ urlmap * urlmapdecode(char * list)
   char * next, * key_end, * value_start, * value_end;
   urlmap * map;
 
-  if (list == NULL) {
-    errno = EINVAL; 
-    return NULL;
-  };
+  fprintf (stderr, "urlmapdecode: list = %p\n", list);
+  fflush(stderr);
 
-  if (!urllegal(list)) {
+  if (list == NULL) {
     errno = EINVAL; 
     return NULL;
   };
 
   /* count thru and find out how many key/value pairs there are. */
   len = strlen(list);
+  fprintf (stderr, "urlmapdecode: strlen(%s) = %d\n", list, len);
+  fflush(stderr);
   for (i = 0; i < len; i++) {
     if (list[i] == '&') count ++;
   };
-  
+
+  fprintf (stderr, "urlmapdecode: count=%d\n", count);
+
+  fflush(stderr);
   map = malloc(sizeof(urlmap)*(count + 2));
   idx = 0;
   next = list;
@@ -62,12 +65,12 @@ urlmap * urlmapdecode(char * list)
   map[idx].valuelen = 0;
 
 #ifdef DEBUG
-  fprintf(stderr, "urlmapdecode => %p\n", map);
+  fprintf(stderr, "urlmapdecode returns => %p\n", map);
 #endif
 
   return map;
 };
-  
+
 char * urlmapencode(urlmap * map)
 {
   char * list = NULL;

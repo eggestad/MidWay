@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2001/10/03 22:53:57  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.2  2000/09/24 14:08:29  eggestad
  * Seperate len vars for input and output MW buffers
  *
@@ -172,10 +175,6 @@ int call(int argc, char ** argv)
 	  "Call to \"%s\" succeded, returned no data with application return code %d",  
 	    argv[0], data, len, apprc);
   };
-
-
-  mwlog(MWLOG_DEBUG,"call to %s returned %s len %d bytes rc = %d apprc=%d)", 
-	argv[1], data, len, rc, apprc);
 
   
   mwfree(rdata);

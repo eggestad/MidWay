@@ -1,3 +1,4 @@
+# -*- RPM-SPEC -*- 
 Summary: The MidWay service request broker
 Name: MidWay
 Version: @MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@
@@ -17,6 +18,8 @@ It also provides a session level environment handling users, and authentication.
 %package devel
 Summary: Development envronment for MidWay
 Group: System Environment/Base
+Requires: MidWay = %{version}
+
 %description devel
 This is the development part of midway, thats the include file, the libraries, 
 and man pages for the library. 

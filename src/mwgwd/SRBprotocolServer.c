@@ -1,6 +1,6 @@
 /*
   MidWay
-  Copyright (C) 2000 Terje Eggestad
+  Copyright (C) 2000-2004 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -21,6 +21,10 @@
 
 /*
  * $Log$
+ * Revision 1.23  2004/12/29 20:00:59  eggestad
+ * Large data  protocol fix up
+ * handle datatype fixup
+ *
  * Revision 1.22  2004/11/17 20:54:11  eggestad
  * added a IPC fifo queue incase dest IPC message queues are full
  *
@@ -240,7 +244,7 @@ static int iGetReqField(Connection * conn, SRBmessage * srbmsg,
 };
 
 static int xGetOptField(Connection * conn, SRBmessage * srbmsg,
-			char * fieldname, int *  value)
+			char * fieldname, unsigned int *  value)
 {
   int idx, rc;
   idx = urlmapget(srbmsg->map, fieldname);
@@ -260,7 +264,7 @@ static int xGetOptField(Connection * conn, SRBmessage * srbmsg,
 };
 
 static int xGetReqField(Connection * conn, SRBmessage * srbmsg,
-			char * fieldname, int *  value)
+			char * fieldname, unsigned int *  value)
 {
   int rc;
   
@@ -681,9 +685,10 @@ static void srbcall_rpl(Connection * conn, SRBmessage * srbmsg)
   cmsg.cltid = CLTID(mwid);
   cmsg.srvid = SRVID(mwid);
   cmsg.callerid = mwid;
+
   //TODO paassing on to a gateway not a client
 
-  if (xGetReqField(conn, srbmsg,  SRB_HANDLE, &cmsg.handle) == -1) {
+  if (xGetReqField(conn, srbmsg,  SRB_HANDLE, (SRBhandle_t *) &cmsg.handle) == -1) {
     return;
   };
 
@@ -772,12 +777,14 @@ static void srbcall_rpl(Connection * conn, SRBmessage * srbmsg)
      
 };
 
+static appenddata(Connection * conn, mwhandle_t handle);
+
 static void srbdata(Connection * conn, SRBmessage * srbmsg)
 {
   int rc;
   char * data = NULL;
   int datalen = 0;
-  unsigned long handle = 0xffffffff;
+  mwhandle_t handle = 0xffffffff;
   char * instance = NULL;
 
 };
@@ -791,10 +798,10 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
 
   char * svcname;
   char * data = NULL;
-  int datachunks = -1;
+  int datatotal = -1;
   char * instance = NULL;
   char * clientname = NULL;
-  unsigned long handle = 0xffffffff;
+  mwhandle_t handle = 0xffffffff;
   long flags = 0;
   int datalen = 0;
   int noreply = 0;
@@ -841,7 +848,7 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
 
   if (data == NULL) datalen = 0;
   
-  iGetOptField(conn, srbmsg, SRB_DATACHUNKS, &datachunks);
+  iGetOptField(conn, srbmsg, SRB_DATATOTAL, &datatotal);
   instance =    szGetOptField(conn, srbmsg, SRB_INSTANCE);
   iGetOptField(conn, srbmsg,  SRB_SECTOLIVE, &sectolive);
 
@@ -892,7 +899,7 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
      This is the special case where we don't have any chunks.
      we can do the call directly.
   */
-  if ((datachunks == -1) ) {
+  if ((datatotal == -1) || (datatotal == datalen)) {
 
     DEBUG("SVCCALL was complete doing _mwacallipc");      
     

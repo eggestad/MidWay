@@ -25,7 +25,7 @@
 #include <netinet/in.h>
 #include <MidWay.h>
 
-// loctaion
+// location
 #define GWLOCAL    0
 #define GWPEER     1
 #define GWREMOTE   2

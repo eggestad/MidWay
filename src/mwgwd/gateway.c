@@ -20,6 +20,11 @@
 
 /*
  * $Log$
+ * Revision 1.13  2002/10/20 18:21:53  eggestad
+ * - added handling of outbound srvcall, and tok out outbound replies in a separate function (where it belongs)
+ * - Fatal handling fixup
+ * - added good logging markers on beginning and end of processiong an ipcmessage
+ *
  * Revision 1.12  2002/10/06 23:58:35  eggestad
  * _mw_get_services_byname() has a new prototype
  *
@@ -166,7 +171,14 @@ static void do_event_message(char * message, int len)
   mwprovideevent * pe;
 	  
   DEBUG("Got an event %s", evmsg->event);
-	
+
+  /* only events that don't start with a. is passed on */
+  if (evmsg->event[0] != '.') {
+    // TODO: generate srb event 
+    return;
+  };
+
+  /* special handle for .mw(un)provide messages */
   newsvc = strcmp(evmsg->event, NEWSERVICEEVENT);
   delsvc = strcmp(evmsg->event, DELSERVICEEVENT);
   
@@ -189,7 +201,7 @@ static void do_event_message(char * message, int len)
     
     svcent = _mw_get_service_byid(pe->svcid);
     if ( (svcent != NULL) && (svcent->location == GWPEER) ) {
-      DEBUG("(un)provide event for foreign sericve in my own domain, ignoring");
+      DEBUG("(un)provide event for foreign service in my own domain, ignoring");
       goto ack;
     };
     
@@ -226,11 +238,169 @@ static void do_event_message(char * message, int len)
   Warning("Ignoring event we never (should have) subscribed to");
 };
 
+static void do_svccall(Call * cmsg, int len)
+{
+  SRBmessage srbmsg;
+  Connection * conn;
+  unsigned char marker;
+  void * data;
+  int rc, l;
+
+  if (cmsg == NULL) {
+    Error("Internal Error: do_svccall called with NULL pointer, this can't happen");
+    return;
+  };
+  
+  conn = impfindpeerconn(cmsg->service, cmsg->svcid);
+  if (conn == NULL) {
+    Warning("Hmm got a svccall for service %s svcid %#x, but I've got no such import, returning error", 
+	    cmsg->service, cmsg->svcid);
+    cmsg->returncode = -ENOENT;
+    _mw_ipc_putmessage(cmsg->cltid, (char *) cmsg, len, 0);
+    return;
+  };
+
+  // TODO: handle arbitrary long data
+  if (cmsg->datalen != 0) {
+    data = _mwoffset2adr(cmsg->data);
+    if (!data) {
+      Error("got a corrupt svccall message, dataoffset = %d ", 
+	    cmsg->data);
+      return;
+    };
+
+    l = _mwshmcheck(data);
+    if ( (l < 0) || (l < cmsg->datalen)) {
+      Error("got a corrpt svccall message, dataoffset = %d len = %d shmcheck() => %d", 
+	    cmsg->data, cmsg->datalen, l);
+      return;
+    };
+  } 
+
+  if (cmsg->flags & MWNOREPLY) 
+    marker = SRB_NOTIFICATIONMARKER;
+  else 
+    marker = SRB_REQUESTMARKER;
+
+  _mw_srb_init(&srbmsg, SRB_SVCCALL, marker, 
+	       SRB_SVCNAME, cmsg->service, 
+	       SRB_INSTANCE, globals.myinstance, 
+	       SRB_DOMAIN, globals.mydomain, 
+	       NULL, NULL);
+
+  if (data != NULL) {
+    _mw_srb_nsetfield(&srbmsg, SRB_DATA, data, cmsg->datalen);
+    _mwfree(data);
+  };
+
+  _mw_srb_setfieldi(&srbmsg, SRB_HOPS, cmsg->hops);
+		 
+  _mw_srb_setfieldi(&srbmsg, SRB_CALLERID, cmsg->cltid);
+
+  _mw_srb_setfieldx(&srbmsg, SRB_HANDLE, cmsg->handle);
+
+  rc = _mw_srbsendmessage(conn, &srbmsg);
+  
+  urlmapfree(srbmsg.map);
+  return;
+  
+};
+  
+static void do_svcreply(Call * cmsg, int len)
+{
+  int rc;
+  char * data;
+  SRBmessage srbmsg;
+  int fd;
+  Connection * conn;
+  MWID mwid;
+
+  DEBUG("Got a svcreply service %s from server %d for client %d, gateway %d ipchandle=%#x", 
+	cmsg->service, SRVID2IDX(cmsg->srvid),
+	CLTID2IDX(cmsg->cltid), GWID2IDX(cmsg->gwid), cmsg->handle);
+  
+  /* we must lock since it happens that the server replies before
+     we do storeSetIpcCall() in SRBprotocol.c */
+  strcpy(srbmsg.command, SRB_SVCCALL);
+  srbmsg.marker = SRB_RESPONSEMARKER;
+  
+  storeLockCall();
+  /* there are more replies, we get and not pop the map from the
+     pending call list */
+
+  if (cmsg->gwid != UNASSIGNED) 
+    mwid = cmsg->gwid;
+  else 
+    mwid = cmsg->cltid;
+
+  DEBUG("fetching SRB map from dtore for %#x handle = %x", mwid, cmsg->handle);
+  if (cmsg->returncode == MWMORE) {
+    rc = storeGetCall(mwid, cmsg->handle, &fd, &srbmsg.map);
+    DEBUG2("storeGetCall returned %d, address of old map is %#x", 
+	   rc, srbmsg.map);
+    srbmsg.map = urlmapdup(srbmsg.map);
+    DEBUG2("dup map: new map at %#x", srbmsg.map);
+  } else {
+    rc = storePopCall(mwid, cmsg->handle, &fd, &srbmsg.map);
+    DEBUG2("storePopCall returned %d, address of old map is %#x", 
+	   rc, srbmsg.map);
+  };
+  storeUnLockCall();
+  
+  if (!rc ) {
+    DEBUG("Couldn't find a waiting call for this message, possible quite normal");
+    return;
+  };
+
+  dbg_srbprintmap(&srbmsg);
+
+  if (cmsg->flags & MWNOREPLY) {
+    DEBUG( "Noreply flags set, ignoring");
+    _mwfree(_mwoffset2adr(cmsg->data));
+    return;
+  };
+  
+  if (cmsg->datalen == 0) {
+    data = NULL;
+    len = 0;
+  } else {
+    len = cmsg->datalen;
+    data = _mwoffset2adr(cmsg->data);
+  };
+  
+  DEBUG( "sending reply on fd=%d", fd);
+  conn = conn_getentry(fd);
+  
+  switch (cmsg->returncode) {
+  case MWSUCCESS:
+  case MWFAIL:
+  case MWMORE:
+    rc = cmsg->returncode;
+    break;
+    
+  default:
+    rc = _mw_errno2srbrc(cmsg->returncode);
+  };
+  
+  _mw_srbsendcallreply(conn, &srbmsg, data, len, 
+		       cmsg->appreturncode,  rc, 
+		       cmsg->flags); 
+  DEBUG( "reply sendt");
+  
+  /* if there are no more replies to this call, we called
+     storePopCall() above, and we must free the map. */
+  urlmapfree(srbmsg.map);
+  
+  _mwfree(_mwoffset2adr(cmsg->data));
+  /* may be either a client or gateway, if clientid is myself,
+     then gateway. */
+  return;
+};
+
 int ipcmainloop(void)
 {
   int i, rc, errors, len;
   char message[MWMSGMAX];
-  char * data;
   int fd, connid;
   SRBmessage srbmsg;
   cliententry * cltent;
@@ -245,16 +415,17 @@ int ipcmainloop(void)
   Call *           cmsg   = (Call *)           message;
 
   memset (&srbmsg, '\0', sizeof(SRBmessage));
-  i = _mw_get_my_gatewayid();
-  i &= MWINDEXMASK;
+  i = GWID2IDX(_mw_get_my_gatewayid());
   gwtbl[i].status = MWREADY;
   Info("Ready.");
   
   errors = 0;
   while(!globals.shutdownflag) {
     len = MWMSGMAX;
-    DEBUG( "doing _mw_ipc_getmessage()");
+    DEBUG( "/\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ ");
+    DEBUG("doing _mw_ipc_getmessage()");
     rc = _mw_ipc_getmessage(message, &len, 0, 0);
+    DEBUG( "\\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ ");
     DEBUG( "_mw_ipc_getmessage() returned %d", rc);
 
     if (rc == -EIDRM) {
@@ -334,91 +505,13 @@ int ipcmainloop(void)
 
     case SVCCALL:
     case SVCFORWARD:
+      do_svccall(cmsg, len);
       /* gateway only, we have imported a service, find the remote gw
          and send the call */
       break;
 
     case SVCREPLY:
-      DEBUG("Got a svcreply service %s from server %d for client %d, ipchandle=%#x", 
-	    cmsg->service, cmsg->srvid&MWINDEXMASK, 
-	    cmsg->cltid&MWINDEXMASK, cmsg->handle);
-
-      /* we must lock since it happens that the server replies before
-         we do storeSetIpcCall() in SRBprotocol.c */
-      strcpy(srbmsg.command, SRB_SVCCALL);
-      srbmsg.marker = SRB_RESPONSEMARKER;
-
-      storeLockCall();
-      /* there are more replies, we get and not pop the map from the
-         pending call list */
-      if (cmsg->returncode == MWMORE) {
-	rc = storeGetCall(cmsg->cltid, cmsg->handle, &fd, &srbmsg.map);
-	DEBUG2("storeGetCall returned %d, address of old map is %#x", 
-	      rc, srbmsg.map);
-	srbmsg.map = urlmapdup(srbmsg.map);
-	DEBUG2("dup map: new map at %#x", srbmsg.map);
-      } else {
-	rc = storePopCall(cmsg->cltid, cmsg->handle, &fd, &srbmsg.map);
-	DEBUG2("storePopCall returned %d, address of old map is %#x", 
-	      rc, srbmsg.map);
-      };
-      storeUnLockCall();
-
-      if (!rc ) {
-	DEBUG("Couldn't find a waiting call for this message, possible quite normal");
-	break;
-      };
-
-      {
-	int idx = 0;
-
-	while(srbmsg.map[idx].key != NULL) {
-	  DEBUG2("  Field %s => %s", 
-		srbmsg.map[idx].key, srbmsg.map[idx].value);
-	  idx++;
-	};
-      };
-
-      if (cmsg->flags & MWNOREPLY) {
-	DEBUG( "Noreply flags set, ignoring");
-	_mwfree(_mwoffset2adr(cmsg->data));
-	break;
-      };
-      
-      if (cmsg->datalen == 0) {
-	data = NULL;
-	len = 0;
-      } else {
-	len = cmsg->datalen;
-	data = _mwoffset2adr(cmsg->data);
-      };
-      
-      DEBUG( "sending reply on fd=%d", fd);
-      conn = conn_getentry(fd);
-
-      switch (cmsg->returncode) {
-      case MWSUCCESS:
-      case MWFAIL:
-      case MWMORE:
-	rc = cmsg->returncode;
-	break;
-	
-      default:
-	rc = _mw_errno2srbrc(cmsg->returncode);
-      };
-      
-      _mw_srbsendcallreply(conn, &srbmsg, data, len, 
-			   cmsg->appreturncode,  rc, 
-			   cmsg->flags); 
-      DEBUG( "reply sendt");
-      
-      /* if there are no more replies to this call, we called
-	 storePopCall() above, and we must free the map. */
-      urlmapfree(srbmsg.map);
-
-      _mwfree(_mwoffset2adr(cmsg->data));
-      /* may be either a client or gateway, if clientid is myself,
-         then gateway. */
+      do_svcreply(cmsg, len);
       break;
 
     case ADMREQ:
@@ -600,7 +693,7 @@ void gw_setipc(struct gwpeerinfo * pi)
   gwent = _mw_get_gateway_byid(pi->gwid);
 
   if (pi->conn == NULL) {
-    Fatal(__FUNCTION__ "Called with NULL argument");
+    Fatal("Called with NULL argument");
     abort(); 
   };
 
@@ -780,8 +873,8 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
   GATEWAYID gwid;
 
   if ( (instance == NULL) || (conn == NULL) ){
-    Error( "Internal error: " __FUNCTION__ 
-	  " Was called with invalid params instance=%#x conn=%#x", instance, conn);
+    Error( "Internal error: " 
+	   " %s Was called with invalid params instance=%#x conn=%#x",  __FUNCTION__, instance, conn);
     return -1;
   };
 

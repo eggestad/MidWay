@@ -1,0 +1,43 @@
+#!/bin/sh
+#
+# description: The MidWay broker daemon
+#
+# pidfile: /var/run/mwbd.pid
+# processname: mwbd
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+MWBD=@sbindir@/mwbd
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+# See how we were called.
+case "$1" in
+  start)
+	# Start daemons.
+	echo -n "Starting mwbd: "
+	daemon $MWBD 
+	echo mwbd
+	touch /var/lock/subsys/xfstt
+	;;
+  stop)
+	# Stop daemons.
+	echo -n "Stopping mwbd: "
+	killproc $MWBD
+	echo
+	rm -f /var/lock/subsys/mwbd
+	;;
+  restart)
+	$0 stop
+	$0 start
+	;;
+  status)
+	status mwbd
+	;;
+  *)
+	echo "Usage: $0 {start|stop|restart|status}"
+	exit 1
+esac
+
+exit 0

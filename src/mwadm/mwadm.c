@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2003/06/12 07:22:55  eggestad
+ * fix for loglevel option
+ *
  * Revision 1.8  2003/06/05 21:52:56  eggestad
  * commonized handling of -l option
  *
@@ -353,7 +356,7 @@ int main(int argc, char ** argv)
 {
   char * thiscommand, * lastcommand = NULL;
   int option, rc, i;
-  int loglevel;
+  int loglevel = MWLOG_INFO;
   extern char *optarg;
   extern int optind, opterr, optopt;
 
@@ -362,8 +365,8 @@ int main(int argc, char ** argv)
     switch (option) {
       
     case 'l':
-       rc = _mwstr2loglevel(optarg);
-       if (rc == -1) _usage(argv[0]);
+       loglevel = _mwstr2loglevel(optarg);
+       if (loglevel == -1) _usage(argv[0]);
        break;
 
     case 'R':

@@ -156,6 +156,42 @@ static inline void debug_free(char * file, int line, void *ptr)
 
 #endif
 
+// timepegs which are defined in lib/utils.c
+
+#ifndef TIMEPEGS
+#ifdef DEBUGGING
+#define TIMEPEGS
+#endif
+#endif
+
+#ifdef TIMEPEGS
+
+#define TIMEPEGNOTE(note) __timepeg(__FUNCTION__, __FILE__, __LINE__, note)
+#define TIMEPEG() __timepeg(__FUNCTION__, __FILE__, __LINE__, NULL)
+void  __timepeg(char * function, char * file, int line, char * note);
+void timepeg_clear(void);
+int timepeg_sprint(char * buffer, size_t size);
+void timepeg_log(void);
+
+void _perf_pause(void);
+void _perf_resume(void);
+#define timepeg_pause() _perf_pause()
+#define timepeg_resume() _perf_resume()
+
+#else
+
+#define TIMEPEGNOTE(note)
+#define TIMEPEG()
+
+#define timepeg_pause()
+#define timepeg_resume()
+#define timepeg_clear()
+#define timepeg_sprint(a,b)
+#define timepeg_log()
+
+#endif
+
+// debugging  macros
 
 #include <stdarg.h>
 
@@ -173,6 +209,7 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
   va_list ap;
   char buffer[4096];
 
+  timepeg_pause(); // we're attempting to remove debugging overhead from timepegs bookkeeping
   va_start(ap, m);
   if(strlen(m) > 4000) return 0;
 
@@ -180,6 +217,7 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
   _mw_vlogf(MWLOG_DEBUG + N, buffer, ap);
   
   va_end(ap);
+  timepeg_resume(); 
   return 0;
 };
 
@@ -222,32 +260,6 @@ pthread_mutex_lock(&name); DEBUG1("locked mutex " #name);  } while(0)
 #define UNLOCKMUTEX(name)  do { DEBUG1("unlocking mutex " #name); pthread_mutex_unlock(&name); } while(0)
 #else 
 #error "PTHREADS are currently required"
-#endif
-
-#ifndef TIMEPEGS
-#ifdef DEBUGGING
-#define TIMEPEGS
-#endif
-#endif
-
-#ifdef TIMEPEGS
-
-#define TIMEPEGNOTE(note) __timepeg(__FUNCTION__, __FILE__, __LINE__, note)
-#define TIMEPEG() __timepeg(__FUNCTION__, __FILE__, __LINE__, NULL)
-void  __timepeg(char * function, char * file, int line, char * note);
-void timepeg_clear(void);
-int timepeg_sprint(char * buffer, size_t size);
-void timepeg_log(void);
-
-#else
-
-#define TIMEPEGNOTE(note)
-#define TIMEPEG()
-
-#define timepeg_clear()
-#define timepeg_sprint(a,b)
-#define timepeg_log()
-
 #endif
 
 

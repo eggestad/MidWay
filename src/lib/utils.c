@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.3  2002/10/29 23:54:50  eggestad
+ * attempted to subtract debugging from timepegs
+ *
  * Revision 1.2  2002/10/22 21:45:49  eggestad
  * added timepegs for measuring timeing in code, based on x86 instr rdtsc
  *
@@ -139,12 +142,14 @@ static inline long long  rt_sample(void)
   return val;
 };
 
+static long long last, debug_subtract, _pause;
+
 struct perfentry {
   char * file;
   char * function;
   int line;
   char * note; 
-  long long timestamp;
+  long long timediff;
 };
 
 #define MAXPEGS 100
@@ -162,6 +167,16 @@ static int pd_init = 0;
 struct perfdata * pd = NULL;
 #endif
 
+void _perf_pause(void)
+{
+  _pause = rt_sample();
+};
+
+void _perf_resume(void)
+{
+  debug_subtract += rt_sample() - _pause;
+};
+
 void timepeg_clear(void)
 {
   int i;
@@ -177,7 +192,9 @@ void timepeg_clear(void)
     pthread_setspecific(data_key, pd);
   };
 #endif
-    
+
+  last = debug_subtract = 0;
+
   pd->perfidx = 0;
   for (i = 0; i < MAXPEGS; i++) {
     pd->perfarray[i].file = NULL;
@@ -191,6 +208,7 @@ void timepeg_clear(void)
 void  __timepeg(char * function, char * file, int line, char * note)
 {
   struct perfentry * pe;
+  long long now;
 #ifdef USETHREADS
   struct perfdata * pd;
   
@@ -205,9 +223,17 @@ void  __timepeg(char * function, char * file, int line, char * note)
 #endif
 
   if (pd->perfidx >= MAXPEGS-1) return;
+  now = rt_sample();
+  if (pd->perfidx == 0) 
+    last = now;
   
+
   pe = & pd->perfarray[pd->perfidx];
-  pe->timestamp = rt_sample();
+
+  pe->timediff = now - last;// - debug_subtract;; 
+  last = now;
+  debug_subtract = 0;
+
   pe->file = file;
   pe->function = function;
   pe->line = line;
@@ -219,7 +245,7 @@ void  __timepeg(char * function, char * file, int line, char * note)
 int timepeg_sprint(char * buffer, size_t size)
 {
   int i, l;
-  long long start, t, d;
+  long long t;
 #ifdef USETHREADS
   struct perfdata * pd;
   
@@ -234,30 +260,21 @@ int timepeg_sprint(char * buffer, size_t size)
 #endif
 
 
-  start = pd->perfarray[0].timestamp; 
-
   l = 0;
   l += snprintf(buffer + l, size - l, 
-		"\n     Entry:         File         :      Function       (line)   cycles     delta    note");
+		"\n     Entry:         File         :      Function       (line)   delta    note");
   for (i = 0; i < pd->perfidx; i++) {    
-    if (i == 0) {
-      start = pd->perfarray[i].timestamp;
-      t = pd->perfarray[i].timestamp - start;
-      d = 0;
-    } else {
-      t = pd->perfarray[i].timestamp - start;
-      d = pd->perfarray[i].timestamp - pd->perfarray[i-1].timestamp;
-    };
+    t = pd->perfarray[i].timediff;
     if ((size - l) < 100) return l;
-    l += snprintf(buffer + l, size - l, "\n     %5d:%22s:%22s(%d) %8lld + %8lld  \"%s\"", 
+    l += snprintf(buffer + l, size - l, "\n     %5d:%22s:%22s(%d) + %8lld  \"%s\"", 
 		  i,
 		  pd->perfarray[i].file, 
 		  pd->perfarray[i].function, 
 		  pd->perfarray[i].line, 
 		  t,
-		  d,
-		  pd->perfarray[i].note?pd->perfarray[i].note:"");
+		pd->perfarray[i].note?pd->perfarray[i].note:"");
   };
+  
   return l;
 };
   

@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.19  2003/07/13 20:32:13  eggestad
+ * - increased the maximum log message length from LINE_MAX to 64k, timepegs got way longer than LINE_MAX.
+ *
  * Revision 1.18  2003/06/05 21:52:56  eggestad
  * commonized handling of -l option
  *
@@ -246,9 +249,10 @@ switchlog (void)
   //mwlog(MWLOG_INFO, "Switched to New Log %s", filename);
   return;
 }
+#define LOG_MSG_MAX (64*1024)
 
-static   char buffer[LINE_MAX];
-static char mesg[LINE_MAX];
+static   char buffer[LOG_MSG_MAX];
+static char mesg[LOG_MSG_MAX];
 
 void 
 _mw_vlogf(int level, char * format, va_list ap)
@@ -266,15 +270,15 @@ _mw_vlogf(int level, char * format, va_list ap)
   _LOCKMUTEX(logmutex);
 #endif 
 
-  rc = vsnprintf(mesg, LINE_MAX, format, ap);
-  if (rc == LINE_MAX) mesg[LINE_MAX-1] = '\0';
+  rc = vsnprintf(mesg, LOG_MSG_MAX, format, ap);
+  if (rc == LOG_MSG_MAX) mesg[LOG_MSG_MAX-1] = '\0';
 
   /* print to log file if open */
   if (log != NULL) {
     char timestamp[40];
 
     buffer[0] = '\0';
-    s = LINE_MAX-2; 
+    s = LOG_MSG_MAX-2; 
     l = 0;
 
     // we don't check rc on these, since the *must* succed. 
@@ -287,8 +291,8 @@ _mw_vlogf(int level, char * format, va_list ap)
 		 mesg);
     
     if (l >= s) {
-      buffer[LINE_MAX-2] = '\n';
-      buffer[LINE_MAX-1] = '\0';
+      buffer[LOG_MSG_MAX-2] = '\n';
+      buffer[LOG_MSG_MAX-1] = '\0';
     };
     
     write (fileno(log), buffer, l);

@@ -45,6 +45,7 @@ typedef int CONVID;
 typedef struct {
   int handle;
   CLIENTID cltid;
+  GATEWAYID gwid;
   SERVERID srvid;
   SERVICEID svcid;
   char * data;

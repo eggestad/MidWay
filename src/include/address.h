@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/09/05 23:25:33  eggestad
+ * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
+ * MWURL is now used in addition to MWADDRESS
+ *
  * Revision 1.5  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -63,8 +67,11 @@ typedef struct {
   int sysvipckey ;
   char * domain;
   char * posixipcpath ;
-  struct sockaddr_in * ipaddress_v4;
-  struct sockaddr_in6 * ipaddress_v6;  
+  union _ipaddress {
+    struct sockaddr * sa;
+    struct sockaddr_in * sin4;
+    struct sockaddr_in6 * sin6;  
+  } ipaddress ;
 } mwaddress_t;
 
 mwaddress_t * _mwdecode_url(char * url);

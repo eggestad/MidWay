@@ -21,6 +21,10 @@
 
 /*
  * $Log$
+ * Revision 1.8  2002/09/05 23:25:33  eggestad
+ * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
+ * MWURL is now used in addition to MWADDRESS
+ *
  * Revision 1.7  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -376,7 +380,7 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
   if (mwadr == NULL) return -EINVAL;
 
   /* connect */
-  if (mwadr->ipaddress_v4 != NULL) {
+  if (mwadr->ipaddress.sin4 != NULL) {
     DEBUG3("_mwattach_srb: connecting to IP4 address");
     s = socket (AF_INET, SOCK_STREAM, 0);    
     if (s == -1) {
@@ -384,7 +388,7 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
 	    errno);
       return -errno;
     };
-    rc = connect(s, (struct sockaddr *) mwadr->ipaddress_v4, 
+    rc = connect(s, (struct sockaddr *) mwadr->ipaddress.sin4, 
 				 sizeof(struct sockaddr_in));
     if (rc == -1) {
       Error("_mwattach_srb: TCP/IP socket connect failed with errno=%d", 

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2002/09/05 23:25:33  eggestad
+ * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
+ * MWURL is now used in addition to MWADDRESS
+ *
  * Revision 1.9  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -149,10 +153,6 @@ int mwattach(char * url, char * name,
   DEBUG3("_mwsystemstate returned %d", rc);
   if (rc == 0) return -EISCONN;;
   if (rc != -ENAVAIL) return rc;
-
-  if (url == NULL) {
-    url = getenv ("MWADDRESS");
-  };
 
   errno = 0;
   _mwaddress = _mwdecode_url(url);

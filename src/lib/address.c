@@ -23,8 +23,12 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/09/05 23:25:33  eggestad
+ * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
+ * MWURL is now used in addition to MWADDRESS
+ *
  * Revision 1.8  2002/07/07 22:35:20  eggestad
- * *** empty log message ***
+ * added urlmapdup
  *
  * Revision 1.7  2002/02/17 13:55:16  eggestad
  * added missing includes
@@ -368,15 +372,15 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
 	      ntohs(sin->sin_port), 
 	      inet_ntop(AF_INET, &sin->sin_addr, buf, 64));
       };
-      mwadr->ipaddress_v4 = malloc(sizeof(struct sockaddr_in));
-      memcpy(mwadr->ipaddress_v4, &is.address, sizeof(struct sockaddr_in));
+      mwadr->ipaddress.sin4 = malloc(sizeof(struct sockaddr_in));
+      memcpy(mwadr->ipaddress.sin4, &is.address, sizeof(struct sockaddr_in));
       close (s);
       {
 	char buf[64];
 	DEBUG1("Gateways address: family %d, port %d ipaddress V4 %s", 
-	      mwadr->ipaddress_v4->sin_family, 
-	      ntohs(mwadr->ipaddress_v4->sin_port), 
-	      inet_ntop(AF_INET, &mwadr->ipaddress_v4->sin_addr, buf, 64));
+	      mwadr->ipaddress.sin4->sin_family, 
+	      ntohs(mwadr->ipaddress.sin4->sin_port), 
+	      inet_ntop(AF_INET, &mwadr->ipaddress.sin4->sin_addr, buf, 64));
       };
   } else {
     
@@ -394,18 +398,18 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
     };
     
     /* ALL RIGHT! */
-    mwadr->ipaddress_v4 = malloc(sizeof(struct sockaddr_in));
-    mwadr->ipaddress_v4->sin_family = AF_INET;
-    mwadr->ipaddress_v4->sin_port = ns_port;
-    mwadr->ipaddress_v4->sin_addr = * (struct in_addr *) hent->h_addr_list[0];
+    mwadr->ipaddress.sin4 = malloc(sizeof(struct sockaddr_in));
+    mwadr->ipaddress.sin4->sin_family = AF_INET;
+    mwadr->ipaddress.sin4->sin_port = ns_port;
+    mwadr->ipaddress.sin4->sin_addr = * (struct in_addr *) hent->h_addr_list[0];
   };
 
   {
     char buf[64];
     DEBUG1("Gateways address: family %d, port %d ipaddress V4 %s", 
-	mwadr->ipaddress_v4->sin_family, 
-	ntohs(mwadr->ipaddress_v4->sin_port), 
-	inet_ntop(AF_INET, &mwadr->ipaddress_v4->sin_addr, buf, 64));
+	mwadr->ipaddress.sin4->sin_family, 
+	ntohs(mwadr->ipaddress.sin4->sin_port), 
+	inet_ntop(AF_INET, &mwadr->ipaddress.sin4->sin_addr, buf, 64));
   };
   return 0;
 };
@@ -420,11 +424,15 @@ mwaddress_t * _mwdecode_url(char * url)
 
   memset (match, '\0', sizeof(regmatch_t) * MAXMATCH);
 
+    /* if url is not set, check MWURL or MWADDRESS */
   if (url == NULL) {    
     DEBUG1("_mwdecode_url: Attempting to get the URL from Env var MWADDRESS");
-    /* if url is not set, check MWURL or MWADDRESS */
     url = getenv ("MWADDRESS");
-    
+  }
+  
+  if (url == NULL) {    
+    DEBUG1("_mwdecode_url: Attempting to get the URL from Env var MWURL");
+    url = getenv ("MWURL");
   } 
 
   mwadr = malloc(sizeof(mwaddress_t));

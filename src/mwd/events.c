@@ -23,6 +23,12 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2004/02/19 23:46:34  eggestad
+ * - added handling for full msg queues for recipients for events. This
+ * means that events are queued up in yet another queue until the
+ * client/server has free space on it's msgqueue. This solves a mwd being
+ * blocked problem. (ipc msg send was blocking when delivering the event)
+ *
  * Revision 1.4  2003/04/25 13:03:05  eggestad
  * - fix for new task API
  * - new shutdown procedure, now using a task
@@ -57,6 +63,36 @@ static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 
+/* Keep in mind that all event messages are posted on mwd mail IPC msg queue. 
+
+* The flow thru here is that a when a member subscribe or unsubscribe,
+* the functions event_subscribe() and event_unsubscribe() is called.
+* They manipluate a linked list of subscriptions.
+
+* When a member post an event, the event_enqueue() is called. This
+* function queues the event on the eventqueue.  The event are not
+* processed until the Event task is avokened. The task function is
+* do_events and will process events for 1/100s of a second before
+* yielding.  This ensure that mwd does not become unresponsive if
+* subjected to an event storm.
+
+* The (optional) data attached to a message require special
+* handling. In this case there is still only one shm buffer associated
+* with the event (namely the buffer the poster alloc'ed for the event.
+* In order to free it, all recipients of the event must ack the event
+* before the buffer can be free'ed. For this purpose we have an ack
+* queue.
+
+* The last special handling we have is for the case where the msgqueue
+* for the subscriber is full. In this case we put the message in a
+* pending send queue, which is attepmted to be sent at the begining of
+* the next tasklet run.
+
+*/
+
+/************************************************************************/
+//  The subacriptions
+
 struct _subscribe_event_t {
   char * pattern;
   regex_t regexp;
@@ -72,6 +108,13 @@ struct _subscribe_event_t {
 
 typedef struct _subscribe_event_t subscribe_event_t;
 
+static subscribe_event_t *  subscription_root = NULL;
+
+
+
+/************************************************************************/
+//  The event and ack queues
+
 struct _queued_event_t {
   char * eventname;
 
@@ -85,16 +128,39 @@ struct _queued_event_t {
 
 typedef struct _queued_event_t  queued_event_t ;
 
-static subscribe_event_t *  subscription_root = NULL;
-
 /* when we receive an event we first just place it on a queue. We want
    to keep out IPC msg queue empty */
 static queued_event_t * eventqueue_root = NULL, **eventqueue_tailp  = & eventqueue_root;
 static int eventqueuelen = 0;
 
-/* queue where we store events that has been propagagted, but we await acks from recipients */ 
+/* queue where we store events that has been propagated, but we await acks from recipients */ 
 static queued_event_t * ackqueue_root = NULL;
 static int ackqueuelen = 0;
+
+
+
+/************************************************************************/
+//  The IPC blocking queue
+
+struct _ipc_msg_t {
+   MWID mwid;
+   int datalen;
+   char data[MWMSGMAX];
+   struct _ipc_msg_t * next;
+};
+
+typedef struct _ipc_msg_t ipc_msg_t;
+
+
+static int ipc_blocking_queue_len = 0;
+static ipc_msg_t * ipc_blocking_queue = NULL;
+
+static void clear_blockingqueue_byid(MWID id);
+static void flush_blockingqueue(void);
+static void push_blockingqueue(MWID id, void * msg, int msglen);
+
+
+/************************************************************************/
 
 static void dumpsubscriptions(void)
 {
@@ -123,17 +189,18 @@ static void dumpeventqueue(void)
     return;
   };
 
-  DEBUG2( "********************* event queue dump queuelen = %d ***********************\n", 
+  DEBUG2( "********************* event queue dump queuelen = %d ***********************", 
 		    eventqueuelen);
   ev = eventqueue_root;
-  for (i = 0; i < eventqueuelen; i++)
-    DEBUG2("   - %5d: @ %p %s [%s sender %#x subid=%d data=%d datalen=%d] next %p\n", 
-		      i, ev, ev->eventname, 
-		      ev->evmsg.event, ev->evmsg.senderid, ev->evmsg.subscriptionid, ev->evmsg.data, ev->evmsg.datalen,
-		      ev->next
-		      );
+  for (i = 0; i < eventqueuelen; i++, ev = ev->next)
+     DEBUG2("   - %5d: @ %p %s [%s sender %#x subid=%d data=%d datalen=%d] next %p", 
+	    i, ev, ev->eventname, 
+	    ev->evmsg.event, ev->evmsg.senderid, ev->evmsg.subscriptionid, 
+	    ev->evmsg.data, ev->evmsg.datalen,
+	    ev->next
+	    );
   
-  DEBUG2("   = eventqueue_tailp = %p *eventqueue_tailp = %p eventqueue_root = %p\n", 
+  DEBUG2("   = eventqueue_tailp = %p *eventqueue_tailp = %p eventqueue_root = %p", 
 		    eventqueue_tailp, *eventqueue_tailp, eventqueue_root);
   DEBUG2("****************************************************************************");
 };
@@ -145,29 +212,54 @@ static void dumppendingqueue(void)
   queued_event_t * ev;
 
   if (ackqueuelen == 0) {
-    DEBUG3("ack queue empty ackqueue_root = %p ", ackqueue_root); 
+    DEBUG2("ack queue empty ackqueue_root = %p ", ackqueue_root); 
     return;
   };
 
   DEBUG2("************************** ack queue dump queuelen = %d *******************************", 
 	 ackqueuelen);
   ev = ackqueue_root;
-  for (i = 0; i < eventqueuelen; i++) {
-    DEBUG2(" - %5d: @%p %s [%s sender %#x subid=%d data=%d datalen=%d] next %p\n", 
+  for (i = 0; i < ackqueuelen; i++) {
+     if (ev == NULL) continue;
+    DEBUG2(" - %5d: @%p %s [%s sender %#x subid=%d data=%d datalen=%d acklistlen=%d] next %p", 
 	   i, ev, ev->eventname, 
 	   ev->evmsg.event, ev->evmsg.senderid, ev->evmsg.subscriptionid, ev->evmsg.data, ev->evmsg.datalen,
-	   ev->next);
+	   ev->pending_ack_len, ev->next);
     buffer = realloc (buffer, 12*ev->pending_ack_len);
     buff = buffer;
     for (j = 0; j < ev->pending_ack_len; j++)
       buff += sprintf(buff, "%#x ", ev->pending_ack_ids[j]);
     DEBUG2("   - pending acks [ %s]", buffer);
+    ev = ev->next;
   };
-  DEBUG2(" = eventqueue_root = %p\n", ackqueue_root);
+  DEBUG2(" = ackqueue_root = %p", ackqueue_root);
   free(buffer);
   DEBUG2("***************************************************************************************");
 };
 
+static void dumpblockingqueue(void) 
+{
+   int i; 
+   ipc_msg_t * ent;
+   
+   if (ipc_blocking_queue_len == 0) {
+      DEBUG2("blocking queue empty ackqueue_root = %p ", ipc_blocking_queue); 
+      return;
+   };
+   
+   DEBUG2("***********************  blocking queue dump queuelen = %d ****************************", 
+	  ipc_blocking_queue_len);
+   for (i = 0, ent = ipc_blocking_queue; i < ipc_blocking_queue_len; i++, ent = ent->next) {
+      DEBUG2(" %d MWID=%x len=%d next=%p", i, ent->mwid, ent->datalen, ent->next);
+   };
+
+   DEBUG2("***************************************************************************************");
+   
+   return;
+};
+
+
+/************************************************************************/
 
 
 /* called when we get a subscribe message from a member */
@@ -310,6 +402,7 @@ static int clear_pendingack_byid(MWID id)
 void event_clear_id(MWID id)
 {
   DEBUG("cleaning up after %#x", id);
+  clear_blockingqueue_byid(id);
   clear_pendingack_byid(id);
   event_unsubscribe(UNASSIGNED, id);
   return;
@@ -434,7 +527,84 @@ int event_enqueue(Event * evmsg)
   dumpeventqueue();  
   return 0;
 };
-  
+
+/************************************************************************/
+
+static void push_blockingqueue(MWID id, void * msg, int msglen)
+{
+   ipc_msg_t * newmsg, **pent;
+   
+   DEBUG("blockingqueuelen = %d", ipc_blocking_queue_len);
+
+   newmsg = malloc(sizeof(ipc_msg_t));
+   newmsg->mwid = id;
+   newmsg->datalen = msglen;
+   memcpy(newmsg->data, msg, msglen);
+   newmsg->next = NULL;
+
+   for (pent = &ipc_blocking_queue; *pent != NULL; pent = &((*pent)->next)) ;
+
+   *pent = newmsg;
+   ipc_blocking_queue_len ++;
+   dumpblockingqueue();
+   DEBUG("blockingqueuelen = %d", ipc_blocking_queue_len);
+   return;
+};
+
+static void flush_blockingqueue(void)
+{
+   ipc_msg_t *ent, **pent;
+   
+   DEBUG("blockingqueuelen = %d", ipc_blocking_queue_len);
+
+   for (pent = &ipc_blocking_queue; *pent != NULL; ) {
+      int rc;
+
+      ent = *pent;
+      rc = _mw_ipc_putmessage(ent->mwid, (char *) ent->data, ent->datalen, IPC_NOWAIT); 
+      
+      if (rc == 0) {
+	 DEBUG("OK ipc send from blocking queue");
+	 *pent = ent->next;	 
+	 ipc_blocking_queue_len --;
+	 free(ent);
+      } else {
+	 DEBUG("ipc send from blocking queue returned %d errno=%d", rc, errno);
+	 pent = &(ent->next);
+      };
+   };
+   dumpblockingqueue();
+   DEBUG("blockingqueuelen = %d", ipc_blocking_queue_len);
+   return;
+};
+
+static void clear_blockingqueue_byid(MWID id)
+{
+   ipc_msg_t *ent, **pent;
+   
+   DEBUG("id = %x blockingqueuelen = %d", id, ipc_blocking_queue_len);
+
+   for (pent = &ipc_blocking_queue; *pent != NULL; ) {
+      int rc;
+
+      ent = *pent;
+      
+      if (ent->mwid == id) {
+	 DEBUG("removing from blocking queue");
+	 *pent = ent->next;	 
+	 ipc_blocking_queue_len --;
+	 free(ent);
+      } else {
+	 pent = &(ent->next);
+      };
+   };
+   dumpblockingqueue();
+   DEBUG("blockingqueuelen = %d", ipc_blocking_queue_len);
+   return;
+};
+
+/************************************************************************/
+
 /* this is called by do_event() and take one queue event form the
    internal queue and send it to all members that has subscribed to
    it. The event is than placed on the ack pending queue until all
@@ -510,7 +680,21 @@ static int do_event(void)
 
     ev->evmsg.subscriptionid = se->subscriptionid;
 
-    rc = _mw_ipc_putmessage(se->id, (char *) &ev->evmsg, sizeof (Event), 0); 
+    /* it may happen that a) the subscriber dissapeares b) hand with a
+       full queue.  for a) that just mean a clean up, for b) we must
+       put the event message on a event pending queue */
+
+    rc = _mw_ipc_putmessage(se->id, (char *) &ev->evmsg, sizeof (Event), IPC_NOWAIT); 
+    if (rc < 0) {
+       if (rc == -EAGAIN) {
+	  push_blockingqueue(se->id, (char *) &ev->evmsg, sizeof (Event));
+	  rc = 0;
+       } else {
+	  DEBUG("FAiled to do and IPC putmessage errno = %d", -rc);
+	  continue;
+       };
+    };
+    
     n++;
 
     /* iff there is a data buffer attached to the event, then we need
@@ -556,7 +740,9 @@ int do_events(PTask pt)
 
   DEBUG(" start with queuelen %d", eventqueuelen);
   clk = clock();
-  
+
+  flush_blockingqueue();
+
   do {
     if (eventqueuelen == 0) break;
     rc = do_event();

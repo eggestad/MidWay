@@ -1,0 +1,85 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MWD 1 "DATE" Linux "MidWay Users Manual"
+.SH NAME
+mwgwd \- The MidWay gateway daemon
+.SH SYNOPSIS
+.B mwgwd [-A \fIurl\fP] [-l \fIdebuglevel\fP] [-c|-g] 
+[-p \fIport\fP] [\fIdomainname\fP]
+
+.SH DESCRIPTION
+The gateway daemon handles all TCP/IP traffic for an instance, and
+it's what ties an instance to a domain. 
+
+The protocol the gateway implements is the 
+.IR "Service Request Broker Protocol" (SRBP).
+
+If no 
+.B domainname 
+is given, a port must be given, and the gateway will just provide
+service for the TCP/IP (SRBP) clients connecting on this port. It's in
+an anonymous domain mode.
+
+If a domain name is given, the mwgwd will try to register with the
+MidWay broker daemon
+.BR mwbd (8).
+A port may still be given so that the gateway may be reached on a
+private port. The recommended way is to use the mwbd, unless one want
+to have a private development instance.
+
+The mwgwd can be configured thru the commandline to handle only
+clients or only other gateways. 
+
+A gateway must be started for every domain an instance shall be a
+member of.
+
+Thru the brokers multicast query, or per configuration a mwgwd
+connects to every other mwgwd providing the same domain (NYI).
+
+.SH OPTIONS
+.TP 
+.BI "-A " url
+The url needed for clients and servers to find the primary shared
+memory segment.  If absent we use
+.BR ipc:// uid
+.
+.TP
+.BI "-l " debuglevel
+Indicate the verbosity mwd shall log into the log file. Possible
+values are 
+.BR "error warning info debug debug1 debug2 debug3 debug4" .
+Default is info.
+.TP
+.BI "-p " port
+Spesify a TCP port to listen on. 
+.TP
+.BI "-c " 
+Only handle clients. Mutual exclusive with -g
+.TP
+.BI "-g "
+Only handle other gateways, thus as a domain interconnect, or foreign
+domain export/import. Mutual exclusive with -c
+
+.SH FOREIGN DOMAIN EXPORT/IMPORT
+This feature is not yet implemented (NYI). The reason is that a
+configuration file must be implemented in the mwd.
+
+The idea is that services in domains the instance is not a member of
+can be available by 
+.I importing 
+a service from a foreign domain. The foreign domain must have 
+.I exported
+this service. 
+
+.SH SEE ALSO
+.BR MidWay (7),  mwadm (1), mwd (1), mwd.conf (4)
+
+.SH WARNINGS
+
+.SH BUGS
+The domain interconnect and foreign domain export/imports are unimplemented. 

@@ -1,0 +1,69 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 2001 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MWCALL 1 "DATE" Linux "MidWay Users Manual"
+.SH NAME
+mwcall \- The MidWay simple client program
+.SH SYNOPSIS
+.B mwcall [-A \fIurl\fP] [-l \fIdebuglevel\fP] [-L \fIlogfile\fP] 
+[-i \fIinputfile\fP] [-o \fIoutputfile\fP] [-R] service  [data|-] 
+.SH DESCRIPTION
+This is a command line client that will attach a given instance/domain
+call the gived service and (possibly) wait for a reply. This client is
+provided for shell scripts and for non-performance critical task.
+
+If 
+.B data 
+is absent and no - in its place, the data passed to the service may be
+gived with the 
+.B "-i"
+option. The - indicate read data from stdin.
+
+The reply data is normally sent to stdout, but may be
+reirected to a file with the 
+.B -o
+option. 
+
+.SH OPTIONS
+.TP
+.BI "-l " debuglevel
+Indicate the verbosity mwd shall log into the log file. Possible
+values are 
+.BR "error warning info debug debug1 debug2 debug3 debug4" .
+Default is info.
+.TP 
+.BI "-A " url
+The url needed for clients and servers to find the primary shared
+memory segment.  If absent we use
+.BR ipc:// uid
+.
+.TP
+.B -R
+No reply flag, the mwcall will not wait for a reply from the service,
+and no returncode from the service is returned. You didn't know if the
+service request was successful or even if it was processed. 
+
+.SH ENVIRONMENT
+.TP
+.B MWURL
+see 
+.BR mwd (1). 
+.TP
+.B MWDIR
+see 
+.BR mwd (1). 
+.SH SEE ALSO
+.BR MidWay (7),  mwd (1), readline(3)
+
+.SH WARNINGS
+Be sure that you really want to use it. It's slow because it has to
+attach an instance before it can send the service request. Since it do
+an attach before every service call, it also burden unnecessary the
+mwd.
+
+.SH BUGS
+No timeout options.

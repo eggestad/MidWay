@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.7  2002/10/03 21:23:46  eggestad
+ * - fix for changed retcode from conn_select (now return -errno, not -1 with errno set on error)
+ *
  * Revision 1.6  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -511,17 +514,17 @@ void * tcpservermainloop(void * param)
     DEBUG("%s", conn_print());
  
     fd = conn_select(&cond, timeout);
-    DEBUG("do_select returned %d errno=%d", fd, errno);
+    DEBUG("conn_select returned %d errno=%d", fd, errno);
 
     if (fd < 0) {
-      if (errno == ETIME) {
+      if (fd == -ETIME) {
 	timer_task();
 	continue;
-      } else if (errno == EINTR) {
+      } else if (fd == -EINTR) {
 	continue;
       };
       
-      Error("do_select returned error %d, shutingdown", errno);
+      Error("conn_select returned error %d, shutingdown", fd);
       globals.shutdownflag = 1;
       continue;
     }

@@ -29,7 +29,9 @@ dnl ******************************      ******************************
 
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(src/mwd/mwd.c)
-AC_CONFIG_HEADER(config.h)
+
+AC_CONFIG_HEADER(config.h src/include/acconfig.h)
+
 AC_CONFIG_AUX_DIR(scripts)
 
 dnl Checks for host type
@@ -122,6 +124,34 @@ dnl fi
 
 readlinelib="$rlnlib"
 AC_SUBST(readlinelib)
+
+dnl multicast or broadcast
+enable_multicast=yes
+enable_broadcast=yes
+
+AC_ARG_ENABLE(multicast,
+[  --enable-multicast          use multicast for query [yes] ])
+
+case "$enable_multicast" in
+     no|NO|'')   enable_multicast=no	
+		 ;;
+     yes|YES)    enable_multicast=yes
+		 AC_DEFINE(USE_MULTICAST)
+		 ;;
+     *)          echo 'parameter should be =yes or =no' ; exit 1 ;;
+esac
+
+AC_ARG_ENABLE(broadcast,
+[  --enable-broadcast          use broadcast for query [yes] ])
+
+case "$enable_broadcast" in
+     no|NO|'')   enable_broadcast=no	
+		 ;;
+     yes|YES)    enable_broadcast=yes
+		 AC_DEFINE(USE_BROADCAST)
+		 ;;
+     *)          echo 'parameter should be =yes or =no' ; exit 1 ;;
+esac
 
 dnl version information
 AC_REVISION($Name$)

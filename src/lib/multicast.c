@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.9  2004/02/21 15:15:35  eggestad
+ * multicast flag
+ *
  * Revision 1.8  2004/02/20 15:07:18  eggestad
  * added use of broadcast in addition to multicast
  *
@@ -85,7 +88,7 @@ Connection pseudoconn = {
 static struct ip_mreq mr;
 
 static int use_broadcast = USE_BROADCAST;
-static int use_multicast = 1;
+static int use_multicast = USE_MULTICAST;
 
 int _mw_setmcastaddr(void)
 {

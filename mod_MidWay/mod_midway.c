@@ -24,8 +24,11 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:34  eggestad
- * Initial revision
+ * Revision 1.2  2000/09/24 14:02:53  eggestad
+ * Default URL fix
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:34  eggestad
+ * Initial Release
  *
  *
  */
@@ -132,7 +135,7 @@ static command_rec midway_cmds[] =
     NULL,                   /* argument to include in call */
     RSRC_CONF,             /* where available */
     TAKE1,                /* arguments */
-    "The URL for the midway instance, like ipc://500"
+    "The URL for the midway instance, like ipc:500"
                                 /* directive description */
   },
   {

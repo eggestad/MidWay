@@ -22,6 +22,7 @@
 #define _IPCTABLES_H
 
 #include <sys/ipc.h>
+#include <netinet/in.h>
 #include <MidWay.h>
 
 #define MWLOCAL    0
@@ -33,7 +34,7 @@
 #define MWAUTHSSL    3
 
 /* status values. */
-#define MWNORMAL   0
+#define MWREADY    0
 #define MWSHUTDOWN 1
 #define MWBOOTING  2
 #define MWBUSY     3
@@ -63,6 +64,8 @@ struct cliententry
   char clientname[MWMAXNAMELEN];
   char username[MWMAXNAMELEN];
 
+  struct sockaddr_in  addr_ip4;
+  struct sockaddr_in6 addr_ip6;
 
   int authtype; /* MWAUTHNONE, MWAUTHPASSWD */;
   long authref;
@@ -88,7 +91,8 @@ struct serverentry
   SERVICEID nowserving;
   
   int mwdblock; /* MWNORMAL MWSHUTDOWN, MWBLOCKED, MWDEAD */;
-  
+  int trace;
+
   time_t booted;
   time_t lastsvccall;
 
@@ -125,18 +129,27 @@ typedef struct serviceentry serviceentry;
 
 struct gatewayentry
 {
-  
-  char remote_mwname[MWMAXNAMELEN];
-  
+  char instancename[MWMAXNAMELEN];
+  char domainname[MWMAXNAMELEN];
+
+  int location; /* either */
+  int srbrole; /* only used for local */
+
   int mqid;
   pid_t pid;
   int status ;
   time_t connected;
   time_t last_call;
 
+  int trace;
+  int mesgsent;
+  int mesgrecv;
+
   int imported_svc;
   int exported_svc;
-  
+  struct sockaddr_in  addr_ip4;
+  struct sockaddr_in6 addr_ip6;
+
 };
 typedef struct gatewayentry gatewayentry;
 
@@ -184,6 +197,8 @@ struct ipcmaininfo
   int gwtbl_length;
   int convtbl_length;
 
+  int gwtbl_nextidx;
+  int gwtbl_lock_sem;
 };
 
 typedef struct ipcmaininfo ipcmaininfo;
@@ -193,7 +208,7 @@ typedef struct ipcmaininfo ipcmaininfo;
 /*
  * functions for accessing IPC tables.
  */
-ipcmaininfo * _mw_ipcmaininfo(); 
+ipcmaininfo * _mw_ipcmaininfo(void); 
 
 cliententry  * _mw_getcliententry(int);
 serverentry  * _mw_getserverentry(int);
@@ -202,17 +217,19 @@ gatewayentry * _mw_getgatewayentry(int);
 conv_entry   * _mw_getconv_entry(int);
 
 
-int  _mw_attach_ipc();
-void _mw_detach_ipc();
+int  _mw_attach_ipc(key_t, int);
+void _mw_detach_ipc(void);
 
 void _mw_set_my_serverid(SERVERID);
 void _mw_set_my_clientid(CLIENTID);
-SERVERID _mw_get_my_serverid();
-CLIENTID _mw_get_my_clientid();
+void _mw_set_my_gatewayid(GATEWAYID);
+SERVERID _mw_get_my_serverid(void);
+CLIENTID _mw_get_my_clientid(void);
+GATEWAYID _mw_get_my_gatewayid(void);
 
 /* Table Lookup functions */
-int  _mw_mwd_mqid();
-int  _mw_my_mqid();
+int  _mw_mwd_mqid(void);
+int  _mw_my_mqid(void);
 
 /* NB: All these functions return pointer to the shared memory segments
    no need to use free()
@@ -223,10 +240,13 @@ serviceentry * _mw_get_service_byid (SERVICEID svcid);
 SERVERID       _mw_get_server_by_serviceid (SERVICEID svcid);
 SERVICEID      _mw_get_service_byname (char * svcname, int flags); 
 
+gatewayentry * _mw_get_gateway_table (void);
 gatewayentry * _mw_get_gateway_byid (GATEWAYID srvid);
 
+int _mw_get_mqid_by_mwid(int mwid);
+
 /* a test to see id the instance is up properly, not booting, in shutdown mode nor dead. */
-int _mwsystemstate();
+int _mwsystemstate(void);
 
 /* stat & info functions */
 void _mw_set_my_status(char * status);

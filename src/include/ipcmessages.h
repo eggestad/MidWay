@@ -29,10 +29,13 @@
 
 #define MWIPCCLIENT   0x01
 #define MWIPCSERVER   0x02
-#define MWIPCGATEWAY  0x02
+#define MWIPCGATEWAY  0x04
+#define MWNETCLIENT   0x10
 
 /* flags used in messages */
 #define MWFORCE 0x10
+#define MWGATEWAYCLIENT  0x100
+#define MWGATEWAYSERVICE 0x200
 
 /* pid is for informational use only, in future threaded client/servers
  * pid tends to be diffrent for each thread. For example on 
@@ -53,6 +56,8 @@ struct attach
   char cltname[MWMAXNAMELEN];
   CLIENTID cltid;
 
+  GATEWAYID gwid;
+
   int flags;
   int returncode;
 };
@@ -70,6 +75,8 @@ struct provide
   
   SERVERID srvid;
   SERVICEID svcid;
+  GATEWAYID gwid;
+
   char svcname[MWMAXSVCNAME];
 
   int flags;
@@ -100,6 +107,7 @@ struct call
   int handle; 
  
   CLIENTID cltid;
+  GATEWAYID gwid;
   SERVERID srvid;
   SERVICEID svcid;
 
@@ -137,6 +145,7 @@ struct conversation
   long mtype; 
   
   CLIENTID cltid;
+  GATEWAYID gwid;
   SERVERID srvid;
   SERVICEID svcid;
 
@@ -165,7 +174,7 @@ typedef struct conversation  Converse;;
    Used to notify shutdown event, Should this be a special event instead
    in the general event service planned....?
 */
-#define ADMREQ 0x880
+#define ADMREQ 0x1000
 /* opcodes */
 #define ADMSHUTDOWN  0x10
 #define ADMSTARTSRV  0x20
@@ -180,11 +189,18 @@ typedef struct {
 } Administrative;
 
 /*
-  functions used by client requests.
-  */
+ *  lowlevel ipcmsg send & receive
+ */
+int _mw_ipc_putmessage(int mwid, char *data, int len,  int flags);
+int _mw_ipc_getmessage(char * data, int *len, int type, int flags);
 
+/*
+ * functions used by client requests.
+ */
 int _mw_ipcsend_attach(int att_type, char * name, int flags);
-int _mw_ipcsend_detach();
+int _mw_ipcsend_detach(int force);
+int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force);
+
 SERVICEID _mw_ipcsend_provide(char * servicename, int flags);
 int _mw_ipcsend_unprovide(char * servicename);
 
@@ -195,7 +211,7 @@ int _mw_ipcconnect(char * servicename, char * socketpath, int flags);
 int _mw_ipcdisconnect(int fd);
 
 /* additionsl for servers */
-int _mw_ipcdorequest();
+int _mw_ipcdorequest(void);
 int _mw_ipcreply(int handle, char * data, int len, int flags);
 int _mw_ipcforward(char * servicename, char * data, int len, int flags);
 
@@ -204,6 +220,6 @@ int _mw_ipcforward(char * servicename, char * data, int len, int flags);
 int _mw_ipcblock(SERVERID srvid, SERVICEID svcid);
 int _mw_ipcunblock(SERVERID srvid, SERVICEID svcid);
 
-int _mwCurrentMessageQueueLength();
+int _mwCurrentMessageQueueLength(void);
 
 int _mw_shutdown_mwd(int delay);

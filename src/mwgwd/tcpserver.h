@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2000/08/31 22:19:31  eggestad
+ * added prototype for tcpgetclientpeername()
+ *
  * Revision 1.1  2000/07/20 18:49:59  eggestad
  * The SRB daemon
  *
@@ -34,6 +37,8 @@ void tcpsetconninfo (int fd, int * id, int * role, int * rejects, int * reverse)
 int  tcpgetconninfo (int fd, int * id, int * role, int * rejects, int * reverse);
 int tcpgetconnid(int fd);
 char * tcpgetconnpeername (int fd);
+char * tcpgetclientpeername (CLIENTID);
+
 void tcpcloseconnection (int fd);
 int  sendmessage (int fd, char * message, int len);
 

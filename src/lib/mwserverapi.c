@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.20  2004/07/12 15:02:21  eggestad
+ * mwforward was broken
+ *
  * Revision 1.19  2004/05/31 19:47:09  eggestad
  * tasks interrupted mainloop
  *
@@ -456,6 +459,9 @@ int mwforward(char * svcname, char * data, int len, int flags)
     return dest;
   };
 
+  // update call struct so that next server know that service we're calling
+  callmesg->svcid = svcid;
+  strncpy(callmesg->service, svcname, MWMAXSVCNAME);
 
   /* First we handle return buffer. If data is not NULL, and len is 0,
    data is NULL terminated. if buffer is not a shared memory buffer,

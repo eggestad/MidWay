@@ -1,3 +1,8 @@
+2004-07-12  Terje Eggestad  <te@pc-16.office.scali.no>
+
+	* src/lib/mwserverapi.c (mwforward): mwforward was broken, service
+	id and name was not updated in call message before forwarding.
+
 2004-06-17  Terje Eggestad  <te@pc-16.office.scali.no>
 
 	* src/lib/ipcmessages.c (_mw_ipcsend_event):

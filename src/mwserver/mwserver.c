@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2001/10/04 19:18:10  eggestad
+ * CVS tags fixes
+ *
  * Revision 1.2  2000/07/20 19:55:49  eggestad
  * mwMainLoop() now has an argument
  *
@@ -33,6 +36,9 @@
  * MidWay
  *
  */
+
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <MidWay.h>
 #include <signal.h>

@@ -18,13 +18,14 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* $Id$ */
-
 static char * RCSId = "$Id$";
 static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.5  2001/10/04 19:18:10  eggestad
+ * CVS tags fixes
+ *
  * Revision 1.4  2001/10/03 22:37:38  eggestad
  * many bugfixes: memleak, gwid, propper shutdown
  *

@@ -23,6 +23,10 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /* 
  * $Log$
+ * Revision 1.6  2001/10/03 22:49:31  eggestad
+ * added urlmapseti()
+ * mem corruption fixes
+ *
  * Revision 1.5  2001/09/15 23:55:34  eggestad
  * Fixes for parameter sanity checking
  *
@@ -126,7 +130,7 @@ char * urlmapencode(urlmap * map)
   if (map == NULL) return NULL;
 
   maxlistlen = 64;
-  list = (char *) malloc(maxlistlen);
+  list = (char *) malloc(maxlistlen+1);
   listlen = 0;
   idx = 0;
 
@@ -313,9 +317,22 @@ int urlmapset(urlmap * map, char * key, char * value)
 };
 
 
+int urlmapseti(urlmap * map, char * key, int value)
+{
+  int len = 0;
+  char szValue[32]; /* just to be more than 64 bit clean */
+
+  len = sprintf(szValue, "%d", value);
+  return urlmapnset(map, key, szValue, len);
+};
+
+
 int urlmapdel(urlmap * map, char * key)
 {
   int idx = 0, ridx = -1;
+
+  if (map == NULL) return 0;
+  if (key == NULL) return 0;
 
   while (map[idx].key != NULL) {
     if (strcasecmp(key, map[idx].key ) == 0) ridx = idx;
@@ -390,7 +407,7 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
     map[idx].valuelen = 0;
   } else {
   /* make a copy and insert value */
-    map[idx].value = malloc(len+1);;
+    map[idx].value = malloc(len+1);
     if (map[idx].value == NULL) return NULL;
     memcpy(map[idx].value,value, len+1);
     map[idx].valuelen = len;

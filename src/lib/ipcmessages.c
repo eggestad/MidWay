@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/08/31 21:50:21  eggestad
+ * DEBUG level set propper. In acall, propper clearing of message
+ *
  * Revision 1.2  2000/07/20 19:22:08  eggestad
  * Changes needed for SRB clients.
  *
@@ -129,18 +132,18 @@ void  _mw_dumpmesg(void * mesg)
   case DETACHREQ:
   case DETACHRPL:
     am = (Attach * ) mesg;
-    mwlog(MWLOG_DEBUG, "ATTACH MESSAGE: %#x\n\
-int         ipcqid             =  %d\n\
-pid_t       pid                =  %d\n\
-int         server             =  %d\n\
-char        srvname            =  %s\n\
-SERVERID    srvid              =  %#x\n\
-int         client             =  %d\n\
-char        cltname            =  %s\n\
-CLIENTID    cltid              =  %#x\n\
-GATEWAYID   gwid               =  %#x\n\
-int         flags              =  %#x\n\
-int         returncode         =  %d", 
+    mwlog(MWLOG_DEBUG1, "ATTACH MESSAGE: %#x\n\
+          int         ipcqid             =  %d\n\
+          pid_t       pid                =  %d\n\
+          int         server             =  %d\n\
+          char        srvname            =  %.32s\n\
+          SERVERID    srvid              =  %#x\n\
+          int         client             =  %d\n\
+          char        cltname            =  %.64s\n\
+          CLIENTID    cltid              =  %#x\n\
+          GATEWAYID   gwid               =  %#x\n\
+          int         flags              =  %#x\n\
+          int         returncode         =  %d", 
 	  am->mtype, am->ipcqid, am->pid, 
 	  am->server, am->srvname, am->srvid, 
 	  am->client, am->cltname, am->cltid, 
@@ -152,36 +155,36 @@ int         returncode         =  %d",
   case UNPROVIDEREQ:
   case UNPROVIDERPL:
     pm = (Provide * ) mesg;
-    mwlog(MWLOG_DEBUG, "PROVIDEMESSAGE: %#x\n\
-SERVERID    srvid              =  %#x\n\
-SERVICEID   svcid              =  %#x\n\
-char        svcname            =  %s\n\
-int         flags              =  %#x\n\
-int         returncode         =  %d", 
+    mwlog(MWLOG_DEBUG1, "PROVIDEMESSAGE: %#x\n\
+          SERVERID    srvid              =  %#x\n\
+          SERVICEID   svcid              =  %#x\n\
+          char        svcname            =  %.32s\n\
+          int         flags              =  %#x\n\
+          int         returncode         =  %d", 
 	  pm->mtype, pm->srvid, pm->svcid, pm->svcname, pm->flags, pm->returncode);
     return;
   case SVCCALL:
   case SVCFORWARD:
   case SVCREPLY:
     rm = (Call * )  mesg;
-    mwlog(MWLOG_DEBUG, "CALL/FRD/REPLY MESSAGE: %#x\n\
-int         handle             = %d\n\
-CLIENTID    cltid              = %#x\n\
-SERVERID    srvid              = %#x\n\
-SERVICEID   svcid              = %#x\n\
-GATEWAYID   gwid               = %#x\n\
-int         forwardcount       = %d\n\
-char        service            = %s\n\
-char        origservice        = %s\n\
-time_t      issued             = %d\n\
-int         uissued            = %d\n\
-int         timeout            = %d\n\
-int         data               = %d\n\
-int         datalen            = %d\n\
-int         appreturncode      = %d\n\
-int         flags              = %#x\n\
-char        domainname         = %s\n\
-int         returncode         = %d", 
+    mwlog(MWLOG_DEBUG1, "CALL/FRD/REPLY MESSAGE: %#x\n\
+          int         handle             = %d\n\
+          CLIENTID    cltid              = %#x\n\
+          SERVERID    srvid              = %#x\n\
+          SERVICEID   svcid              = %#x\n\
+          GATEWAYID   gwid               = %#x\n\
+          int         forwardcount       = %d\n\
+          char        service            = %.32s\n\
+          char        origservice        = %.32s\n\
+          time_t      issued             = %d\n\
+          int         uissued            = %d\n\
+          int         timeout            = %d\n\
+          int         data               = %d\n\
+          int         datalen            = %d\n\
+          int         appreturncode      = %d\n\
+          int         flags              = %#x\n\
+          char        domainname         = %.64s\n\
+          int         returncode         = %d", 
 	  rm->mtype, rm->handle, 
 	  rm->cltid, rm->srvid, rm->svcid, rm->gwid,
 	  rm->forwardcount, rm->service, rm->origservice, 
@@ -190,7 +193,7 @@ int         returncode         = %d",
 	  rm->appreturncode, rm->flags, rm->domainname, rm->returncode);
     return;
   default:
-    mwlog(MWLOG_DEBUG, "Unknown message type %#X ", (long *) mesg);
+    mwlog(MWLOG_DEBUG1, "Unknown message type %#X ", (long *) mesg);
     return;
   };
   
@@ -221,7 +224,7 @@ int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
   /* if we got an interrupt this is OK, else not.*/
   if (rc < 0) {
     if (errno == EINTR) {
-      mwlog(MWLOG_DEBUG, "msgrcv in _mw_ipc_getmessage interrupted");
+      mwlog(MWLOG_DEBUG1, "msgrcv in _mw_ipc_getmessage interrupted");
       return -errno;
     };
     mwlog(MWLOG_WARNING, "msgrcv in _mw_ipc_getmessage returned error %d", errno);
@@ -230,7 +233,7 @@ int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
   *len = rc;
   *len += sizeof(long);
 
-  mwlog(MWLOG_DEBUG, "_mw_ipc_getmessage a msgrcv(type=%d, flags=%d) returned %d and %d bytes of data", 
+  mwlog(MWLOG_DEBUG1, "_mw_ipc_getmessage a msgrcv(type=%d, flags=%d) returned %d and %d bytes of data", 
 	type, flags, rc, *len);
   
   _mw_dumpmesg((void *)data);
@@ -253,12 +256,12 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
     return qid;
   };
 
-  mwlog(MWLOG_DEBUG, "_mw_ipc_putmessage: got a request to send a message to  %#x on mqueue %d", dest, qid);
+  mwlog(MWLOG_DEBUG1, "_mw_ipc_putmessage: got a request to send a message to  %#x on mqueue %d", dest, qid);
   
   len -= sizeof(long);
   _mw_dumpmesg((void *) data);
   rc = msgsnd(qid, data, len, flags);
-  mwlog(MWLOG_DEBUG, "_mw_ipc_putmessage: msgsnd(dest=%d, msglen=%d, flags=%#x) returned %d", 
+  mwlog(MWLOG_DEBUG1, "_mw_ipc_putmessage: msgsnd(dest=%d, msglen=%d, flags=%#x) returned %d", 
 	dest, len, flags, rc);
   /*
     if we got an interrupt this is OK, else not.
@@ -266,7 +269,7 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
   */
   if (rc < 0) {
     if (errno == EINTR) {
-      mwlog(MWLOG_DEBUG, "msgrcv in _mw_ipc_putmessage interrupted");
+      mwlog(MWLOG_DEBUG1, "msgrcv in _mw_ipc_putmessage interrupted");
       return 0;
     };
     mwlog(MWLOG_WARNING, "msgrcv in _mw_ipc_putmessage returned error %d", errno);
@@ -294,7 +297,7 @@ int _mw_ipcsend_attach(int attachtype, char * name, int flags)
   Attach mesg;
   int rc, error, len;
 
-  mwlog(MWLOG_DEBUG,
+  mwlog(MWLOG_DEBUG1,
 	"CALL: _mw_ipcsend_attach (%d, \"%s\", 0x%x)",
 	attachtype, name, flags);
 
@@ -324,7 +327,7 @@ int _mw_ipcsend_attach(int attachtype, char * name, int flags)
   mesg.ipcqid = _mw_my_mqid();
 
   /* THREAD MUTEX BEGIN */
-  mwlog(MWLOG_DEBUG,
+  mwlog(MWLOG_DEBUG1,
 	"Sending an attach message to mwd name = %s, client = %s server = %s size = %d",
 	name, mesg.client?"TRUE":"FALSE", mesg.server?"TRUE":"FALSE", sizeof(mesg));
 
@@ -354,7 +357,7 @@ int _mw_ipcsend_attach(int attachtype, char * name, int flags)
   };
   
   
-  mwlog(MWLOG_DEBUG,
+  mwlog(MWLOG_DEBUG1,
 	"Received an attach message reply from mwd \
 name = %s, client = %s server = %s srvid=%#x cltid=%#x flags=0x%x rcode=%d",
 	name, mesg.client?"TRUE":"FALSE", mesg.server?"TRUE":"FALSE", 
@@ -397,7 +400,7 @@ int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force)
   Attach mesg;
   int rc, len;
 
-  mwlog(MWLOG_DEBUG, "CALL: _mw_ipcsend_detach_indirect()");
+  mwlog(MWLOG_DEBUG1, "CALL: _mw_ipcsend_detach_indirect()");
 
   mesg.mtype = DETACHREQ;
   mesg.server = FALSE;
@@ -422,7 +425,7 @@ int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force)
   if (force) mesg.flags |= MWFORCE;
 
   /* THREAD MUTEX BEGIN */
-  mwlog(MWLOG_DEBUG,
+  mwlog(MWLOG_DEBUG1,
 	"Sending a detach message client=%s server=%s", 
 	mesg.client?"TRUE":"FALSE", mesg.server?"TRUE":"FALSE");
   rc =  _mw_ipc_putmessage(0, (void *) &mesg, sizeof(mesg),0);
@@ -448,7 +451,7 @@ int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force)
     };
     
     
-    mwlog(MWLOG_DEBUG,
+    mwlog(MWLOG_DEBUG1,
 	  "Received a detach message reply from mwd client = %s server = %s rcode=%d",
 	  mesg.client?"TRUE":"FALSE", mesg.server?"TRUE":"FALSE", 
 	  mesg.returncode );
@@ -488,7 +491,7 @@ SERVICEID _mw_ipc_provide(char * servicename, int flags)
   strncpy(providemesg.svcname, servicename, MWMAXSVCNAME);
   providemesg.flags = flags;
 
-  mwlog(MWLOG_DEBUG, "Sending a provide message for service %s",  providemesg.svcname);
+  mwlog(MWLOG_DEBUG1, "Sending a provide message for service %s",  providemesg.svcname);
   /* THREAD MUTEX BEGIN */
   rc = _mw_ipc_putmessage(0, (char *) &providemesg, 
 			  sizeof(Provide),0);
@@ -508,7 +511,7 @@ SERVICEID _mw_ipc_provide(char * servicename, int flags)
 	   errno, strerror(errno));
     return -error;
   };
-  mwlog(MWLOG_DEBUG,"Received a provide reply with service id %d and rcode %d",
+  mwlog(MWLOG_DEBUG1,"Received a provide reply with service id %d and rcode %d",
 	providemesg.srvid, providemesg.returncode);
 
   if (providemesg.svcid < 0) return providemesg.returncode;
@@ -534,11 +537,11 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid)
     mwlog(MWLOG_ERROR, "mwunprovide() failed with rc=%d",rc);
     return rc;
   };
-  mwlog(MWLOG_DEBUG, "mwunprovide() sent request for unprovide %s with serviceid=%d to mwd", 
+  mwlog(MWLOG_DEBUG1, "mwunprovide() sent request for unprovide %s with serviceid=%d to mwd", 
 	servicename, svcid);
   len = MWMSGMAX;
   rc = _mw_ipc_getmessage((char *) &unprovidemesg, &len, UNPROVIDERPL, 0);
-  mwlog(MWLOG_DEBUG, "mwunprovide() got reply for unprovide %s with rcode=%d serviceid = %d(rc=%d)", 
+  mwlog(MWLOG_DEBUG1, "mwunprovide() got reply for unprovide %s with rcode=%d serviceid = %d(rc=%d)", 
 	servicename, unprovidemesg.returncode, svcid, rc);
   
   return unprovidemesg.returncode;
@@ -570,6 +573,7 @@ int _mwacallipc (char * svcname, char * data, int datalen,
   Call calldata;
   struct timeval tm;
 
+  memset (&calldata, '\0', sizeof(Call));
   errno = 0;
   svcid = _mw_get_service_byname(svcname,flags&MWCONV);
   if (svcid < 0) {
@@ -587,7 +591,7 @@ int _mwacallipc (char * svcname, char * data, int datalen,
   /* should this be a sequential number for each server(thread) */
   hdl = getnexthandle();
 
-  mwlog(MWLOG_DEBUG,
+  mwlog(MWLOG_DEBUG1,
 	"Doing mwacall() to service %s service id %#x with handle %d",
 	svcname, svcid, hdl);
   
@@ -642,9 +646,8 @@ int _mwacallipc (char * svcname, char * data, int datalen,
   };
   calldata.srvid = UNASSIGNED;
   calldata.svcid = svcid;
-  memcpy (calldata.service, svcname, MWMAXSVCNAME);
-  memcpy (calldata.origservice, svcname, MWMAXSVCNAME);
-  memset(calldata.domainname, '\0', MWMAXNAMELEN);
+  strncpy (calldata.service, svcname, MWMAXSVCNAME);
+  strncpy (calldata.origservice, svcname, MWMAXSVCNAME);
   calldata.forwardcount = 0;
 
   /* when properly implemented some flags will be used in the IPC call */
@@ -653,11 +656,11 @@ int _mwacallipc (char * svcname, char * data, int datalen,
   calldata.appreturncode = 0;
   calldata.returncode = 0;
   
-  mwlog(MWLOG_DEBUG, "Sending a ipcmessage to serviceid %#x service %s on server %#x my clientid %#x buffer at offset%d len %d ", svcid, calldata.service, dest, calldata.cltid, calldata.data, calldata.datalen);
+  mwlog(MWLOG_DEBUG1, "Sending a ipcmessage to serviceid %#x service %s on server %#x my clientid %#x buffer at offset%d len %d ", svcid, calldata.service, dest, calldata.cltid, calldata.data, calldata.datalen);
 
   rc = _mw_ipc_putmessage(dest, (char *) &calldata, sizeof (Call), 0);
   
-  mwlog(MWLOG_DEBUG, "_mw_ipc_putmessage returned %d handle is %d", rc, hdl);
+  mwlog(MWLOG_DEBUG1, "_mw_ipc_putmessage returned %d handle is %d", rc, hdl);
   if (rc >= 0) return hdl;
   return rc;
 };
@@ -685,7 +688,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
 
   /*  if (handle == 0) return -NMWNYI;*/
   
-  mwlog(MWLOG_DEBUG, "_mwfetch: called for handle %d", handle);
+  mwlog(MWLOG_DEBUG1, "_mwfetch: called for handle %d", handle);
 
   /* first we check in another call to _mwfetch() retived it and placed 
      in the internal queue.*/
@@ -701,7 +704,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
     /* get the next message of type SVCREPLY of teh IPC queue. */
     rc = _mw_ipc_getmessage(buffer, len , SVCREPLY, flags);
     if (rc != 0) {
-      mwlog(MWLOG_DEBUG, "_mwfetch: returned with error code %d", rc);
+      mwlog(MWLOG_DEBUG1, "_mwfetch: returned with error code %d", rc);
       free (buffer);
       return rc;
     };
@@ -716,11 +719,11 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
          we were waiting for, we do not test deadline. */
       if ( ((callmesg->issued + callmesg->timeout/1000) < tv.tv_sec) &&  
 	   ((callmesg->uissued + callmesg->timeout%1000) < tv.tv_usec) ) {
-	mwlog(MWLOG_DEBUG, "Got a reply with handle %d, That had expired, junking it.",
+	mwlog(MWLOG_DEBUG1, "Got a reply with handle %d, That had expired, junking it.",
 	      callmesg->handle);
       };
       
-      mwlog(MWLOG_DEBUG, "Got a reply I was not awaiting with handle %d, enqueuing it internally", callmesg->handle);
+      mwlog(MWLOG_DEBUG1, "Got a reply I was not awaiting with handle %d, enqueuing it internally", callmesg->handle);
       if (pushQueue(&replyQueue, buffer) != 0) {
 	mwlog(MWLOG_ERROR, "ABORT: failed in enqueue on internal buffer, this can't happen");
 	exit(8);
@@ -732,7 +735,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
   };
   
   /* we now have the requested reply */
-  mwlog(MWLOG_DEBUG,"_mwfetchipc: Got a message of type %#x handle %d ", 
+  mwlog(MWLOG_DEBUG1,"_mwfetchipc: Got a message of type %#x handle %d ", 
 	callmesg->mtype, callmesg->handle);
   /* Retriving info from the message 
      If fastpath we return pointers to the shm area, 
@@ -752,7 +755,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
 
   /* deadline info is invalid even though I can provide it */
 
-  mwlog(MWLOG_DEBUG, "_mwfetch: returned with rc=%d and with %d bytes of data", 
+  mwlog(MWLOG_DEBUG1, "_mwfetch: returned with rc=%d and with %d bytes of data", 
 	rc, callmesg->datalen);
   return callmesg->returncode;
 };
@@ -779,14 +782,14 @@ int _mw_shutdown_mwd(int delay)
   ipcmain = _mw_ipcmaininfo();
   if (ipcmain == NULL) return -EADDRNOTAVAIL;
 
-  mwlog(MWLOG_DEBUG, "CALL: _mw_shutdown:mwd(%d)", delay);
+  mwlog(MWLOG_DEBUG1, "CALL: _mw_shutdown:mwd(%d)", delay);
 
   mesg.mtype = ADMREQ;
   mesg.opcode = ADMSHUTDOWN;
   mesg.cltid = _mw_get_my_clientid();
 
   /* THREAD MUTEX BEGIN */
-  mwlog(MWLOG_DEBUG,
+  mwlog(MWLOG_DEBUG1,
 	"Sending a shutdown message to mwd");
 
   rc =  _mw_ipc_putmessage(0, (void *) &mesg, sizeof(mesg),0);

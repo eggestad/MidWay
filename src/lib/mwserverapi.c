@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/08/31 21:53:42  eggestad
+ * DEBUG level set propper. fix for NOREPLY
+ *
  * Revision 1.2  2000/07/20 19:30:19  eggestad
  * - major change to mwreply() for multiple replies.
  * - prototype fixup.
@@ -201,7 +204,7 @@ int mwprovide(char * service, int (*svcfunc) (mwsvcinfo*), int flags)
 
   install_sigactions(0);
 
-  mwlog(MWLOG_DEBUG, "mwprovide() providing %s to mwd", 
+  mwlog(MWLOG_DEBUG1, "mwprovide() providing %s to mwd", 
 	service);
   svcid = _mw_ipc_provide(service,flags);
     
@@ -243,7 +246,7 @@ int mwunprovide(char * service)
   rc = _mw_ipc_unprovide(service,  svcid);
   popservice(svcid);
   provided--;
-  mwlog(MWLOG_DEBUG, "mwunprovide() returned %d");
+  mwlog(MWLOG_DEBUG1, "mwunprovide() returned %d");
   return rc;
 }
 
@@ -332,7 +335,7 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
 	  callmesg->cltid, errno);
     return -errno;
   } 
-  mwlog(MWLOG_DEBUG, "mwreply sent to client %d rc= %d", 
+  mwlog(MWLOG_DEBUG1, "mwreply sent to client %d rc= %d", 
 	callmesg->cltid, callmesg->returncode);
 
   /* if the more flag is set, and multiple flag in the callmesg is
@@ -423,7 +426,7 @@ int mwforward(char * svcname, char * data, int len, int flags)
 	  callmesg->cltid, errno);
     return -errno;
   } 
-  mwlog(MWLOG_DEBUG, "mwreply sent to client %d rc= %d", 
+  mwlog(MWLOG_DEBUG1, "mwreply sent to client %d rc= %d", 
 	callmesg->cltid, callmesg->returncode);
 
   _mw_requestpending = 0;
@@ -456,7 +459,6 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   _mw_set_my_status(NULL);
 
   rc = _mw_ipc_getmessage(buffer, &mesglen, SVCCALL, flags);
-  _mw_requestpending = 1;
 
   if (rc < 0) {
     /* mwd will notify us about shutdown by removing our message queue.*/
@@ -473,8 +475,11 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   };
 
   _mw_set_my_status(callmesg->service);
+  if (!(callmesg->flags & MWNOREPLY) )
+    _mw_requestpending = 1;
+
   
-  mwlog(MWLOG_DEBUG,
+  mwlog(MWLOG_DEBUG1,
 	"mwfetch: got a CALL/FORWARD to service \"%s\" id %#x from clt:%#x srv:%#x", 
 	callmesg->service, callmesg->svcid, 
 	callmesg->cltid, callmesg->srvid);
@@ -535,7 +540,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
     mwlog (MWLOG_WARNING, "Got a service request that had already expired by %d.%3.3d seconds.", 
 	   starttv.tv_sec - svcreqinfo->deadline,  
 	   (starttv.tv_usec - svcreqinfo->udeadline)/1000);
-    mwlog(MWLOG_DEBUG, "issued %d.%d timeout %d now %d.%d deadline %d.%d",
+    mwlog(MWLOG_DEBUG1, "issued %d.%d timeout %d now %d.%d deadline %d.%d",
 	  callmesg->issued, callmesg->uissued, callmesg->timeout,
 	  starttv.tv_sec ,  starttv.tv_usec, 
 	  svcreqinfo->deadline, svcreqinfo->udeadline);
@@ -583,7 +588,7 @@ int _mwCallCServiceFunction(mwsvcinfo * svcinfo)
   serviceentry * svcent;
   struct ServiceFuncEntry * serviceptr;
 
-  mwlog(MWLOG_DEBUG, "calling C service routine for %s(%d) (it had waited %d millisecs)", 
+  mwlog(MWLOG_DEBUG1, "calling C service routine for %s(%d) (it had waited %d millisecs)", 
 	callmesg->service, callmesg->svcid, waitmsec);
   
   if (serviceFuncList == NULL) {
@@ -613,7 +618,7 @@ int _mwCallCServiceFunction(mwsvcinfo * svcinfo)
      I think that the caller should test regurarly if the called server
      if up and running. Maybe we should add clientid and handle to status.
   */
-  mwlog(MWLOG_DEBUG, "call on service %s(%d) returned %d", 
+  mwlog(MWLOG_DEBUG1, "call on service %s(%d) returned %d", 
 	callmesg->service, callmesg->svcid, rc);
   
   return rc;  
@@ -633,7 +638,7 @@ int mwservicerequest(int flags)
   /* it will return on failure or interrupt.
      if noblovking return, with errno, else do a recurive call until success.
   */
-  mwlog(MWLOG_DEBUG, "mwGetServiceRequest(%#x) returned %#X with errno = %d", 
+  mwlog(MWLOG_DEBUG1, "mwGetServiceRequest(%#x) returned %#X with errno = %d", 
 	flags, svcinfo, errno);
   
   /*  if (svcinfo == NULL && (flags & MWNOBLOCK)) return -errno; */
@@ -661,7 +666,7 @@ int mwMainLoop(int flags)
   
   while(1) {
     counter++;
-    mwlog(MWLOG_DEBUG, "std MailLoop begining for the %d time.", counter);
+    mwlog(MWLOG_DEBUG1, "std MailLoop begining for the %d time.", counter);
     rc = mwservicerequest(flags & ! MWNOBLOCK);
     if ( (rc == -EINTR) && (flags & MWSIGRST)) continue;
     if (rc < 0) return rc;

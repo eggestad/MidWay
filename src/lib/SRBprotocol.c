@@ -1,19 +1,19 @@
 /*
-  MidWay
+  The MidWay API
   Copyright (C) 2000 Terje Eggestad
 
-  MidWay is free software; you can redistribute it and/or
-  modify it under the terms of the GNU General Public License as
+  The MidWay API is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Library General Public License as
   published by the Free Software Foundation; either version 2 of the
   License, or (at your option) any later version.
   
-  MidWay is distributed in the hope that it will be useful,
+  The MidWay API is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-  General Public License for more details.
+  Library General Public License for more details.
   
-  You should have received a copy of the GNU General Public License 
-  along with the MidWay distribution; see the file COPYING.  If not,
+  You should have received a copy of the GNU Library General Public
+  License along with the MidWay distribution; see the file COPYING. If not,
   write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
   Boston, MA 02111-1307, USA. 
 */
@@ -24,6 +24,12 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.3  2001/09/16 00:07:14  eggestad
+ * * Licence header was missing
+ * * trace api changes inorder to trace explicitly and to a separate file.
+ * * the encodeing part of SRBsendmessage taken out since SRBsendmessage
+ *   couldn't be used for UDP
+ *
  * Revision 1.2  2000/09/21 18:24:25  eggestad
  * - added _mw_srb_checksrbcall()
  * - deadline now set correctly in srbsendcall()
@@ -50,20 +56,92 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <urlencode.h>
 #include <mwclientapi.h>
 
-int trace = 1;
+static char * tracefilename = NULL;
+static FILE * tracefile  = NULL;
 
+int _mw_srb_traceonfile(FILE * fp)
+{
+  if (fp == NULL) return -1;
+  if (tracefilename && tracefile) {
+    free(tracefilename);
+    fclose(tracefile);
+  }
+  tracefile = fp;
+  return 0;
+};
+/* one little trick; if the filename is set but not open,
+   _mw_srb_trace() will try to open. */
+
+int _mw_srb_traceon(char * path)
+{
+  if ( (tracefilename)  && (tracefilename != path) ) {
+    free(tracefilename);
+    tracefilename == NULL;
+  };
+
+  if (path == NULL) {
+    tracefilename = getenv("SRB_TRACE_FILE");
+  } else {
+    if (tracefilename != path)
+      tracefilename = strdup(path);
+  };
+  
+  if (tracefilename  != NULL) {
+    tracefile = fopen(tracefilename, "a");
+  } else {
+    errno = EINVAL;
+    return -1;
+  };
+  
+  if (!tracefile) {
+    mwlog(MWLOG_ERROR, "Failed to open srb trace file \"%s\"", tracefilename);
+    return -1;
+  };
+  return 0;
+};
+
+
+int _mw_srb_traceoff(void )
+{
+  if (tracefilename != NULL) {
+    tracefilename = NULL;
+  };
+
+  if (tracefile != NULL) {
+    fclose(tracefile);
+    tracefile = NULL;
+  };
+  return 0;
+};
 
 void _mw_srb_trace(int dir_in, int fd, char * message, int messagelen)
 {
-  if (!trace) return;
+  if (tracefilename && !tracefile)
+    _mw_srb_traceon(tracefilename);
 
   if (dir_in) dir_in = '>';
   else dir_in = '<';
+
   if (messagelen <= 0) messagelen = strlen(message);
-  if (fd > -1) {
-    fprintf (stdout, "%c%d (%d) %.*s\n",dir_in, fd, messagelen, messagelen, message); 
-  } else {
-    fprintf (stdout, "%c%d %.*s\n",dir_in, messagelen, messagelen, message); 
+  
+  if (tracefile) {
+    if (fd > -1) {
+      fprintf (tracefile, "%c%d (%d) %.*s\n",
+	       dir_in, fd, messagelen, messagelen, message); 
+    } else {
+      fprintf (tracefile, "%c (%d) %.*s\n",dir_in, messagelen, messagelen, message); 
+    };
+    fflush(tracefile);
+  };
+
+  if (mwsetloglevel(-1) >= MWLOG_DEBUG) {
+    if (fd > -1) {
+      mwlog(MWLOG_DEBUG, "%c%d (%d) %.*s\n",
+	       dir_in, fd, messagelen, messagelen, message); 
+    } else {
+      mwlog(MWLOG_DEBUG, "%c (%d) %.*s\n",dir_in, messagelen, messagelen, message); 
+    };
+   
   };
 };
 
@@ -92,6 +170,7 @@ static struct reasonmap srbreasons[] = {
   { SRB_PROTO_NOTNOTIFICATION,	"412: This message command is not accepted as a notification" },
   { SRB_PROTO_NOTREQUEST,	"413: This message command is not accepted as a request" },
   { SRB_PROTO_NO_SUCH_SERVICE,	"430: There are no service wich this given name" },
+  { SRB_PROTO_NOGATEWAY_AVAILABLE, "440: No instance with given name available" }, 
   { SRB_PROTO_SERVICE_FAILED,	"431: The service routine returned NOT OK" },
   { SRB_PROTO_GATEWAY_ERROR,	"500: The Gateway had an internal error" },
   { SRB_PROTO_DISCONNECTED,	"501: You are already disconnected" },
@@ -135,7 +214,8 @@ SRBmessage * _mw_srbdecodemessage(char * message)
   SRBmessage * srbmsg;
   int commandlen;
 
-  /* message may be both \r\n terminated or, \0 terminated. */
+  /* message may be both end (\r\n) terminated or, \0 terminated.  if
+     we find the end marker, we temporary set it to \0 */
   szTmp = strstr(message, "\r\n");
   if (szTmp != NULL) *szTmp = '\0';
 
@@ -143,7 +223,8 @@ SRBmessage * _mw_srbdecodemessage(char * message)
     if ( (ptr = strchr(message, SRB_RESPONSEMARKER)) == NULL)
       if ( (ptr = strchr(message, SRB_NOTIFICATIONMARKER)) == NULL) {
 	mwlog(MWLOG_DEBUG1, "_mw_srbdecodemessage: unable to find marker");
-	      return NULL;
+	errno = EBADMSG;
+	return NULL;
       }
   commandlen = ptr - message;
   srbmsg = malloc(sizeof (SRBmessage));
@@ -153,6 +234,7 @@ SRBmessage * _mw_srbdecodemessage(char * message)
   srbmsg->marker = *ptr;
   
   srbmsg->map = urlmapdecode(message+commandlen+1);
+  /* replacing end marker */
   if (szTmp != NULL) *szTmp = '\r';
 
   mwlog(MWLOG_DEBUG3, "_mw_srbdecodemessage: command=%*.*s marker=%c", 
@@ -169,9 +251,37 @@ SRBmessage * _mw_srbdecodemessage(char * message)
  **********************************************************************/
 char * _mw_srbmessagebuffer = NULL;
 
-/* _mw_sendmessage append \r\n to all messages, and traces if
-   needed.  . We really assumes that message is less than
-   SRBMESSAGEMAXLEN long */
+/* _mw_srbencodemessage encodes messages and append \r\n, return actuall length
+   or -1 and errno. usually E2BIG if the buffer is to small  */ 
+int _mw_srbencodemessage(SRBmessage * srbmsg, char * buffer, int bufflen)
+{
+  int len1, len2;
+
+  if (bufflen < MWMAXSVCNAME+2) {
+    errno = EMSGSIZE;
+    return -1;
+  };
+  
+  len1 = sprintf(buffer, "%.*s%c", MWMAXSVCNAME, 
+		srbmsg->command, srbmsg->marker);
+  
+  len2 = urlmapnencode(buffer+len1, SRBMESSAGEMAXLEN-len1, 
+		       srbmsg->map);
+  
+  if (len2 == -1) return -1;
+  len1 += len2;
+  
+  if (len1 > bufflen - 2) {
+    errno = EMSGSIZE;
+    return -1;
+  };
+  
+  len1 += sprintf(buffer+len1, "\r\n");
+  return len1;
+};
+
+/* _mw_sendmessage traces if needed.  . We really assumes that message
+   is less than SRBMESSAGEMAXLEN long */
 int _mw_srbsendmessage(int fd, SRBmessage * srbmsg)
 {
   int len;
@@ -185,19 +295,12 @@ int _mw_srbsendmessage(int fd, SRBmessage * srbmsg)
     /* MUTEX ENDS */
     return -ENOMEM;
   };
-  len = sprintf(_mw_srbmessagebuffer, "%.*s%c", MWMAXSVCNAME, 
-		srbmsg->command, srbmsg->marker);
-  len += urlmapnencode(_mw_srbmessagebuffer+len, SRBMESSAGEMAXLEN-len, 
-		       srbmsg->map);
-  
-  _mw_srb_trace (0, fd, _mw_srbmessagebuffer, len);
 
-  if (len < SRBMESSAGEMAXLEN - 2)
-    len += sprintf(_mw_srbmessagebuffer+len, "\r\n");
-  else {
-    /* MUTEX ENDS */
-    return -E2BIG;
-  };
+  len = _mw_srbencodemessage(srbmsg, _mw_srbmessagebuffer, SRBMESSAGEMAXLEN+1);
+  if (len == -1) return -errno;
+
+  _mw_srb_trace (SRB_TRACE_OUT, fd, _mw_srbmessagebuffer, len);
+  
   errno = 0;
   len = write(fd, _mw_srbmessagebuffer, len);
   mwlog(MWLOG_DEBUG3, "_mw_srbsendmessage: write returned %d errno=%d", len, errno);
@@ -243,7 +346,7 @@ int _mw_srbsendreject_sz(int fd, char *message, int offset)
 
   strncpy(srbmsg.command, SRB_REJECT, MWMAXSVCNAME);
   srbmsg.marker = SRB_NOTIFICATIONMARKER;
-
+  srbmsg.map = NULL;
   srbmsg.map = urlmapaddi(srbmsg.map, SRB_REASONCODE, SRB_PROTO_FORMAT);
   srbmsg.map = urlmapadd(srbmsg.map, SRB_REASON, _mw_srb_reason(SRB_PROTO_FORMAT));
   srbmsg.map = urlmapadd(srbmsg.map, SRB_MESSAGE, message);

@@ -23,6 +23,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /* 
  * $Log$
+ * Revision 1.2  2001/10/03 22:55:22  eggestad
+ * plugged file desc leak
+ *
  * Revision 1.1  2001/09/15 23:40:09  eggestad
  * added the broker daemon
  *
@@ -122,13 +125,13 @@ void read_from_client(int fd, struct fd_info * cinfo)
     error("received a message exceeding %d bytes, discarding and disconnecting", 
 	  SRBMESSAGEMAXLEN);
     _mw_srbsendreject_sz(fd, "Message too long", SRBMESSAGEMAXLEN);
-    goto err;
+    goto clean;
   };
   srbmsg = _mw_srbdecodemessage(buffer);
   if (srbmsg == NULL) {
     error("received an undecodable message");
     _mw_srbsendreject_sz(fd, "Expected SRB INIT?....", 0);
-    goto err;
+    goto clean;
   };
   _mw_srb_trace(SRB_TRACE_IN, fd, buffer, buflen);
 
@@ -143,26 +146,21 @@ void read_from_client(int fd, struct fd_info * cinfo)
     
     debug("processing a SRB READY request");
 
-    strcpy(srbmsg_reply.command, SRB_READY);
-    srbmsg_reply.marker = SRB_RESPONSEMARKER;
-    srbmsg_reply.map = NULL;
+    _mw_srb_init(&srbmsg_reply, SRB_READY, SRB_RESPONSEMARKER, NULL);
 
-    srbmsg_reply.map = urlmapadd(srbmsg_reply.map, SRB_VERSION, NULL);
-    srbmsg_reply.map = urlmapadd(srbmsg_reply.map, SRB_DOMAIN, NULL);
-    srbmsg_reply.map = urlmapadd(srbmsg_reply.map, SRB_INSTANCE, NULL);
 
     for (gwinfo = gw_root; gwinfo != NULL; gwinfo = gwinfo->next) {
       sprintf(ver, "%d.%d",   gwinfo->majorversion, gwinfo->minorversion);
-      urlmapset(srbmsg_reply.map, SRB_VERSION, ver);
-      urlmapset(srbmsg_reply.map, SRB_DOMAIN, gwinfo->domain);
-      urlmapset(srbmsg_reply.map, SRB_INSTANCE, gwinfo->instance);
+      _mw_srb_setfield(&srbmsg_reply, SRB_VERSION, ver);
+      _mw_srb_setfield(&srbmsg_reply, SRB_DOMAIN, gwinfo->domain);
+      _mw_srb_setfield(&srbmsg_reply, SRB_INSTANCE, gwinfo->instance);
       rc = _mw_srbsendmessage(fd, &srbmsg_reply);
     };
-    urlmapset(srbmsg_reply.map, SRB_VERSION, SRBPROTOCOLVERSION);
-    urlmapdel(srbmsg_reply.map, SRB_DOMAIN);
-    urlmapdel(srbmsg_reply.map, SRB_INSTANCE);
-    srbmsg_reply.map = urlmapadd(srbmsg_reply.map, SRB_AGENT, AGENT);
-    srbmsg_reply.map = urlmapadd(srbmsg_reply.map, SRB_AGENTVERSION, RCSName);
+    _mw_srb_setfield(&srbmsg_reply, SRB_VERSION, SRBPROTOCOLVERSION);
+    _mw_srb_delfield(&srbmsg_reply, SRB_DOMAIN);
+    _mw_srb_delfield(&srbmsg_reply, SRB_INSTANCE);
+    _mw_srb_setfield(&srbmsg_reply, SRB_AGENT, AGENT);
+    _mw_srb_setfield(&srbmsg_reply, SRB_AGENTVERSION, RCSName);
     rc = _mw_srbsendmessage(fd, &srbmsg_reply);
     
     return;
@@ -172,12 +170,12 @@ void read_from_client(int fd, struct fd_info * cinfo)
   if (strcmp(srbmsg->command, SRB_INIT) != 0) {
     error("received a message with command %s not %s", srbmsg->command, SRB_INIT);
     _mw_srbsendreject(fd, srbmsg, NULL, NULL, SRB_PROTO_NOINIT);
-    goto err;
+    goto clean;
   };
   if (srbmsg->marker !=  SRB_REQUESTMARKER) {
     error("received a message with command %s but not a request", srbmsg->command);
     _mw_srbsendreject(fd, srbmsg, NULL, NULL, SRB_PROTO_NOTREQUEST);
-    goto err;
+    goto clean;
   };
   
   n = urlmapget(srbmsg->map, SRB_DOMAIN);
@@ -189,7 +187,7 @@ void read_from_client(int fd, struct fd_info * cinfo)
   if ( (instance == NULL)  && (domain == NULL) ){
     error("received a %s message without domain", srbmsg->command);
     _mw_srbsendreject(fd, srbmsg, SRB_INSTANCE, NULL, SRB_PROTO_FIELDMISSING);
-    goto err;
+    goto clean;
   };
   
  retry:    
@@ -200,12 +198,12 @@ void read_from_client(int fd, struct fd_info * cinfo)
     error("client requested domain %s & instance %s, but not available", 
 	  domain?domain:"", instance?instance:"");     
     _mw_srbsendreject(fd, srbmsg, NULL, NULL, SRB_PROTO_NOGATEWAY_AVAILABLE); 
-    return;
-    // goto err; // do not disconnect here
+    goto clean; // do not disconnect here
   };
   
-   _mw_srb_trace(SRB_TRACE_OUT, gwinfo->fd, buffer, buflen);
+  _mw_srb_trace(SRB_TRACE_OUT, gwinfo->fd, buffer, buflen);
 
+  debug("about to send fd with SRB init to gw");
   // markfd(fd);
   rc = sendfd(fd, gwinfo->fd, buffer, buflen); // must be moved to read_client();
   assert(rc == buflen);
@@ -214,15 +212,12 @@ void read_from_client(int fd, struct fd_info * cinfo)
     goto retry;
   };
 
+  debug("Ok fd passed on cleaning up client");
   /* ok fd is now passwd to gateway, and we're closing. */
-  unmarkfd(fd);
-  close(fd);
-  return;
   
+ clean:
 
- err:
-
-  if (srbmsg) _mw_srbsendmessage(fd, srbmsg);
+  del_c(fd);
   unmarkfd(fd);
   close(fd);
   if (srbmsg && srbmsg->map) urlmapfree(srbmsg->map);

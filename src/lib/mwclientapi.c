@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2003/06/26 17:04:08  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.10  2002/09/05 23:25:33  eggestad
  * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
  * MWURL is now used in addition to MWADDRESS
@@ -242,7 +245,7 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
   if ( (data == NULL) || (len == NULL) || (appreturncode == NULL) )
     return -EINVAL;
 
-  DEBUG1("mwfetch called handle = %#x", handle);
+  DEBUG1("mwfetch called handle = %d", handle);
 
   if (!_mwaddress) {
     DEBUG1("not attached");

@@ -24,7 +24,7 @@ LIBS = libMidWay.a libMidWay.so
 all: $(LIBS) testmidway
 
 clean: 
-	rm -f $(LIBS) $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) testmidway testmidway.???????? core 
+	rm -f $(LIBS) $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) testmidway testmidway.???????? core libMidWay.so*
 
 distclean:
 	rm -f Makefile *~

@@ -10,7 +10,7 @@ SUBDIRS = man1 man3 man7 man8
 all: 
 	@ for dir in $(SUBDIRS); do\
 	(cd $$dir; $(MAKE) $@);\
-	if [[ $$? -ne 0 ]]; then exit 3; fi\
+	if [ $$? -ne 0 ]; then exit 3; fi\
 	done;
 
 clean:
@@ -27,7 +27,7 @@ distclean:: clean
 install::
 	@ for dir in $(SUBDIRS); do\
 	(cd $$dir; $(MAKE) $@);\
-	if [[ $$? -ne 0 ]]; then exit 3; fi\
+	if [ $$? -ne 0 ]; then exit 3; fi\
 	done;
 
 uninstall::

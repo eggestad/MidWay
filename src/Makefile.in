@@ -13,7 +13,7 @@ DIRS = liburlencode lib mwd mwadm mwserver mwgwd mwcall mwbd test
 all: 
 	@ for dir in $(DIRS); do\
 	(cd $$dir; $(MAKE) $@);\
-	if [[ $$? -ne 0 ]]; then exit 3; fi\
+	if [ $$? -ne 0 ]; then exit 3; fi\
 	done;
 
 clean: 
@@ -41,7 +41,7 @@ test:
 depend:
 	@ for dir in $(DIRS); do\
 	(cd $$dir; $(MAKE) $@);\
-	if [[ $$? -ne 0 ]]; then exit 3; fi\
+	if [ $$? -ne 0 ]; then exit 3; fi\
 	done;
 
 install: all

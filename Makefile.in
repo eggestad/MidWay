@@ -12,7 +12,7 @@ SUBDIRS = src html-doc man
 all: 
 	@ for dir in $(SUBDIRS); do\
 	(cd $$dir; $(MAKE) $@);\
-	if [[ $$? -ne 0 ]]; then exit 3; fi\
+	if [ $$? -ne 0 ]; then exit 3; fi\
 	done;
 
 clean::
@@ -40,7 +40,7 @@ install:: all
 	if [ ! -d @mandir@/man8 ]; then install -d @mandir@/man8; fi
 	@ for dir in $(SUBDIRS); do\
 	(cd $$dir; $(MAKE) $@);\
-	if [[ $$? -ne 0 ]]; then exit 3; fi\
+	if [ $$? -ne 0 ]; then exit 3; fi\
 	done;
 	@INSTALL@ -m 644 include/MidWay.h @includedir@/MidWay.h
 	@INSTALL@ -m 744 scripts/midway.rc @sbindir@/midway.rc
@@ -53,7 +53,7 @@ uninstall:
 
 depend:
 	(cd src; $(MAKE) $@);\
-	if [[ $$? -ne 0 ]]; then exit 3; fi
+	if [ $$? -ne 0 ]; then exit 3; fi
 
 tgz: distclean
 	rm -f MidWay-@MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@

@@ -24,6 +24,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.5  2001/10/05 14:34:19  eggestad
+ * fixes or RH6.2
+ *
  * Revision 1.4  2001/10/03 22:39:30  eggestad
  * many bugfixes: memleak, propper shutdown, +++
  *
@@ -116,12 +119,12 @@ int tcpstartlisten(int port, int role)
 
   /* at some point we shall be able to specify which local interfaces
      we listen on but for now we use any. */
-  conn->ip4.sin_addr.s_addr = INADDR_ANY ;
-  conn->ip4.sin_port = htons(port);
-  conn->ip4.sin_family = AF_INET;
+  conn->addr.ip4.sin_addr.s_addr = INADDR_ANY ;
+  conn->addr.ip4.sin_port = htons(port);
+  conn->addr.ip4.sin_family = AF_INET;
   len = sizeof(struct sockaddr_in);
 
-  rc = bind(s, (struct sockaddr *) &conn->ip4, len);
+  rc = bind(s, (struct sockaddr *) &conn->addr.ip4, len);
   if (rc == -1) {
     mwlog(MWLOG_ERROR, "Attempted to bind socket to port %d but failed, reason %s", 
 	  port, strerror(errno));
@@ -177,7 +180,7 @@ static int newconnection(int listensocket)
   conn->messagebuffer = (char *) malloc(SRBMESSAGEMAXLEN+1);
   
   if (sain.sin_family == AF_INET) {
-    memcpy(&conn->ip4, (struct sockaddr *) &sain, len);
+    memcpy(&conn->addr.ip4, (struct sockaddr *) &sain, len);
   };
 
   _mw_srbsendready(fd, globals.mydomain);
@@ -408,8 +411,8 @@ void * tcpservermainloop(void * param)
       } else {
 	mwlog (MWLOG_ERROR, 
 	       "a listen socket (fd=%d) %s:%d has dissapeared, really can't happen.",
-	       fd, inet_ntoa(conn->ip4.sin_addr), 
-	       ntohs(conn->ip4.sin_port));
+	       fd, inet_ntoa(conn->addr.ip4.sin_addr), 
+	       ntohs(conn->addr.ip4.sin_port));
 	* (int *) param = -1;
 	return param;
       };

@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2001/10/05 14:34:19  eggestad
+ * fixes or RH6.2
+ *
  * Revision 1.1  2001/09/15 23:40:09  eggestad
  * added the broker daemon
  * 
@@ -56,7 +59,7 @@ typedef struct {
     struct sockaddr_in  ip4;
     struct sockaddr_in6 ip6;
     struct sockaddr_un un;
-  } ;
+  } addr;
   int    mtu;
   time_t connected;
   time_t lasttx;

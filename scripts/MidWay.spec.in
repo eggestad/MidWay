@@ -32,8 +32,9 @@ make
 rm -rf $RPM_BUILD_ROOT
 make install
 mkdir ${RPM_BUILD_ROOT}/etc
-mkdir ${RPM_BUILD_ROOT}/etc/init.d
-sed s+${RPM_BUILD_ROOT}++g ${RPM_BUILD_ROOT}/usr/sbin/midway.rc > ${RPM_BUILD_ROOT}/etc/init.d/mwbd
+mkdir ${RPM_BUILD_ROOT}/etc/rc.d
+mkdir ${RPM_BUILD_ROOT}/etc/rc.d/init.d
+sed s+${RPM_BUILD_ROOT}++g ${RPM_BUILD_ROOT}/usr/sbin/midway.rc > ${RPM_BUILD_ROOT}/etc/rc.d/init.d/mwbd
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -58,7 +59,7 @@ rm /usr/lib/libMidWay.so
 %defattr(-,root,root)
 %doc README NOTES ChangeLog html-doc
 
-%attr(555,root,root) /etc/init.d/mwbd
+%attr(555,root,root) /etc/rc.d/init.d/mwbd
 /usr/bin/*
 /usr/sbin/*
 /usr/lib/libMidWay.so.0.11

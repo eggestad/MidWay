@@ -24,6 +24,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /* 
  * $Log$
+ * Revision 1.2  2001/10/05 14:34:19  eggestad
+ * fixes or RH6.2
+ *
  * Revision 1.1  2001/09/15 23:40:09  eggestad
  * added the broker daemon
  *
@@ -36,6 +39,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #include <netdb.h>
 #include <net/if.h>
 #include <netinet/in.h>
@@ -51,7 +55,7 @@ static struct ip_mreq mr;
 
 int _mw_setmcastaddr(void)
 {
-  mr.imr_interface.s_addr = (in_addr_t) htonl(INADDR_ANY);
+  mr.imr_interface.s_addr = (uint32_t) htonl(INADDR_ANY);
 
   inet_pton(AF_INET, MCASTADDRESS_V4 , &mr.imr_multiaddr);
 

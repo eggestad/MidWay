@@ -23,6 +23,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.4  2001/10/05 14:34:19  eggestad
+ * fixes or RH6.2
+ *
  * Revision 1.3  2001/10/03 22:36:31  eggestad
  * bugfixes
  *
@@ -184,7 +187,7 @@ char * conn_getpeername (int fd)
   struct hostent *hent ;
   int len  = 0;
 
-  ipadr = inet_ntoa(connections[fd].ip4.sin_addr);
+  ipadr = inet_ntoa(connections[fd].addr.ip4.sin_addr);
   hent = gethostbyaddr(ipadr, strlen(ipadr), AF_INET);
   if (hent == NULL)
     ipname = ipadr;
@@ -197,7 +200,7 @@ char * conn_getpeername (int fd)
     len = sprintf(name, "gateway %d at ", connections[fd].gateway & MWINDEXMASK);
   };
   sprintf(name+len, "%s (%s) port %d", ipname, ipadr,
-	  ntohs(connections[fd].ip4.sin_port));
+	  ntohs(connections[fd].addr.ip4.sin_port));
   return name;
 };
 
@@ -225,7 +228,7 @@ char * conn_getclientpeername (CLIENTID cid)
 	cid, fd, connections[fd].role, SRB_ROLE_CLIENT);
   if (connections[fd].role != SRB_ROLE_CLIENT) return NULL;
 
-  ipadr = inet_ntoa(connections[fd].ip4.sin_addr);
+  ipadr = inet_ntoa(connections[fd].addr.ip4.sin_addr);
   hent = gethostbyaddr(ipadr, strlen(ipadr), AF_INET);
   if (hent == NULL)
     ipname = ipadr;
@@ -235,7 +238,7 @@ char * conn_getclientpeername (CLIENTID cid)
   sprintf(name, "client %d at %s (%s) port %d", 
 	  MWINDEXMASK & connections[fd].client, 
 	  ipname, ipadr,
-	  ntohs(connections[fd].ip4.sin_port));
+	  ntohs(connections[fd].addr.ip4.sin_port));
   return name;
 };
   

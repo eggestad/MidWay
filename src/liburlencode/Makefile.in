@@ -14,13 +14,11 @@ COBJS=urlencoded.o urlfieldlist.o urlmap.o
 
 all:  $(LIBS)  test-liburlencode
 
-xall:  $(LIBS) liburl++.a test-liburlencode
-
 clean: 
-	rm -f $(LIBS) *.o
+	rm -f $(LIBS) *.o test-liburlencode
 
 distclean:
-	rm -f Makefile *~
+	rm -f Makefile *~ 
 
 install:
 	$(INSTALL)  -m 644 liburlencode.a @libdir@/liburlencode.a

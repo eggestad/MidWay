@@ -23,6 +23,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /* 
  * $Log$
+ * Revision 1.2  2001/10/05 14:34:19  eggestad
+ * fixes or RH6.2
+ *
  * Revision 1.1  2001/09/15 23:40:09  eggestad
  * added the broker daemon
  *
@@ -34,6 +37,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <assert.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>
 #include <netinet/in.h>

@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2001/09/15 23:59:05  eggestad
+ * Proper includes and other clean compile fixes
+ *
  * Revision 1.4  2000/09/21 18:36:36  eggestad
  * server crashed if IPC client dissapeared while service call was prosessed.
  *
@@ -44,12 +47,14 @@
 static char * RCSId = "$Id$";
 static char * RCSName = "$Name$"; /* CVS TAG */
 
+#include <string.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/shm.h>
 #include <sys/time.h>
+#include <signal.h>
 
 #include <MidWay.h>
 #include <ipctables.h>

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2001/09/15 23:59:05  eggestad
+ * Proper includes and other clean compile fixes
+ *
  * Revision 1.7  2001/05/12 18:00:31  eggestad
  * changes to multiple reply handling, MWMULTIPLE are no langer sent to server, replies are cat'ed in client
  *
@@ -62,6 +65,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <stdlib.h>
 #include <sys/msg.h>
 #include <errno.h>
+#include <string.h>
 
 #include <sys/time.h>
 #include <unistd.h>

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2001/09/15 23:59:05  eggestad
+ * Proper includes and other clean compile fixes
+ *
  * Revision 1.3  2000/09/24 14:09:16  eggestad
  * Fix of format of clientid i two messages
  *
@@ -40,6 +43,7 @@
 #include <errno.h>
 #include <sys/msg.h>
 #include <signal.h>
+#include <string.h>
 
 #include <MidWay.h> 
 #include <ipcmessages.h>

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2001/09/15 23:59:05  eggestad
+ * Proper includes and other clean compile fixes
+ *
  * Revision 1.2  2000/07/20 19:53:32  eggestad
  * - ID numbers are no longer assigned the first from 0 but in rotation,
  *   like Unix pid.
@@ -41,6 +44,8 @@
 #include <signal.h>
 #include <sys/shm.h>
 #include <sys/msg.h>
+#include <string.h>
+#include <stdlib.h>
 
 #define _TABLES_C
 #include <MidWay.h>

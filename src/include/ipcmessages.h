@@ -223,3 +223,6 @@ int _mw_ipcunblock(SERVERID srvid, SERVICEID svcid);
 int _mwCurrentMessageQueueLength(void);
 
 int _mw_shutdown_mwd(int delay);
+
+/* for debugging */
+void  _mw_dumpmesg(void * mesg);

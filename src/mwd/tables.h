@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2003/06/12 07:33:15  eggestad
+ *  numerous fixes to check_tables()
+ *
  * Revision 1.8  2003/04/25 13:03:12  eggestad
  * - fix for new task API
  * - new shutdown procedure, now using a task
@@ -74,6 +77,7 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int sid);
 
 int delserver(SERVERID sid);
 int delclient(CLIENTID cid);
+int stop_server(SERVERID sid);
 
 
 SERVICEID addlocalservice(SERVERID srvid, char * name, int type);

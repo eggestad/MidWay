@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.16  2003/06/12 07:33:15  eggestad
+ *  numerous fixes to check_tables()
+ *
  * Revision 1.15  2003/04/25 13:03:11  eggestad
  * - fix for new task API
  * - new shutdown procedure, now using a task
@@ -695,7 +698,7 @@ int stop_server(SERVERID sid)
 
 int kill_all_servers(int signal)
 {
-  int n, i, j, rc; 
+  int n, i, rc; 
   pid_t * pidlist;
   if (ipcmain == NULL) return -ENOTCONN;
 
@@ -708,7 +711,7 @@ int kill_all_servers(int signal)
   rc = get_pids(&n, & pidlist);
   DEBUG("There are %d servers to kill", n);
 
-  if (rc < 0) rc;
+  if (rc < 0) return rc;
   
   for (i = 0; i < n; i++) {
      char cmd[1024];
@@ -766,6 +769,7 @@ int check_tables()
 	rc = _mw_procowner (clttbl[i].pid, NULL);
 	if (rc == 0) {
 	  Info("Client %d pid=%d has died, cleaning up", i, clttbl[i].pid);
+	  DEBUG("removing clients msgqueue id=%d", clttbl[i].mqid);
 	  msgctl(clttbl[i].mqid, IPC_RMID, NULL);
 	  rc = delclient(MWCLIENTMASK | i);
 	};
@@ -777,34 +781,25 @@ int check_tables()
 	rc = kill (srvtbl[i].pid, 0);
 	if (rc == -1) {
 	  Info("Server %d pid=%d has died, cleaning up", i, srvtbl[i].pid);
+	  DEBUG("removing servers msgqueue id=%d", srvtbl[i].mqid);
 	  msgctl(srvtbl[i].mqid, IPC_RMID, NULL);
 	  delserver(MWSERVERMASK | i); 
 	  delallservices(IDX2SRVID(i));
 	};
       }
   };
-  if (svctbl != NULL) {
-    for (i = 0; i< ipcmain->svctbl_length; i++) 
-      if (svctbl[i].server > 0) {
-	int si;
-	si = SRVID2IDX(svctbl[i].server);
-	if (srvtbl[si].pid == UNASSIGNED) {
-	  Info("Service %d without server, cleaned up", i);
-	  delservice(si);
-	};
-      }
-  };
 
-  /* conv table missing */
   if (gwtbl != NULL) {
     for (i = 0; i< ipcmain->gwtbl_length; i++) 
       if (gwtbl[i].pid > 1) {
+	rc = kill (gwtbl[i].pid, 0);
 	if (rc == -1) {
 	  Info("gateway %d pid=%d has died, cleaning up", i, gwtbl[i].pid);
-	  msgctl(srvtbl[i].mqid, IPC_RMID, NULL);
+	  DEBUG("removing gateways msgqueue id=%d", gwtbl[i].mqid);
+	  msgctl(gwtbl[i].mqid, IPC_RMID, NULL);
 	  /* clean up all the network clients handled by this gw */
 	  for (j = 0; j < ipcmain->clttbl_length; j++) {
-	    if (clttbl[j].gwid = i)
+	    if (clttbl[j].gwid == IDX2GWID(i))
 	      delclient(IDX2CLTID(j));
 	  };
 
@@ -818,6 +813,32 @@ int check_tables()
 	};
       }
   };
+
+  if (svctbl != NULL) {
+     for (i = 0; i< ipcmain->svctbl_length; i++) {
+	if (svctbl[i].type == UNASSIGNED) continue;
+	if ( (svctbl[i].type == GWLOCAL) && (svctbl[i].server > 0) ) {
+	   int si;
+	   si = SRVID2IDX(svctbl[i].server);
+	   if (srvtbl[si].pid == UNASSIGNED) {
+	      Info("Service %d without server, cleaned up", i);
+	      rc = delservice(IDX2SVCID(i));
+	      if (rc) Warning ("Failed to delete service %d", i);
+	   };
+	} else if (svctbl[i].gateway > 0) {
+	   int gi;
+	   gi = GWID2IDX(svctbl[i].gateway);
+	   if (gwtbl[gi].pid == UNASSIGNED) {
+	      Info("Service %d without gateway, cleaned up", i);
+	      rc = delservice(IDX2SVCID(i));
+	      if (rc) Warning ("Failed to delete service %d", i);
+	   }
+	}
+     }
+  };
+
+  /* conv table missing */
+
 
   return 0;
 };

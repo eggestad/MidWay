@@ -90,7 +90,7 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 
 (fixed?) * in mwbd change read()/write() to sendmsg/recvmsg to avoid SIGPIPE's
 
-* in useing address srbp://hostname/domain port 11000 is attempted,
+(fixed) * in useing address srbp://hostname/domain port 11000 is attempted,
   not broker
 
 * rarely seen, but on third gateway booting, only one peer is seen

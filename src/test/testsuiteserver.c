@@ -16,8 +16,6 @@ int testdataservice(mwsvcinfo * si)
 {
   struct testdata * td;
   int i;
-  char buffer [1024];
-  struct timeval tv;
 
   if (si->datalen < sizeof(struct testdata)) {
     mwreturn(NULL, 0, FALSE, 0);

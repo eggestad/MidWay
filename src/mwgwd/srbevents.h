@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2004/05/31 19:51:51  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.1  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -36,6 +39,7 @@
 
 #include <MidWay.h>
 #include <connection.h>
+#include <ipcmessages.h>
 
 #endif
 

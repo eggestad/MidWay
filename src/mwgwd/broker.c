@@ -23,6 +23,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /* 
  * $Log$
+ * Revision 1.2  2001/10/03 22:35:46  eggestad
+ * bugfixes
+ *
  * Revision 1.1  2001/09/15 23:40:09  eggestad
  * added the broker daemon
  *
@@ -93,19 +96,17 @@ int connectbroker(char * domain, char * instance)
     mwlog(MWLOG_DEBUG1, "unexpected message from broker");
     errno = EBADMSG;
     close(unix_socket);
+    _mw_srb_destroy(srbmsg_ready);
     return -1;
   };
   
   mwlog(MWLOG_DEBUG1, "got greeting from broker");
-  if (srbmsg_ready->map) urlmapfree(srbmsg_ready->map);
-  free (srbmsg_ready);
-  
-  strcpy(srbmsg.command, SRB_READY);
-  srbmsg.marker = SRB_NOTIFICATIONMARKER;
-  srbmsg.map = NULL;
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_VERSION, SRBPROTOCOLVERSION);
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_DOMAIN, domain);
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_INSTANCE, instance);
+  _mw_srb_destroy(srbmsg_ready);
+
+  _mw_srb_init(&srbmsg, SRB_READY, SRB_NOTIFICATIONMARKER, 
+	       SRB_VERSION, SRBPROTOCOLVERSION, 
+	       SRB_DOMAIN, domain, SRB_INSTANCE, instance, 
+	       NULL);
   rc = _mw_srbsendmessage(unix_socket, &srbmsg);
 
   urlmapfree(srbmsg.map);
@@ -119,7 +120,7 @@ int connectbroker(char * domain, char * instance)
 }
 
 
-int read_with_fd(int s, char * message, int len, int * fd)
+int read_with_fd(int s, char * message, int len, int * newfd)
 {
   int rc;
   struct msghdr msg;
@@ -142,7 +143,9 @@ int read_with_fd(int s, char * message, int len, int * fd)
   cmsg->cmsg_len = msg.msg_controllen;
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
-  
+
+  if (newfd != NULL) *newfd = -1;
+
   rc = 0;
   rc = recvmsg(s, &msg, 0);
   mwlog(MWLOG_DEBUG1, "received from broker rc=%d errno=%d", rc, errno);
@@ -157,11 +160,11 @@ int read_with_fd(int s, char * message, int len, int * fd)
   };
 
   
-  /* if caller din't want a a fd, close it */
-  if (fd != NULL) {
-    *fd = * (int *) CMSG_DATA(cmsg);
+  /* if caller din't want a a newfd, close it */
+  if (newfd != NULL) {
+    *newfd = * (int *) CMSG_DATA(cmsg);
     mwlog(MWLOG_DEBUG1, "received from broker \"%s\" fd=%d rc=%d errno=%d\n", 
-	  message, *fd, rc, errno);
+	  message, *newfd, rc, errno);
   } else {
     close( * (int *) CMSG_DATA(cmsg));
     mwlog(MWLOG_DEBUG1, "received from broker \"%s\" rc=%d errno=%d\n", 

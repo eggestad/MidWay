@@ -23,6 +23,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.3  2001/10/03 22:36:31  eggestad
+ * bugfixes
+ *
  * Revision 1.2  2001/09/15 23:49:38  eggestad
  * Updates for the broker daemon
  * better modulatization of the code
@@ -146,6 +149,7 @@ Connection * conn_getbroker()
 {
   int i, fd = -1;
   for (i = 0; i <= maxsocket; i++) {
+    if (connections[i].fd == -1) continue;
     if (connections[i].broker) return &connections[i];
   }
   return NULL;
@@ -155,6 +159,7 @@ Connection * conn_getfirstlisten()
 {
   int i, fd = -1;
   for (i = 0; i <= maxsocket; i++) {
+    if (connections[i].fd == -1) continue;
     if (connections[i].listen) return &connections[i];
   }
   return NULL;
@@ -164,6 +169,7 @@ Connection * conn_getfirstclient()
 {
   int i, fd = -1;
   for (i = 0; i <= maxsocket; i++) {
+    if (connections[i].fd == -1) continue;
     if ( !((connections[i].listen) || 
 	   (connections[i].broker) ))
       return &connections[i];
@@ -245,10 +251,10 @@ Connection * conn_add(int fd, int role, int type)
   connections[fd].fd = fd;
   connections[fd].client = UNASSIGNED;
   connections[fd].gateway = UNASSIGNED;
-  connections[fd].listen = type && CONN_LISTEN;
-  connections[fd].broker = type && CONN_BROKER;
+  connections[fd].listen = type & CONN_LISTEN;
+  connections[fd].broker = type & CONN_BROKER;
   connections[fd].connected = time(NULL);
-  
+  connections[fd].messagebuffer = NULL;
   
   /* we mark the possible roles, it is cross checked by handling of
      SRB INIT */
@@ -266,12 +272,14 @@ void conn_del(int fd)
   
   FD_CLR(fd, &sockettable);
   connections[fd].fd = UNASSIGNED;
+  connections[fd].broker = UNASSIGNED;
+  connections[fd].listen = UNASSIGNED;
   connections[fd].client = UNASSIGNED;
   connections[fd].gateway = UNASSIGNED;
   connections[fd].role = UNASSIGNED;
-  if (connections[fd].messagebuffer == NULL) {
+  if (connections[fd].messagebuffer != NULL) {
     free(connections[fd].messagebuffer);
-    connections[fd].messagebuffer == NULL;
+    connections[fd].messagebuffer = NULL;
   };
 
   close (fd);

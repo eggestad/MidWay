@@ -19,12 +19,19 @@
 /* Copyright (C) 2002 Terje Eggestad  on the diff from glibc, LGPL as
    described above is still in effect */
  
-/* well this was a part og glibc, 2.2.4 posix/execvp.c to be exact.
-   since glibc is missing an execvpe, thus an exec thaht take both
+/* well this was a part of glibc, 2.2.4 posix/execvp.c to be exact.
+   since glibc is missing an execvpe, thus an exec that take both
    argv vector as well as the envv vector AND perform a PATH search we
    make one as close to glibc behavior as possible.  
 
    Terje */
+
+/* 
+ * $Log$
+ * Revision 1.2  2002/10/22 21:49:25  eggestad
+ * cvs and C cosmetics
+ * 
+ */
 
 #include <unistd.h>
 #include <stdarg.h>
@@ -36,6 +43,14 @@
 
 #include <stdio.h>
 #define DEBUG(m...) fprintf(stderr, m)
+
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED 
+#endif
+
+static char * RCSId UNUSED = "$Id$";
 
 /* The file is accessible but it is not an executable file.  Invoke
    the shell to interpret it as a script.  */

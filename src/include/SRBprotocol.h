@@ -179,6 +179,7 @@ int _mw_srbsendinit(int fd, char * user, char * password,
 
 
 int _mw_get_returncode(urlmap * map);
+int _mw_srb_checksrbcall(int fd, SRBmessage * srbmsg) ;
 
 void _mw_srb_trace(int dir_in, int fd, char * message, int messagelen);
 

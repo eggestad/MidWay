@@ -24,13 +24,19 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:11  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:23:40  eggestad
+ * Changes needed for SRB clients and gateways.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:11  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
  *
  */
+
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <errno.h>
 #include <sys/types.h>
@@ -53,8 +59,9 @@ static conv_entry   * convtbl = NULL;
 
 static my_mqid = -1;
 
-static SERVERID myserverid = UNASSIGNED;
-static CLIENTID myclientid = UNASSIGNED;
+static SERVERID  myserverid  = UNASSIGNED;
+static CLIENTID  myclientid  = UNASSIGNED;
+static GATEWAYID mygatewayid = UNASSIGNED;
 
 
 /* I don't want tp make ipcmain a global var, and _mw_attach_ipc are
@@ -87,6 +94,9 @@ int _mw_attach_ipc(key_t key, int type)
   /* if we're a clients we shall attach all the shared memory tables readonly */
   if (type & MWIPCSERVER)  readonly = 0;
   else readonly = SHM_RDONLY;
+
+  mwlog(MWLOG_DEBUG, "_mw_attachipc(key=%d, type=%s(%d)) readonly=%d", 
+	key, type==MWIPCSERVER?"SERVER":"CLIENT", type, readonly);
 
   /* THREAD MUTEX BEGIN */
   /* NOTE: below the returns in the if(error) do not release the MUTEX */
@@ -173,30 +183,12 @@ int _mw_attach_ipc(key_t key, int type)
 #include <stdio.h>
 
 void
-_mw_detach_ipc(int cleantables)
+_mw_detach_ipc(void)
 {
   extern struct segmenthdr * _mwHeapInfo;
   serverentry * srvent;
   cliententry * cltent;
   
-  /* this is really wrong too mess with eth ipctables directly!!!
-  srvent = _mw_getserverentry(myserverid);
-  printf ("srvent of %d is %#X", myserverid, srvent);
-  if (srvent != NULL) {
-    srvent->status = UNASSIGNED;
-    srvent->pid = UNASSIGNED;
-    srvent->mqid = UNASSIGNED;
-    strncpy(srvent->statustext, "(DEAD)", MWMAXNAMELEN);
-  };
-  cltent = _mw_getcliententry(myclientid);
-  if (cltent != NULL) {
-    cltent->status = UNASSIGNED;
-    cltent->type = UNASSIGNED;
-    cltent->location = UNASSIGNED;
-    cltent->pid = UNASSIGNED;
-    cltent->mqid = UNASSIGNED;
-  };
-  */
   shmdt(clttbl);
   shmdt(srvtbl);
   shmdt(svctbl);
@@ -231,14 +223,20 @@ int _mw_mwd_mqid()
 
 void _mw_set_my_serverid(SERVERID sid)
 {
-  myserverid = sid;
+  myserverid = MWSERVERMASK | sid;
   return ;
 };
 
 void _mw_set_my_clientid(CLIENTID cid)
 {
-  myclientid = cid;
+  myclientid = MWCLIENTMASK | cid;
   return ;
+};
+
+void _mw_set_my_gatewayid(GATEWAYID gwid)
+{
+  mygatewayid = MWGATEWAYMASK | gwid;
+  return;
 };
 
 SERVERID _mw_get_my_serverid()
@@ -249,6 +247,11 @@ SERVERID _mw_get_my_serverid()
 CLIENTID _mw_get_my_clientid()
 {
   return myclientid;
+};
+
+GATEWAYID _mw_get_my_gatewayid()
+{
+  return mygatewayid;
 };
 
 ipcmaininfo * _mw_ipcmaininfo()
@@ -487,9 +490,66 @@ SERVICEID _mw_get_service_byname (char * svcname, int convflag)
   return selectedid | MWSERVICEMASK;
 };
 
-gatewayentry * _mw_get_gateway_byid (GATEWAYID srvid)
+
+gatewayentry * _mw_get_gateway_table (void)
+{  
+  return gwtbl;
+};
+
+gatewayentry * _mw_get_gateway_byid (GATEWAYID gwid)
 {
-  return NULL;
+  int index;
+  gatewayentry * gwent; 
+
+  if (ipcmain == NULL) { 
+    mwlog(MWLOG_DEBUG,"_mw_get_gateway_byid called while ipcmain == NULL");
+    return NULL;
+  };
+  if (gwid & MWSERVERMASK != MWSERVERMASK) {
+    mwlog(MWLOG_DEBUG,"_mw_get_gateway_byid gwid & MWGATEWAYMASK %d != %d", gwid & MWSERVERMASK, MWSERVERMASK);
+    return NULL;
+  };
+  index = gwid & MWINDEXMASK;
+  if (index >= ipcmain->gwtbl_length) {
+    mwlog(MWLOG_DEBUG,"_mw_get_gateway_byid index to big %d > %d", index, ipcmain->gwtbl_length);
+    return NULL;
+  }
+  
+  gwent = & gwtbl[index];
+  if (gwent->status == UNASSIGNED) {
+    mwlog(MWLOG_DEBUG,"_mw_get_gateway_byid gatewayid is not in use");
+    return NULL;
+  };
+  return gwent;
+};
+
+/* given a MW id, return the messaeg queue id for the id, or -ENOENT if
+   No agent with that ID, or -EBADR if mwid is out of range. */
+int _mw_get_mqid_by_mwid(int dest)
+{
+  int qid;
+  serverentry * srvent;
+  cliententry * cltent;
+  gatewayentry * gwent;
+
+  if (dest & MWSERVERMASK) {
+    srvent = _mw_get_server_byid(dest);
+    if (srvent == NULL) return -ENOENT;
+    qid = srvent->mqid;
+  } else if (dest & MWCLIENTMASK) {
+    cltent = _mw_get_client_byid(dest);
+    qid = cltent->mqid;
+  } else if (dest & MWGATEWAYMASK) {
+    gwent = _mw_get_gateway_byid(dest);
+    qid = gwent->mqid;
+  } else if (dest == 0) {
+    /* 0 means mwd. */
+    qid = _mw_mwd_mqid();
+  } else {
+    return -EBADR;
+  };
+  if (qid == -1) return -ENOENT;
+  return qid;
 };
 
 /* overall health of the MW instance. 
@@ -503,6 +563,7 @@ gatewayentry * _mw_get_gateway_byid (GATEWAYID srvid)
 
    * should we clean up on error?
 */
+
 int _mwsystemstate()
 {
   int rc; 
@@ -550,7 +611,7 @@ void _mw_set_my_status(char * status)
     status[MWMAXNAMELEN-1] = '\0';
 
   if (status == NULL) {
-    myentry->status = MWNORMAL;
+    myentry->status = MWREADY;
     strncpy(myentry->statustext, "(idle)", MWMAXNAMELEN);
     mwlog(MWLOG_DEBUG, "Returning to idle state");
   } else if (strcmp(status, SHUTDOWN) == 0) {

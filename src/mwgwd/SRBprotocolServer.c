@@ -21,8 +21,12 @@
 
 /*
  * $Log$
+ * Revision 1.14  2002/11/18 00:14:59  eggestad
+ * - when a connection is established not not UP in SRB context, we need
+ *   to handle SRB INIT special, and reject everything else
+ *
  * Revision 1.13  2002/10/22 21:58:20  eggestad
- * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
+ * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which des a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
  *
  * Revision 1.12  2002/10/20 18:15:42  eggestad
  * major rework for sending calls. srbcall now split into srbcall_req, and srbcall_rpl
@@ -932,6 +936,18 @@ int srbDoMessage(Connection * conn, char * message)
   dbg_srbprintmap(srbmsg); 
   TIMEPEG();
 
+  /* if the connection is not initiated, we handle it special */
+  if (conn->state != CONNECT_STATE_UP) {
+    if ( strcasecmp(srbmsg.command, SRB_INIT) == 0) {
+      srbinit(conn, &srbmsg);
+    } else if ( strcasecmp(srbmsg.command, SRB_READY) == 0) {
+      srbready(conn, &srbmsg);
+    } else {
+      _mw_srbsendreject(conn, &srbmsg, NULL, NULL, SRB_PROTO_NOINIT);    
+    };
+    goto out;
+  };    
+
   /* switch on command length in order to speed up (avoiding excessive
      strcmp()'s */
   switch(commandlen) {
@@ -997,7 +1013,8 @@ int srbDoMessage(Connection * conn, char * message)
   default:
     _mw_srbsendreject_sz(conn, message, 0);
   };
-  
+
+ out:  
   if (srbmsg.map != NULL)
     urlmapfree(srbmsg.map);
 

@@ -130,7 +130,7 @@ enable_multicast=yes
 enable_broadcast=yes
 
 AC_ARG_ENABLE(multicast,
-[  --enable-multicast          use multicast for query [yes] ])
+[  --enable-multicast          use multicast for srb query (default yes) ])
 
 case "$enable_multicast" in
      no|NO|'')   enable_multicast=no	
@@ -142,7 +142,7 @@ case "$enable_multicast" in
 esac
 
 AC_ARG_ENABLE(broadcast,
-[  --enable-broadcast          use broadcast for query [yes] ])
+[  --enable-broadcast          use broadcast for srb query (default yes) ])
 
 case "$enable_broadcast" in
      no|NO|'')   enable_broadcast=no	
@@ -152,6 +152,24 @@ case "$enable_broadcast" in
 		 ;;
      *)          echo 'parameter should be =yes or =no' ; exit 1 ;;
 esac
+
+enable_timepegs=no
+AC_MSG_NOTICE(Timepegs enable = $enable_timepegs)
+
+AC_ARG_ENABLE(timepegs,
+[  --enable-timepegs          This enable the timepegs in the code, which log at INFO level the time spent thru the code.])
+
+AC_MSG_NOTICE(Timepegs enable = $enable_timepegs)
+
+case "$enable_timepegs" in
+     no|NO|'')   enable_timepegs=no	
+		 ;;
+     yes|YES)    enable_timepegs=yes
+		 AC_DEFINE(TIMEPEGS)
+		 ;;
+     *)          echo 'parameter should be =yes or =no' ; exit 1 ;;
+esac
+
 
 dnl version information
 AC_REVISION($Name$)

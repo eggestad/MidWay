@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.15  2004/11/08 10:51:48  eggestad
+ * fix for possible recv buffer corruption when moving remains to beginning
+ *
  * Revision 1.14  2004/04/08 10:34:06  eggestad
  * introduced a struct with pointers to the functions implementing the midway functions
  * for a given protocol.
@@ -588,7 +591,7 @@ SRBmessage * _mw_srb_recvmessage(Connection * conn, int flags)
 	    conn->possible_message_in_buffer= 1;
 	    DEBUG2("memcpy %d leftover %p => %p", 
 		   conn->leftover, msgptr,conn->messagebuffer);
-	    memcpy(conn->messagebuffer, msgptr, conn->leftover);	    
+	    memmove(conn->messagebuffer, msgptr, conn->leftover);	    
 	    msgptr[conn->leftover] = '\0';
 	    conn_read_fifo_enqueue(conn);
 	 };

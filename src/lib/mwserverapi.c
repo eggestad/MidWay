@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.21  2004/08/11 20:40:41  eggestad
+ * 32/64 bit fix
+ *
  * Revision 1.20  2004/07/12 15:02:21  eggestad
  * mwforward was broken
  *
@@ -652,7 +655,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
 	   "%d milliseconds, replying ETIME", 
 	   -rc);
     
-    DEBUG1("issued %ld.%d timeout %d now %ld.%ld deadline %ld.%d",
+    DEBUG1("issued %lld.%d timeout %d now %ld.%ld deadline %ld.%d",
 	  callmesg->issued, callmesg->uissued, callmesg->timeout,
 	  starttv.tv_sec ,  starttv.tv_usec, 
 	  svcreqinfo->deadline, svcreqinfo->udeadline);

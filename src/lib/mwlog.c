@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.20  2003/09/25 19:33:45  eggestad
+ * loglevel fixup
+ *
  * Revision 1.19  2003/07/13 20:32:13  eggestad
  * - increased the maximum log message length from LINE_MAX to 64k, timepegs got way longer than LINE_MAX.
  *
@@ -316,15 +319,15 @@ _mw_vlogf(int level, char * format, va_list ap)
 int _mwstr2loglevel(char * arg) 
 {
    int loglevel = -1, l;
-   if      (strcmp(arg, "fatal")   == 0) loglevel=MWLOG_FATAL;
-   else if (strcmp(arg, "error")   == 0) loglevel=MWLOG_ERROR;
-   else if (strcmp(arg, "warning") == 0) loglevel=MWLOG_WARNING;
-   else if (strcmp(arg, "alert")   == 0) loglevel=MWLOG_ALERT;
-   else if (strcmp(arg, "info")    == 0) loglevel=MWLOG_INFO;
-   else if (strcmp(arg, "debug")   == 0) loglevel=MWLOG_DEBUG;
-   else if (strcmp(arg, "debug1")  == 0) loglevel=MWLOG_DEBUG1;
-   else if (strcmp(arg, "debug2")  == 0) loglevel=MWLOG_DEBUG2;
-   else if (strcmp(arg, "debug3")  == 0) loglevel=MWLOG_DEBUG3;
+   if      (strcasecmp(arg, "fatal")   == 0) loglevel=MWLOG_FATAL;
+   else if (strcasecmp(arg, "error")   == 0) loglevel=MWLOG_ERROR;
+   else if (strcasecmp(arg, "warning") == 0) loglevel=MWLOG_WARNING;
+   else if (strcasecmp(arg, "alert")   == 0) loglevel=MWLOG_ALERT;
+   else if (strcasecmp(arg, "info")    == 0) loglevel=MWLOG_INFO;
+   else if (strcasecmp(arg, "debug")   == 0) loglevel=MWLOG_DEBUG;
+   else if (strcasecmp(arg, "debug1")  == 0) loglevel=MWLOG_DEBUG1;
+   else if (strcasecmp(arg, "debug2")  == 0) loglevel=MWLOG_DEBUG2;
+   else if (strcasecmp(arg, "debug3")  == 0) loglevel=MWLOG_DEBUG3;
    else {
       l = atoi(arg);
       if ( (l >= MWLOG_FATAL) && (l <= MWLOG_DEBUG3)) {

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.17  2003/09/25 19:33:45  eggestad
+ * loglevel fixup
+ *
  * Revision 1.16  2003/06/12 07:27:03  eggestad
  * sighandlers are now private, watchdog needed it's own
  *
@@ -1065,15 +1068,7 @@ int main(int argc, char ** argv)
   while((c = getopt(argc,argv, "A:DH:l:c:C:s:S:b:B:g:")) != EOF ){
     switch (c) {
     case 'l':
-      if      (strcmp(optarg, "error")   == 0) loglevel=MWLOG_ERROR;
-      else if (strcmp(optarg, "warning") == 0) loglevel=MWLOG_WARNING;
-      else if (strcmp(optarg, "info")    == 0) loglevel=MWLOG_INFO;
-      else if (strcmp(optarg, "debug")   == 0) loglevel=MWLOG_DEBUG;
-      else if (strcmp(optarg, "debug1")  == 0) loglevel=MWLOG_DEBUG1;
-      else if (strcmp(optarg, "debug2")  == 0) loglevel=MWLOG_DEBUG2;
-      else if (strcmp(optarg, "debug3")  == 0) loglevel=MWLOG_DEBUG3;
-      else if (strcmp(optarg, "debug4")  == 0) loglevel=MWLOG_DEBUG4;
-      else usage();
+      loglevel = _mwstr2loglevel(optarg); 
       mwsetloglevel(loglevel);
       break;
     case 'A':

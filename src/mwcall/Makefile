@@ -24,7 +24,7 @@ depend:
 	makedepend -Y *.c
 
 clean:
-	rm -f mwadm $(OBJ) core 
+	rm -f mwcall $(OBJ) core 
 
 tags:
 	etags -a -o ../TAGS *.c *.h

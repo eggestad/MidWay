@@ -45,6 +45,8 @@ depend:
 	if [ $$? -ne 0 ]; then exit 3; fi\
 	done;
 
+dep: depend
+
 install: all
 	@ /bin/echo 
 	@ /bin/echo "Install begins"

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2002/11/08 00:14:32  eggestad
+ * was missing home dir in ipcmain command
+ *
  * Revision 1.13  2002/10/22 21:47:59  eggestad
  * addresses in ipctables are now string not struct sockaddr_*
  *
@@ -495,13 +498,18 @@ int dumpipcmain(int argc, char ** argv)
   printf ("\nIPCMAIN struct is located at %#X\n", ipcmain);
   
   printf ("Magic                = %-8s\n", ipcmain->magic);
-  printf ("Versions             = %d.%d.%d\n", ipcmain->vermajor, 
-	  ipcmain->verminor, ipcmain->patchlevel);
+  printf ("Versions             = %d.%d.%d\n", 
+	  ipcmain->vermajor, 
+	  ipcmain->verminor, 
+	  ipcmain->patchlevel);
   printf ("master mwd pid       = %d\n", ipcmain->mwdpid);
   printf ("Watchdog pid         = %d\n", ipcmain->mwwdpid);
   printf ("Mwds Message queueid = %d\n", ipcmain->mwd_mqid);
   printf ("MW System name       = %s\n", ipcmain->mw_instance_name);
   printf ("MW System ID         = %s\n", ipcmain->mw_instance_id);
+  printf ("Home Directory       = %s\n", ipcmain->mw_homedir);
+
+
   printf ("Status               = (%d)%s\n", 
 	  ipcmain->status, status_by_name[ipcmain->status]);
   printf ("Boottime             = %s", ctime(&ipcmain->boottime));

@@ -44,7 +44,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %post 
 ln -sf /usr/lib/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@ /usr/lib/libMidWay.so.@MAJOR_VERSION@
-if [ $1 > 1 ]; then 
+if [[ $1 > 1 ]]; then 
   service mwbd restart	
 else 
   chkconfig --add mwbd
@@ -52,7 +52,7 @@ else
 fi
 
 %preun
-if [ 0 == $1 ]; then
+if [[ 0 == $1 ]]; then
   service mwbd stop
   chkconfig --del mwbd
   rm -f /usr/lib/libMidWay.so.@MAJOR_VERSION@
@@ -63,7 +63,7 @@ fi
 ln -sf /usr/lib/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@ /usr/lib/libMidWay.so
 
 %preun devel 
-if [ 0 == $1 ]; then
+if [[ 0 == $1 ]]; then
   rm -f /usr/lib/libMidWay.so
 fi
 

@@ -11,11 +11,13 @@ mwcall mwacall, mwfetch \- MidWay service calls
 .SH SYNOPSIS
 .B #include <MidWay.h>
 .sp
-.BI "int mwcall(char * servicename, char * data, int len, char ** rdata, int * rlen, int * appreturncode, int flags);"
+.BI "int mwcall(char * " servicename ", char * " data ", int " len 
+.BI ", char ** " rdata ", int * " rlen ", int * " appreturncode ", int " flags ");"
 .sp
-.BI "int mwacall(char * servicename, char * data, int len, int flags);"
+.BI "int mwacall(char * " servicename ", char * " data ", int " len ", int " flags ");"
 .br
-.BI "int mwfetch(int handle, char ** rdata, int * rlen, int flags);"
+.BI "int mwfetch(int " handle ", char ** " rdata ", int * " rlen ", int " flags ");"
+
 .SH DESCRIPTION
 These calls are used to send a service request to a given service see
 mwservice(3C)/mwprovide(3C).  mwcall() is really a mwacall() mwfetch()
@@ -40,8 +42,8 @@ and must be freed by
 .BR mwfree() .
 It is not required that the request buffer is allocated by 
 .BR mwalloc() . 
-If it is not mw(a)call will allocate one automatically of the needed size, and free it 
-on the return.
+If it is not mw(a)call will allocate one automatically of the needed
+size, and free it on the return.
 .sp
 Typically when you pass C structs or C++ objects around you will need
 to copy the data in the return buffer into the struct or have a
@@ -58,7 +60,8 @@ specific reply.  If handle is 0 the first reply is returned.
 
 The 
 .I flags
-parameter controls some aspects of the calls. There are currently these flags.
+parameter controls some aspects of the calls. There are currently
+these flags.
 .TP
 .B MWNOREPLY
 Used in mwcall() and mwacall() only. It tells the server that no reply
@@ -71,17 +74,30 @@ encounter a condition where they would block. There are one condition,
 mwcall() will of course block while reading our own message queue
 while waiting for the reply from a server. If you want to avoid that
 condition you must used mwacall() and mwfetch() explicitly.
+.TP
+.B MWMULTIPLE
+This flag is only legal for mwacall, and tells the server if it is OK
+to send multiple replies. In this case each reply must be fetched
+seperatly with mwfetch, mwfetch will return 1 if there are more to
+fetch.
 
 .SH "RETURN VALUES"
-On success mwcall() and mwfetch return 0. mwacall() return the handle
+On success mwcall() return 0, and mwfetch returns 0 if there is no
+more replies from the server or 1 if the server intends to send more
+replies. mwacall() return the handle
 that may be used with mwfetch to retrieve the reply.  On failure we
-get a negative number for local errors. The number is a negative
-errno.  On server side errors we get a positive errno.  We dispreciate
-errno in order to be pthread optimized.
+get a negative errno. 
+If the server signalled a failure by setting returncode to MWFAIL, 
+.BR mwcall "() and " mwfetch "() return"
+-EFAULT.
+
 .SH "ERRORS"
 .TP
 .B ENOENT
 There are no service with servicename available.
+.TP
+.B EFAULT
+The service routine signalled that it failed.
 .TP 
 .B ENOTCONN 
 The calling process has not performed a successful mwattach() 
@@ -108,6 +124,28 @@ The call would block and MWNOBLOCK flags was set.
 .SH WARNINGS
 
 .SH EXAMPLES
+
+.nf 
+#include <MidWay.h>
+
+char * data;
+int handle, len;
+
+data = mwalloc(100);
+strcpy(data, "Hello Service");
+
+handle = mwacall("TESTSERVICE", data, 100, MWMULTIPLE);
+
+if (handle < 0) ; /* ERROR */
+
+while( (rc = mwfetch(handle, &data, &len, 0L)) <= 0) {
+	.
+	.
+	.
+	mwfree(data);
+	if (rc == 0) break;
+};
+.fi
 
 .SH BUGS 
 

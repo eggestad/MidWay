@@ -11,15 +11,16 @@ mwreply, mwreturn \- Returning data from service routines
 .SH SYNOPSIS
 .B #include <MidWay.h>
 .sp
-.BI "void mwreply(char * reply, int replylen, int successflag, int applicationreturncode);"
+.BI "int mwreply(char * " reply ", int " replylen ", int " successflag ", int " applicationreturncode ", int " flags ");"
 .sp
-.BI "void mwreturn(char * reply, int replylen, int successflag, int applicationreturncode);"
+.BI "mwreturn(char * " reply ", int " replylen ", int " successflag ", int " applicationreturncode ");"
 .SH DESCRIPTION
-mwreturn is quite simply an alias for mwreply followed by a return (successflag). 
+mwreturn is quite simply an alias for mwreply followed by a 
+.IR return (successflag) .  
 It is offered as a convenience only.
 
-This function is used in a service routine to return a reply to the service request.
-The 
+This function is used in a service routine to return a reply to the
+service request. The
 .I reply 
 argument is a pointer to the data to be sent. If NULL no data is
 returned, only return codes, and the calling client gets confirmation
@@ -36,7 +37,12 @@ In addition to successflag programmers may pass another return code,
 .I applicationreturncode
 for private use. MidWay ignore it, so it is optional.
 .sp
-If the service perform a normal C return without calling 
+The only legal 
+.I flag 
+is MWMORE, which signal that the server intends to issue more
+mwreply's. It is only legal is the calling client set the MWMULTIPLE flag.
+
+If the service perform a normal C return without calling
 .BR  mwreply ()
 first, the input buffer is returned, and the C return code is used as successflag.
 .sp
@@ -45,6 +51,20 @@ Note that if the
 had  the 
 .B MWNOREPLY
 flag set (see mwservice()) this call is silently ignored and may be omitted.
+
+.SH RETURN VALUES
+On success mwreply return 1, on failure, -errno. mwreturn do of course never return.
+
+.SH ERRORS
+.TP
+.B EINVAL
+mwreply return -EINVAL if the MWMORE flags is set, and the client has not set
+the MWMULTIPLE flag.
+.TP
+.B EALREADY
+mwreply return -EALREADY if mwreply was previously called without
+MWMORE flag, or if the client has set the MWNOREPLY flag.
+
 .SH WARNINGS
 It is very bad practice to omit this call. If you do a mwrealloc() on
 the input buffer and return by C return, you will pass back the

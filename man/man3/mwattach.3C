@@ -27,17 +27,21 @@ http, or a native midway protocol. (none of the two latter are yet implemented).
 .SS OPTIONS
 .TP
 .I url
-A string that indicate the address of the running instance. URL format: 
-for IPC attachment
+A string that indicate the address of the running instance/domain. See 
+.BR MidWay (7)
+for a complete description of attchment adresses.  
+
+URL format: for IPC
+attachment
 .BI ipc:// key
 or 
 .BI ipc:// [instancename]
 instancename assumed to be "default" if absent, 
 or
-.BI midway:// ipaddress:port
+.BI srbp:[// ipaddress[:port]]/domain
 or
-.BI http:// ipaddress:port
-for TCP/IP (NYI). If NULL wee look for the environment variable MWADDRESS instead. 
+.BI http:// ipaddress[:port]
+for TCP/IP. If NULL wee look for the environment variable MWADDRESS instead. 
 If not set, 
 .B ipc://default
 is tried, and finally 
@@ -47,7 +51,7 @@ is tried, and finally
 Only needed if protocol is other then ipc. For ipc we are always using OS authentication.
 .TP
 .I password
-.BR mwd.conf (1)
+.BR mwd.conf (4)
 for authentication methods.
 .TP
 .I flags
@@ -72,6 +76,7 @@ Rather complex, shmget(), shmat(), EISCONN if called twice, _mw_ipc_putmessage()
 .SH BUGS 
 
 .SH "SEE ALSO"
+.BR MidWay (7)
 
 .BR 
 

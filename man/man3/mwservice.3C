@@ -11,7 +11,7 @@
 .SH SYNOPSIS
 .B #include <MidWay.h>
 .sp
-.BI "int " functionname "(mwsvcinfo * si);"
+.BI "int " functionname "(mwsvcinfo * " msi ");"
 .SH DESCRIPTION
 This is the prototype for writing service routines in C. 
 A function must be registered as a MidWay service routine with 
@@ -21,7 +21,7 @@ instance.  You can either do mwprovide directly or by compile the C
 function into a shared library and use either
 .BR mwserver ()
 or give the shared library as an executable in the config file for 
-.BR mwd "(). (see" mwd.conf (4)).
+.BR mwd "(). (see " mwd.conf (4)).
 .sp
 The input parameters to the routine is given by the struct mwsvcinfo:
 .nf
@@ -91,11 +91,22 @@ of the service call.
 
 .SH EXAMPLES
 
+.nf
+
+int MYSERVICE (mwsvcinfo *msi)
+{
+	printf ("got a call from client %d, flags %#X, data=\"%s\"(%d)", 
+		msi->cltid, msi->flags, msi->data, msi->datalen);
+
+	mwreply ("Hello Client!", 0, MWSUCCESS, 0, 0);
+	return ;
+};
+
 .SH BUGS 
 
 .SH "SEE ALSO"
 
-.BR MidWay (7)
+.BR MidWay "(7), " mwreply "(3C), " mwacall "(3C)" 
 
-.SH STANDARDS
+.SH STANDARDS 
 NONE

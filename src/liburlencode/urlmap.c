@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.8  2002/10/17 22:20:19  eggestad
+ * - bug in handling an empty field
+ *
  * Revision 1.7  2002/07/07 22:34:46  eggestad
  * added urlmapdup
  *
@@ -90,7 +93,16 @@ urlmap * urlmapdecode(char * list)
     key_end = strchr(next, '=');
     value_start = key_end + 1;
     value_end = strchr(next, '&');
+    // if next = is past & then there are no value 
 
+#ifdef DEBUG
+     fprintf (stderr, "urlmapdecode: key_end=%p(next+%d) value_end=%p(next+%d) next=%s\n", 
+	      key_end, key_end-next, value_end, value_end - next, next);
+     fflush(stderr);
+#endif 
+
+     if ((value_end != NULL) && (key_end > value_end)) key_end = NULL;
+    
     /* if there is a value decode it and set length */
     if (key_end != NULL)
       map[idx].valuelen = urldecodedup(&map[idx].value, value_start);
@@ -456,7 +468,7 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
   /* make a copy and insert value */
     map[idx].value = malloc(len+1);
     if (map[idx].value == NULL) return NULL;
-    memcpy(map[idx].value,value, len+1);
+    memcpy(map[idx].value, value, len);
     map[idx].valuelen = len;
   };
   /* NULL term the array */

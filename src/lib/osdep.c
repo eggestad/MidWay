@@ -25,6 +25,17 @@
    THis is fairly OS dependant, on linux we depend on /proc.
    if /proc is not mounted we return -ENODEV, 0 on no proc, 1 if proc exists.
 */
+
+/*
+ * $Log$
+ * Revision 1.2  2000/07/20 19:30:56  eggestad
+ * CVS keywords missing
+ *
+ */
+
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
+
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>

@@ -168,7 +168,7 @@ dnl End link options for readline
 AC_OUTPUT(html-doc/mans/Makefile html-doc/Makefile src/Makefile
 	src/lib/Makefile src/liburlencode/Makefile src/mwadm/Makefile 
 	src/mwcall/Makefile src/mwd/Makefile src/mwgwd/Makefile src/mwbd/Makefile 
-	src/mwserver/Makefile src/test/Makefile Makefile
+	src/mwserver/Makefile src/test/Makefile src/mwevent/Makefile Makefile
 	man/Makefile man/man1/Makefile man/man3/Makefile 
 	man/man7/Makefile man/man8/Makefile 
 	src/include/version.h

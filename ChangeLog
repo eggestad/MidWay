@@ -1,3 +1,7 @@
+2004-03-12  Terje Eggestad  <te@pc-16.office.scali.no>
+
+	* added a mwevent client, a utility for posting events from commandline.  
+
 2004-03-01  Terje Eggestad  <te@pc-16.office.scali.no>
 
 	* change in mwfetch() params, handle is now a int pointer that

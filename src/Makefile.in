@@ -8,7 +8,7 @@ CC = @CC@
 @SET_MAKE@
 
 
-DIRS = liburlencode lib mwd mwadm mwserver mwgwd mwcall mwbd test
+DIRS = liburlencode lib mwd mwadm mwserver mwgwd mwcall mwevent mwbd test
 
 all: 
 	@ for dir in $(DIRS); do\

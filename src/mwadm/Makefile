@@ -8,7 +8,7 @@ INCPATH = ../include
 
 CFLAGS =  $(INCLUDES) -g
 
-LIBS =  -L../lib -lreadline -lMidWay
+LIBS =  -L../lib -lreadline -ncurses -lMidWay
 
 LDFLAGS = $(LIBS) 
 
@@ -28,7 +28,7 @@ clean:
 	rm -f mwadm $(OBJ) core 
 
 install:
-	$(INSTALL) -D mwadm $(INSTALLDIR)/bin
+	$(INSTALL) -D mwadm $(INSTALLDIR)/bin/mwadm
 
 uninstall:
 	rm -f $(INSTALLDIR)/bin/mwadm

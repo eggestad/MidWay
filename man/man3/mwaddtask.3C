@@ -3,6 +3,9 @@
 .\" Copyright (c) 2004 Terje Eggestad <terje.eggestad@iname.com>
 .\" May be distributed under the GNU General Public License.
 .\"
+.\" $Id$
+.\" $Name$
+.\"
 .TH MWTASK 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
 mwaddtask, mwaddtaskdelayed, mwwaketask, mwsuspendtask, mwresumetask,

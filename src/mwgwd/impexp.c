@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.12  2003/03/16 23:50:24  eggestad
+ * Major fixups
+ *
  * Revision 1.11  2003/01/07 08:28:01  eggestad
  * * Major fixes to get three mwgwd working correctly with one service
  * * and other general fixed for suff found on the way
@@ -363,12 +366,16 @@ Connection * impfindpeerconn(char * service, SERVICEID svcid)
   Connection * rconn = NULL;
 
   LOCKMUTEX(impmutex);
+  impdumplist();
+
   for (imp = importlist; imp != NULL; imp = imp->next) {
     if (strcmp(service, imp->servicename) != 0) continue;
-
+    DEBUG2("found imp object @ %p, searching peerlist", imp);
     for (pl = imp->peerlist; pl != NULL; pl = pl->next) {
+      DEBUG2("peerlist @ %p, svcid = %#x instance %s", pl, pl->svcid, pl->peer->instance);
       if (pl->svcid == svcid) {
 	rconn = pl->peer->conn;
+	DEBUG2("returning connection %p: fd=%d instance %s", rconn, rconn->fd, rconn->peeraddr_string);
 	goto out;
       };
     };
@@ -533,14 +540,15 @@ static void expcleanuppeer(struct gwpeerinfo * pi)
 
 void impexp_cleanuppeer(struct gwpeerinfo * pi)
 {
-  DEBUG("Cleaning up after GW %#x hostname = %s instance %s @ %s", 
+   if (pi == NULL) return;
+   DEBUG("Cleaning up after GW %#x hostname = %s instance %s @ %s", 
 	 pi->gwid, 
 	 pi->hostname, 
 	 pi->instance, 
-	 pi->conn->peeraddr_string);
+	 (pi->conn == NULL) ? "unconnected" : pi->conn->peeraddr_string);
 
-  expcleanuppeer(pi);
-  impcleanuppeer(pi);
+   expcleanuppeer(pi);
+   impcleanuppeer(pi);
 };
 
 /* called when we get ab newprovire event from mwd */

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.18  2003/03/16 23:50:24  eggestad
+ * Major fixups
+ *
  * Revision 1.17  2003/01/07 08:27:56  eggestad
  * * Major fixes to get three mwgwd working correctly with one service
  * * and other general fixed for suff found on the way
@@ -153,7 +156,6 @@ gatewayentry * gwtbl = NULL;
 
 globaldata globals = { 0 };
 
-static int gw_getknownpeer_bygwid(GATEWAYID gwid);
 
 void usage(char * arg0)
 {
@@ -172,6 +174,8 @@ void usage(char * arg0)
    if any peers need an update. */
 
 DECLAREMUTEX(peersmutex);
+
+DECLAREGLOBALMUTEX(bigmutex);
 
 /************************************************************************
  * functions to handle the different IPC messages, and the ipcmainloop
@@ -269,8 +273,11 @@ static void do_svccall(Call * cmsg, int len)
     return;
   };
 
+  DEBUG2("%s", conn_print());
   DEBUG("got a call to service %s svcid %#x", cmsg->service, cmsg->svcid);
   conn = impfindpeerconn(cmsg->service, cmsg->svcid);
+
+  //  DEBUG2("%s", conn_print());
 
   TIMEPEG();
 
@@ -295,6 +302,10 @@ static void do_svccall(Call * cmsg, int len)
     return;
   };
 
+
+  DEBUG2("service is on connection %p", conn);
+  //  DEBUG2("service is on connection %p", conn);
+  //  DEBUG2("%s", conn_print());
 
   DEBUG("service is on connection with fd=%d at %s, gwid=%d", 
 	conn->fd, conn->peeraddr_string, GWID2IDX(conn->gwid));
@@ -371,9 +382,10 @@ static void do_svcreply(Call * cmsg, int len)
   Connection * conn;
   MWID mwid;
 
-  DEBUG("Got a svcreply service %s from server %d for client %d, gateway %d ipchandle=%#x", 
+  DEBUG("Got a svcreply service %s from server %d for client %d, gateway %d ipchandle=%#x callerid=%x instrance=%s", 
 	cmsg->service, SRVID2IDX(cmsg->srvid),
-	CLTID2IDX(cmsg->cltid), GWID2IDX(cmsg->gwid), cmsg->handle);
+	CLTID2IDX(cmsg->cltid), GWID2IDX(cmsg->gwid), cmsg->handle, cmsg->callerid, cmsg->instance);
+
   
   /* we must lock since it happens that the server replies before
      we do storeSetIpcCall() in SRBprotocol.c */
@@ -384,12 +396,12 @@ static void do_svcreply(Call * cmsg, int len)
   /* there are more replies, we get and not pop the map from the
      pending call list */
 
-  if (cmsg->gwid != UNASSIGNED) 
-    mwid = cmsg->gwid;
-  else 
+  if (cmsg->cltid != UNASSIGNED) 
     mwid = cmsg->cltid;
+  else 
+    mwid = cmsg->gwid;
 
-  DEBUG("fetching SRB map from dtore for %#x handle = %x", mwid, cmsg->handle);
+  DEBUG("fetching SRB map from store for %#x handle = %x", mwid, cmsg->handle);
   if (cmsg->returncode == MWMORE) {
     rc = storeGetCall(mwid, cmsg->handle, &fd, &srbmsg.map);
     DEBUG2("storeGetCall returned %d, address of old map is %#x", 
@@ -453,6 +465,7 @@ static void do_svcreply(Call * cmsg, int len)
   return;
 };
 
+int biglock = 1;
 int ipcmainloop(void)
 {
   int i, rc, errors, len;
@@ -483,7 +496,14 @@ int ipcmainloop(void)
     timepeg_log();
     DEBUG( "/\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ ");
     DEBUG("doing _mw_ipc_getmessage()");
+
+    UNLOCK_BIGLOCK();
+
     rc = _mw_ipc_getmessage(message, &len, 0, 0);
+
+    LOCK_BIGLOCK();
+
+
     DEBUG( "\\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ ");
     DEBUG( "_mw_ipc_getmessage() returned %d", rc);
     TIMEPEGNOTE("startipc");
@@ -547,7 +567,7 @@ int ipcmainloop(void)
       };
 
       DEBUG( "connection for clientname %s on fd=%d is assigned the clientid %#x", 
-	    amsg->cltname, fd, &amsg->cltid);
+	    amsg->cltname, fd, amsg->cltid);
       /* now assign the CLIENTID to the right connection. */
       conn_setinfo(fd, &amsg->cltid, NULL, NULL, NULL);
       conn = conn_getentry(fd);
@@ -616,6 +636,7 @@ int ipcmainloop(void)
       Warning("got a unknown message with message type = %#lx", *mtype);
     } /* end switch */
   } /* end while */
+  UNLOCK_BIGLOCK();
   return 1; /* going down on signal */
   
 };
@@ -692,6 +713,31 @@ int gwdetachclient(int cltid)
   return 0;
 };
 
+Connection * gwlocalclient(CLIENTID cid)
+{
+  cliententry  * ce;
+
+  /* these two tests are fast since we don't do any sequential
+     searches of the kind conn_getclient() does. So we do this to save
+     time if the client is not imported by myself. calling
+     conn_clients is actually enough. */ 
+
+  ce = _mw_get_client_byid(cid);
+  if (ce->gwid == UNASSIGNED) {
+    DEBUG2(" client %d is IPC", CLTID2IDX(cid));
+    return 0; // IPC client
+  };
+
+  if (ce->gwid !=  _mw_get_my_gatewayid()) {
+    DEBUG2(" client %d is handeled by GWID %d, which is not us", GWID2IDX(ce->gwid));
+    return NULL; 
+  };
+
+  return conn_getclient(cid);
+};
+
+/************************************************************************/
+
 #define LOCK -1
 #define UNLOCK 1
 
@@ -755,6 +801,11 @@ void gw_setipc(struct gwpeerinfo * pi)
   if (pi == NULL) return ;
   gwent = _mw_get_gateway_byid(pi->gwid);
 
+  if (gwent == NULL) {
+     Warning(" attempted to to get gw entry for gwid=%d, but no entry found", GWID2IDX(pi->gwid));
+     return;
+  };
+
   if (pi->conn == NULL) {
     Fatal("Called with NULL argument");
     abort(); 
@@ -804,10 +855,110 @@ void freegwid(GATEWAYID gwid)
    some time, but that's not  critical. We keep track of peer gataways
    in both our own and foreign/remote domains. */
 
-static struct gwpeerinfo * knownGWs = NULL;
 static char ** peerhostnames = NULL;
-static int GWcount = 0;
 
+static struct gwpeerinfo ** knownGWs = NULL;
+static int GWcount = 0;
+static int GWalloccount = 0;
+static int dirsize = 16;
+
+#define DIRENTRY(idx) (idx/dirsize)
+#define GWENTRY(idx) (knownGWs[(idx/dirsize)][idx%dirsize])
+
+static struct gwpeerinfo * addKnownPeer(struct gwpeerinfo * peer)
+{
+   int idx = -1, i;
+   struct gwpeerinfo * gwpi;
+
+   DEBUG2( "Adding %s as a know peer at address %s", 
+	  peer->instance, peer->hostname);
+   
+   LOCKMUTEX(peersmutex);
+   
+   // first we check to see if we know about it from before
+   for (i = 0; i < GWcount; i++) {    
+      if (strcmp(peer->instance, GWENTRY(i).instance) == 0) {
+	 DEBUG2( "Known peer on index %d", i);
+	 idx = i;
+	 goto out;
+      };
+   };    
+
+   idx = GWcount;
+   GWcount++;
+   DEBUG2( "adding Known peer on index %d", idx);
+
+   if (GWalloccount <= GWcount) {
+      GWalloccount += dirsize;
+      DEBUG2("extending the knownGW dir table from %d to %d, index = %d",
+	    GWcount - 1 , GWalloccount, idx);
+      
+      knownGWs = realloc(knownGWs, GWalloccount * sizeof(struct gwpeerinfo *) / dirsize);
+
+      knownGWs[DIRENTRY(GWcount)] = malloc(sizeof(struct gwpeerinfo) * dirsize);
+   } 
+   GWENTRY(idx) = * peer;
+ 
+ out:
+
+   DEBUG2( "added Known peer on index %d", idx);
+   
+   gwpi = & GWENTRY(idx);
+   
+   UNLOCKMUTEX(peersmutex);
+
+   DEBUG2( "returning  %p", gwpi);
+   return gwpi;
+};
+
+static struct gwpeerinfo * getKnownPeerByInstance(char * instance)
+{
+   int idx = -1, i;
+
+   LOCKMUTEX(peersmutex);
+   
+   // first we check to see if we know about it from before
+   for (i = 0; i < GWcount; i++) {    
+      if (strcmp(instance, GWENTRY(i).instance) == 0) {
+	 DEBUG2( "Known peer on index %d", i);
+	 idx = i;
+	 break;
+      };
+   };    
+
+   UNLOCKMUTEX(peersmutex);
+
+   if (idx == -1) {
+      return NULL;
+   }
+   return & GWENTRY(idx);
+};
+
+static struct gwpeerinfo * getKnownPeerByGWID(GATEWAYID gwid)
+{
+   int idx = -1, i;
+   struct gwpeerinfo * pi = NULL;
+
+   LOCKMUTEX(peersmutex);
+   
+   // first we check to see if we know about it from before
+   for (i = 0; i < GWcount; i++) {  
+      pi = & GWENTRY(i);
+      DEBUG2(" testing knownGWs[%d].gwid=%#x  ?= gwid=%#x", i, pi->gwid, gwid);
+      if (gwid ==  pi->gwid) {
+	 DEBUG2( "Known peer on index %d", i);
+	 idx = i;
+	 break;
+      }
+   };    
+
+   UNLOCKMUTEX(peersmutex);
+
+   if (idx == -1) {
+      return NULL;
+   }
+   return pi;
+};
 
 /* provided for parsing the config, it's possible there to add a known
    peer host.  We'll ask the peer  host for ALL instances on that host
@@ -842,16 +993,16 @@ int gw_addknownpeerhost(char * hostname)
   return 0;
 };
 
-/* we're called  either on a multicast reply or  if an unknown gateway
-   connect  us we  must have  the instance  and domain  name,  and the
-   sockaddr struct either  on the connection of the  sender of teh UDP
-   multicast reply packet.  If piptr is  non null it is set to pint to
+/* we're called either on a multicast reply or if an unknown gateway
+   connect us we must have the instance and domain name, and the
+   sockaddr struct either on the connection of the sender of teh UDP
+   multicast reply packet.  If piptr is non null it is set to point to
    the alloced knownGWs entry for this peer, or NULL on failure. */
 
 int gw_addknownpeer(char * instance, char * domain, 
 		    struct sockaddr * peeraddr, struct gwpeerinfo ** piptr) 
 {
-  int i, l;
+  int l;
   const void * sz;
   struct sockaddr_in * sain;
   struct gwpeerinfo peer;
@@ -899,31 +1050,10 @@ int gw_addknownpeer(char * instance, char * domain,
   peer.conn = NULL;
   peer.gwid = UNASSIGNED;
 
-  DEBUG( "Adding %s as a know peer in domain %s at address %s", 
-	peer.instance, domain, peer.hostname);
-  
-  LOCKMUTEX(peersmutex);
-  if (knownGWs == NULL) {
-    knownGWs = malloc(sizeof(struct gwpeerinfo));
-    GWcount = 1;
-  } else {
-    // first we check to see if we know about it from before
-    for (i = 0; i < GWcount; i++) {    
-      if (strcmp(instance, knownGWs[i].instance) == 0) {
-	DEBUG( "Known peer on index %d", i);
-	if (piptr) *piptr = &knownGWs[GWcount-1] ;
-	goto out;
-      };
-    };    
-    knownGWs = realloc(knownGWs, sizeof(struct gwpeerinfo) * ++GWcount);
-  };
-  
-  knownGWs[GWcount-1] = peer;
-  if (piptr) *piptr = &knownGWs[GWcount-1] ;
+  DEBUG( "Adding %s as a know peer in domain %s (domid %d) at address %s", 
+	 peer.instance, domain, peer.domainid, peer.hostname);
 
- out:
-  
-  UNLOCKMUTEX(peersmutex);
+  * piptr  = addKnownPeer(&peer);
 
   return 0;
 };
@@ -932,7 +1062,7 @@ int gw_addknownpeer(char * instance, char * domain,
 /* called when we get and SRB INIT request from a gateway */
 int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
 {
-  int i, domid = -1;
+   int domid = -1;
   struct gwpeerinfo * pi = NULL;
   GATEWAYID gwid;
 
@@ -955,24 +1085,7 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
     DEBUG( "gateway %s connected us from domain %s", instance, peerdomain);
   };
 
-  LOCKMUTEX(peersmutex);
-  // first we check to see if we already have an active connection 
-  for (i = 0; i < GWcount; i++) {    
-    if (strcmp(instance, knownGWs[i].instance) == 0) {	  
-      if (knownGWs[i].conn != NULL) {
-	Warning("Got a connection from peer %s in domain %s, but is already conneced!", 
-		instance, peerdomain);
-	UNLOCKMUTEX(peersmutex);
-	errno = EISCONN;
-	return -1;
-      } else {
-	DEBUG( "peer %d has index %d in knownGWs", instance, i);
-	pi = & knownGWs[i];
-	break;
-      };
-    };
-  };  
-  UNLOCKMUTEX(peersmutex);
+  pi = getKnownPeerByInstance(instance);
 
   if (pi == NULL) {
     struct sockaddr sa;
@@ -987,6 +1100,14 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
     Info("rejected  peer %s on domain %s", instance, peerdomain);      
     return -1;
   }
+
+  if (pi->conn != NULL) {
+     Warning("Got a connection from peer %s in domain %s, but is already conneced!", 
+	     instance, peerdomain);
+     errno = EISCONN;
+     return -1;
+  };
+
   pi->domainid = domid;
   if (pi->domainid == 0) 
     gwid = allocgwid(GWPEER, SRB_ROLE_GATEWAY);
@@ -998,8 +1119,8 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
   pi->conn = conn;
   pi->gwid = conn->gwid = gwid;
 
-  DEBUG( "got a peer %s on domainid %d, gwid = %d conn = %p fd=%d", 
-	 instance, pi->domainid, GWID2IDX(gwid), pi->conn, pi->conn->fd);
+  DEBUG( "conn=%p got a peer %s on domainid %d, gwid = %d pi->conn = %p fd=%d", 
+	 conn, instance, pi->domainid, GWID2IDX(gwid), pi->conn, pi->conn->fd);
   gw_setipc(pi);
 
   return 0;
@@ -1007,26 +1128,28 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
 
 void gw_provideservice_to_peers(char * service)
 {
-  int i;
+   int i;
+   struct gwpeerinfo * pi;
+   
+   DEBUG( "exporting service %s to all peers", service);
+   
+   LOCKMUTEX(peersmutex);
+   for (i = 0; i < GWcount; i++) {
+      pi = & GWENTRY(i);
+      if (pi->conn == NULL) {
+	 DEBUG(" peer %d is not connected");
+	 continue;
+      };
 
-  DEBUG( "exporting service %s to all peers", service);
-  
-  LOCKMUTEX(peersmutex);
-  for (i = 0; i < GWcount; i++) {
-    if (knownGWs[i].conn == NULL) {
-      DEBUG(" peer %d is not connected");
-      continue;
-    };
+      if (pi->conn->state != CONNECT_STATE_UP) {
+	 DEBUG("peer %d is not yet in connected state, ignoring", i);
+	 continue;
+      };
 
-    if (knownGWs[i].conn->state != CONNECT_STATE_UP) {
-      DEBUG("peer %d is not yet in connected state, ignoring", i);
-      continue;
-    };
-
-    exportservicetopeer(service, &knownGWs[i]);
-  };
-  UNLOCKMUTEX(peersmutex);
-  DEBUG( "export complete");
+      exportservicetopeer(service, pi);
+   };
+   UNLOCKMUTEX(peersmutex);
+   DEBUG( "export complete");
 };
 
 /* now this is called only every time a new peer is connected. At that
@@ -1041,16 +1164,7 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
   char ** svcnamelist = NULL;
   DEBUG( "Checking to see if we need to send provide or unprovide to GW %d", GWID2IDX(gwid));
 
-  LOCKMUTEX(peersmutex);
-
-  for (i = 0; i < GWcount; i++) {
-    if (knownGWs[i].gwid == gwid) {
-      pi = &knownGWs[i];
-      break;
-    };
-  };
-
-  UNLOCKMUTEX(peersmutex);
+  pi = getKnownPeerByGWID(gwid);
 
   if (pi == NULL) {
     Fatal("Internal error: could not find a gwpeerinfo entry for gwid %d", GWID2IDX(gwid));
@@ -1060,7 +1174,7 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
   n = 0;
   for (i = 0; i < ipcmain->svctbl_length; i++) {
     if (svctbl[i].type == UNASSIGNED) {
-      DEBUG2("service table entry %d is empty", i);
+       //      DEBUG2("service table entry %d is empty", i);
       continue;
     };
 
@@ -1124,40 +1238,44 @@ int gw_getcostofservice(char * service)
 
 /* TODO: I'm not happy about clean up, who are resp for sending TERM,
    closing, etc, need a policy */
-void gw_closegateway(GATEWAYID gwid) 
+void gw_closegateway(Connection * conn) 
 {
-  Connection * conn;
-  int i;
-  DEBUG( "cleaning up after gwid %d", GWID2IDX(gwid));
+  struct gwpeerinfo * pi = NULL;
+  GATEWAYID gwid; 
 
-  if (gwid == -1) {
-    Error("called to clean up after GWID == -1!");
-    return;
-  };
-
-  // we get the konownpeer entry and clear it. 
-  i = gw_getknownpeer_bygwid(gwid);
-  DEBUG("gw_getknownpeer_bygwid(gwid=%#x) = %d", gwid, i);
-  if (i >= 0) {
-
-    /* TODO: first of all we must unprovde all services importet from peer. */
-    impexp_cleanuppeer(&knownGWs[i]);
-
-    conn = knownGWs[i].conn;
-    DEBUG2("conn = %p", conn);
-
-    knownGWs[i].gwid = UNASSIGNED;
-    knownGWs[i].conn = NULL;
-  } else {
-    conn = conn_getgateway(gwid);
+  if (conn == NULL) {
+     return;
   };
   
-  freegwid(gwid);
+  gwid = conn->gwid;
+
+  DEBUG( "cleaning up after gwid %d", GWID2IDX(gwid));
+
+  if (gwid != -1) {
+     // we get the konownpeer entry and clear it. 
+     pi = getKnownPeerByGWID(gwid);
+     if (pi != NULL) {
+	
+	/* TODO: first of all we must unprovde all services importet from peer. */
+	impexp_cleanuppeer(pi);
+	
+	conn = pi->conn;
+	DEBUG2("conn = %p", conn);
+	
+	pi->gwid = UNASSIGNED;
+	pi->conn = NULL;
+     } 
+     
+     freegwid(gwid);
+  } else {
+     Warning("called to clean up after GWID == -1!");     
+  };
 
   // we clear the connections entry.
   if (conn != NULL) {
     DEBUG( "gw has a connection entry fd=%d", conn->fd);
     conn->gwid = UNASSIGNED;
+    ((struct gwpeerinfo *) conn->peerinfo)->conn = NULL;
     conn->peerinfo = NULL;
     conn_del(conn->fd);
   };    
@@ -1265,7 +1383,7 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
       nc->peerinfo = peerinfo; 
       break;
     } else {
-      gw_closegateway(gwid);
+      gw_closegateway(nc);
       break;
     };
   };
@@ -1276,19 +1394,24 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
    multicasts, and we connect on their replies. */
 void gw_connectpeers(void)
 {
-  int i; 
+   int i; 
+   struct gwpeerinfo * pi = NULL;
   
-  for (i = 0; i < GWcount; i++) {
-    if (knownGWs[i].conn == NULL) {
-      DEBUG( "Unconnected peer at host %s, instance %s", 
-	    knownGWs[i].hostname,  knownGWs[i].instance);      
-      gw_connectpeer( &knownGWs[i] );
-    } else {
-      DEBUG( "Already Connected peer at host %s, instance %s, fd=%d state = %d", 
-	    knownGWs[i].hostname,  knownGWs[i].instance, 
-	    knownGWs[i].conn->fd,  knownGWs[i].conn->state);
+   LOCKMUTEX(peersmutex);
+   
+   for (i = 0; i < GWcount; i++) {
+      pi = &GWENTRY(i);
+      if (pi->conn == NULL) {
+	 DEBUG( "Unconnected peer at host %s, instance %s", 
+		pi->hostname,  pi->instance);      
+	 gw_connectpeer(pi);
+      } else {
+	 DEBUG( "Already Connected peer at host %s, instance %s, fd=%d state = %d", 
+		pi->hostname,  pi->instance, 
+		pi->conn->fd,  pi->conn->state);
     }
   };
+   UNLOCKMUTEX(peersmutex);
 };
 
 /* wrapper for sending a multicast on our domain and all defined
@@ -1307,20 +1430,7 @@ void gw_sendmcasts(void)
   return;
 };
 
-static int gw_getknownpeer_bygwid(GATEWAYID gwid)
-{
-  int i; 
-  
-  for (i = 0; i < GWcount; i++) {
-    DEBUG2(" testing knownGWs[%d].gwid=%#x  ?= gwid=%#x", i, knownGWs[i].gwid, gwid);
-    if (knownGWs[i].gwid == gwid) {
-      DEBUG2("returning %d", i);
-      return i;
-    };
-  }
-  return -1;
-};
-  
+
 /************************************************************************
  * main
  ************************************************************************/
@@ -1368,7 +1478,7 @@ int main(int argc, char ** argv)
 
     case 'L':
       strncpy(logprefix, optarg, PATH_MAX);
-      printf("logprefix = %s at %s:%d\n", logprefix, __FUNCTION__, __LINE__);
+      printf("logprefix = \"%s\" at %s:%d\n", logprefix, __FUNCTION__, __LINE__);
       break;
 
     case 'A':
@@ -1392,6 +1502,15 @@ int main(int argc, char ** argv)
       break;
     }
   }
+
+  /* env variable to set biglock, default is set in gateway.h, possibly from configure. */
+  {
+    char * env;
+
+    env = getenv(envBIGLOCK);
+    if (env == NULL) globals.biglock = DEFAULT_BIGLOCK_FLAG;
+    else globals.biglock = atoi(env);
+  };
 
   mwopenlog(name, logprefix, loglevel);
 

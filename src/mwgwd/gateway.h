@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.8  2003/03/16 23:50:24  eggestad
+ * Major fixups
+ *
  * Revision 1.7  2002/09/26 22:36:05  eggestad
  * added missing protptype
  *
@@ -61,6 +64,7 @@ typedef struct {
   char * myinstance;
   pid_t tcpserverpid;
   pid_t ipcserverpid;
+  int biglock;
 } globaldata;
 
 // TODO we have a limitation on hostnames. 
@@ -103,12 +107,25 @@ void gw_connectpeers(void);
 int gw_peerconnected(char * instance, char * peerdomain, Connection * conn);
 void gw_provideservices_to_peer(GATEWAYID gwid);
 void gw_provideservice_to_peers(char * service);
-void gw_closegateway(GATEWAYID gwid);
+void gw_closegateway(Connection *);
 int gw_getcostofservice(char * service);
 void gw_setipc(struct gwpeerinfo * pi);
 void gw_sendmcasts(void);
 
+Connection * gwlocalclient(CLIENTID cid);
+
 #endif
+
+
+/* the big lock. This is locked when ipcgetmessage or conn_select
+   return. THis ensure that only one of the two threads do real work
+   at the same time. This is just an easy way to circumvent race
+   conditions. */
+// we've got an bad race cond in imp list... so default on
+#define DEFAULT_BIGLOCK_FLAG 1
+#define envBIGLOCK "MWGWD_BIGLOCK"
+#define    UNLOCK_BIGLOCK() do { if (globals.biglock) UNLOCKMUTEX(bigmutex);} while (0)
+#define    LOCK_BIGLOCK()   do { if (globals.biglock) LOCKMUTEX(bigmutex); } while (0)
 
 #ifndef _GATEWAY_C
 extern globaldata globals;

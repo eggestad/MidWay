@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.7  2003/03/16 23:50:24  eggestad
+ * Major fixups
+ *
  * Revision 1.6  2002/10/17 22:18:28  eggestad
  * fix to handle calls from a gateway, not just clients
  *
@@ -144,6 +147,8 @@ int storeGetCall(MWID mwid, int ipchandle, int * fd,  urlmap **map)
 
   PCthis = CallsInProgress;
   while(PCthis != NULL) {
+    DEBUG2("checking pending call: ipckey  %u ?= %u and mwid  %x ?= %x", 
+	   PCthis->ipchandle,  ipchandle, PCthis->mwid, mwid);
     if ( (PCthis->ipchandle == ipchandle) && (PCthis->mwid == mwid) ) {
       if (fd != NULL)*fd = PCthis->fd;
       if (map != NULL)*map = PCthis->mappedmsg;
@@ -181,12 +186,13 @@ int storePopCall(MWID mwid, int ipchandle, int * fd,  urlmap **map)
   PCthis = CallsInProgress;
   
   /* if top in list, should be the majority of the cases */
+  DEBUG2("checking pending call: ipckey  %u ?= %u and mwid  %x ?= %x", 
+	 PCthis->ipchandle,  ipchandle, PCthis->mwid, mwid);
   if ( (PCthis->ipchandle == ipchandle) && (PCthis->mwid == mwid) ) {
     if (fd != NULL)*fd = PCthis->fd;
     if (map != NULL)*map = PCthis->mappedmsg;
     CallsInProgress = PCthis->next;
-    PCthis->next = CallsFreeList;
-     
+
     clearPendingCall(PCthis);    
     PCthis->next = CallsFreeList;
     CallsFreeList = PCthis;
@@ -199,6 +205,8 @@ int storePopCall(MWID mwid, int ipchandle, int * fd,  urlmap **map)
   PCprev = PCthis;
   PCthis = PCthis->next;
   while(PCthis != NULL) {
+    DEBUG2("checking pending call: ipckey  %u ?= %u and mwid  %x ?= %x", 
+	 PCthis->ipchandle,  ipchandle, PCthis->mwid, mwid);
     if ( (PCthis->ipchandle == ipchandle) && (PCthis->mwid == mwid) ) {
       if (fd != NULL)*fd = PCthis->fd;
       if (map != NULL)*map = PCthis->mappedmsg;

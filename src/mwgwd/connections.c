@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.17  2003/03/16 23:50:24  eggestad
+ * Major fixups
+ *
  * Revision 1.16  2003/01/07 08:27:48  eggestad
  * * Major fixes to get three mwgwd working correctly with one service
  * * and other general fixed for suff found on the way
@@ -108,14 +111,28 @@ static char * RCSId UNUSED = "$Id$";
 /* hmm I'm almost puzzeled that this all works withouit a mutex on the
    connection table. But I'm pretty sure that I'm OK without it.  */
 
-static Connection * connections = NULL;
+/* threre was a major problem in th eoriginal implementation. Nota
+mutex problem though.  There was only onle connection table that was
+realloc'ed when expansion was needed. However, there are pointers to
+the conn entry around, most notably in gwpeerinfo. Hence the conn
+struct can't move. Also when one thread would do realloc, the other
+may do dereferencing of the conn pointer that are no longer valid. 
+
+Our solution is to to a two level array to save space, and teh to
+level array may be realloced. */
+
+#define CONNDIRSIZE 10
+ 
+static Connection ** conn_dir = NULL;
+//static Connection * connections = NULL;
 static int connectiontablesize = 0;
 
 /************************************************************************
  * here we have the function that turn on and off read/write polling
  * on a given filedesc. THis is in two versions depending on wither we
  * use poll() or select()
- */
+ ************************************************************************/
+
 static int maxsocket = -1;
 
 #if USE_POLL
@@ -227,68 +244,95 @@ void conn_init(void)
   return;
 };
 
+static inline Connection * fd2conn(int fd)
+{
+  int dir;
+  int idx;
+
+  dir = fd / CONNDIRSIZE;
+  idx = fd % CONNDIRSIZE;
+  
+  //  DEBUG2("fd=%d dir = %d idx = %d", fd, dir, idx);
+
+  Assert(conn_dir[dir] != NULL);
+  return &conn_dir[dir][idx];
+};
+
 /* srb*info are used to set info in SRB INIT and to get info later
    on requests that only gateways may request. */
 void conn_setinfo(int fd, int * id, int * role, int * rejects, int * reverse)
 {
+  Connection * conn;
   
+  conn = fd2conn(fd);
+
   if (id != NULL) {
-    DEBUG2("conn_setinfo fd=%d id=%#x", fd, *id);
+    DEBUG2("fd=%d id=%#x", fd, *id);
     if ((*id & MWCLIENTMASK) != 0)
-      connections[fd].cid = (*id & MWINDEXMASK) | MWCLIENTMASK;
+      conn->cid = (*id & MWINDEXMASK) | MWCLIENTMASK;
     if ((*id & MWGATEWAYMASK) != 0)
-      connections[fd].gwid = (*id & MWINDEXMASK) | MWGATEWAYMASK;
+      conn->gwid = (*id & MWINDEXMASK) | MWGATEWAYMASK;
   };
 
   if (role != NULL) {
-    DEBUG2("conn_setinfo fd=%d role=%d", fd, *role);
-    connections[fd].role = *role;
+    DEBUG2("fd=%d role=%d", fd, *role);
+    conn->role = *role;
   }
   if (rejects != NULL) {
-    DEBUG2("conn_setinfo fd=%d rejects=%d", fd, *rejects);
-    connections[fd].rejects = *rejects;
+    DEBUG2("fd=%d rejects=%d", fd, *rejects);
+    conn->rejects = *rejects;
   }
   if (reverse != NULL) {
-    DEBUG2("conn_setinfo fd=%d reverse=%d", fd, *reverse);
-    connections[fd].reverse = *reverse;
+    DEBUG2("fd=%d reverse=%d", fd, *reverse);
+    conn->reverse = *reverse;
   }
 };
 
 int conn_getinfo(int fd, int * id, int * role, int * rejects, int * reverse)
 {
+  Connection * conn;
+  
+  conn = fd2conn(fd);
+
   if (id != NULL) {
-    if (CLTID(connections[fd].cid) != UNASSIGNED) 
-      *id = connections[fd].cid;
-    else if (GWID(connections[fd].gwid) != UNASSIGNED) 
-      *id = connections[fd].gwid;
+    if (CLTID(conn->cid) != UNASSIGNED) 
+      *id = conn->cid;
+    else if (GWID(conn->gwid) != UNASSIGNED) 
+      *id = conn->gwid;
     else {
       *id = UNASSIGNED;
     };
   };
 
   if (role != NULL)
-    *role = connections[fd].role;
+    *role = conn->role;
 
   if (rejects != NULL)
-    *rejects = connections[fd].rejects;
+    *rejects = conn->rejects;
 
   if (reverse != NULL)
-    *reverse = connections[fd].reverse;
+    *reverse = conn->reverse;
   
   return 0;
 };
 
 Connection * conn_getentry(int fd)
 {
-  return &connections[fd];
+  Assert(fd >= 0);
+
+  Assert (fd < connectiontablesize);
+
+  return fd2conn(fd);
 };
 
 Connection * conn_getbroker(void)
 {
   int i;
+  Connection * conn;
   for (i = 0; i <= maxsocket; i++) {
-    if (connections[i].fd == -1) continue;
-    if (connections[i].type == CONN_TYPE_BROKER) return &connections[i];
+    conn = fd2conn(i);
+    if (conn->fd == UNASSIGNED) continue;
+    if (conn->type == CONN_TYPE_BROKER) return conn;
   }
   return NULL;
 };
@@ -296,11 +340,28 @@ Connection * conn_getbroker(void)
 Connection * conn_getgateway(GATEWAYID gwid)
 {
   int i;
+  Connection * conn;
   for (i = 0; i <= maxsocket; i++) {
-    DEBUG2("testing connections[%d].gwid = %#x != gwid %#x", i, connections[i].gwid, gwid);
-    if (connections[i].gwid == gwid) {
-      DEBUG2("returnbing &connections[%d] = %p",i,  &connections[i]);
-      return &connections[i];
+    conn = fd2conn(i);
+    DEBUG2("testing connections[%d].gwid = %#x != gwid %#x", i, conn->gwid, gwid);
+    if (conn->gwid == gwid) {
+      DEBUG2("returning &connections[%d] = %p",i,  conn);
+      return conn;
+    };
+  }
+  return NULL;
+};
+
+Connection * conn_getclient(CLIENTID cid)
+{
+  int i;
+  Connection * conn;
+  for (i = 0; i <= maxsocket; i++) {
+    conn = fd2conn(i);
+    DEBUG2("testing connections[%d].cid = %#x != cid %#x", i, conn->cid, cid);
+    if (conn->cid == cid) {
+      DEBUG2("returning &connections[%d] = %p",i,  conn);
+      return conn;
     };
   }
   return NULL;
@@ -325,11 +386,12 @@ static Connection * init_mcast(void)
 
 Connection * conn_getmcast(void)
 {  
-  Connection * connmcast = NULL;
+  Connection * connmcast = NULL, * conn;
   int i;
   for (i = 0; i < connectiontablesize; i++) {
-    if (connections[i].type == CONN_TYPE_MCAST) {
-      connmcast = &connections[i];
+    conn = fd2conn(i);
+    if (conn->type == CONN_TYPE_MCAST) {
+      connmcast = conn;
       DEBUG2("found mcast connection od fd=%d %s", connmcast->fd, connmcast->peeraddr_string);
       break;
     };
@@ -342,10 +404,12 @@ Connection * conn_getmcast(void)
 Connection * conn_getfirstlisten(void)
 {
   int i;
+  Connection * conn;
   for (i = 0; i <= maxsocket; i++) {
-    if (connections[i].fd == -1) continue;
-    if (connections[i].type == CONN_TYPE_BROKER) return &connections[i];
-    if (connections[i].type == CONN_TYPE_LISTEN) return &connections[i];
+    conn = fd2conn(i);
+    if (conn->fd == UNASSIGNED) continue;
+    if (conn->type == CONN_TYPE_BROKER) return conn;
+    if (conn->type == CONN_TYPE_LISTEN) return conn;
   }
   return NULL;
 };
@@ -353,10 +417,12 @@ Connection * conn_getfirstlisten(void)
 Connection * conn_getfirstclient(void)
 {
   int i;
+  Connection * conn;
   for (i = 0; i <= maxsocket; i++) {
-    if (connections[i].fd == -1) continue;
-    if (connections[i].type == CONN_TYPE_CLIENT)
-      return &connections[i];
+    conn = fd2conn(i);
+    if (conn->fd == UNASSIGNED) continue;
+    if (conn->type == CONN_TYPE_CLIENT)
+      return conn;
   }
   return NULL;
 };
@@ -364,15 +430,17 @@ Connection * conn_getfirstclient(void)
 Connection * conn_getfirstgateway(void)
 {
   int i;
+  Connection * conn;
   for (i = 0; i <= maxsocket; i++) {
+    conn = fd2conn(i);
     DEBUG2(" looking at %d gwid = %#x  gateway=%d", 
-	  i, connections[i].gwid, connections[i].type == CONN_TYPE_GATEWAY);
-    if (connections[i].fd == -1) continue;
-    if (connections[i].gwid != UNASSIGNED)
-      return &connections[i];
+	  i, conn->gwid, conn->type == CONN_TYPE_GATEWAY);
+    if (conn->fd == UNASSIGNED) continue;
+    if (conn->gwid != UNASSIGNED)
+      return conn;
 
-    if (connections[i].type == CONN_TYPE_GATEWAY)
-      return &connections[i];
+    if (conn->type == CONN_TYPE_GATEWAY)
+      return conn;
 
   }
   return NULL;
@@ -383,7 +451,7 @@ void conn_setpeername (Connection * conn)
   char ipadr[128], * ipname;
   struct hostent *hent ;
   char * role = "unknown";
-  int len, family, rc, id, port;
+  int len, family, rc, id = UNASSIGNED, port;
   cliententry * cltent = NULL;
   gatewayentry * gwent = NULL;
   char * ipcaddrstr = NULL;
@@ -448,7 +516,7 @@ void conn_setpeername (Connection * conn)
     break;
   };
 
-  Info ("fd=%d peeraddr_string = %s, ipcaddr = %s", conn->fd, conn->peeraddr_string, ipcaddrstr);
+  Info ("fd=%d peeraddr_string = \"%s\", ipcaddr = %s", conn->fd, conn->peeraddr_string, ipcaddrstr);
 
   return;
 };
@@ -456,13 +524,17 @@ void conn_setpeername (Connection * conn)
 void conn_getclientpeername (CLIENTID cid, char * name, int namelen)
 {
   int i, fd = -1;
+  Connection * conn;
   
   cid = CLTID2IDX(cid);
 
   for (i = 0; i <= maxsocket; i++) {
+    conn = fd2conn(i);
+    /*
     DEBUG2("conn_getclientpeername: foreach fd=%d cid=%d ?= %#x",
-	  i, cid, CLTID2IDX(connections[i].cid));
-    if (CLTID2IDX(connections[i].cid) == cid) {
+	  i, cid, CLTID2IDX(conn->cid));
+    */
+    if (CLTID2IDX(conn->cid) == cid) {
       fd = i;
       break;
     }
@@ -477,11 +549,12 @@ void conn_getclientpeername (CLIENTID cid, char * name, int namelen)
   DEBUG2("conn_getclientpeername: cid=%d fd = %d", cid, fd);
   if (fd == -1) return;
 
+  conn = fd2conn(fd);
   DEBUG2("conn_getclientpeername: cid=%d fd = %d role: %d ?= %d",
-	cid, fd, connections[fd].role, SRB_ROLE_CLIENT);
-  if (connections[fd].role != SRB_ROLE_CLIENT) return;
+	cid, fd, conn->role, SRB_ROLE_CLIENT);
+  if (conn->role != SRB_ROLE_CLIENT) return;
 
-  strncpy(name, connections[fd].peeraddr_string, namelen);
+  strncpy(name, conn->peeraddr_string, namelen);
   return;
 };
 
@@ -512,56 +585,78 @@ static void conn_clear(Connection * conn)
 Connection * conn_add(int fd, int role, int type)
 {
    int val = 1, len, rc;
- 
-  /* when inited, 0< <RAND_MAX, and RAND_MAX should be the INT_MAX, or
-     2^31. Just need to make sure is stays positive */
-  if (fd < 0) {
-    Error("conn_add on fd %d", fd);
-    return;
-  };
+   Connection * conn;
+
+   /* when inited, 0< <RAND_MAX, and RAND_MAX should be the INT_MAX, or
+      2^31. Just need to make sure is stays positive */
+   if (fd < 0) {
+     Error("conn_add on fd %d", fd);
+     return;
+   };
 
 
   lastconnectionid++;
   if (lastconnectionid <= 0) lastconnectionid=100;
 
-  DEBUG("conn add on %d", fd);
+  DEBUG("conn add on %d: conntblsize = %d", fd, connectiontablesize);
 
 
   if (connectiontablesize <= fd) {
     int i, l;
+    int oldndir, newndir;
 
-    l = fd+1;
-    connections = realloc(connections, sizeof(Connection) * l);
+    /* we always round up the conn table to N*CONNDIRSIZE */
+
+    if (connectiontablesize == 0) 
+       oldndir = 0;
+    else 
+       oldndir = (connectiontablesize-1)/CONNDIRSIZE +1;
+
+    DEBUG("we need to extend the conn table, current directories = %d",
+	  oldndir);
+
+    newndir = fd/CONNDIRSIZE +1;
+    
+    conn_dir = realloc(conn_dir, sizeof(Connection*) * newndir);
+    DEBUG("increasing directories from %d to %d", oldndir, newndir);
+
+    for (i = oldndir; i < newndir; i++) {
+      DEBUG("addingdirectory %d", i);
+      conn_dir[i] = malloc( sizeof(Connection) * CONNDIRSIZE);
+      memset (conn_dir[i], 0, sizeof(Connection) * CONNDIRSIZE);
+    };
+
+    l = newndir * CONNDIRSIZE ;
     DEBUG("extending the connection table size from %d to %d", connectiontablesize, l);
-  
     for (i = connectiontablesize; i < l; i++) {
       DEBUG("init connection table entry %d", i);
-      conn_clear(&connections[i]);
+      conn_clear(fd2conn(i));
     };
     connectiontablesize = l;
   };
 
-  if (connections[fd].fd != UNASSIGNED) {
+  conn = fd2conn(fd);
+  if (conn->fd != UNASSIGNED) {
     Error("Internal error: attempted to do conn_add on fd=%d while connection already assigned cid=%#x gwid%#x", 
-	  fd, connections[fd].cid, connections[fd].gwid);
+	  fd, conn->cid, conn->gwid);
     // TODO: shouldn't we:     return NULL;
-    return & connections[fd];
+    return conn;
   };
 
-  connections[fd].connectionid = lastconnectionid;
-  connections[fd].fd = fd;
-  connections[fd].connected = time(NULL);
-  connections[fd].messagebuffer = (char *) malloc(SRBMESSAGEMAXLEN+1);
-  connections[fd].cost = 100;
+  conn->connectionid = lastconnectionid;
+  conn->fd = fd;
+  conn->connected = time(NULL);
+  conn->messagebuffer = (char *) malloc(SRBMESSAGEMAXLEN+1);
+  conn->cost = 100;
 
   poll_on(fd);
-  conn_set(& connections[fd], role, type);
+  conn_set(conn, role, type);
 
   len = sizeof(val);
   rc = setsockopt(fd, SOL_TCP, TCP_NODELAY, &val, len);
   DEBUG("Nodelay is set to 1 rc %d errno %d", rc, errno);  
  
-  return & connections[fd];
+  return conn;
 };
 
 void conn_set(Connection * conn, int role, int type)
@@ -575,20 +670,19 @@ void conn_set(Connection * conn, int role, int type)
 
 void conn_del(int fd)
 {
-  if ( (fd < 0) || (fd > maxsocket) ) {
-    Error("conn_del on fd %d", fd);
-    return;
-  };
+  Connection * conn;
+
+  conn = fd2conn(fd);
 
   /* if it's a gateway we call gw_closegateway() who call us later*/
-  if (connections[fd].gwid  != UNASSIGNED) {
+  if (conn->gwid  != UNASSIGNED) {
     DEBUG("a close on a gateway, calling gw_closegateway() fd = %d", fd);
-    gw_closegateway(connections[fd].gwid);
+    gw_closegateway(conn);
     return;
   };
 
   poll_off(fd);
-  conn_clear(&connections[fd]);
+  conn_clear(conn);
   close (fd);
 
   return;
@@ -598,13 +692,19 @@ void conn_del(int fd)
 char * conn_print(void)
 {
   static char * output = NULL;
+  static int buffersize = 0;
   int i, l;
   struct tm * ts;
+  Connection * conn;
 
-  if (maxsocket <= 0) {
-    output = realloc(output, 4096);
-  } else {
-    output = realloc(output, maxsocket * 4096);
+  if (maxsocket < 0) 
+     i = 4096;
+  else 
+     i = maxsocket * 4096;
+
+  if (buffersize != i) {
+     buffersize = i;
+     output = realloc(output, buffersize);
   };
 
   l = sprintf (output, "Printing connection table\n"
@@ -615,37 +715,67 @@ char * conn_print(void)
 	       " peeraddr   peerinstance GWID");
 
   for (i = 0; i<maxsocket+1; i++) {
-    if (connections[i].fd != -1) {
+     struct gwpeerinfo * pi;
+     conn = fd2conn(i);
+     if ( buffersize - l < 4096) Fatal("output buffer too small");
 
-      l += sprintf (output+l, "\n  %2d %4d %7d %4d",
-		    connections[i].fd, connections[i].role, 
-		    connections[i].version, 
-		    connections[i].mtu);
+     //     DEBUG2("i = %d conn = %p", i, conn);
+     if (conn->fd != -1) {
+       
+	l += sprintf (output+l, "\n  %2d %4d %7d %4d",
+		      conn->fd, conn->role, 
+		      conn->version, 
+		      conn->mtu);
       
-      l += sprintf (output+l, " %4d %4d", 
-		    connections[i].cid != UNASSIGNED ? connections[i].cid & MWINDEXMASK : -1,
-		    connections[i].gwid != UNASSIGNED ? connections[i].gwid  & MWINDEXMASK : -1);
-      
-      l += sprintf (output+l, " %5d %4c",
-		    connections[i].state, 
-		    connections[i].type);
-
-      ts = localtime(&connections[i].connected);
-      l+= strftime(output+l, 100, " %Y%m %H%M%S", ts);
-      ts = localtime(&connections[i].lasttx);
-      l+= strftime(output+l, 100, " %Y%m %H%M%S", ts);
-      ts = localtime(&connections[i].lastrx);
-      l+= strftime(output+l, 100, " %Y%m %H%M%S", ts);
+	l += sprintf (output+l, " %4d %4d", 
+		      CLTID2IDX(conn->cid), GWID2IDX(conn->gwid) );
 	
-      l += sprintf (output+l, " %s", 
-		    connections[i].peeraddr_string);
+	l += sprintf (output+l, " %5d %4c",
+		      conn->state, 
+		      conn->type ? conn->type : '?');
+	
+	ts = localtime(&conn->connected);
+	l+= strftime(output+l, 100, " %Y%m %H%M%S", ts);
+	ts = localtime(&conn->lasttx);
+	l+= strftime(output+l, 100, " %Y%m %H%M%S", ts);
+	ts = localtime(&conn->lastrx);
+	l+= strftime(output+l, 100, " %Y%m %H%M%S", ts);
+	
+	l += sprintf (output+l, " %s", 
+		      conn->peeraddr_string);
+	
+	
+	pi = (struct gwpeerinfo *) conn->peerinfo;
+	if (pi == NULL) continue;
+	
+	/*
+	DEBUG2("%s", output);
+	
+	DEBUG2(" . fd=%d pi =%p pi->inst = %p . ",  i, pi, pi->instance );
+	{
+	   char buffer[MWMAXNAMELEN*3];
+	   int x, ll = 0;
 
-      if (connections[i].peerinfo == NULL) continue;
+	   DEBUG2("conn = %p pi = %p buffer %p length %d", conn, pi, buffer, MWMAXNAMELEN*3);
 
-      l += sprintf (output+l, " %s %d", 
-		    ((struct gwpeerinfo *) connections[i].peerinfo)->instance, 
-		    GWID2IDX( ((struct gwpeerinfo *) connections[i].peerinfo)->gwid));
-    };
+	   for (x = 0; x < MWMAXNAMELEN; x++) {
+	      DEBUG2("conn = %p pi = %p buffer %p length %d : x = %d ll = %d", 
+		     conn, pi, buffer, MWMAXNAMELEN*3, 
+		     x, ll);
+	      DEBUG2("char %x", (unsigned char) pi->instance[x]);
+	      ll += sprintf (buffer+ll, "%hhx ", (unsigned char) pi->instance[x]);
+	   };
+	   DEBUG2(" hex dump: %s", buffer);
+	};
+	
+	DEBUG2(" . pi->inst len = %d . ",strlen( pi->instance) );
+	DEBUG2(" . pi->inst = \"%s\" . ", pi->instance );
+	*/
+	
+	l += sprintf (output+l, " %s",  pi->instance );
+	
+	l += sprintf (output+l, " %d",  GWID2IDX(pi->gwid));
+     };
   };
   return output;
 };
@@ -690,6 +820,7 @@ int conn_read(Connection * conn)
 /* 
   int conn_write(Connection * conn, char * buffer, int len);
 */
+DECLAREEXTERNMUTEX(bigmutex);
 
 int conn_select(int * cause, time_t deadline)
 {
@@ -735,7 +866,13 @@ int conn_select(int * cause, time_t deadline)
     TIMEPEGNOTE("End of TCP");
     timepeg_log();
     DEBUG("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");    
+
+    UNLOCK_BIGLOCK();
+
     n = select(maxsocket+1, &rfds, NULL, &errfds, tvp);
+
+    LOCK_BIGLOCK();
+
     DEBUG("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv");    
     TIMEPEGNOTE("start TCP");
     TIMEPEGNOTE("start");

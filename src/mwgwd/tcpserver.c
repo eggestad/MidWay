@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.12  2003/03/16 23:50:25  eggestad
+ * Major fixups
+ *
  * Revision 1.11  2003/01/07 08:28:06  eggestad
  * * Major fixes to get three mwgwd working correctly with one service
  * * and other general fixed for suff found on the way
@@ -223,8 +226,8 @@ void tcpcloseconnection(Connection * conn)
     gwdetachclient(conn->cid);
   else if (conn->type == CONN_TYPE_BROKER) {
     reconnect_broker = 1;   
-  } else if (conn->type == CONN_TYPE_GATEWAY) {
-    gw_closegateway(conn->gwid);
+  } else if ((conn->type == CONN_TYPE_GATEWAY) && (conn->type != UNASSIGNED)) {
+     gw_closegateway(conn);
     return;
   };
 
@@ -263,7 +266,7 @@ void tcpcloseall(void)
   while (  (conn = conn_getfirstgateway()) != NULL) {
     DEBUG("closing gateway fd=%d GATEWAYID=%d", conn->fd, conn->cid&MWINDEXMASK);
     _mw_srbsendterm(conn, -1);
-    gw_closegateway(conn->gwid);
+    gw_closegateway(conn);
   };
 
   return;
@@ -461,7 +464,7 @@ int tcp_do_read_condiion(Connection * conn)
 /************************************************************************
  * timer task, is called every time conn_select() times out */
 
-#define TASK_INTERVAL 15 /* secs */
+#define TASK_INTERVAL 60 /* secs */
 
 /* the timeout is the next time in unix time that we shall be
    called. initial value of 1 just ensure that it will be called first

@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.5  2003/03/16 23:50:24  eggestad
+ * Major fixups
+ *
  * Revision 1.4  2002/11/18 00:16:19  eggestad
  * - needed to set the peeraddress string for the broker connection
  *
@@ -171,12 +174,12 @@ int read_with_fd(int s, char * message, int len, int * newfd)
   /* if caller din't want a a newfd, close it */
   if (newfd != NULL) {
     *newfd = * (int *) CMSG_DATA(cmsg);
-    DEBUG("received from broker \"%s\" fd=%d rc=%d errno=%d\n", 
-	  message, *newfd, rc, errno);
+    DEBUG("received from broker \"%*.*s\" fd=%d rc=%d errno=%d\n", 
+	  rc, rc, message, *newfd, rc, errno);
   } else {
     close( * (int *) CMSG_DATA(cmsg));
-    DEBUG("received from broker \"%s\" rc=%d errno=%d\n", 
-	  message,  rc, errno);
+    DEBUG("received from broker \"%*.*s\" rc=%d errno=%d\n", 
+	  rc, rc, message,  rc, errno);
     
   };
   

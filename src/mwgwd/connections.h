@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.5  2003/03/16 23:50:24  eggestad
+ * Major fixups
+ *
  * Revision 1.4  2002/10/22 21:58:21  eggestad
  * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
  *
@@ -64,6 +67,7 @@ Connection * conn_getfirstgateway(void);
 Connection * conn_getbroker(void);
 Connection * conn_getmcast(void);
 Connection * conn_getgateway(GATEWAYID gwid);
+Connection * conn_getclient(CLIENTID cid);
 
 int conn_read(Connection * conn);
 int conn_write(Connection * conn, char * buffer, int len);

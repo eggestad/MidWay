@@ -21,6 +21,10 @@
 
 /*
  * $Log$
+ * Revision 1.10  2002/10/17 22:04:24  eggestad
+ * - added more field to _mwacallipc() needed for gateway to gateway calls
+ * - Call struct now also has callerid and hops fields
+ *
  * Revision 1.9  2002/10/03 21:01:38  eggestad
  * - new prototypes for (un)provide_for_id()
  *
@@ -154,6 +158,8 @@ struct call
   int flags;
 
   char domainname[MWMAXNAMELEN];
+  MWID callerid;
+  int hops;
 
   int returncode;
 };
@@ -291,7 +297,8 @@ int _mw_ipcsend_unprovide_for_id(MWID mwid, char * servicename,  SERVICEID svcid
 int _mw_ipcsend_unprovide(char * servicename, int flags);
 int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid);
 
-int _mwacallipc (char * svcname, char * data, int datalen, int flags);
+int _mwacallipc (char * svcname, char * data, int datalen, int flags, 
+		 char * domain, MWID callerid, int hops);
 int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int flags);
 
 int _mw_ipcconnect(char * servicename, char * socketpath, int flags);

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.16  2002/10/17 22:04:46  eggestad
+ * - added more field to _mwacallipc() needed for gateway to gateway calls
+ * - Call struct now also has callerid and hops fields
+ *
  * Revision 1.15  2002/10/06 23:54:15  eggestad
  * - updated  mwacall so  we  also call  gateways.  We now  also try  all
  *   services  with given service  name. We  don't favour  local services
@@ -737,7 +741,11 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid)
 };
 
 /* the IPC implementation of mwacall() */
-int _mwacallipc (char * svcname, char * data, int datalen, int flags)
+
+/* the domain, callerid, and hops is only used by mwgwd when one mwgwd
+   is passing a call to another gateway */
+int _mwacallipc (char * svcname, char * data, int datalen, int flags, 
+		 char * domain, MWID callerid, int hops)
 {
   int dest; 
   int rc;
@@ -799,6 +807,14 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags)
   calldata.flags = flags;
   calldata.appreturncode = 0;
   calldata.returncode = 0;
+
+  if (domain) {
+    strncpy(domain, calldata.domainname, MWMAXNAMELEN);
+  } else {
+    calldata.domainname[0] = '\0';
+  };
+  calldata.callerid = callerid;
+  calldata.hops = hops;
 
   if (data != NULL) {
     dataoffset = _mwshmcheck(data);

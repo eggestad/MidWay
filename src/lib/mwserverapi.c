@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2002/10/20 18:13:22  eggestad
+ * fixes for receiving calls from gateways as in peers, not srb clients
+ *
  * Revision 1.12  2002/10/07 00:01:33  eggestad
  * - on error EFAULT was positive and not negative in callmesg.returncode.
  * - _mw_get_server_by_serviceid() was renamed to _mw_get_provider_by_serviceid()
@@ -513,6 +516,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   serviceentry * svcent;
   mwsvcinfo * svcreqinfo;
   long * mtype;
+  MWID mwid;
 
   if (!_mw_isattached()) { errno = ENOTCONN; return NULL;}
   if (!provided) { errno = ENOENT; return NULL;};
@@ -555,9 +559,9 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
     _mw_requestpending = 1;
 
   
-  DEBUG1(	"mwfetch: got a CALL/FORWARD to service \"%s\" id %#x from clt:%#x srv:%#x", 
+  DEBUG1(	"mwfetch: got a CALL/FORWARD to service \"%s\" id %#x from clt:%#x gw:%#x srv:%#x", 
 	callmesg->service, callmesg->svcid, 
-	callmesg->cltid, callmesg->srvid);
+	callmesg->cltid, callmesg->gwid, callmesg->srvid);
     
   /* timeout info */
   svcent = _mw_get_service_byid(callmesg->svcid);
@@ -565,7 +569,10 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
     Error("Can't happen, Got a call to %s (%d) but it does not exist in BBL", 
 	  callmesg->service, callmesg->svcid);
     callmesg->returncode = -ENOENT;
-    _mw_ipc_putmessage(callmesg->cltid, (char*) callmesg, sizeof(Call), 0);
+
+    if (callmesg->gwid == UNASSIGNED) mwid  = callmesg->cltid;
+    else mwid  = callmesg->gwid;
+    _mw_ipc_putmessage(mwid, (char*) callmesg, sizeof(Call), 0);
     _mw_requestpending = 0;  
     _mw_set_my_status("(ERROR)");
     errno = ENOENT;
@@ -626,6 +633,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
 
   /* transfer data from ipc message to mwsvcinfo struct. */  
   svcreqinfo->cltid = callmesg->cltid;
+  svcreqinfo->gwid = callmesg->gwid;
   svcreqinfo->srvid = callmesg->srvid;
   svcreqinfo->svcid = callmesg->svcid;
   /**************** handle */

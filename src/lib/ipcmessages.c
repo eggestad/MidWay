@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2000/09/24 14:05:01  eggestad
+ * fixed to warning messages
+ *
  * Revision 1.4  2000/09/21 18:35:16  eggestad
  * Lots of bug fixes:
  *  - pushQueue didn't work, crashed on first push
@@ -587,13 +590,13 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags)
   errno = 0;
   svcid = _mw_get_service_byname(svcname,flags&MWCONV);
   if (svcid < 0) {
-    mwlog(MWLOG_WARNING,"mwacall() to service %s failed reason %d",
+    mwlog(MWLOG_WARNING,"call to service %s failed reason %d",
 	  svcname,svcid);
     return svcid;
   };
   dest = _mw_get_server_by_serviceid (svcid);
   if (dest < 0) {
-    mwlog(MWLOG_WARNING,"mw(a)call(): getting the serverid for serviceid %d(%s) failed reason %d",
+    mwlog(MWLOG_WARNING,"mw(a)call(): getting the serverid for serviceid %#x(%s) failed reason %d",
 	  svcid, svcname, dest);
     return dest;
   };

@@ -17,18 +17,18 @@ int servicehandler1(mwsvcinfo * si)
 
   sprintf(buffer, "%.*s",  si->datalen, si->data);
   if (strcmp(buffer, "ok") == 0) {
-    mwreply ("Kapla", 0, TRUE, 666);
+    mwreply ("Kapla", 0, TRUE, 666, 0);
     return TRUE;
   };
   if (strcmp(buffer, "nack") == 0) {
-    mwreply ("Kapla", 0, FALSE, 666);
+    mwreply ("Kapla", 0, FALSE, 666, 0);
     return 0;
   };
   if (strcmp(buffer, "date") == 0) {
     gettimeofday(&tv, NULL);
     
     sprintf (buffer, "%s.%d %d.%6.6d", ctime(&tv.tv_sec), tv.tv_usec/1000, tv.tv_sec, tv.tv_usec);
-    mwreply (buffer, 0, TRUE, 666);
+    mwreply (buffer, 0, TRUE, 666, 0);
     return 0;
   };
   
@@ -47,6 +47,6 @@ int sleep1(mwsvcinfo * si)
   sleep(1);
 
   strftime(rtime,99,"%Y%m%d %H%M%S Julian:%j Week:%W %Z %z", tnow);
-  mwreply(rtime,0,TRUE,0);
+  mwreply(rtime,0,TRUE,0, 0);
   return TRUE;
 };

@@ -65,8 +65,12 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
   * not in mwgwd
   * not in lib (C client)
   * not in Perl NetClient
+ +++ we actually need an inline data format where we don't urlencode
+  the data, but send the data part after the SRB CALL/DATA message's \r\n
+  binary, set something like INLINEDATA=<#octets> and use a \r\n marker 
+  after the data as a verification that the length was correct. 
 
-* in the urlencode lib - when a empty value &name=& the = is required.
+(fixed ?) * in the urlencode lib - when a empty value &name=& the = is required.
 
 * testnet to mwbd and send TERM!, mwbd replies with TERM~ missing init
   before disconnecting

@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/09/21 18:42:39  eggestad
+ * Changed a bit the copy_on_stdout to be either stderr or stdout.
+ *
  * Revision 1.2  2000/07/20 19:26:59  eggestad
  * - progname added til logline.
  * - mwlog() now threadsafe.
@@ -65,7 +68,8 @@ static loglevel = MWLOG_INFO;
 static time_t switchtime = 0;
 static char * logprefix = NULL;
 static char * progname = NULL;
-static int copy_on_stdout = FALSE;
+static FILE * copy_on_FILE = NULL;
+
 
 pthread_mutex_t logmutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -74,8 +78,15 @@ pthread_mutex_t logmutex = PTHREAD_MUTEX_INITIALIZER;
 
 void _mw_copy_on_stdout(int flag)
 {
-  if (flag) copy_on_stdout = TRUE;
-  else copy_on_stdout = FALSE;
+  if (flag) copy_on_FILE = stdout;
+  else copy_on_FILE = NULL;
+  return;
+};
+
+void _mw_copy_on_stderr(int flag)
+{
+  if (flag) copy_on_FILE = stderr;
+  else copy_on_FILE = NULL;
   return;
 };
 
@@ -151,12 +162,12 @@ mwlog(int level, char * format, ...)
     fflush(log);
   } 
 
-  /* copy to stdout if so has been desired */
-  if ((log == NULL) || copy_on_stdout) {
-    fprintf(stdout,"%s", levelheader[level]);
-    vfprintf(stdout, format, ap);
-    fprintf(stdout,"\n");
-    fflush(stdout);
+  /* copy to stdout/stderr if so has been desired */
+  if (copy_on_FILE) {
+    fprintf(copy_on_FILE,"%s", levelheader[level]);
+    vfprintf(copy_on_FILE, format, ap);
+    fprintf(copy_on_FILE,"\n");
+    fflush(copy_on_FILE);
   };
 
   va_end(ap);
@@ -174,8 +185,8 @@ int mwsetloglevel(int level)
   if ( (level < MWLOG_FATAL) || (level > MWLOG_DEBUG4) ) return ;
   oldlevel = loglevel;
   loglevel = level;
-  if (level >= MWLOG_DEBUG) copy_on_stdout = TRUE;
-  else copy_on_stdout = FALSE;
+  if (level >= MWLOG_DEBUG) copy_on_FILE = stderr;
+  else copy_on_FILE = NULL;
   return oldlevel;
 };
 

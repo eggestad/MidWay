@@ -42,7 +42,7 @@
 #define MWBOOTING  2
 #define MWBUSY     3
 #define MWDEAD     4
-#define MWBLOCKED 10
+#define MWBLOCKED  5
 
 /* some special strings used to set these statuses via _mw_set_my_status(char *);*/
 #define SHUTDOWN  ".(shutdown)"
@@ -137,7 +137,7 @@ struct gatewayentry
   char instancename[MWMAXNAMELEN];
   char domainname[MWMAXNAMELEN];
 
-  int location; /* either */
+  int location; /* GW* */
   int srbrole; /* only used for local */
 
   int mqid;
@@ -207,8 +207,7 @@ struct ipcmaininfo
   int gwtbl_length;
   int convtbl_length;
 
-  int gwtbl_nextidx;
-  int gwtbl_lock_sem;
+  int gwtbl_nextidx;  int gwtbl_lock_sem;
 };
 
 typedef struct ipcmaininfo ipcmaininfo;

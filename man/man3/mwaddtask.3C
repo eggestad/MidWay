@@ -5,7 +5,9 @@
 .\"
 .TH MWTASK 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwaddtask, mwaddtaskdelayed, mwwaketask, mwsettaskinterval, mwdotasks \- MidWay tasklet API
+mwaddtask, mwaddtaskdelayed, mwwaketask, mwsuspendtask, mwresumetask,
+mwsettaskinterval, mwdotasks, mwblocksigalarm, mwunblocksigalarm \-
+MidWay tasklet API
 .SH SYNOPSIS
 .B #include <MidWay.h>
 .sp
@@ -15,9 +17,17 @@ mwaddtask, mwaddtaskdelayed, mwwaketask, mwsettaskinterval, mwdotasks \- MidWay 
 .sp
 .BI "int mwwaketask(PTask " taskhandle ");"
 .sp
+.BI "int mwsuspendtask(PTask " taskhandle " );"
+.sp
+.BI "int mwresumetask(PTask " taskhandle " );"
+.sp
 .BI "int mwsettaskinterval(PTask " taskhandle ", int " interval ");"
 .sp
 .BI "int mwdotasks(void);"
+.sp
+.BI "void mwblocksigalarm(void);"
+.sp
+.BI "void mwunblocksigalarm(void);"
 
 .SH DESCRIPTION
 The tasks are primarily intended for servers to provide programmers a
@@ -36,16 +46,27 @@ called infrequently. It also allow multiple tasks to be run
 simultaneously in an round robin style.
 
 Tasks may not be run at intervals at all, but explicitly wakened with
-.BR mwwaketask(). 
+.BR mwwaketask "(). " 
 This allow your to "spawn off" a low priority task during a service
-call, and let the service call return.
+call, and let the service call return. 
+.BR mwwaketask "() "
+do not change the interval, if suspended it just run once, or if it
+was scheduled sometime into the future, the next schuled time is reset
+accoring to interval.
+
+.BR mwsuspendtask "() "
+will set the task state to suspended but not change the interval. A 
+.BR mwresumetask "() "
+will set it back to active, and 
+.BR mwdotask "() "
+will run it if the scheduled interval has expired. 
 
 A task is considered suspended when it's interval is set to -1, which
-mean that you suspend/resume a task by using
+mean that you can suspend/resume a task by using
 .BR mwsettaskinterval().  
 Likewise you can let a task be called only once by setting interval to
 -1 and initial delay > 0. The task interval is changed with
-.BR mwsettaskinterval ().
+.BR mwsettaskinterval "(). "
 
 .BR mwdotask ()
 is is called implicitly by 
@@ -56,6 +77,16 @@ will run all tasks that are scheduled to be run, but only once,
 returning the number if task still in runnable state. You should keep
 calling it until it return 0. Not that it will set a timer and you
 need to handle SIGARLM.
+
+If you use 
+.BR mwdotask () 
+directly you must be sure to handle the SIGALM signal correctly.
+Signal handling is hard to get right, two functions are provided as
+aids,
+.BR mwblocksigalarm "() and " mwunblocksigalarm "(). "
+They manipulate the process signal mask to block and unblock the
+SIGALRM signal. 
+
 
 This API will not generate any communication with any other MidWay
 processes, but servers will update their statistics in the IPC tables, so you can use 
@@ -106,6 +137,7 @@ On operations on a task before any task has been added.
 .SH BUGS 
 
 .SH "SEE ALSO"
+.BR signal "(2), " sigaction "(2), " sigsetops "(2) "
 
 .SH STANDARDS
 NONE

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.8  2004/10/07 22:01:23  eggestad
+ * task API updates
+ *
  * Revision 1.7  2004/04/12 23:05:24  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -106,30 +109,47 @@ unsigned long long _mw_lltimes(void)
 };
 
 /* compatibility wrapper function. setitimer is not POSIX...  */
+/* arg must be positive, 0 mean disable timer, arg is the time in the
+   future, in usecs since epoch that the timer shall expire.  */
+
 void _mw_setrealtimer(long long usecs)
 {
   struct itimerval itv;
   int rc;
 
-  if (usecs > 0)
-    usecs = usecs - _mw_llgtod();
-  else if (usecs < 0)
-    Fatal("attemot to set timer with negative timeout");
-  // implicit else usecs = 0; 0 to setitimer means turn it of
-
-  /* just in case the timer expirsed before we manage to set it, we
-     set it just 10us into the future */
-  if (usecs <= 0) usecs = 10;
-
   /* the timer shall stop after expire */
   itv.it_interval.tv_sec = 0;
   itv.it_interval.tv_usec = 0;
+
+  if (usecs < 0)
+    Fatal("attemot to set timer with negative timeout");
+
+  if (usecs == 0) {
+     itv.it_value.tv_sec = 0;
+     itv.it_value.tv_usec = 0;
+     
+     DEBUG1("Disable timer");
+     usecs = usecs - _mw_llgtod();
+     rc = setitimer(ITIMER_REAL,  &itv, NULL);
+     if (rc != 0) {
+	Fatal("failed to disable the real timer, reason, %s", 
+	      strerror(errno));
+     };
+     return;
+  };
+  
+  // convert into usec into the future we schall expire. 
+  usecs = usecs - _mw_llgtod();
+
+  // minimun 1ms
+  if (usecs < 1000)
+     usecs = 1000;
 
   /* recalc a 64 bit usecs to two 32/64 bit sec and usec values */
   itv.it_value.tv_sec = usecs / (long) 1e6;
   itv.it_value.tv_usec = usecs % (long) 1e6;
 
-  DEBUG1("usecs = %lld tv = { %ld . %ld }", usecs, 
+  DEBUG1("timer at usecs = %lld tv = { %ld . %06ld }", usecs, 
 	itv.it_value.tv_sec, itv.it_value.tv_usec);
 
   rc = setitimer(ITIMER_REAL,  &itv, NULL);

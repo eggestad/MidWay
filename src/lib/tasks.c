@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.5  2004/10/07 22:00:38  eggestad
+ * task API updates
+ *
  * Revision 1.4  2004/05/31 19:47:09  eggestad
  * tasks interrupted mainloop
  *
@@ -50,27 +53,25 @@ static char * RCSName UNUSED = "$Name$";
 /* wonder if gtod return us on all platforms... anyway we use it here
    to measure time spend in tasks*/ 
 
-  
+DECLAREMUTEX(tasklock);
 
 struct _task {
-  int interval; // in ms. 
+  double interval; // in sec. 
   int state;
   
   taskproto_t function;
-   char * name;
+  char * name;
 
-  long long nextsched;
-
+  long long nextsched; // in uS
+  
   int calls;
-  long long timespend;
+  long long timespend; // in uS
 };
 
 typedef struct _task Task;
 
 static Task * tasklist = NULL;
 static int tasks = -1;
-
-enum { TASK_SUSP, TASK_WAIT, TASK_RUN };
 
 static long long outoftasks = 0;
 static long long intasks = 0;
@@ -79,22 +80,27 @@ static long long ts = 0, te = 0;
 
 
 static long long nexttasktime;
-static int runnable, nexttask;
+static int runnable = 0, nexttask = 0;
 static int alarm = 0;
 
+#ifndef INT64_MAX
+#define INT64_MAX 9223372036854775807LL
+#endif
+
   
-static void schedule(void)
+static int schedule(void)
 {
   long long now;
-  int first, newrunnable = 0;
+  int first = 0, newrunnable = 0;
   int i, idx;
   Task * t;
 
   now = _mw_llgtod();
-  nexttasktime = 9223372036854775807LL; //TODO: postability LLONG_MAX; in iso c99...
-  first = -1;
+  nexttasktime = INT64_MAX;
   alarm = 0;
-  
+
+  newrunnable = 0;  
+
   DEBUG1("begins tasks = %d", tasks);
   for (i = 0; i < tasks; i++) {
     idx = (nexttask + i) % tasks;
@@ -126,24 +132,23 @@ static void schedule(void)
       break;
 
     default:
-      Error("task %d has illegal state, palcing it in suspend",i);
+      Error("task %d has illegal state, placing it in suspend",i);
       t->state = TASK_SUSP;
     };
   };
 
+  nexttask = first;
   if (newrunnable) {
-    if (!runnable) {
-      nexttask = first;
-    }
     runnable = newrunnable; 
     _mw_setrealtimer(0);
     DEBUG1("schedule => runnable = %d newrunnable = %d", runnable, newrunnable);
   } else {
     _mw_setrealtimer(nexttasktime);
-    DEBUG1("schedule => new timeout %lld, in %lld us", nexttasktime, nexttasktime - _mw_llgtod());
-    nexttask = first;
+    DEBUG1("schedule => new schedule %lld, in %lld us", nexttasktime, nexttasktime - _mw_llgtod());
     runnable = 0;
   };
+  DEBUG1("end");
+  return newrunnable;
 };
 
 static void (*chain)(int sig) = NULL;
@@ -206,6 +211,37 @@ static inline int inittasks(void)
 
 };
 
+void mwblocksigalarm(void)
+{
+   sigset_t sset;
+
+   sigemptyset(&sset);
+   sigaddset(&sset, SIGALRM);
+
+   sigprocmask(SIG_BLOCK, &sset, NULL);
+   return;
+};
+
+void mwunblocksigalarm(void)
+{
+   sigset_t sset;
+
+   sigemptyset(&sset);
+   sigaddset(&sset, SIGALRM);
+
+   sigprocmask(SIG_UNBLOCK, &sset, NULL);
+   return;
+};
+
+static int _runnable(void) 
+{
+  int i, n = 0;
+  for(i = 0; i < tasks; i++) {
+    if (tasklist[i].state == TASK_RUN) n++;
+  };
+  return n;
+};
+
 int mwdotasks(void) 
 {  
   long long start, end, tt;
@@ -213,15 +249,20 @@ int mwdotasks(void)
   int i, idx, rc;
   Task * t;
 
+  DEBUG1("begin");
   if (tasks <= 0) return 0;
+
+  LOCKMUTEX(tasklock);
 
   ts = _mw_llgtod();
   if (te != 0) 
     outoftasks += (ts - te);
   
+  runnable = _runnable();
+
   if (!runnable) {    
     DEBUG1("no task in runable state, calling schedule");
-    schedule();
+    runnable = schedule();
   } else {
     DEBUG1("dotask begin with runnable = %d of %d tasks", runnable, tasks);
   };
@@ -229,9 +270,10 @@ int mwdotasks(void)
   if (!runnable) {
     te = _mw_llgtod();
     insched += te - ts;
-    
-    return runnable;
+    DEBUG1("end no runnable");
+    goto out;
   };
+
 
   /* we go thru the tasklist starting with nexttask, and call the next task with state == TASK_RUN */  
   for(i = 0; i < tasks; i++) {
@@ -241,20 +283,30 @@ int mwdotasks(void)
       t = &tasklist[idx];
       DEBUG1("calling task %d \"%s\"", idx, t->name);
 
+
+      UNLOCKMUTEX(tasklock);
       start = _mw_llgtod();
       rc = t->function(idx+PTASKMAGIC);
       end = _mw_llgtod();
+      DEBUG1("task function %d \"%s\" returned %d", idx, t->name, rc);
+      LOCKMUTEX(tasklock);
+
       if (rc == 0)  {
 	DEBUG1("task complete");
 	runnable--;
+
+	// the task map have called other mw*task*() that has changed state. 
+
 	if (t->interval < 0) {
 	   t->state = TASK_SUSP;
 	   t->nextsched = 0;
 	   DEBUG1("task complete suspending, runnable %d", runnable);
 	} else {	   
-	   t->state = TASK_WAIT;
-	   t->nextsched = _mw_llgtod() + t->interval;
-	   DEBUG1("task complete nextsched = %lld, runnable %d", t->nextsched, runnable);
+	  if (t->state == TASK_RUN) {
+	    t->state = TASK_WAIT;
+	  };
+	  t->nextsched = _mw_llgtod() + t->interval * 1e6;
+	  DEBUG1("task complete nextsched = %lld, runnable %d", t->nextsched, runnable);
 	}
       };
       tt = end - start;
@@ -271,11 +323,11 @@ int mwdotasks(void)
   te = _mw_llgtod();
   intasks += timeintask;
   start = end = 0;
-  if (!runnable) {
-    start = _mw_llgtod();
-    schedule();
-    end = _mw_llgtod();
-  };    
+
+  start = _mw_llgtod();
+  runnable = schedule();
+  end = _mw_llgtod();
+  
   DEBUG3("schedule() took %lld", end - start);
   DEBUG3("time in %s %lld", __FUNCTION__, (te - ts));
   insched += (end - start);
@@ -284,13 +336,19 @@ int mwdotasks(void)
 	 ((double) outoftasks) / 1e6F, 
 	 ((double) intasks) / 1e6F, 
 	 ((double) insched) / 1e6F);
+  DEBUG1("end runnable = %d", runnable);
+
+ out:
+  UNLOCKMUTEX(tasklock);
+
   return runnable;
 };
 
 
 //int mwchtask(PTask pt, int cmd, void * data)
 
-/* if we for some reason should need to wake a task before it's interval, we can call this. */
+/* if we for some reason should need to wake a task before it's
+   interval, we can call this. */
 int mwwaketask(PTask pt)
 {
   Task * t;
@@ -300,15 +358,22 @@ int mwwaketask(PTask pt)
   if (tasks < 0) return -EILSEQ;
   if (tasks == 0) return -ENOENT;
   if (idx >= tasks) return -ENOENT;
+
+  LOCKMUTEX(tasklock);
+
   t = &tasklist[idx];
 
   DEBUG1("waking task %d \"%s\"", idx, t->name);
   t->state = TASK_RUN;
-  if (!runnable) {
-    nexttask = idx;
-    _mw_setrealtimer(0);
-  };
+  t->nextsched =  _mw_llgtod();
   runnable++;
+
+  nexttask = idx;
+  _mw_setrealtimer(0);
+
+  DEBUG1("waking task done");
+
+  UNLOCKMUTEX(tasklock);
   return 0;
 };
 
@@ -321,42 +386,113 @@ int mwsuspendtask(PTask pt)
    if (tasks < 0) return -EILSEQ;
    if (tasks == 0) return -ENOENT;
    if (idx >= tasks) return -ENOENT;
+
+   LOCKMUTEX(tasklock);
+  
    t = &tasklist[idx];
 
    DEBUG1("suspending task %d", idx);
    
    t->state = TASK_SUSP;
-   schedule();
+   runnable = schedule();
+   DEBUG1("suspending task complete");
+
+   UNLOCKMUTEX(tasklock);  
    return 0;
 };
 
-int mwsettaskinterval (PTask pt, int interval) 
+int mwresumetask(PTask pt)
 {
    Task * t;
-   int oldinterval;
    int idx;
 
    idx = pt - PTASKMAGIC;
    if (tasks < 0) return -EILSEQ;
    if (tasks == 0) return -ENOENT;
    if (idx >= tasks) return -ENOENT;
+
+   LOCKMUTEX(tasklock);
+
    t = &tasklist[idx];
 
-   if (interval < 0) interval = -1;
+   DEBUG1("resuming task %d, interval = %g", idx, t->interval);
+   
+   if (t->interval > 0) {
+     t->state = TASK_WAIT;
+     runnable = schedule();
+   };
+   DEBUG1("resume task complete");
 
-   oldinterval = t->interval / 1000;
-   t->interval = interval *1000;
+   UNLOCKMUTEX(tasklock);
+   return 0;
+};
 
-   DEBUG1("task interval = %d new interval = %d old interval = %d ret=%d", 
-	  interval, t->interval, oldinterval*1000, oldinterval);
-   schedule();
-   return oldinterval;
+int mwsettaskinterval (PTask pt, double interval) 
+{
+  Task * t;
+  double oldinterval;
+  int idx;
+  long long now, timetonext;
+  
+  idx = pt - PTASKMAGIC;
+  if (tasks < 0) return -EILSEQ;
+  if (tasks == 0) return -ENOENT;
+  if (idx >= tasks) return -ENOENT;
+
+  LOCKMUTEX(tasklock);
+
+  t = &tasklist[idx];
+  now = _mw_llgtod();
+
+  oldinterval = t->interval;
+  DEBUG1("changing interval from %g to %g", t->interval, interval);
+
+  if (interval < 0) 
+  {
+    interval = -1;
+    t->state = TASK_SUSP;
+  } else {
+    t->interval = interval;
+    timetonext = t->nextsched - now;
+    t->nextsched += (interval - oldinterval) * 1e6;
+    DEBUG1("next schedule at %lld was %lld", t->nextsched, timetonext);
+  };
+
+  DEBUG1("task interval = %gs new interval = %gs old interval = %gs", 
+	 interval, t->interval, oldinterval);
+
+  runnable = schedule();
+  DEBUG1("complete");
+
+  UNLOCKMUTEX(tasklock);
+  return oldinterval;
 };
    
-
-PTask _mwaddtask(taskproto_t function, char * name, int interval)
+int _mw_gettaskstate(PTask pt)
 {
-   return _mwaddtaskdelayed(function, name, interval, -1);
+  Task * t;
+  int idx;
+  int state;
+
+  idx = pt - PTASKMAGIC;
+  if (tasks < 0) return -EILSEQ;
+  if (tasks == 0) return -ENOENT;
+  if (idx >= tasks) return -ENOENT;
+
+  LOCKMUTEX(tasklock);
+
+  t = &tasklist[idx];
+  state = t->state;
+
+  UNLOCKMUTEX(tasklock);
+  
+  return state;
+};
+
+PTask _mwaddtask(taskproto_t function, char * name, double interval)
+{
+  DEBUG1("interval = %f", interval);
+  return _mwaddtaskdelayed(function, name, interval, -1);
 };
 
 /* interval & initialdelay is in ms but all times in struct is in
@@ -365,14 +501,18 @@ PTask _mwaddtask(taskproto_t function, char * name, int interval)
    either mwwaketask() or mwchtask() is called. if only initialdelay
    is positive, the task is called once, and is suspended after
    completion. */
-PTask _mwaddtaskdelayed(taskproto_t function, char * name, int interval, int initialdelay)
+PTask _mwaddtaskdelayed(taskproto_t function, char * name, double interval, double initialdelay)
 {
   Task * t;
   int firstissue = -1;
   int idx;
 
   if (function == NULL) return  -EINVAL;
+
+  LOCKMUTEX(tasklock);
+
   DEBUG1("tasks %d", tasks);
+  DEBUG1("interval %g", interval);
 
   if (tasks == -1) inittasks();
   tasklist = realloc(tasklist, (tasks+1)*sizeof(Task));
@@ -381,23 +521,23 @@ PTask _mwaddtaskdelayed(taskproto_t function, char * name, int interval, int ini
   t = &tasklist[tasks];
   tasks++;
 
-  if (initialdelay >= 0) firstissue = initialdelay* 1000;
-  else if (interval >= 0) firstissue = interval  * 1000;
+  if (initialdelay >= 0) firstissue = initialdelay * 1e6;
+  else if (interval >= 0) firstissue = interval * 1e6;
   
   t->function = function;
   t->name = name;
 
-  DEBUG1("adding task %d interval %d delay %d", tasks, interval, initialdelay);
+  DEBUG1("adding task %d interval %gs delay %gs", tasks, interval, initialdelay);
   if (interval <= 0) { 
     t->interval = -1;
   } else {    
-     t->interval = interval * 1000;
+    t->interval = interval;
   };
 
   if (firstissue >= 0) {
-     t->nextsched = _mw_llgtod() + firstissue;
+    t->nextsched = _mw_llgtod() + firstissue;
   } else {
-     t->nextsched = -1;
+    t->nextsched = -1;
   };
 
   // if both neg, we go directly to suspend.
@@ -409,6 +549,15 @@ PTask _mwaddtaskdelayed(taskproto_t function, char * name, int interval, int ini
   t->calls = 0;
   t->timespend = 0;
 
-  schedule();
+  runnable = schedule();
+  DEBUG("complete");
+
+  UNLOCKMUTEX(tasklock);
   return  idx + PTASKMAGIC;
 };
+
+/* Emacs C indention
+Local variables:
+c-basic-offset: 2
+End:
+*/

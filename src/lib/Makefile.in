@@ -39,7 +39,7 @@ uninstall:
 	rm -f @libdir@/libMidWay.so*
 	rm -f @libdir@/libMidWay.a
 
-tags:
+TAGS:
 	etags -a -o ../TAGS *.c *.h
 
 depend:

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2002/07/07 22:35:20  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.7  2002/02/17 14:12:47  eggestad
  * *** empty log message ***
  *
@@ -84,11 +87,11 @@ int _mwattachipc(int type, char * name, int key)
   
   if (key <= 0) return -EINVAL;
 
-  mwlog(MWLOG_DEBUG3, "_mwattachipc: Attaching to IPC with key %d", key);
+  DEBUG3("_mwattachipc: Attaching to IPC with key %d", key);
   rc = _mw_attach_ipc(key, type);
   if (rc != 0) return rc;
   
-  mwlog(MWLOG_DEBUG3, "_mwattachipc: Sending attach request to mwd type=%d name = %s", type, name);
+  DEBUG3("_mwattachipc: Sending attach request to mwd type=%d name = %s", type, name);
   return _mw_ipcsend_attach(type, name, 0);
 };
 
@@ -101,7 +104,7 @@ int _mwdetachipc(void)
   if (ipcmain == NULL) return 0;
   
   rc = _mwsystemstate();
-  mwlog(MWLOG_DEBUG3, "_mwdetachipc: system is %s in shutdown", rc?"":"not");
+  DEBUG3("_mwdetachipc: system is %s in shutdown", rc?"":"not");
 
   if (!rc) {
     errno = 0;
@@ -139,7 +142,7 @@ int _mwfetch_ipcxx(int handle, char ** data, int * len, int * appreturncode, int
   char * buffer = NULL;
   int tlen, blen = 0;
 
-  mwlog(MWLOG_DEBUG1, "_mwfetch_ipc(): ");
+  DEBUG1("_mwfetch_ipc(): ");
 
   rc = _mwsystemstate();
   if (rc) return rc;
@@ -147,37 +150,35 @@ int _mwfetch_ipcxx(int handle, char ** data, int * len, int * appreturncode, int
   if (flags & MWMULTIPLE)
     return _mwfetchipc ( handle, data, len, appreturncode, flags);
 
-  mwlog(MWLOG_DEBUG1, "_mwfetch_ipc(): MULTIPLE"); 
+  DEBUG1("_mwfetch_ipc(): MULTIPLE"); 
   /* caller don't want chunks, but the whole enchilada. 
      if server sent a single reply, then, we just return it*/
   rc = _mwfetchipc ( handle, &tmpdata, &tlen, appreturncode, flags);
-  mwlog(MWLOG_DEBUG1, "_mwfetch_ipc(): rc = %d"); 
+  DEBUG1("_mwfetch_ipc(): rc = %d"); 
   if (rc != 1) {
     *data = tmpdata;
     *len = tlen;
     return rc;
   };
-  mwlog(MWLOG_DEBUG1, "_mwfetch_ipc(): concating mwreplies...");
+  DEBUG1("_mwfetch_ipc(): concating mwreplies...");
   /* caller don't want chunks, but we're getting chunks, we now must 
      copy all data into a temp buffer until we get the last chunk. */
   while(rc == 1) {
     buffer = realloc(buffer, blen+tlen);
     memcpy(buffer+blen, tmpdata, tlen);
     blen += tlen;
-    mwlog(MWLOG_DEBUG1, 
-	  "_mwfetch_ipc(): appended %d bytes to the reply, len is now %d", 
+    DEBUG1(	  "_mwfetch_ipc(): appended %d bytes to the reply, len is now %d", 
 	  blen, tlen);
     mwfree(tmpdata);
     tmpdata = NULL;
     rc = _mwfetchipc ( handle, &tmpdata, &tlen, appreturncode, flags);
-    mwlog(MWLOG_DEBUG1, "_mwfetch_ipc(): repeat rc = %d", rc); 
+    DEBUG1("_mwfetch_ipc(): repeat rc = %d", rc); 
   };
   /* we append the last chunk */
   buffer = realloc(buffer, blen+tlen);
   memcpy(buffer+blen, tmpdata, tlen);
   blen += tlen;
-  mwlog(MWLOG_DEBUG1, 
-	"_mwfetch_ipc(): appended last %d bytes to the reply, len is now %d", 
+  DEBUG1(	"_mwfetch_ipc(): appended last %d bytes to the reply, len is now %d", 
 	tlen, blen);
   *data = buffer;
   *len = blen;

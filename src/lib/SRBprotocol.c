@@ -19,11 +19,11 @@
 */
 
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 /*
  * $Log$
+ * Revision 1.5  2002/07/07 22:35:20  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.4  2001/10/03 22:43:59  eggestad
  * added api for manipulate SRBmessage's, before urlmap* had to be used directly
  *
@@ -48,6 +48,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <sys/types.h>
 #include <errno.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -59,6 +60,8 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <version.h>
 #include <urlencode.h>
 #include <mwclientapi.h>
+
+static char * RCSId UNUSED = "$Id$";
 
 static char * tracefilename = NULL;
 static FILE * tracefile  = NULL;
@@ -80,7 +83,7 @@ int _mw_srb_traceon(char * path)
 {
   if ( (tracefilename)  && (tracefilename != path) ) {
     free(tracefilename);
-    tracefilename == NULL;
+    tracefilename = NULL;
   };
 
   if (path == NULL) {
@@ -98,7 +101,7 @@ int _mw_srb_traceon(char * path)
   };
   
   if (!tracefile) {
-    mwlog(MWLOG_ERROR, "Failed to open srb trace file \"%s\"", tracefilename);
+    Error("Failed to open srb trace file \"%s\"", tracefilename);
     return -1;
   };
   return 0;
@@ -118,32 +121,42 @@ int _mw_srb_traceoff(void )
   return 0;
 };
 
-void _mw_srb_trace(int dir_in, int fd, char * message, int messagelen)
+void _mw_srb_trace(int dir_in, Connection * conn, char * message, int messagelen)
 {
   if (tracefilename && !tracefile)
     _mw_srb_traceon(tracefilename);
+
+  if (conn == NULL) {
+    Error("Internal error, "__FILE__ ":%d called with conn == NULL", __LINE__);
+    return;
+  };
 
   if (dir_in) dir_in = '>';
   else dir_in = '<';
 
   if (messagelen <= 0) messagelen = strlen(message);
-  
+
   if (tracefile) {
-    if (fd > -1) {
-      fprintf (tracefile, "%c%d (%d) %.*s\n",
-	       dir_in, fd, messagelen, messagelen, message); 
+    if (conn->fd > -1) {
+      fprintf (tracefile, "%c%d (%d) %.*s",
+	       dir_in, conn->fd, messagelen, messagelen, message); 
     } else {
-      fprintf (tracefile, "%c (%d) %.*s\n",dir_in, messagelen, messagelen, message); 
+      fprintf (tracefile, "%c (%d) %.*s", dir_in, messagelen, messagelen, message); 
     };
     fflush(tracefile);
   };
 
+  /* we don't print the trailing \r\n in the log file */
+  while ( (message[messagelen-1] == '\r') || (message[messagelen-1] == '\n') ) 
+    messagelen--;
+
+
   if (mwsetloglevel(-1) >= MWLOG_DEBUG) {
-    if (fd > -1) {
-      mwlog(MWLOG_DEBUG, "%c%d (%d) %.*s\n",
-	       dir_in, fd, messagelen, messagelen, message); 
+    if (conn->fd > -1) {
+      DEBUG("TRACE %c%d (%d) %.*s",
+	       dir_in, conn->fd, messagelen, messagelen, message); 
     } else {
-      mwlog(MWLOG_DEBUG, "%c (%d) %.*s\n",dir_in, messagelen, messagelen, message); 
+      DEBUG("TRACE %c (%d) %.*s", dir_in, messagelen, messagelen, message); 
     };
    
   };
@@ -326,7 +339,7 @@ void _mw_srb_nsetfield (SRBmessage * srbmsg, char * key, void * value, int vlen)
 char * _mw_srb_getfield (SRBmessage * srbmsg, char * key)
 {
   if (srbmsg == NULL) return NULL;
-  if (key  == NULL) return;
+  if (key  == NULL) return NULL;
 
   return urlmapgetvalue(srbmsg->map,key);
 };
@@ -353,7 +366,7 @@ SRBmessage * _mw_srbdecodemessage(char * message)
   if ( (ptr = strchr(message, SRB_REQUESTMARKER)) == NULL)
     if ( (ptr = strchr(message, SRB_RESPONSEMARKER)) == NULL)
       if ( (ptr = strchr(message, SRB_NOTIFICATIONMARKER)) == NULL) {
-	mwlog(MWLOG_DEBUG1, "_mw_srbdecodemessage: unable to find marker");
+	DEBUG1("_mw_srbdecodemessage: unable to find marker");
 	errno = EBADMSG;
 	return NULL;
       }
@@ -368,9 +381,9 @@ SRBmessage * _mw_srbdecodemessage(char * message)
   /* replacing end marker */
   if (szTmp != NULL) *szTmp = '\r';
 
-  mwlog(MWLOG_DEBUG3, "_mw_srbdecodemessage: command=%*.*s marker=%c", 
+  DEBUG3("_mw_srbdecodemessage: command=%*.*s marker=%c", 
 	commandlen, commandlen, message, *ptr);
-  mwlog(MWLOG_DEBUG1, "_mw_srbdecodemessage: command=%s marker=%c", 
+  DEBUG1("_mw_srbdecodemessage: command=%s marker=%c", 
 	srbmsg->command, srbmsg->marker);
   return srbmsg;
 }
@@ -413,16 +426,22 @@ int _mw_srbencodemessage(SRBmessage * srbmsg, char * buffer, int bufflen)
 
 /* _mw_sendmessage traces if needed.  . We really assumes that message
    is less than SRBMESSAGEMAXLEN long */
-int _mw_srbsendmessage(int fd, SRBmessage * srbmsg)
+int _mw_srbsendmessage(Connection * conn, SRBmessage * srbmsg)
 {
   int len;
+
+  if (conn == NULL) {
+    Error("Internal error, "__FILE__ ":%d called with conn == NULL", __LINE__);
+    return -EFAULT;
+  };
+
 
   /* MUTEX BEGIN */
   if (_mw_srbmessagebuffer == NULL) 
     _mw_srbmessagebuffer = malloc(SRBMESSAGEMAXLEN+1);
 
   if (_mw_srbmessagebuffer == NULL) {
-    mwlog(MWLOG_ERROR, "Failed to allocate SRB send message buffer, OUT OF MEMORY!");
+    Error("Failed to allocate SRB send message buffer, OUT OF MEMORY!");
     /* MUTEX ENDS */
     return -ENOMEM;
   };
@@ -430,11 +449,11 @@ int _mw_srbsendmessage(int fd, SRBmessage * srbmsg)
   len = _mw_srbencodemessage(srbmsg, _mw_srbmessagebuffer, SRBMESSAGEMAXLEN+1);
   if (len == -1) return -errno;
 
-  _mw_srb_trace (SRB_TRACE_OUT, fd, _mw_srbmessagebuffer, len);
+  _mw_srb_trace (SRB_TRACE_OUT, conn, _mw_srbmessagebuffer, len);
   
   errno = 0;
-  len = write(fd, _mw_srbmessagebuffer, len);
-  mwlog(MWLOG_DEBUG3, "_mw_srbsendmessage: write returned %d errno=%d", len, errno);
+  len = write(conn->fd, _mw_srbmessagebuffer, len);
+  DEBUG3("_mw_srbsendmessage: write returned %d errno=%d", len, errno);
   /* MUTEX ENDS */
   if (len == -1) 
     return -errno;
@@ -443,37 +462,53 @@ int _mw_srbsendmessage(int fd, SRBmessage * srbmsg)
 
 
 
-int _mw_srbsendreject(int fd, SRBmessage * srbmsg, 
+int _mw_srbsendreject(Connection * conn, SRBmessage * srbmsg, 
 		   char * causefield, char * causevalue, 
 		   int rcode)
 {
   int rc;
 
-  if (srbmsg == NULL) return -EINVAL;
+  if ( (srbmsg == NULL) || (conn == NULL) ) {
+    DEBUG("not sending a reject since either conn %p or srbmessage %p is NULL", conn, srbmsg);
+    return -EINVAL;
+  };
 
   srbmsg->marker = SRB_REJECTMARKER;
   
+  if (conn->rejects == 0) {
+    DEBUG("peer has notified that no rejects should be sent");
+    return 0;
+  };
+
   _mw_srb_setfieldi(srbmsg, SRB_REASONCODE, rcode);
   _mw_srb_setfield(srbmsg, SRB_REASON, _mw_srb_reason(rcode));
 
   if (causefield != NULL) 
     _mw_srb_setfield(srbmsg, SRB_CAUSEFIELD, causefield);
-
+  
   if (causevalue != NULL) 
     _mw_srb_setfield(srbmsg, SRB_CAUSEVALUE, causevalue);
 
-  rc = _mw_srbsendmessage(fd,srbmsg);
+  rc = _mw_srbsendmessage(conn,srbmsg);
   return rc;
 };
 
 /* special case where a message didn't have a proper format, and we
    only have a sting to reject.*/
-int _mw_srbsendreject_sz(int fd, char *message, int offset) 
+int _mw_srbsendreject_sz(Connection * conn, char *message, int offset) 
 { 
   int rc; 
   SRBmessage srbmsg;
 
-  if (message == NULL) return -EINVAL;
+  if ( (message == NULL) || (conn == NULL) ) {
+    DEBUG("not sending a reject since either conn %p or message %p is NULL", conn, message);
+    return -EINVAL;
+  };
+
+  if (conn->rejects == 0) {
+    DEBUG("peer has notified that no rejects should be sent");
+    return 0;
+  };
 
   _mw_srb_init(&srbmsg, SRB_REJECT,SRB_NOTIFICATIONMARKER, 
 	       SRB_REASON, _mw_srb_reason(SRB_PROTO_FORMAT), 
@@ -483,16 +518,18 @@ int _mw_srbsendreject_sz(int fd, char *message, int offset)
   _mw_srb_setfieldi(&srbmsg, SRB_REASONCODE, SRB_PROTO_FORMAT);
   if (offset > 0) 
     _mw_srb_setfieldi(&srbmsg, SRB_OFFSET, offset);
-  rc = _mw_srbsendmessage(fd, &srbmsg);
+  rc = _mw_srbsendmessage(conn, &srbmsg);
   urlmapfree(srbmsg.map);
   return rc;
 };
 
-int _mw_srbsendterm(int fd, int grace)
+int _mw_srbsendterm(Connection * conn, int grace)
 {
   int rc;
   SRBmessage srbmsg;
   srbmsg.map = NULL;
+
+  if (conn == NULL) return -EINVAL;
 
   strncpy(srbmsg.command, SRB_TERM, MWMAXSVCNAME);
   if (grace == -1) {
@@ -501,21 +538,20 @@ int _mw_srbsendterm(int fd, int grace)
     srbmsg.marker = SRB_REQUESTMARKER;
     _mw_srb_setfieldi(&srbmsg, SRB_GRACE, grace);
   };
-  rc = _mw_srbsendmessage(fd, &srbmsg);
+  rc = _mw_srbsendmessage(conn, &srbmsg);
   urlmapfree(srbmsg.map);
   return rc;
 };
 
-int _mw_srbsendinit(int fd, char * user, char * password, 
+int _mw_srbsendinit(Connection * conn, char * user, char * password, 
 			   char * name, char * domain)
 {
   int  rc;
   char * auth = SRB_AUTH_NONE;
   SRBmessage srbmsg;
 
-  if (name == NULL) {
-    return -EINVAL;
-  };
+  if (name == NULL)   return -EINVAL;
+  if (conn == NULL) return -EINVAL;
 
   _mw_srb_init(&srbmsg, SRB_INIT, SRB_REQUESTMARKER, 
 	       SRB_VERSION, SRBPROTOCOLVERSION, 
@@ -524,7 +560,7 @@ int _mw_srbsendinit(int fd, char * user, char * password,
 	       NULL);
   /* optional */
   if (user != NULL) {
-    auth = SRB_AUTH_UNIX;
+    auth = SRB_AUTH_PASS;
     _mw_srb_setfield(&srbmsg, SRB_USER, user);
   };
 
@@ -536,22 +572,24 @@ int _mw_srbsendinit(int fd, char * user, char * password,
 
   _mw_srb_setfield (&srbmsg, SRB_AUTHENTICATION, auth);
 
-  rc = _mw_srbsendmessage(fd, &srbmsg);
+  rc = _mw_srbsendmessage(conn, &srbmsg);
   urlmapfree(srbmsg.map);
   return rc;
 };
 
-int _mw_srbsendcall(int fd, int handle, char * svcname, char * data, int datalen, 
+int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, int datalen, 
 		    int flags)
 {
   char hdlbuf[9];
   int rc;
   SRBmessage srbmsg;
-  int noreply, multiple;
+  int noreply;
   float timeleft;
 
   noreply = flags & MWNOREPLY;
-  mwlog(MWLOG_DEBUG1, "_mw_srbsendcall: begins");
+  DEBUG1("_mw_srbsendcall: begins");
+
+  if (conn == NULL) return -EINVAL;
 
   /* input validation done before in mw(a)call:mwclientapi.c */
   strncpy(srbmsg.command, SRB_SVCCALL, MWMAXSVCNAME);
@@ -569,7 +607,7 @@ int _mw_srbsendcall(int fd, int handle, char * svcname, char * data, int datalen
       datalen = strlen(data);
     };
     if (datalen > 3000) {
-      mwlog(MWLOG_ERROR, "Large data not yet implemented, datalen %d > 3000", datalen);
+      Error("Large data not yet implemented, datalen %d > 3000", datalen);
       urlmapfree(srbmsg.map);
       return -ENOSYS;
     };
@@ -582,9 +620,9 @@ int _mw_srbsendcall(int fd, int handle, char * svcname, char * data, int datalen
 
   _mw_srb_setfieldi(&srbmsg, SRB_HOPS, 0);
   
-  rc = _mw_srbsendmessage(fd, &srbmsg);
+  rc = _mw_srbsendmessage(conn, &srbmsg);
   urlmapfree(srbmsg.map);
-  mwlog(MWLOG_DEBUG1, "_mw_srbsendcall: returns normally with rc=%d", rc);
+  DEBUG1("_mw_srbsendcall: returns normally with rc=%d", rc);
   return rc;
 };
 
@@ -619,23 +657,26 @@ int _mw_get_returncode(urlmap * map)
  * now we must verify that the messages has a propper format
  * i.e. field checks
  **********************************************************************/
-int _mw_srb_checksrbcall(int fd, SRBmessage * srbmsg) 
+int _mw_srb_checksrbcall(Connection * conn, SRBmessage * srbmsg) 
 {
   int idx;
+
+  if (conn == NULL) return -EINVAL;
+  if (srbmsg == NULL) return -EINVAL;
 
   idx = urlmapget(srbmsg->map, SRB_HANDLE);
   /* if a SVCCALL mesg don't have a handle, reject it */
   if (idx == -1) {
-    mwlog(MWLOG_ERROR, "_mw_srb_checksrbcall: got a call reply without a handle");
-    _mw_srbsendreject(fd, srbmsg, SRB_HANDLE, NULL, 
+    Error("_mw_srb_checksrbcall: got a call reply without a handle");
+    _mw_srbsendreject(conn, srbmsg, SRB_HANDLE, NULL, 
 		      SRB_PROTO_FIELDMISSING);
     return 0;
   };
   
   idx = urlmapget(srbmsg->map, SRB_RETURNCODE);
   if (idx == -1) { 
-    mwlog(MWLOG_ERROR, "_mw_srb_checksrbcall: RETURNCODE missing in SRBCALL: ");
-    _mw_srbsendreject(fd, srbmsg, SRB_RETURNCODE, NULL, 
+    Error("_mw_srb_checksrbcall: RETURNCODE missing in SRBCALL: ");
+    _mw_srbsendreject(conn, srbmsg, SRB_RETURNCODE, NULL, 
 		      SRB_PROTO_FIELDMISSING);
     return 0;
   } 
@@ -648,17 +689,17 @@ int _mw_srb_checksrbcall(int fd, SRBmessage * srbmsg)
 	   && isdigit(srbmsg->map[idx].value[2])) 
     ; /* OK */
   else {
-    mwlog(MWLOG_ERROR, "_mw_srb_checksrbcall: Illegal format of RETURNCODE in SRBCALL: \"%s\"(%d)",
+    Error("_mw_srb_checksrbcall: Illegal format of RETURNCODE in SRBCALL: \"%s\"(%d)",
 	  srbmsg->map[idx].value, srbmsg->map[idx].valuelen);
-    _mw_srbsendreject(fd, srbmsg, SRB_RETURNCODE, srbmsg->map[idx].value, 
+    _mw_srbsendreject(conn, srbmsg, SRB_RETURNCODE, srbmsg->map[idx].value, 
 		      SRB_PROTO_ILLEGALVALUE);
     return 0;
   };
 
   idx = urlmapget(srbmsg->map, SRB_APPLICATIONRC);
   if (idx == -1) { 
-    mwlog(MWLOG_ERROR, "_mw_srb_checksrbcall: APPLICATIONRC missing in SRBCALL: ");
-    _mw_srbsendreject(fd, srbmsg, SRB_APPLICATIONRC, NULL, 
+    Error("_mw_srb_checksrbcall: APPLICATIONRC missing in SRBCALL: ");
+    _mw_srbsendreject(conn, srbmsg, SRB_APPLICATIONRC, NULL, 
 		      SRB_PROTO_FIELDMISSING);
     return 0;
   } 

@@ -19,11 +19,11 @@
 */
 
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 /* 
  * $Log$
+ * Revision 1.4  2002/07/07 22:35:20  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.3  2001/10/09 11:05:47  eggestad
  * Multicast was sendt only on loopbackdevice during attach
  *
@@ -53,6 +53,21 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <MidWay.h>
 #include <SRBprotocol.h>
 #include <multicast.h>
+#include <connection.h>
+
+static char * RCSId UNUSED = "$Id$";
+
+
+/* some funcs that operation on a Connection * are used with teh UDP
+   socket.  we need this peudo var for these calls. */
+Connection pseudoconn = { 
+  fd:            -1, 
+  rejects:        0,
+  domain:        NULL, 
+  version:       0.0, 
+  messagebuffer: NULL,
+  type:          CONN_TYPE_MCAST
+};  
 
 static struct ip_mreq mr;
 
@@ -62,7 +77,7 @@ int _mw_setmcastaddr(void)
 
   inet_pton(AF_INET, MCASTADDRESS_V4 , &mr.imr_multiaddr);
 
-  mwlog(MWLOG_DEBUG1, " mcast addr %#x ifaddr %#x", 
+  DEBUG1(" mcast addr %#x ifaddr %#x", 
 	 mr.imr_multiaddr.s_addr, mr.imr_interface.s_addr);
   return 0;
 };
@@ -73,31 +88,35 @@ int _mw_initmcast(int s)
   int rc;
 
   rc = setsockopt (s, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr, sizeof(struct ip_mreq));
-  mwlog(MWLOG_DEBUG1, "add membership returned %d errno =%d", rc, errno);
+  DEBUG1("add membership returned %d errno =%d", rc, errno);
 
   rc = setsockopt (s, IPPROTO_IP, IP_MULTICAST_IF, &mr.imr_interface, 
 		   sizeof(struct in_addr));
-  mwlog(MWLOG_DEBUG1, "add multicast_if returned %d errno =%d", rc, errno);
+  DEBUG1("add multicast_if returned %d errno =%d", rc, errno);
 
   return rc;
 };
 
 
-int _mw_sendmcast (int s, char * payload, int plen)
+int _mw_senducast (int s, char * payload, struct sockaddr * host)
 {
-  int rc;
+};
+
+int _mw_sendmcast (int s, char * payload)
+{
+  int rc, plen;
   struct sockaddr_in to;
 
   to.sin_family = AF_INET;
   to.sin_port = htons(SRB_BROKER_PORT);
   memcpy(&to.sin_addr,  &mr.imr_multiaddr.s_addr, sizeof(struct in_addr));
 
-  if (plen == 0) plen = strlen(payload);
-
-  _mw_srb_trace(SRB_TRACE_OUT, s, payload, plen);
+  plen = strlen(payload);
+  DEBUG1("_mw_sendmcast on fd=%d", s);
+  _mw_srb_trace(SRB_TRACE_OUT, &pseudoconn, payload, plen);
   rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
 
-  mwlog(MWLOG_DEBUG1, "_mw_sendmcast returned %d", rc);
+  DEBUG1("_mw_sendmcast returned %d errno=%d", rc, errno);
   return rc;
 };
 
@@ -123,7 +142,7 @@ int _mw_sendmcastquery(int s, char * domain, char * instance)
   if (instance) urlmapset(srbreq.map, SRB_INSTANCE, instance);
 
   len = _mw_srbencodemessage(&srbreq, buffer, SRBMESSAGEMAXLEN);
-  rc = _mw_sendmcast (s, buffer, len);
+  rc = _mw_sendmcast (s, buffer);
   urlmapfree(srbreq.map);
 
   return rc;
@@ -154,11 +173,11 @@ int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
   
   tv.tv_sec = (int) timeout;
   tv.tv_usec  = ( timeout - ((float) tv.tv_sec)) * 1000000;
-  mwlog(MWLOG_DEBUG1, "waiting for udp packet on %d for %d.%d (%f) secs", 
+  DEBUG1("waiting for udp packet on %d for %d.%d (%f) secs", 
 	s, tv.tv_sec, tv.tv_usec, timeout);
 
   n = select(s+1, &rfdset, NULL, NULL, &tv);
-  mwlog(MWLOG_DEBUG1, "select returned %d", n);
+  DEBUG1("select returned %d", n);
 
   if (n == 0) {
     errno = ETIME;
@@ -167,14 +186,14 @@ int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
   if (n == -1) return -1;
 
   if (n != 1) {
-    mwlog(MWLOG_ERROR, "in _mw_getmcastreply select returned %d ready fd's " 
+    Error("in _mw_getmcastreply select returned %d ready fd's " 
 	  "but only one possible", n);
     errno = EFAULT;
     return -1;
   };
   
   if (!FD_ISSET(s, &rfdset)) {
-    mwlog(MWLOG_ERROR, "in _mw_getmcastreply select return wrong fd ready");
+    Error("in _mw_getmcastreply select return wrong fd ready");
     errno = EFAULT;
     return -1;
   };
@@ -183,23 +202,23 @@ int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
   slen = sizeof (struct sockaddr_in);
   rc =recvfrom (s, buffer, len, 0, 
 		(struct sockaddr *) &peeraddr, &slen);
-  mwlog(MWLOG_DEBUG1, "recvfrom returned %d", rc);
+  DEBUG1("recvfrom returned %d", rc);
 
   if (rc < 1) return -1;
 
-  _mw_srb_trace(SRB_TRACE_IN, s, buffer, rc);
-  mwlog(MWLOG_DEBUG1, "got a message %d bytes long", rc);
+  _mw_srb_trace(SRB_TRACE_IN, &pseudoconn, buffer, rc);
+  DEBUG1("got a message %d bytes long", rc);
 
   srbrpy = _mw_srbdecodemessage(buffer);
   if (srbrpy == NULL) {
-    mwlog(MWLOG_DEBUG1, "failed to decode, discarding");
+    DEBUG1("failed to decode, discarding");
     errno = EBADMSG;
     return -1;
   };
   
   if ( (strcmp(srbrpy->command, SRB_READY) != 0) ||
        (srbrpy->marker != SRB_RESPONSEMARKER) ) {
-    mwlog(MWLOG_DEBUG1, "unexpected reply %s%c:..., discarding", 
+    DEBUG1("unexpected reply %s%c:..., discarding", 
 	  srbrpy->command, srbrpy->marker);
     errno = EBADMSG;
     return -1;
@@ -220,7 +239,7 @@ int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
   if (mapval)
     strncpy(reply->domain, mapval, MWMAXNAMELEN);
   
-  mwlog(MWLOG_DEBUG1, "mcast reply: peer=%s:%d, ver=%s domain=%s instance=%s", 
+  DEBUG1("mcast reply: peer=%s:%d, ver=%s domain=%s instance=%s", 
 	inet_ntop(AF_INET, &peeraddr.sin_addr, buf, 256), 
 	ntohs(peeraddr.sin_port), 
 	reply->version, reply->domain, reply->instance);
@@ -236,7 +255,7 @@ instanceinfo * mwbrokerquery(char * domain, char * instance)
 {
   instanceinfo * gws = NULL;
   int idx = 0;
-  int s, flags, rc;
+  int s, rc;
 
 
   s = socket(AF_INET, SOCK_DGRAM, 0);
@@ -253,7 +272,7 @@ instanceinfo * mwbrokerquery(char * domain, char * instance)
   while (rc == 0) { 
     gws = realloc(gws, sizeof(instanceinfo)*(idx + 2));
     rc =  _mw_getmcastreply(s, &gws[idx], 2.0);
-    mwlog(MWLOG_DEBUG, "getting reply %d rc=%d", idx, rc);
+    DEBUG("getting reply %d rc=%d", idx, rc);
     if (rc == -1) {
       switch (errno) {
       case EBADMSG:
@@ -264,7 +283,7 @@ instanceinfo * mwbrokerquery(char * domain, char * instance)
     idx++;
   } 
 
-  mwlog(MWLOG_DEBUG, "we got %d replies", idx);
+  DEBUG("we got %d replies", idx);
   
   if (gws)
     memset(&gws[idx], '\0', sizeof(instanceinfo));

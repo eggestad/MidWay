@@ -18,14 +18,14 @@
   Boston, MA 02111-1307, USA. 
 */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 /*
  * $Id$
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2002/07/07 22:35:20  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.7  2002/02/17 14:11:45  eggestad
  * MWMORE is no longer a flag
  *
@@ -65,9 +65,17 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <MidWay.h>
 #include <address.h>
 #include <ipcmessages.h>
+#include <ipctables.h>
 #include <shmalloc.h>
+#include <mwclientipcapi.h>
+#include <SRBclient.h>
+
+static char * RCSId UNUSED = "$Id$";
 
 static struct timeval deadline = {0, 0};
+
+static mwaddress_t * _mwaddress;
+
 
 int _mw_deadline(struct timeval * tv_deadline, float * ms_deadlineleft)
 {
@@ -93,25 +101,10 @@ int _mw_deadline(struct timeval * tv_deadline, float * ms_deadlineleft)
   return 0 ;
 };
 
-mwaddress_t * _mwaddress;
-
 int _mw_isattached(void)
 {
   if (_mwaddress == NULL) return 0;
   return 1;
-};
-
-/*
-  fastpath flag. This spesify weither programs are passed a copy
-  of the data passed thru shared memoery or a pointer to shared
-  memory directly.
-  (Does it need to be global??)
-*/
-static int _mw_fastpath = 0;
-
-int _mw_fastpath_enabled(void) 
-{
-  return _mw_fastpath;
 };
 
 /* the call handle, it is inc'ed everytime we need a new, and randomly
@@ -147,9 +140,13 @@ int mwattach(char * url, char * name,
     return -EISCONN;;
 
   rc = _mwsystemstate();
-  mwlog(MWLOG_DEBUG3, "_mwsystemstate returned %d", rc);
+  DEBUG3("_mwsystemstate returned %d", rc);
   if (rc == 0) return -EISCONN;;
-  if (rc != 1) return rc;
+  if (rc != -ENAVAIL) return rc;
+
+  if (url == NULL) {
+    url = getenv ("MWADDRESS");
+  };
 
   errno = 0;
   _mwaddress = _mwdecode_url(url);
@@ -157,7 +154,7 @@ int mwattach(char * url, char * name,
     if (errno == ETIME) {
       return -EHOSTDOWN;
     };
-    mwlog(MWLOG_ERROR, "The URL %s is invalid, decode returned %d", url, errno);
+    Error("The URL %s is invalid, decode returned %d", url, errno);
     return -EINVAL;
   };
 
@@ -174,7 +171,7 @@ int mwattach(char * url, char * name,
   };
     
   if ( (flags & MWSERVER) && (_mwaddress->protocol != MWSYSVIPC) ) {
-    mwlog(MWLOG_ERROR, "Attempting to attach as a server on a protocol other than IPC.");
+    Error("Attempting to attach as a server on a protocol other than IPC.");
       return -EINVAL;
   };
 
@@ -186,11 +183,11 @@ int mwattach(char * url, char * name,
     if (!(flags & MWNOTCLIENT)) type |= MWIPCCLIENT;
     if ((type < 1) || (type > 3)) return -EINVAL;
 
-    mwlog(MWLOG_DEBUG, "attaching to IPC name=%s, IPCKEY=0x%x type=%#x", 
+    DEBUG("attaching to IPC name=%s, IPCKEY=0x%x type=%#x", 
 	  name, _mwaddress->sysvipckey, type);
     rc = _mwattachipc(type, name, _mwaddress->sysvipckey);
     if (rc != 0) {
-      mwlog(MWLOG_DEBUG, "attaching to IPC failed with rc=%d",rc);
+      DEBUG("attaching to IPC failed with rc=%d",rc);
       free(_mwaddress);
       _mwaddress = NULL;
     };
@@ -208,9 +205,9 @@ int mwattach(char * url, char * name,
 
 int mwdetach()
 {
-  int rc, proto;
+  int proto;
 
-  mwlog(MWLOG_DEBUG1, "mwdetach: %s", _mwaddress?"detaching":"not attached");
+  DEBUG1("mwdetach: %s", _mwaddress?"detaching":"not attached");
 
   /* If we're not attached */  
   if (_mwaddress == NULL) return 0;
@@ -228,7 +225,7 @@ int mwdetach()
   case MWSRBP:
     return _mwdetach_srb();
   };
-  mwlog(MWLOG_ERROR, "mwdetach: This can't happen unknown protocol %d", proto);
+  Error("mwdetach: This can't happen unknown protocol %d", proto);
 
 };
 
@@ -239,10 +236,10 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
   if ( (data == NULL) || (len == NULL) || (appreturncode == NULL) )
     return -EINVAL;
 
-  mwlog(MWLOG_DEBUG1, "mwfetch called handle = %#x", handle);
+  DEBUG1("mwfetch called handle = %#x", handle);
 
   if (!_mwaddress) {
-    mwlog(MWLOG_DEBUG1, "not attached");
+    DEBUG1("not attached");
     return -ENOTCONN;
   };
 
@@ -268,11 +265,11 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
 	break;
 
       default:
-	mwlog(MWLOG_ERROR, "mwfetch: This can't happen unknown protocol %d", 
+	Error("mwfetch: This can't happen unknown protocol %d", 
 	      _mwaddress->protocol);
 	return -EINVAL;
       };
-      mwlog(MWLOG_DEBUG1, "protocol level fetch returned %d", rc);
+      DEBUG1("protocol level fetch returned %d datalen = %d", rc, pdatalen);
 
       /* if error */
       if (rc == MWFAIL) {
@@ -289,7 +286,7 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
       first = 0;
       
       *data = realloc(*data, *len + pdatalen + 1);
-      mwlog(MWLOG_DEBUG1, "Adding reply: *data = %p appending at %p old len = %d new len = %d",
+      DEBUG1("Adding reply: *data = %p appending at %p old len = %d new len = %d",
 	    *data, (*data)+(*len), *len, pdatalen);
       memcpy((*data)+(*len), pdata, pdatalen);
       *len += pdatalen;
@@ -312,7 +309,7 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
     rc = _mwfetch_srb(handle, data, len, appreturncode, flags);
     return rc;
   };
-  mwlog(MWLOG_ERROR, "mwfetch: This can't happen unknown protocol %d", 
+  Error("mwfetch: This can't happen unknown protocol %d", 
 	_mwaddress->protocol);
 
   return -EFAULT;
@@ -327,13 +324,13 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
   if ( (datalen < 0) || (svcname == NULL) ) 
     return -EINVAL;
   
-  mwlog(MWLOG_DEBUG1, "mwacall called for service %.32s", svcname);
+  DEBUG1("mwacall called for service %.32s", svcname);
 
   if ( _mw_deadline(NULL, &timeleft)) {
     /* we should maybe say that a few ms before a deadline, we call it expired? */
     if (timeleft <= 0.0) {
       /* we've already timed out */
-      mwlog(MWLOG_DEBUG1, "call to %s was made %d ms after deadline had expired", 
+      DEBUG1("call to %s was made %d ms after deadline had expired", 
 	    timeleft, svcname);
       return -ETIME;
     };
@@ -343,7 +340,7 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
   if ( (data != NULL ) && (datalen == 0) ) datalen = strlen(data);
 
   if (!_mwaddress) {
-    mwlog(MWLOG_DEBUG1, "not attached");
+    DEBUG1("not attached");
     return -ENOTCONN;
   };
 
@@ -357,7 +354,7 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
   case MWSRBP:
     return _mwacall_srb(svcname, data, datalen, flags);
   };
-  mwlog(MWLOG_ERROR, "mwacall: This can't happen unknown protocol %d", 
+  Error("mwacall: This can't happen unknown protocol %d", 
 	_mwaddress->protocol);
 
   return -EFAULT;
@@ -368,7 +365,7 @@ int mwcall(char * svcname,
 	       char ** rdata, int * rlen, 
 	       int * appreturncode, int flags)
 {
-  int hdl, rc;
+  int hdl;
   float timeleft;
   /* input sanyty checking, everywhere else we depend on params to be sane. */
   if ( (clen < 0) || (svcname == NULL) ) 
@@ -378,10 +375,10 @@ int mwcall(char * svcname,
   if  ( (flags & MWMULTIPLE) )
     return -EINVAL; 
 
-  mwlog(MWLOG_DEBUG1, "mwcall called for service %.32s", svcname);
+  DEBUG1("mwcall called for service %.32s", svcname);
 
   hdl = mwacall(svcname, cdata, clen, flags);
-  mwlog(MWLOG_DEBUG1, "mwcall(): mwacall() returned handle %d", hdl);
+  DEBUG1("mwcall(): mwacall() returned handle %d", hdl);
   return mwfetch (hdl, rdata, rlen, appreturncode, flags);
 
 };
@@ -396,7 +393,7 @@ int mwbegin(float fsec, int flags)
   float s, ss;
   
   errno = 0;
-  mwlog(MWLOG_DEBUG1, "mwbegin called timeout = %f", fsec);
+  DEBUG1("mwbegin called timeout = %f", fsec);
   if (fsec <= 0) return -EINVAL;
 
   gettimeofday(&now, NULL);
@@ -405,14 +402,14 @@ int mwbegin(float fsec, int flags)
   
   deadline.tv_sec = now.tv_sec + (int) s;
   deadline.tv_usec = now.tv_usec + (int) (ss * 1000000); /*micro secs*/
-  mwlog(MWLOG_DEBUG3, "mwbegin deadline is at %d.%d",
+  DEBUG3("mwbegin deadline is at %d.%d",
 	deadline.tv_sec, deadline.tv_usec); 
   return 0;
 };
 
 int mwcommit()
 {
-  mwlog(MWLOG_DEBUG1, "mwcommit:");
+  DEBUG1("mwcommit:");
 
   deadline.tv_sec = 0;
   deadline.tv_usec = 0;
@@ -420,7 +417,7 @@ int mwcommit()
 
 int mwabort()
 {
-  mwlog(MWLOG_DEBUG1, "mwabort:");
+  DEBUG1("mwabort:");
 
   deadline.tv_sec = 0;
   deadline.tv_usec = 0;
@@ -435,10 +432,10 @@ void * mwalloc(int size)
 {
   if (size < 1) return NULL;
   if ( !_mwaddress || (_mwaddress->protocol != MWSYSVIPC)) {
-    mwlog(MWLOG_DEBUG3, "mwalloc: using malloc");
+    DEBUG3("mwalloc: using malloc");
     return malloc(size);
   } else {
-    mwlog(MWLOG_DEBUG3, "mwalloc: using _mwalloc");
+    DEBUG3("mwalloc: using _mwalloc");
     return _mwalloc(size);
   };
 };
@@ -446,10 +443,10 @@ void * mwalloc(int size)
 void * mwrealloc(void * adr, int newsize) {
 
   if (_mwshmcheck(adr) == -1) {
-    mwlog(MWLOG_DEBUG3, "mwrealloc: using realloc");
+    DEBUG3("mwrealloc: using realloc");
     return realloc(adr, newsize);
   } else {
-    mwlog(MWLOG_DEBUG3, "mwrealloc: using _mwrealloc");
+    DEBUG3("mwrealloc: using _mwrealloc");
     return _mwrealloc(adr, newsize);
   };
 };
@@ -458,11 +455,11 @@ void * mwrealloc(void * adr, int newsize) {
 int mwfree(void * adr) 
 {
   if (_mwshmcheck(adr) == -1) {
-    mwlog(MWLOG_DEBUG3, "mwfree: using free");
+    DEBUG3("mwfree: using free");
     free(adr);
     return 0;
   } else {
-    mwlog(MWLOG_DEBUG3, "mwfree: using _mwfree");
+    DEBUG3("mwfree: using _mwfree");
     return _mwfree( adr);
   };
 };

@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/07/07 22:35:20  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.4  2002/02/17 14:14:22  eggestad
  * missing include added
  *
@@ -45,9 +48,6 @@
  *
  */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 
 #include <string.h>
 #include <sys/time.h>
@@ -59,8 +59,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <MidWay.h>
 
-/*                     hours minutes seconds */
-static int DAYLENGTH =  24  *  60   *   60;
+static char * RCSId UNUSED = "$Id$";
 
 char levelprefix[] = { 'F', 'E', 'W', 'A', 'I', 'D', '1', '2', '3', '4' };
 char *levelheader[] = { "FATAL: ", "ERROR: ", "Warning: ", "ALERT:", "info: ", 
@@ -69,7 +68,6 @@ char *levelheader[] = { "FATAL: ", "ERROR: ", "Warning: ", "ALERT:", "info: ",
 
 static FILE *log = NULL;
 static int loglevel = MWLOG_INFO;
-static time_t switchtime = 0;
 static char * logprefix = NULL;
 static char * progname = NULL;
 static FILE * copy_on_FILE = NULL;
@@ -114,11 +112,9 @@ static void
 switchlog (void)
 {
   struct timeval tv;
-  struct tm * now;
   static char timesuffix[100] = ""; 
   char newsuffix[100];
   char filename[256];
-  int l;
 
   if (logprefix == NULL) return ;
 
@@ -127,7 +123,6 @@ switchlog (void)
   if (strcmp(newsuffix, timesuffix) == 0) return;
 
   strftime(timesuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
-  if (log != NULL) fclose(log);
 
   if (logprefix != NULL) {
     strcpy (filename, logprefix);
@@ -136,9 +131,15 @@ switchlog (void)
   };
   strcat (filename,".");
   strcat (filename,timesuffix);
+
+  if (log != NULL) {
+    mwlog(MWLOG_INFO, "Switching to New Log %s", filename);
+    fclose(log);
+  };
+
   log = fopen(filename,"a");
 
-  mwlog(MWLOG_INFO, "Switched to New Log", timesuffix);
+  mwlog(MWLOG_INFO, "Switched to New Log %s", filename);
   return;
 }
   

@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/07/07 22:35:20  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.6  2002/02/17 14:09:58  eggestad
  * clean compile fix
  *
@@ -100,8 +103,7 @@ int _mw_attach_ipc(key_t key, int type)
   extern struct segmenthdr * _mwHeapInfo;
   /* already connected,  */
   if (ipcmain != NULL) {
-    mwlog(MWLOG_WARNING, 
-	  "Attempted to attach shm segments while already attached");
+    Warning(	  "Attempted to attach shm segments while already attached");
     return -EISCONN; 
   };
 
@@ -109,7 +111,7 @@ int _mw_attach_ipc(key_t key, int type)
   if (type & MWIPCSERVER)  readonly = 0;
   else readonly = SHM_RDONLY;
 
-  mwlog(MWLOG_DEBUG1, "_mw_attachipc(key=%d, type=%s(%d)) readonly=%d", 
+  DEBUG1("_mw_attachipc(key=%d, type=%s(%d)) readonly=%d", 
 	key, type==MWIPCSERVER?"SERVER":"CLIENT", type, readonly);
 
   /* THREAD MUTEX BEGIN */
@@ -118,77 +120,77 @@ int _mw_attach_ipc(key_t key, int type)
 
   mainid = shmget(key, 0, 0);
   if (mainid == -1) {
-    mwlog(MWLOG_ERROR,"There are no shared memory for key = 0x%x reason %s",
+    Error("There are no shared memory for key = 0x%x reason %s",
 	  key, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG1,"main shm info table has id %d",mainid);
+  DEBUG1("main shm info table has id %d",mainid);
 
   ipcmain = (ipcmaininfo *) shmat(mainid, (void *) 0, readonly);
   if ( (ipcmain == NULL) || (ipcmain == (void *) -1) ) {
-    mwlog(MWLOG_ERROR,"Failed to attach shared memory with id = %d reason %s",
+    Error("Failed to attach shared memory with id = %d reason %s",
 	  mainid, strerror(errno));
     ipcmain = NULL;
     /* MUTEX END */
     return -errno;
   };
-  mwlog(MWLOG_DEBUG1,"main shm info table attached at 0x%x",ipcmain);
+  DEBUG1("main shm info table attached at 0x%x",ipcmain);
 
 
   /* attaching all the other tables */
 
   clttbl = shmat(ipcmain->clttbl_ipcid, NULL, readonly);
   if (clttbl == (void *) -1) {
-    mwlog(MWLOG_ERROR,"Failed to attach client table with id = %d reason %s",
+    Error("Failed to attach client table with id = %d reason %s",
 	  ipcmain->clttbl_ipcid, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG1,"client table attached at 0x%x 0x%x ",clttbl, rc);
+  DEBUG1("client table attached at 0x%x 0x%x ",clttbl, rc);
   
   srvtbl = shmat(ipcmain->srvtbl_ipcid, NULL, readonly);
   if (srvtbl == (void *) -1) {
-    mwlog(MWLOG_ERROR,"Failed to attach Server table with id = %d reason %s",
+    Error("Failed to attach Server table with id = %d reason %s",
 	  ipcmain->srvtbl_ipcid, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG1,"Server table attached at 0x%x",srvtbl);
+  DEBUG1("Server table attached at 0x%x",srvtbl);
   
   svctbl = shmat(ipcmain->svctbl_ipcid, NULL, readonly);
   if (svctbl == (void *) -1) {
-    mwlog(MWLOG_ERROR,"Failed to attach service table with id = %d reason %s",
+    Error("Failed to attach service table with id = %d reason %s",
 	  ipcmain->svctbl_ipcid, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG1,"service table attached at 0x%x",svctbl);
+  DEBUG1("service table attached at 0x%x",svctbl);
   
   gwtbl = shmat(ipcmain->gwtbl_ipcid, NULL, readonly);
   if (gwtbl == (void *) -1) {
-    mwlog(MWLOG_ERROR,"Failed to attach gateway table with id = %d reason %s",
+    Error("Failed to attach gateway table with id = %d reason %s",
 	  ipcmain->gwtbl_ipcid, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG1,"gateway table attached at 0x%x",gwtbl);
+  DEBUG1("gateway table attached at 0x%x",gwtbl);
   
   convtbl = shmat(ipcmain->convtbl_ipcid, NULL, readonly);
   if (convtbl == (void *) -1) {
-    mwlog(MWLOG_ERROR,"Failed to attach convserver table with id = %d reason %s",
+    Error("Failed to attach convserver table with id = %d reason %s",
 	  ipcmain->convtbl_ipcid, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG1,"convserver table attached at 0x%x",convtbl);
+  DEBUG1("convserver table attached at 0x%x",convtbl);
 
   my_mqid = msgget(IPC_PRIVATE, 0622); /* perm = rw--w--w- */ 
   if (my_mqid == -1) {
-    mwlog(MWLOG_ERROR,"Failed to create an ipc queue for this process reason=%d",
+    Error("Failed to create an ipc queue for this process reason=%d",
 	  errno);
     return -errno;
   };
-  mwlog(MWLOG_DEBUG1,"My request/reply queue has IPC id %d", my_mqid );
+  DEBUG1("My request/reply queue has IPC id %d", my_mqid );
 
   /* Note flag, the heap is never readonly. */
   _mwHeapInfo = shmat (ipcmain->heap_ipcid, NULL, 0);
   if (_mwHeapInfo != NULL) {
-    mwlog(MWLOG_DEBUG1, "heap attached");
+    DEBUG1("heap attached");
   };
   /* THREAD MUTEX ENDS */
   return 0;
@@ -229,7 +231,7 @@ int _mw_my_mqid()
 int _mw_mwd_mqid()
 {
   if (ipcmain == NULL) return -EILSEQ;
-  mwlog(MWLOG_DEBUG1,"lookup of mwd msgqid gave %d from ipcmain at 0x%x", 
+  DEBUG1("lookup of mwd msgqid gave %d from ipcmain at 0x%x", 
 	ipcmain->mwd_mqid, ipcmain);
   return ipcmain->mwd_mqid;
 };
@@ -351,22 +353,22 @@ serverentry  * _mw_get_server_byid (SERVERID srvid)
   serverentry * srvent; 
 
   if (ipcmain == NULL) { 
-    mwlog(MWLOG_DEBUG1,"_mw_get_server_byid called while ipcmain == NULL");
+    DEBUG1("_mw_get_server_byid called while ipcmain == NULL");
     return NULL;
   };
   if (srvid & MWSERVERMASK != MWSERVERMASK) {
-    mwlog(MWLOG_DEBUG1,"_mw_get_server_byid srvid & MWSERVERMASK %d != %d", srvid & MWSERVERMASK, MWSERVERMASK);
+    DEBUG1("_mw_get_server_byid srvid & MWSERVERMASK %d != %d", srvid & MWSERVERMASK, MWSERVERMASK);
     return NULL;
   };
   index = srvid & MWINDEXMASK;
   if (index >= ipcmain->srvtbl_length) {
-    mwlog(MWLOG_DEBUG1,"_mw_get_server_byid index to big %d > %d", index, ipcmain->srvtbl_length);
+    DEBUG1("_mw_get_server_byid index to big %d > %d", index, ipcmain->srvtbl_length);
     return NULL;
   }
   
   srvent = & srvtbl[index];
   if (srvent->status == UNASSIGNED) {
-    mwlog(MWLOG_DEBUG1,"_mw_get_server_byid serverid is not in use");
+    DEBUG1("_mw_get_server_byid serverid is not in use");
     return NULL;
   };
   return srvent;
@@ -516,22 +518,22 @@ gatewayentry * _mw_get_gateway_byid (GATEWAYID gwid)
   gatewayentry * gwent; 
 
   if (ipcmain == NULL) { 
-    mwlog(MWLOG_DEBUG1,"_mw_get_gateway_byid called while ipcmain == NULL");
+    DEBUG1("_mw_get_gateway_byid called while ipcmain == NULL");
     return NULL;
   };
   if (gwid & MWSERVERMASK != MWSERVERMASK) {
-    mwlog(MWLOG_DEBUG1,"_mw_get_gateway_byid gwid & MWGATEWAYMASK %d != %d", gwid & MWSERVERMASK, MWSERVERMASK);
+    DEBUG1("_mw_get_gateway_byid gwid & MWGATEWAYMASK %d != %d", gwid & MWSERVERMASK, MWSERVERMASK);
     return NULL;
   };
   index = gwid & MWINDEXMASK;
   if (index >= ipcmain->gwtbl_length) {
-    mwlog(MWLOG_DEBUG1,"_mw_get_gateway_byid index to big %d > %d", index, ipcmain->gwtbl_length);
+    DEBUG1("_mw_get_gateway_byid index to big %d > %d", index, ipcmain->gwtbl_length);
     return NULL;
   }
   
   gwent = & gwtbl[index];
   if (gwent->status == UNASSIGNED) {
-    mwlog(MWLOG_DEBUG1,"_mw_get_gateway_byid gatewayid is not in use");
+    DEBUG1("_mw_get_gateway_byid gatewayid is not in use");
     return NULL;
   };
   return gwent;
@@ -576,8 +578,8 @@ int _mw_get_mqid_by_mwid(int dest)
 
 /* overall health of the MW instance. 
    returns: 
-   1 NOT CONNECTED;
    0 OK
+   -ENAVAIL not connected;
    -ESHUTDOWN if mwd has marked ipcmain shutdown or dead.
    -ECONNREFUSED if mwd is in the progress or booting up.
    -EUCLEAN local error (a can't happen)
@@ -590,7 +592,7 @@ int _mwsystemstate()
 {
   int rc; 
 
-  if (ipcmain  == NULL) return 1;
+  if (ipcmain  == NULL) return -ENAVAIL;
   if ( (ipcmain->status == MWSHUTDOWN) || (ipcmain->status == MWSHUTDOWN) )
     return -ESHUTDOWN;
   if (ipcmain->status == MWBOOTING) return -ECONNREFUSED;
@@ -623,7 +625,7 @@ void _mw_set_my_status(char * status)
   myentry = _mw_get_server_byid (myserverid);
 
   if (myentry == NULL) {
-    mwlog(MWLOG_WARNING, "Failed to set my status = \"%s\", probably not attached",
+    Warning("Failed to set my status = \"%s\", probably not attached",
 	  status == NULL ? "(idle)": status);
     return;
   };
@@ -635,16 +637,16 @@ void _mw_set_my_status(char * status)
   if (status == NULL) {
     myentry->status = MWREADY;
     strncpy(myentry->statustext, "(idle)", MWMAXNAMELEN);
-    mwlog(MWLOG_DEBUG1, "Returning to idle state");
+    DEBUG1("Returning to idle state");
   } else if (strcmp(status, SHUTDOWN) == 0) {
     myentry->status = MWSHUTDOWN;
     strncpy(myentry->statustext, SHUTDOWN, MWMAXNAMELEN);
-    mwlog(MWLOG_DEBUG1, "Status is now SHUTDOWN");
+    DEBUG1("Status is now SHUTDOWN");
   } else {
     myentry->status = MWBUSY;
     /* status is a service name which is always legal length. */
     strncpy(myentry->statustext, status, MWMAXNAMELEN);
-    mwlog(MWLOG_DEBUG1, "Starting service %s", status);
+    DEBUG1("Starting service %s", status);
   }
   return;
 };
@@ -656,6 +658,6 @@ void _mw_update_stats(int qlen, int waitmsec, int servmsec)
      I haven't yet figured out how to pass the updae data to mwd.
   */
   
-  mwlog(MWLOG_DEBUG1, "Last service request waited %d millisec to be processes and was  completed in %d millisecs. Message queue has now %d pending requests.", waitmsec, servmsec, qlen);
+  DEBUG1("Last service request waited %d millisec to be processes and was  completed in %d millisecs. Message queue has now %d pending requests.", waitmsec, servmsec, qlen);
   return;
 };

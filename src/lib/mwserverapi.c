@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2002/07/07 22:35:20  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.9  2002/02/17 14:20:03  eggestad
  * - added _mw_server_get_callbuffer()/_mw_server_set_callbuffer()
  * - removed  struct ServiceFuncEntry
@@ -63,9 +66,6 @@
  *
  */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 #include <errno.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -79,6 +79,8 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <shmalloc.h>
 #include <mwclientapi.h>
 #include <mwserverapi.h>
+
+static char * RCSId UNUSED = "$Id$";
 
 /**********************************************************************
  *
@@ -188,7 +190,7 @@ static void signal_handler(int sig)
 
   /*  install_sigactions(1);*/
   
-  mwlog(MWLOG_INFO, "Going down on signal %d", sig);
+  Info("Going down on signal %d", sig);
   if (!sigloop) {
     sigloop++;
     _mw_set_my_status(SHUTDOWN);
@@ -239,13 +241,12 @@ int mwprovide(char * service, int (*svcfunc) (mwsvcinfo*), int flags)
   int len;
   int rc;
   
-  if (! _mw_isattached()) return -ENOTCONN;
   rc = _mwsystemstate();
   if (rc) return rc;
 
   install_sigactions(0);
 
-  mwlog(MWLOG_DEBUG1, "mwprovide() providing %s to mwd", 
+  DEBUG1("mwprovide() providing %s to mwd", 
 	service);
   svcid = _mw_ipc_provide(service,flags);
     
@@ -253,7 +254,7 @@ int mwprovide(char * service, int (*svcfunc) (mwsvcinfo*), int flags)
   /* THREAD MUTEX BEGIN */
   svcent = _mw_get_service_byid(svcid);
   if (svcent == NULL) {
-    mwlog(MWLOG_ERROR, "This can't happen, possible error in mwd, got an OK on a provide request but returned service id  (%#x) does not exist ", svcid);
+    Error("This can't happen, possible error in mwd, got an OK on a provide request but returned service id  (%#x) does not exist ", svcid);
     return -1;
   };
 
@@ -279,14 +280,14 @@ int mwunprovide(char * service)
   /* We must lookup service type somewhere LOOKATME */
   svcid = _mw_get_service_byname(service, 0);
   if (svcid < 0 ) {
-    mwlog(MWLOG_ERROR, "mwunprovide() failed with rc=%d",svcid);
+    Error("mwunprovide() failed with rc=%d",svcid);
     return svcid;
   };
 
   rc = _mw_ipc_unprovide(service,  svcid);
   _mw_popservice(svcid);
   provided--;
-  mwlog(MWLOG_DEBUG1, "mwunprovide() returned %d");
+  DEBUG1("mwunprovide() returned %d");
   return rc;
 }
 
@@ -348,11 +349,11 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
   else mwid  = callmesg->gwid;
   rc = _mw_ipc_putmessage(mwid, (char *) callmesg, sizeof(Call), IPC_NOWAIT);
   if (rc != 0) {
-    mwlog(MWLOG_WARNING,"Failure on replying to client %#x reason %d", 
+    Warning("Failure on replying to client %#x reason %d", 
 	  callmesg->cltid, errno);
     return -errno;
   } 
-  mwlog(MWLOG_DEBUG1, "mwreply sent to client %d rc= %d", 
+  DEBUG1("mwreply sent to client %d rc= %d", 
 	callmesg->cltid, callmesg->returncode);
 
   /* if the more flag is set, and multiple flag in the callmesg is
@@ -388,7 +389,7 @@ int mwforward(char * svcname, char * data, int len, int flags)
 
   /* we should provite a way to set the "TTL" */
   if (callmesg->forwardcount > maxforwards) {
-    mwlog(MWLOG_WARNING, "Tried to forward a request from %#x that already had been forwarded %d times.", callmesg->cltid, maxforwards);
+    Warning("Tried to forward a request from %#x that already had been forwarded %d times.", callmesg->cltid, maxforwards);
     return -ELOOP;
   };
   callmesg->forwardcount++;
@@ -396,14 +397,14 @@ int mwforward(char * svcname, char * data, int len, int flags)
   /* find the svcid of the service we are to call. */
   svcid = _mw_get_service_byname(svcname,flags&MWCONV);
   if (svcid < 0) {
-    mwlog(MWLOG_WARNING,"mwforward() getting a serviceid for service %s failed reason %d",
+    Warning("mwforward() getting a serviceid for service %s failed reason %d",
 	  svcname,svcid);
     return svcid;
   };
 
   dest = _mw_get_server_by_serviceid (svcid);
   if (dest < 0) {
-    mwlog(MWLOG_WARNING,"mwforward(): getting the serverid for serviceid %d(%s) failed reason %d",
+    Warning("mwforward(): getting the serverid for serviceid %d(%s) failed reason %d",
 	  svcid, svcname, dest);
     return dest;
   };
@@ -420,7 +421,7 @@ int mwforward(char * svcname, char * data, int len, int flags)
     if (dataoffset == -1) {
       dbuf = _mwalloc(len);
       if (dbuf == NULL) {
-	mwlog(MWLOG_ERROR, "mwalloc(%d) failed reason %d", len, (int) errno);
+	Error("mwalloc(%d) failed reason %d", len, (int) errno);
 	return -errno;
       };
       memcpy(dbuf, data, len);
@@ -438,16 +439,16 @@ int mwforward(char * svcname, char * data, int len, int flags)
   callmesg->mtype = SVCCALL;
   callmesg->srvid = _mw_get_my_serverid();
 
-  /* flags tarnsalition, INCOMPLETE */
-  if (flags & MWNOBLOCK) ipcflags != IPC_NOWAIT;
+  /* flags translation, INCOMPLETE */
+  if (flags & MWNOBLOCK) ipcflags |= IPC_NOWAIT;
 
   rc = _mw_ipc_putmessage(dest, (char *) callmesg, sizeof(Call), ipcflags);
   if (rc != 0) {
-    mwlog(MWLOG_WARNING,"Failure on replying to client %#x reason %s", 
+    Warning("Failure on replying to client %#x reason %s", 
 	  callmesg->cltid, errno);
     return -errno;
   } 
-  mwlog(MWLOG_DEBUG1, "mwreply sent to client %d rc= %d", 
+  DEBUG1("mwreply sent to client %d rc= %d", 
 	callmesg->cltid, callmesg->returncode);
 
   _mw_requestpending = 0;
@@ -468,7 +469,7 @@ int _mw_set_deadline(Call * callmesg, mwsvcinfo * svcreqinfo)
   gettimeofday(&starttv, NULL);
   if (callmesg->timeout > 0 ) {
     svcreqinfo->deadline  = callmesg->issued + callmesg->timeout/1000;
-    svcreqinfo->udeadline = callmesg->uissued; + ((callmesg->timeout)%1000)*1000000;
+    svcreqinfo->udeadline = callmesg->uissued + ((callmesg->timeout)%1000)*1000000;
   } else {
     svcreqinfo->deadline = 0;
     svcreqinfo->udeadline = 0;
@@ -521,7 +522,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   if (rc < 0) {
     /* mwd will notify us about shutdown by removing our message queue.*/
     if ( (errno == EIDRM) || (errno == EINVAL) ) {
-      mwlog(MWLOG_INFO, "Administrative Shutdown.");
+      Info("Administrative Shutdown.");
       _mw_ipcsend_detach(1);
       _mw_detach_ipc();
       errno = ESHUTDOWN;
@@ -537,15 +538,14 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
     _mw_requestpending = 1;
 
   
-  mwlog(MWLOG_DEBUG1,
-	"mwfetch: got a CALL/FORWARD to service \"%s\" id %#x from clt:%#x srv:%#x", 
+  DEBUG1(	"mwfetch: got a CALL/FORWARD to service \"%s\" id %#x from clt:%#x srv:%#x", 
 	callmesg->service, callmesg->svcid, 
 	callmesg->cltid, callmesg->srvid);
     
   /* timeout info */
   svcent = _mw_get_service_byid(callmesg->svcid);
   if (svcent == NULL) {
-    mwlog(MWLOG_ERROR, "Can't happen, Got a call to %s (%d) but it does not exist in BBL", 
+    Error("Can't happen, Got a call to %s (%d) but it does not exist in BBL", 
 	  callmesg->service, callmesg->svcid);
     callmesg->returncode = -ENOENT;
     _mw_ipc_putmessage(callmesg->cltid, (char*) callmesg, sizeof(Call), 0);
@@ -556,7 +556,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   };
 
   /*    if (callmesg->srvid != _mw_get_my_serverid()) {
-	mwlog (MWLOG_ERROR, "Got a call request for service \"%s\" serviceid %#x and serverid %#x, but my serverid is %#x", 
+	Error("Got a call request for service \"%s\" serviceid %#x and serverid %#x, but my serverid is %#x", 
 	callmesg->service, callmesg->svcid, 
 	callmesg->srvid, _mw_get_my_serverid());
 	callmesg->returncode = -EBADMSG;
@@ -579,11 +579,11 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
 
   rc = _mw_set_deadline(callmesg, svcreqinfo);
   if (rc < 0) {
-    mwlog (MWLOG_WARNING, "Got a service request that had already expired by "
+    Warning("Got a service request that had already expired by "
 	   "%d milliseconds, replying ETIME", 
 	   -rc);
     
-    mwlog(MWLOG_DEBUG1, "issued %d.%d timeout %d now %d.%d deadline %d.%d",
+    DEBUG1("issued %d.%d timeout %d now %d.%d deadline %d.%d",
 	  callmesg->issued, callmesg->uissued, callmesg->timeout,
 	  starttv.tv_sec ,  starttv.tv_usec, 
 	  svcreqinfo->deadline, svcreqinfo->udeadline);
@@ -619,7 +619,7 @@ int _mwCallCServiceFunction(mwsvcinfo * svcinfo)
   serviceentry * svcent;
   struct ServiceFuncEntry * serviceptr;
 
-  mwlog(MWLOG_DEBUG1, "calling C service routine for %s(%d) (it had waited %d millisecs)", 
+  DEBUG1("calling C service routine for %s(%d) (it had waited %d millisecs)", 
 	callmesg->service, callmesg->svcid, waitmsec);
   
   if (serviceFuncList == NULL) {
@@ -650,7 +650,7 @@ int _mwCallCServiceFunction(mwsvcinfo * svcinfo)
      I think that the caller should test regurarly if the called server
      if up and running. Maybe we should add clientid and handle to status.
   */
-  mwlog(MWLOG_DEBUG1, "call on service %s(%d) returned %d", 
+  DEBUG1("call on service %s(%d) returned %d", 
 	callmesg->service, callmesg->svcid, rc);
   
   return rc;  
@@ -670,7 +670,7 @@ int mwservicerequest(int flags)
   /* it will return on failure or interrupt.
      if noblovking return, with errno, else do a recurive call until success.
   */
-  mwlog(MWLOG_DEBUG1, "mwGetServiceRequest(%#x) returned %#X with errno = %d", 
+  DEBUG1("mwGetServiceRequest(%#x) returned %#X with errno = %d", 
 	flags, svcinfo, errno);
   
   /*  if (svcinfo == NULL && (flags & MWNOBLOCK)) return -errno; */
@@ -698,7 +698,7 @@ int mwMainLoop(int flags)
   
   while(1) {
     counter++;
-    mwlog(MWLOG_DEBUG1, "std MailLoop begining for the %d time.", counter);
+    DEBUG1("std MailLoop begining for the %d time.", counter);
     rc = mwservicerequest(flags & ! MWNOBLOCK);
     if ( (rc == -EINTR) && (flags & MWSIGRST)) continue;
     if (rc < 0) return rc;

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/07/07 22:35:20  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.6  2002/02/17 14:23:31  eggestad
  * - added missing includes
  * - added _mw_getbuffer_from_call() and _mw_putbuffer_to_call()
@@ -79,6 +82,19 @@ static char * RCSName = "$Name$"; /* CVS TAG */
    remember all members of the struct chunkhead and chunkfoot are in int.
 */
 
+/*
+  fastpath flag. This spesify weither programs are passed a copy
+  of the data passed thru shared memoery or a pointer to shared
+  memory directly.
+  (Does it need to be global??)
+*/
+static int _mw_fastpath = 0;
+
+int _mw_fastpath_enabled(void) 
+{
+  return _mw_fastpath;
+};
+
 struct segmenthdr * _mwHeapInfo = NULL;
 
 /* this operate on absolute adresses */
@@ -88,7 +104,7 @@ chunkfoot * _mwfooter(chunkhead * head)
 
   fadr = (void *)head + sizeof(chunkhead) + 
     head->size * _mwHeapInfo->basechunksize;
-  mwlog(MWLOG_DEBUG3, "footer for %p is at %p + %p + %p * %p = %p",
+  DEBUG3("footer for %p is at %p + %p + %p * %p = %p",
 	head, head, sizeof(chunkhead),  head->size,  _mwHeapInfo->basechunksize,
 	fadr) ;
   return (chunkfoot *) fadr;
@@ -155,7 +171,7 @@ int _mw_putbuffer_to_call (Call * callmesg, char * data, int len)
     if (dataoffset == -1) {
       dbuf = _mwalloc(len);
       if (dbuf == NULL) {
-	mwlog(MWLOG_ERROR, "mwalloc(%d) failed reason %d", len, (int) errno);
+	Error("mwalloc(%d) failed reason %d", len, (int) errno);
 	return -errno;
       };
       memcpy(dbuf, data, len);
@@ -290,8 +306,8 @@ static chunkhead * popchunk(int *iRoot, int * freecount)
   (*freecount) --;
 
   /* disconnect the chunk */
-  pCFoot->next == 0;
-  pCFoot->prev == 0;
+  pCFoot->next = 0;
+  pCFoot->prev = 0;
   return pCHead;
 };
 
@@ -306,8 +322,7 @@ static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount)
   pCFoot = _mwfooter(pInsert);
 
   if (_mwoffset2adr(pCFoot->above) != pInsert) {
-    mwlog(MWLOG_WARNING, 
-	  "possible shm buffer corruption, error in chunk at %#x", pInsert);
+    Warning(	  "possible shm buffer corruption, error in chunk at %#x", pInsert);
     pCFoot->above = _mwadr2offset(pInsert);
   };
 
@@ -368,19 +383,19 @@ void * _mwalloc(int size)
   if (_mwHeapInfo == NULL ) {
     ipcmain = _mw_ipcmaininfo(); 
     if (ipcmain == NULL) {
-      mwlog(MWLOG_ERROR, "_mwalloc: It seems there are no mwd running, no main shm info attached.");
+      Error("_mwalloc: It seems there are no mwd running, no main shm info attached.");
       return NULL;
     };
     _mwHeapInfo = shmat (ipcmain->heap_ipcid, NULL, 0);
     /* the manual says that shmat return -1 on failure, but
        that seem not natural to me since it return a pointer. */
     if ((_mwHeapInfo == (void *) -1) || (_mwHeapInfo == NULL)) {
-      mwlog(MWLOG_ERROR, "_mwalloc: failed to attach the shm heap, erno = %d.", errno);
+      Error("_mwalloc: failed to attach the shm heap, erno = %d.", errno);
       return NULL;
     };
     /* the magic numer is "MW" thus 0x4D57 */
     if (_mwHeapInfo->magic != 0x4D57) {
-      mwlog(MWLOG_ERROR, "_mwalloc: The shm heap seem not to be formated, wrong magic header");
+      Error("_mwalloc: The shm heap seem not to be formated, wrong magic header");
       shmdt(_mwHeapInfo);
       return NULL;
     };
@@ -404,7 +419,7 @@ void * _mwalloc(int size)
  
       rc = lock(i);
       if (rc < 0) {
-	mwlog(MWLOG_ERROR,"_mwalloc: lock of bin %d failed erro=%d", i, errno);
+	Error("_mwalloc: lock of bin %d failed erro=%d", i, errno);
 	return NULL;
       }
 
@@ -423,7 +438,7 @@ void * _mwalloc(int size)
       /* really should be CLIENTID or SERVERID or GATEWAYID ... */
       pCHead->ownerid = getpid(); 
       if (pCHead->size != 1<<i) {
-	mwlog(MWLOG_ERROR, "mwalloc: retrived chunk is of size %d*%d != %d*%d",
+	Error("mwalloc: retrived chunk is of size %d*%d != %d*%d",
 	      pCHead->size, _mwHeapInfo->basechunksize , 
 	      1<<i, _mwHeapInfo->basechunksize);       
       };
@@ -432,7 +447,7 @@ void * _mwalloc(int size)
       return (void*) pCHead + sizeof(chunkhead);
     };
   };
-  mwlog(MWLOG_ERROR, "_mwalloc: out of memory");
+  Error("_mwalloc: out of memory");
   errno = -ENOMEM;
   return NULL;
 };
@@ -498,7 +513,7 @@ int _mwfree(void * adr)
   rc = pushchunk(pCHead, &_mwHeapInfo->chunk[chkindex], 
 		 &_mwHeapInfo->freecount[chkindex]);
   if (rc != 0) {
-    mwlog(MWLOG_ERROR, "mwfree: shm chunk of size %d lost, reason %d", 
+    Error("mwfree: shm chunk of size %d lost, reason %d", 
 	  pCHead->size, rc);
   };
   _mwHeapInfo->inusecount --;

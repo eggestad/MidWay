@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2002/07/07 22:35:20  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.7  2002/02/17 13:55:16  eggestad
  * added missing includes
  *
@@ -49,8 +52,6 @@
  * MidWay
  *
  */
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <sys/types.h>
 #include <ctype.h>
@@ -68,10 +69,11 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <MidWay.h>
 
-#define _ADDRESS_H
 #include <address.h>
 #include <SRBprotocol.h>
 #include <multicast.h>
+
+static char * RCSId UNUSED = "$Id$";
 
 
 /* here we have the regexps that defined the legal formats for the URL.
@@ -108,7 +110,7 @@ static void debug_print_matches(regmatch_t *match, char * url)
   while (j < MAXMATCH) {
     if (match[j].rm_so >=0 ){
       len = match[j].rm_eo - match[j].rm_so;
-      mwlog(MWLOG_DEBUG3, "REGEXP Match %d in %s at %d to %d \"%*.*s\"", 
+      DEBUG3("REGEXP Match %d in %s at %d to %d \"%*.*s\"", 
 	    j, url, 
 	    (long int) match[j].rm_so, (long int) match[j].rm_eo, 
 	    len, len, url+match[j].rm_so);
@@ -124,7 +126,6 @@ static void debug_print_matches(regmatch_t *match, char * url)
    a path for POSIX IPC */
 static int url_decode_ipc(mwaddress_t * mwadr, char * url)
 {
-  char * tmpptr;
   regex_t ipcexp; 
   regmatch_t match[MAXMATCH]; 
   int j, rc;
@@ -145,7 +146,7 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
 
   if ( regcomp( & ipcexp, RE_IPC, REG_EXTENDED|REG_ICASE) != 0) {
     //  if ( regcomp( & testexp, exp, 0) != 0) 
-    mwlog(MWLOG_ERROR, "This can't happen: error on compiling regex %d", errno);
+    Error("This can't happen: error on compiling regex %d", errno);
     return -1;
   };
 
@@ -155,10 +156,10 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
   }
   
   rc = regexec (&ipcexp, url, MAXMATCH, match,0);
-  mwlog(MWLOG_DEBUG3, "regexec IPC returned %d on %-40s: ",rc, url);
+  DEBUG3("regexec IPC returned %d on %-40s: ",rc, url);
   if (rc != 0) {
     regerror( rc, &ipcexp, url , 255);
-    mwlog(MWLOG_DEBUG1, "regexec of \"%s\" failed on %s, ", RE_IPC, url);
+    DEBUG1("regexec of \"%s\" failed on %s, ", RE_IPC, url);
     return -1;
   }
 
@@ -170,7 +171,7 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
     c = url[match[2].rm_eo];
     url[match[2].rm_eo] = '\0';
     key = atol(url+match[2].rm_so);
-    mwlog(MWLOG_DEBUG3, "Decoded IPC key in URI to be %d", key);
+    DEBUG3("Decoded IPC key in URI to be %d", key);
     url[match[2].rm_eo] = c;
   } 
       /* IPC KEY is mutualy exclusive, we really should check.... */
@@ -179,27 +180,27 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
     int len;
     len = match[6].rm_eo - match[6].rm_so;
     if (len > MWMAXNAMELEN) {
-      mwlog(MWLOG_ERROR, "Instance name too long");
+      Error("Instance name too long");
       return -1;
     };
     instance = malloc(len+1);
     strncpy(instance, url+match[6].rm_so, len);
     instance[len] = '\0';
-    mwlog(MWLOG_DEBUG3, " Instancename=%s", instance);
+    DEBUG3(" Instancename=%s", instance);
   } 
   /* USERID */
   if (match[9].rm_so != -1) {
     int len;
     len = match[9].rm_eo - match[9].rm_so;
     if (len > MWMAXNAMELEN) {
-      mwlog(MWLOG_ERROR, "user name too long");
+      Error("user name too long");
       return -1;
     };
     userid=malloc(len+1); 
     strncpy(userid, url+match[9].rm_so, len);
     userid[len] = '\0';
 
-    mwlog(MWLOG_DEBUG3, " Userid=%s", userid);
+    DEBUG3(" Userid=%s", userid);
   } 
 
   /* first we check for the key, if present, we're happy. */
@@ -212,7 +213,7 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
   if (userid != NULL) {
     pwent = getpwnam(userid);
     if (pwent == NULL) {
-      mwlog(MWLOG_ERROR, "userid %s in url %s don't exists", userid, url);
+      Error("userid %s in url %s don't exists", userid, url);
       return -1;
     };
     uid = pwent->pw_uid;
@@ -227,7 +228,7 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
     return 0;
   } else {
     /* assume ftok on config. */
-    mwlog(MWLOG_ERROR, "use of config file is not yet implemented");
+    Error("use of config file is not yet implemented");
     return -1;
   };
   /* check for posix ipc **/
@@ -238,7 +239,7 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
 
 static int url_decode_srbp (mwaddress_t * mwadr, char * url)
 {
-  int len=0, urltype, j, rc;
+  int len=0, j, rc;
   static char * ipaddress = NULL;
   static char * port = NULL;
   char * domain = NULL;
@@ -259,7 +260,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
   };
 
   if ( regcomp( & srbexp, RE_SRBP, REG_EXTENDED|REG_ICASE) != 0) {
-    mwlog(MWLOG_ERROR, "error on compiling regex %d\n", errno);
+    Error("error on compiling regex %d\n", errno);
     exit;
   };
 
@@ -269,10 +270,10 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
   }
   
   rc = regexec (&srbexp, url, MAXMATCH, match,0);
-  mwlog(MWLOG_DEBUG3, "regexec SRB returned %d on %-40s: ",rc, url);
+  DEBUG3("regexec SRB returned %d on %-40s: ",rc, url);
   if (rc != 0) {
     regerror(rc, &srbexp, url , 255);
-    mwlog(MWLOG_DEBUG1, "regexec of \"%s\" failed on %s", RE_SRBP, url);
+    DEBUG1("regexec of \"%s\" failed on %s", RE_SRBP, url);
     return -1;
   }
 
@@ -283,7 +284,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
     ipaddress = malloc(len+1);
     strncpy(ipaddress, url+match[3].rm_so, len);
     ipaddress[len] = '\0'; 
-    mwlog(MWLOG_DEBUG3, "ipaddress=%s", ipaddress);
+    DEBUG3("ipaddress=%s", ipaddress);
   } 
   
   /* TCP PORT */
@@ -293,7 +294,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
     port = malloc(len+1);
     strncpy(port, url+match[5].rm_so, len);
     port[len] = '\0';
-    mwlog(MWLOG_DEBUG3, "port=%s", port);
+    DEBUG3("port=%s", port);
   } 
 
   /* DOMAIN */
@@ -302,13 +303,13 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
     domain = malloc(len+1); 
     strncpy(domain, url+match[8].rm_so, len);
     domain[len] = '\0';
-    mwlog(MWLOG_DEBUG3, "DOMAIN=%s", domain);
+    DEBUG3("DOMAIN=%s", domain);
   } 
 
   /* OK, we've obtained all the values from the url, now we do the
      necessary copying, and convertion to binary data */
   if ( (domain == NULL) && (ipaddress == NULL) ) {
-    mwlog(MWLOG_ERROR, "Either domain or ipaddress must be specified");
+    Error("Either domain or ipaddress must be specified");
     return -1;
   };
   
@@ -327,7 +328,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
     } else {
       sent = getservbyname(port, "TCP");
       if (sent == NULL) {
-	mwlog(MWLOG_ERROR, "No such service %s", port);
+	Error("No such service %s", port);
 	return -1;
       };
       ns_port = sent->s_port;
@@ -354,7 +355,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
   retry:
       errno = 0;
       rc =  _mw_getmcastreply(s, &is, 2.0);
-      mwlog(MWLOG_DEBUG1,  "_mw_getmcastreply returned %d, errno=%d", rc, errno);
+      DEBUG1("_mw_getmcastreply returned %d, errno=%d", rc, errno);
       if ( (rc == -1) && (errno == EBADMSG) )	goto retry;
       
       if (rc == -1) return -1;
@@ -362,7 +363,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
 	char buf[64];
 	struct sockaddr_in * sin;
 	sin = ((struct sockaddr_in *) &is.address);
-	mwlog(MWLOG_DEBUG1,  "Gateways address: family %d, port %d ipaddress V4 %s", 
+	DEBUG1("Gateways address: family %d, port %d ipaddress V4 %s", 
 	      sin->sin_family, 
 	      ntohs(sin->sin_port), 
 	      inet_ntop(AF_INET, &sin->sin_addr, buf, 64));
@@ -372,7 +373,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
       close (s);
       {
 	char buf[64];
-	mwlog(MWLOG_DEBUG1,  "Gateways address: family %d, port %d ipaddress V4 %s", 
+	DEBUG1("Gateways address: family %d, port %d ipaddress V4 %s", 
 	      mwadr->ipaddress_v4->sin_family, 
 	      ntohs(mwadr->ipaddress_v4->sin_port), 
 	      inet_ntop(AF_INET, &mwadr->ipaddress_v4->sin_addr, buf, 64));
@@ -381,13 +382,13 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
     
     hent = gethostbyname(ipaddress);
     if (hent == NULL) {
-      mwlog(MWLOG_ERROR, "Unable to resolve hostname %s", ipaddress);
+      Error("Unable to resolve hostname %s", ipaddress);
       return -1;
     };
-    mwlog(MWLOG_DEBUG3, "ipaddress %s => hostname %s type = %d, addr = %#X", 
+    DEBUG3("ipaddress %s => hostname %s type = %d, addr = %#X", 
 	  ipaddress, hent->h_name, hent->h_addrtype, * (int *) hent->h_addr_list[0]);
     if (hent->h_length != 4) {
-      mwlog(MWLOG_ERROR, "Failed to resolve hostname, address length %d != 4", 
+      Error("Failed to resolve hostname, address length %d != 4", 
 	    hent->h_length );
       return -1;
     };
@@ -401,7 +402,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
 
   {
     char buf[64];
-    mwlog(MWLOG_DEBUG1,  "Gateways address: family %d, port %d ipaddress V4 %s", 
+    DEBUG1("Gateways address: family %d, port %d ipaddress V4 %s", 
 	mwadr->ipaddress_v4->sin_family, 
 	ntohs(mwadr->ipaddress_v4->sin_port), 
 	inet_ntop(AF_INET, &mwadr->ipaddress_v4->sin_addr, buf, 64));
@@ -420,10 +421,9 @@ mwaddress_t * _mwdecode_url(char * url)
   memset (match, '\0', sizeof(regmatch_t) * MAXMATCH);
 
   if (url == NULL) {    
-    mwlog(MWLOG_DEBUG1,  "_mwdecode_url: Attempting to get the URL form Env var MWURL");
+    DEBUG1("_mwdecode_url: Attempting to get the URL from Env var MWADDRESS");
     /* if url is not set, check MWURL or MWADDRESS */
-    url = getenv ("MWURL");
-    if (url == NULL) url = getenv ("MWADDRESS");
+    url = getenv ("MWADDRESS");
     
   } 
 
@@ -432,24 +432,24 @@ mwaddress_t * _mwdecode_url(char * url)
     /* We assume IPC, and use UID as key */
     mwadr->sysvipckey = getuid();
     mwadr->protocol = MWSYSVIPC;
-    mwlog(MWLOG_DEBUG1,  "_mwdecode_url: we have no url, assuming ipc:%d", mwadr->sysvipckey);
+    DEBUG1("_mwdecode_url: we have no url, assuming ipc:%d", mwadr->sysvipckey);
     return mwadr;
   };
 
-  mwlog(MWLOG_DEBUG1,  "_mwdecode_url: url = %s", url);
+  DEBUG1("_mwdecode_url: url = %s", url);
 
   mwadr->protocol =  -1;
   if ( regcomp( & allexp, RE_ALLPROTO, REG_EXTENDED|REG_ICASE) != 0) {
     //  if ( regcomp( & testexp, exp, 0) != 0) 
-    mwlog(MWLOG_ERROR, "error on compiling regex %s errno=%d\n", RE_ALLPROTO,  errno);
+    Error("error on compiling regex %s errno=%d\n", RE_ALLPROTO,  errno);
     free(mwadr);
     return NULL;
   };
   rc = regexec (&allexp, url, MAXMATCH, match,0);
-  mwlog(MWLOG_DEBUG3, "regexec IPC returned %d on %-40s: ",rc, url);
+  DEBUG3("regexec IPC returned %d on %-40s: ",rc, url);
   if (rc != 0) {
     regerror( rc, &allexp, url , 255);
-    mwlog(MWLOG_DEBUG1, "regexec of \"%s\" failed on %s, ", RE_ALLPROTO, url);
+    DEBUG1("regexec of \"%s\" failed on %s, ", RE_ALLPROTO, url);
     free(mwadr);
     return NULL;
   }
@@ -480,8 +480,53 @@ mwaddress_t * _mwdecode_url(char * url)
     else return mwadr;
   };
   
-  mwlog(MWLOG_ERROR, 
-	"Unknown protocol %s in the URL \"%s\" for MidWay instance, error %d", 
+  Error(	"Unknown protocol %s in the URL \"%s\" for MidWay instance, error %d", 
 	url+match[1].rm_so, url, mwadr->protocol);
   return NULL;
+};
+
+/* if buffer param is NULL, we use a static buffer, but we're not thread safe. */
+const char * _mw_sprintsa(struct sockaddr * sa, char * buffer)
+{
+  static char sbuffer[256];
+  char buff[16];
+  union {
+    struct sockaddr_in  * sin;
+    struct sockaddr_in6 * sin6;
+    struct sockaddr * sa;
+  } addr;
+
+  if (buffer == NULL) buffer = sbuffer;
+
+  if (sa == NULL) {
+    buffer[0] = '\0';
+    return buffer;
+  };
+
+  addr.sa = sa;
+
+
+  switch (addr.sa->sa_family) {
+    
+  case 0:
+    buffer[0] = '\0';
+    return buffer;
+
+  case AF_INET:
+    inet_ntop(AF_INET, &addr.sin->sin_addr, buffer, 255);
+    sprintf (buff, ":%d", ntohs(addr.sin->sin_port));
+    strcat (buffer, buff);
+    return buffer;
+
+  case AF_INET6:
+    inet_ntop(AF_INET6, &addr.sin6->sin6_addr, buffer, 255);
+    sprintf (buff, ":%d", ntohs(addr.sin6->sin6_port));
+    strcat (buffer, buff);
+    return buffer;
+
+  default:
+    sprintf (buffer, "unknown family %d", addr.sa->sa_family);
+    return buffer;
+  };
+
 };

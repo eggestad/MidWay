@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.13  2003/06/12 07:36:51  eggestad
+ * fix in impcleanuppeer()
+ *
  * Revision 1.12  2003/03/16 23:50:24  eggestad
  * Major fixups
  *
@@ -249,6 +252,15 @@ int importservice(char * service, int cost, struct gwpeerinfo * peerinfo)
   return 0;
 };
 
+
+/* OK, fairly hary pointer stuff. We got a single linked list of
+   Imports, each has a single linked list of peerlink's that inturn
+   has pointers to the gwpeerinfo's.  we go thru the Import list, and
+   for each we go thru the peerlink list and chech to see if we got a
+   peerlink to this peer gwpeerinfo struct. If so remove the peerlink
+   element for this gwpeerinfo.  AND if this was the last peerlink for
+   this Import, remove this Import from the Imports list.*/
+ 
 static void impcleanuppeer(struct gwpeerinfo * pi)
 {
   Import * imp, **pimp;
@@ -258,7 +270,7 @@ static void impcleanuppeer(struct gwpeerinfo * pi)
 
   impdumplist();
 
-  for (pimp = &importlist; *pimp != NULL; pimp = &(*pimp)->next) {
+  for (pimp = &importlist; *pimp != NULL; ) {
     imp = *pimp;
     DEBUG(" pimp = %p *pimp = %p imp = %p service %s ", pimp, *pimp, imp, imp->servicename);
 
@@ -267,25 +279,36 @@ static void impcleanuppeer(struct gwpeerinfo * pi)
       if ( pl->peer != pi) continue;
       
       DEBUG("found the peerlist element, removing");
-
-      if (pl->svcid != UNASSIGNED) 
-	_mw_ipcsend_unprovide_for_id (pl->peer->gwid, imp->servicename, pl->svcid);
-      
       *ppl = pl->next;
+
+      if (imp->peerlist == NULL)  {
+	
+	 DEBUG("  GWID %x ?=  %x", pi->gwid, pl->peer->gwid);
+
+	 if (pl->svcid != UNASSIGNED) {
+	    DEBUG("sending unprovide for GWID %d service %s service id %d", 
+		  GWID2IDX(pl->peer->gwid), imp->servicename, SVCID2IDX(pl->svcid));
+	    _mw_ipcsend_unprovide_for_id (pl->peer->gwid, imp->servicename, pl->svcid);
+	 } 
+      } else {
+	 
+	 DEBUG("Not the last peer to provide %s, not sending unprovide to mwd", imp->servicename); 
+	 // TODO: recalc cost
+	 break;
+      };
+      
       free(pl);
       
-      if (imp->peerlist != NULL)  {
-	DEBUG("Not the last peer to provide %s, not sending unprovide to mwd", imp->servicename); 
-	// TODO: recalc cost
-	break;
-      };
-            
       DEBUG("now we must remove the  Import element from the importlist %p", importlist);
       *pimp = imp->next;
       free(imp);
+      imp = NULL; // to signal below that we pimp already point to the next
       break;
     }; 
     if (*pimp == NULL) break;
+    DEBUG("imp %p , pimp = %p", imp, pimp);
+    if (imp != NULL)
+       pimp = &(*pimp)->next;
   };
 
   impdumplist();

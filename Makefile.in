@@ -1,3 +1,8 @@
+srcdir = @srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
+
 
 @SET_MAKE@
 
@@ -20,9 +25,19 @@ distclean:: clean
 	done;\
 	rm -f Makefile config.cache config.h config.log config.status *~
 
-install::
+install:: all
+	if [ ! -d @bindir@ ]; then install -d @bindir@; fi
+	if [ ! -d @libdir@ ]; then install -d @libdir@; fi
+	if [ ! -d @includedir@ ]; then install -d @includedir@; fi
+	if [ ! -d @mandir@ ]; then install -d @mandir@; fi
+	if [ ! -d @mandir@/man1 ]; then install -d @mandir@/man1; fi
+	if [ ! -d @mandir@/man3 ]; then install -d @mandir@/man3; fi
+	if [ ! -d @mandir@/man7 ]; then install -d @mandir@/man7; fi
 	@ for dir in $(SUBDIRS); do\
 	(cd $$dir; $(MAKE) $@)\
 	done;
+	@INSTALL@ -m 644  include/MidWay.h @includedir@/MidWay.h
 
+uninstall:
+	rm -f @includedir@/MidWay.h
 

@@ -1,6 +1,10 @@
+srcdir = @srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
 
 @SET_MAKE@
-INSTALL = @INSTALL
+INSTALL = @INSTALL@
 
 all: 
 
@@ -10,11 +14,11 @@ distclean:: clean
 	rm -f Makefile *~
 
 install::
-	@ for man in ´ls *.1´; do\
-	$(INSTALL) -m 644 @mandir@/man1/$$man; \
+	@ for man in `ls *.1`; do\
+	$(INSTALL) -m 644 $$man @mandir@/man1/$$man; \
 	done;
 
 uninstall::
-	@ for man in ´ls *.1´; do\
+	@ for man in `ls *.1`; do\
 	rm -f @mandir@/man1/$$man;\
 	done;

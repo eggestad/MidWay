@@ -1,3 +1,7 @@
+srcdir = @srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
+exec_prefix = @exec_prefix@
 
 CC = @CC@
 INSTALL = @INSTALL@
@@ -21,7 +25,7 @@ distclean:
 	rm -f Makefile  *~
 
 install:
-	$(INSTALL)  mwgwd @bindir@/bin/mwgwd
+	$(INSTALL)  mwgwd @bindir@/mwgwd
 
 uninstall:
 	rm -f @bindir@/mwgwd

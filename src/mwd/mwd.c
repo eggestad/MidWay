@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2001/10/03 22:40:39  eggestad
+ * cpp debugging setting
+ *
  * Revision 1.5  2001/09/15 23:44:13  eggestad
  * fix for changing ipcmain systemname to instance name
  * added func for instancename generation
@@ -686,8 +689,11 @@ int main(int argc, char ** argv)
   };
 
   /* change for production */
+
+#ifdef DEBUGGING
   _mw_copy_on_stdout(TRUE);
   mwsetloglevel(MWLOG_DEBUG);
+#endif 
 
   mwlog(MWLOG_INFO, "MidWay instance URI is %s", uri); 
   errno = 0;

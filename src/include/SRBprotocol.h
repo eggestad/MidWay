@@ -27,6 +27,8 @@
 
 #define SRBMESSAGEMAXLEN 	3500
 
+#define SRB_DEFAULT_PORT 	11000
+
 /*************************************************
  * SRB commands
  *************************************************/
@@ -40,7 +42,7 @@
 #define SRB_HELLO 	"HELLO"
 #define SRB_EVENT 	"EVENT"
 #define SRB_SUBSCRIBE 	"SUBSCRIBE"
-#define SRB_UNBSCRIBE 	"UNBSCRIBE"
+#define SRB_UNSUBSCRIBE "UNSUBSCRIBE"
 #define SRB_REJECT 	"REJECT"
 
 /*************************************************
@@ -49,6 +51,7 @@
 #define SRB_REQUESTMARKER 	'?'
 #define SRB_RESPONSEMARKER 	'.'
 #define SRB_NOTIFICATIONMARKER 	'!'
+#define SRB_REJECTMARKER 	'~'
 
 
 /*************************************************
@@ -100,8 +103,8 @@
  * fleld values 
  *************************************************/
 
-#define SRB_CLIENT			"CLIENT"
-#define SRB_GATEWAY			"GATEWAY"
+#define SRB_TYPE_CLIENT			"CLIENT"
+#define SRB_TYPE_GATEWAY		"GATEWAY"
 /* authentication schemes. */
 #define SRB_AUTH_NONE			"NONE"
 #define SRB_AUTH_UNIX			"unix"
@@ -110,6 +113,11 @@
 /* YES and NO, almost an overkill */
 #define SRB_YES   			"YES"
 #define SRB_NO  			"NO"
+
+/* roles */
+#define SRB_ROLE_CLIENT   		1
+#define SRB_ROLE_GATEWAY  		2
+
 
 /*************************************************
  * Return codes 
@@ -135,82 +143,46 @@
 #define SRB_PROTO_NOINIT		411
 #define SRB_PROTO_NOTNOTIFICATION	412
 #define SRB_PROTO_NOTREQUEST		413
-#define SRB_PROTO_NOCLIENTS		420
-#define SRB_PROTO_NOGATEWAYS		421
 #define SRB_PROTO_NO_SUCH_SERVICE	430
 #define SRB_PROTO_SERVICE_FAILED	431
 #define SRB_PROTO_GATEWAY_ERROR		500
 #define SRB_PROTO_DISCONNECTED		501
+#define SRB_PROTO_NOCLIENTS		520
+#define SRB_PROTO_NOGATEWAYS		521
 
 
 #define SRB_PROTO_			1
 
-/* roles */
-#define SRB_ROLE_CLIENT   		1
-#define SRB_ROLE_GATEWAY  		2
-
-int srbDoMessage(int, char *);
-/*void srbsendterm(int , int );
-void srbsendreject(int , char * , int , char * , char * , int );
-*/
-void srbsendgreeting(int);
-void srbsendterm(int, int);
-void srbsendinitreply(int fd, urlmap * map, int rc, char * field);
-void srbsendcallreply(int fd, urlmap *map, char * data, int len, 
-			     int apprc, int rc, int flags);
+/* a struct used internally to hold a decoded message */
+typedef struct {
+  char command[32];
+  char marker;
+  urlmap * map;
+} SRBmessage;
 
 
-/* automation of error strings */
+#ifndef _SRB_CLIENT_C
+/*extern char _mw_srbmessagebuffer;*/
+#endif
 
-/* just a map between cause codes and a short description */
-struct reasonmap 
-{
-  int rcode; 
-  char * reason;
-};
+SRBmessage * _mw_srbdecodemessage(char * message);
+int _mw_srbsendmessage(int fd, SRBmessage * srbmsg);
 
-static struct reasonmap srbreasons[] = { 
-  { SRB_PROTO_OK, 		"Success" },
-  { SRB_PROTO_FORMAT,  		"General Format Error" }, 
-  { SRB_PROTO_NOINIT,  		"Missing Init Request" }, 
-  { SRB_PROTO_FIELDMISSING,  	"Required Field Missing" }, 
-  { SRB_PROTO_ILLEGALVALUE,  	"Field has Illegal Value" }, 
-  { SRB_PROTO_CLIENT,  		"Request Legal only for Gateways" }, 
-  { SRB_PROTO_NOREVERSE,  	"Do not accept reverse service calls" }, 
-  { SRB_PROTO_VERNOTSUPP,  	"Protocol Version Not Supported" },
-  { SRB_PROTO_NOCLIENTS,  	"Not accepting connections from Clients" }, 
-  { SRB_PROTO_NOGATEWAYS,  	"Not accepting connections from Gateways" }, 
-  { -1, 			NULL }
-};
-  
-static char * strreason(int rc)
-{
-  static char buffer [100];
-  char * mesg = "Unknown Error";
-  int i = 0;
 
-  while(srbreasons[i].rcode != -1) {
-    if (srbreasons[i].rcode == rc)
-      return srbreasons[i].reason;
-    i++;
-  };
-  sprintf (buffer, "Error: %d", rc);
-  return buffer;
-};
+int _mw_srbsendreject(int fd, SRBmessage * srbmsg, 
+		       char * causefield, char * causevalue, 
+		       int rc);
+int _mw_srbsendreject_sz(int fd, char *message, int offset) ;
+int _mw_srbsendterm(int fd, int grace);
+int _mw_srbsendinit(int fd, char * user, char * password, 
+		    char * name, char * domain);
 
-static int errno2srbrc(int err)
-{
-  /* just make sure we have it postive */
-  if (err < 0) err = - err;
-  switch (err) {
-  case ENOENT:
-    return SRB_PROTO_NO_SUCH_SERVICE;
-  case EFAULT:
-    return SRB_PROTO_SERVICE_FAILED;
-  case ENOTCONN:
-    return SRB_PROTO_GATEWAY_ERROR;
-  };
-  return 600 + err;
-};
+
+int _mw_get_returncode(urlmap * map);
+
+void _mw_srb_trace(int dir_in, int fd, char * message, int messagelen);
+
+char * _mw_srb_reason(int rc);
+int _mw_errno2srbrc(int err);
 
 #endif /* _SRBPROTOCOL_H */

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.11  2002/10/20 18:09:39  eggestad
+ * added instance to the Call struct. Needed later for gateway to gateway calls
+ *
  * Revision 1.10  2002/10/17 22:04:24  eggestad
  * - added more field to _mwacallipc() needed for gateway to gateway calls
  * - Call struct now also has callerid and hops fields
@@ -157,6 +160,8 @@ struct call
 
   int flags;
 
+  // used for 
+  char instance[MWMAXNAMELEN];
   char domainname[MWMAXNAMELEN];
   MWID callerid;
   int hops;
@@ -298,7 +303,7 @@ int _mw_ipcsend_unprovide(char * servicename, int flags);
 int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid);
 
 int _mwacallipc (char * svcname, char * data, int datalen, int flags, 
-		 char * domain, MWID callerid, int hops);
+		 MWID mwid, char * instance, char * domain, MWID callerid, int hops);
 int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int flags);
 
 int _mw_ipcconnect(char * servicename, char * socketpath, int flags);

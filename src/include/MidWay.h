@@ -28,6 +28,7 @@
 #include "../../include/MidWay.h"
 
 #include "../../config.h"
+#include "acconfig.h"
 
 
 /* The max number of each ID are limitet to 24 bits, we use the top 

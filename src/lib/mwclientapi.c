@@ -26,6 +26,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2001/10/03 22:46:51  eggestad
+ * Added timeout errno for attach
+ *
  * Revision 1.5  2001/08/29 20:38:47  eggestad
  * added RCS keys
  *
@@ -148,6 +151,9 @@ int mwattach(char * url, char * name,
   errno = 0;
   _mwaddress = _mwdecode_url(url);
   if (_mwaddress == NULL) {
+    if (errno == ETIME) {
+      return -EHOSTDOWN;
+    };
     mwlog(MWLOG_ERROR, "The URL %s is invalid, decode returned %d", url, errno);
     return -EINVAL;
   };

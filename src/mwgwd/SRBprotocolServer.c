@@ -21,6 +21,11 @@
 
 /*
  * $Log$
+ * Revision 1.11  2002/10/17 22:10:43  eggestad
+ * - iGetOptBinField renamed vGetOptBinField
+ * - added xGetOptField for hex encoded field
+ * - changed to handle gateways as well as clients (not complete)
+ *
  * Revision 1.10  2002/09/29 17:41:06  eggestad
  * added srbunprovide() handler
  *
@@ -120,6 +125,10 @@ static char * szGetReqField(Connection * conn, SRBmessage * srbmsg, char * field
   DEBUG2("szGetReqField: index of %s is %d, errno=%d", 
 	fieldname, idx, errno);
   if (idx != -1) {
+    if (srbmsg->map[idx].value == NULL) {
+      _mw_srbsendreject(conn, srbmsg, fieldname, NULL, SRB_PROTO_ILLEGALVALUE);
+      return NULL;
+    };
     return srbmsg->map[idx].value;
   } 
   _mw_srbsendreject(conn, srbmsg, fieldname, NULL, SRB_PROTO_FIELDMISSING);
@@ -138,7 +147,7 @@ static char * szGetOptField(Connection * conn, SRBmessage * srbmsg, char * field
   return NULL;
 }
 
-static int iGetOptBinField(Connection * conn, SRBmessage * srbmsg, 
+static int vGetOptBinField(Connection * conn, SRBmessage * srbmsg, 
 			   char * fieldname, char ** value, int * valuelen)
 {
   int idx;
@@ -159,6 +168,11 @@ static int iGetReqField(Connection * conn, SRBmessage * srbmsg,
   int idx, rc;
   idx = urlmapget(srbmsg->map, fieldname);
   if (idx != -1) {
+    if (srbmsg->map[idx].value == NULL) {
+      _mw_srbsendreject(conn, srbmsg, fieldname, NULL, SRB_PROTO_ILLEGALVALUE);
+      return 0;
+    };
+
     rc = sscanf (srbmsg->map[idx].value, "%d", value);
     if (rc != 1) {
       _mw_srbsendreject(conn, srbmsg, srbmsg->map[idx].key, srbmsg->map[idx].value, 
@@ -178,7 +192,29 @@ static int iGetOptField(Connection * conn, SRBmessage * srbmsg,
   int idx, rc;
   idx = urlmapget(srbmsg->map, fieldname);
   if (idx != -1) {
+    if (srbmsg->map[idx].value == NULL) {
+      _mw_srbsendreject(conn, srbmsg, fieldname, NULL, SRB_PROTO_ILLEGALVALUE);
+      return 0;
+    };
     rc = sscanf (srbmsg->map[idx].value, "%d", value);
+    if (rc != 1) {
+      _mw_srbsendreject(conn, srbmsg, 
+			srbmsg->map[idx].key, srbmsg->map[idx].value, 
+			SRB_PROTO_ILLEGALVALUE);
+      return 0;
+    };
+    return 1;
+  }
+  return 1; // 0 signify error!
+};
+
+static int xGetOptField(Connection * conn, SRBmessage * srbmsg,
+			char * fieldname, int *  value)
+{
+  int idx, rc;
+  idx = urlmapget(srbmsg->map, fieldname);
+  if (idx != -1) {
+    rc = sscanf (srbmsg->map[idx].value, "%x", value);
     if (rc != 1) {
       _mw_srbsendreject(conn, srbmsg, 
 			srbmsg->map[idx].key, srbmsg->map[idx].value, 
@@ -400,15 +436,14 @@ static void srbcall(Connection * conn, SRBmessage * srbmsg)
   int rc;
   char * tmp;
   
-  CLIENTID cltid = UNASSIGNED;
-  
+  MWID mwid = UNASSIGNED; 
+
   char buff[128];
 
   char * svcname;
   char * data = NULL;
   int datachunks = -1;
   char * instance = NULL;
-  char * domain = NULL;
   char * clientname = NULL;
   unsigned long handle = 0xffffffff;
   long flags = 0;
@@ -416,20 +451,22 @@ static void srbcall(Connection * conn, SRBmessage * srbmsg)
   int noreply = 0;
   int multiple = 0;
   int more = 0;
+  int sectolive = -1;
+  char * domain = NULL;
+  int callerid;
   int hops = 0;
   int maxhops = 30;
-  int sectolive = -1;
 
   /* I don't like having to hardcode the offset into the fields in the
      message like this, but is quite simple... */
-  conn_getinfo(conn->fd, &cltid, NULL, NULL, NULL);
-  if (cltid == UNASSIGNED) {
-    Warning("Got a SVCCALL before SRB INIT cltid=%d", cltid&MWINDEXMASK);
+  conn_getinfo(conn->fd, &mwid, NULL, NULL, NULL);
+  if (mwid == UNASSIGNED) {
+    Warning("Got a SVCCALL before SRB INIT cltid=%d gwid=%d", CLTID(mwid), GWID(mwid));
     _mw_srbsendcallreply(conn, srbmsg, NULL, 0, 0, SRB_PROTO_NOINIT, 0);
     return;
   };
 
-  DEBUG("srbcall: beginning SVCCALL from cltid=%d", cltid&MWINDEXMASK);
+  DEBUG("srbcall: beginning SVCCALL from cltid=%d gwid=%d", CLTID(mwid), GWID(mwid));
 
   /* first we get the field that are identical on requests as well as
      replies. */
@@ -446,8 +483,10 @@ static void srbcall(Connection * conn, SRBmessage * srbmsg)
     return;
   };
 
+  // this is where we inc hops counter. This means that SRB client svc calls has always hops=1 
+  hops++;
 
-  iGetOptBinField(conn, srbmsg, SRB_DATA, &data, &datalen);
+  vGetOptBinField(conn, srbmsg, SRB_DATA, &data, &datalen);
   if (data == NULL) datalen = 0;
   
   iGetOptField(conn, srbmsg, SRB_DATACHUNKS, &datachunks);
@@ -483,7 +522,10 @@ static void srbcall(Connection * conn, SRBmessage * srbmsg)
       };
     };
 
+    /* TODO: are these req if peer is a gw? */
     domain =      szGetOptField(conn, srbmsg, SRB_DOMAIN);
+    iGetOptField(conn, srbmsg, SRB_CALLERID, &callerid);
+
     clientname =  szGetOptField(conn, srbmsg, SRB_CLIENTNAME);
 
     tmp =         szGetOptField(conn, srbmsg, SRB_MULTIPLE);
@@ -505,26 +547,28 @@ static void srbcall(Connection * conn, SRBmessage * srbmsg)
     if ((datachunks == -1) ) {
 
       DEBUG("SVCCALL was complete doing _mwacallipc");      
-      _mw_set_my_clientid(cltid);
+      if (CLTID(mwid) != UNASSIGNED)
+	_mw_set_my_clientid(CLTID(mwid));
 
       /* we must lock since it happens that the server replies before
          we do storeSetIpcCall() */
 
       storeLockCall();
-      rc = _mwacallipc (svcname, data, datalen, flags);
+      rc = _mwacallipc (svcname, data, datalen, flags, domain, callerid, hops);
 
-      _mw_set_my_clientid(UNASSIGNED);
+      if (CLTID(mwid) != UNASSIGNED)
+	_mw_set_my_clientid(UNASSIGNED);
       
       if (rc > 0) {
-	storePushCall(cltid, handle, conn->fd, srbmsg->map);
+	storePushCall(mwid, handle, conn->fd, srbmsg->map);
 	srbmsg->map = NULL;
 	DEBUG("_mwacallipc succeeded");  
 	if ( ! noreply) {
 	  DEBUG(
-		"Storing call fd=%d nethandle=%u clientid=%d ipchandle=%d",
-		conn->fd, handle, cltid&MWINDEXMASK, rc);
+		"Storing call fd=%d nethandle=%u mwid=%#x ipchandle=%d",
+		conn->fd, handle, mwid, rc);
 	  
-	  rc = storeSetIPCHandle(cltid, handle, conn->fd, rc);
+	  rc = storeSetIPCHandle(mwid, handle, conn->fd, rc);
 	  storeUnLockCall();
 	  
 	  DEBUG("storeSetIPCHandle returned %d", rc);
@@ -993,9 +1037,7 @@ int _mw_srbsendgwinit(Connection * conn)
 
   peerinfo = (struct gwpeerinfo * ) conn->peerinfo;
 
-  if (peerinfo == NULL) {
-    Fatal( "Inetrnal error, in " __FUNCTION__ " conn->peerinfo is NULL");
-  };
+  Assert (peerinfo != NULL);
   
   if (peerinfo->domainid == 0) {
     DEBUG("_mw_srbsendgwinit() to GW in my own domain");

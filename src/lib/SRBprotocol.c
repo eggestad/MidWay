@@ -21,6 +21,11 @@
 
 /*
  * $Log$
+ * Revision 1.8  2003/01/07 08:26:48  eggestad
+ * * major fixup of trace, added desc propper and fixup direction indicator.
+ * * added newline before SRB message in DBEUG for readability on log.
+ * * added timepegs
+ *
  * Revision 1.7  2002/10/29 23:56:24  eggestad
  * added peer IP adress to srb trace
  *
@@ -139,18 +144,11 @@ void _mw_srb_trace(int dir_in, Connection * conn, char * message, int messagelen
     return;
   };
 
-  if (dir_in) dir_in = '>';
-  else dir_in = '<';
-
   if (messagelen <= 0) messagelen = strlen(message);
 
   if (tracefile) {
-    if (conn->fd > -1) {
-      fprintf (tracefile, "%c%d %s (%d) %.*s",
-	       dir_in, conn->fd, conn->peeraddr_string, messagelen, messagelen, message); 
-    } else {
-      fprintf (tracefile, "%c (%d) %.*s", dir_in, messagelen, messagelen, message); 
-    };
+    fprintf (tracefile, "%s%d %s (%d) %.*s",
+	     dir_in?">=":"<=", conn->fd, conn->peeraddr_string, messagelen, messagelen, message); 
     fflush(tracefile);
   };
 
@@ -159,14 +157,9 @@ void _mw_srb_trace(int dir_in, Connection * conn, char * message, int messagelen
     messagelen--;
 
 
-  if (mwsetloglevel(-1) >= MWLOG_DEBUG) {
-    if (conn->fd > -1) {
-      DEBUG("TRACE %c%d %s (%d) %.*s",
-	       dir_in, conn->fd, conn->peeraddr_string, messagelen, messagelen, message); 
-    } else {
-      DEBUG("TRACE %c (%d) %.*s", dir_in, messagelen, messagelen, message); 
-    };
-   
+  if (mwsetloglevel(-1) >= MWLOG_DEBUG) {   
+    DEBUG("TRACE %s fd=%d %s (%d) \n%.*s",
+	  dir_in?">=":"<=", conn->fd, conn->peeraddr_string, messagelen, messagelen, message);        
   };
 };
 
@@ -470,15 +463,20 @@ int _mw_srbsendmessage(Connection * conn, SRBmessage * srbmsg)
 {
   int len;
 
+  TIMEPEG();
+
   if (conn == NULL) {
     Error("Internal error, "__FILE__ ":%d called with conn == NULL", __LINE__);
     return -EFAULT;
   };
 
+  TIMEPEG();
 
   /* MUTEX BEGIN */
   if (_mw_srbmessagebuffer == NULL) 
     _mw_srbmessagebuffer = malloc(SRBMESSAGEMAXLEN+1);
+
+  TIMEPEG();
 
   if (_mw_srbmessagebuffer == NULL) {
     Error("Failed to allocate SRB send message buffer, OUT OF MEMORY!");
@@ -489,12 +487,19 @@ int _mw_srbsendmessage(Connection * conn, SRBmessage * srbmsg)
   len = _mw_srbencodemessage(srbmsg, _mw_srbmessagebuffer, SRBMESSAGEMAXLEN+1);
   if (len == -1) return -errno;
 
+  TIMEPEG();
+
   _mw_srb_trace (SRB_TRACE_OUT, conn, _mw_srbmessagebuffer, len);
-  
+
+  TIMEPEG();  
   errno = 0;
   len = write(conn->fd, _mw_srbmessagebuffer, len);
+  TIMEPEGNOTE("just did write(2)");
   DEBUG3("_mw_srbsendmessage: write returned %d errno=%d", len, errno);
   /* MUTEX ENDS */
+
+  TIMEPEG();
+
   if (len == -1) 
     return -errno;
   return len;

@@ -76,7 +76,6 @@ typedef struct {
 #define MWNOTRAN     0x00000010
 #define MWUNIQUE     0x00000020
 #define MWMULTIPLE   0x00000100
-#define MWMORE       0x00000200
 
 #define MWFASTPATH   0x00000100
 #define MWSAFEPATH   0x00000200
@@ -215,14 +214,9 @@ instanceinfo * mwbrokerquery(char * domain, char * instance);
 #define TRUE 1
 #endif
 
-#ifndef MWFAIL
-#define MWFAIL 0
-#endif
-
-#ifndef MWSUCCESS
+#define MWFAIL    0
 #define MWSUCCESS 1
-#endif
-
+#define MWMORE    2
 
 #endif /* _MIDWAY */
 

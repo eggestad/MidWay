@@ -3,7 +3,7 @@ CC = gcc
 
 CFLAGS = -g -Wstrict-prototypes
 
-DIRS = liburlencode lib mwd mwadm mwserver mwgwd test
+DIRS = liburlencode lib mwd mwadm mwserver mwgwd mwcall test
 
 
 all: 

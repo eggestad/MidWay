@@ -30,10 +30,6 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 
 * _mwrealloc() handles malloc() buffers, it shouldn't. (??)
   
-(non issue!) * I question the way I get ipcmain info. I call
-  _mw_ipcmaininfo() in every function where it's needed. I really
-  should have a global var.  (maybe a macro?)
-
 * completion in mwadm is incomplete, works only on the command verb.
   Need to do port to readlin4 anyway. 
 
@@ -53,14 +49,6 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 * in start_watch_dog we don't check for heap being attached. (It's a
   CANTHAPPEN anyway).
 
-(fixed?) * shutdown servers on msgqueue remove, works, but services
-  are not clean up.
-
-(fixed) * mwlogsetprefix() should if not a absolute path arg, go to ipcmain
-  and get mw_homedir, if that fail try MWHOME, and finally relate to
-  cwd. (diff between relpath and no path prefix)
-  mwlogsetprefix depreciated, use mwopenlog().  
-
 * The shutdown command in mwadm don't indicate if successfull, and
   should detach IPC resources.
 
@@ -73,9 +61,7 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
   binary, set something like INLINEDATA=<#octets> and use a \r\n marker 
   after the data as a verification that the length was correct. 
 
-(fixed ?) * in the urlencode lib - when a empty value &name=& the = is required.
-
-* testnet to mwbd and send TERM!, mwbd replies with TERM~ missing init
+* telnet to mwbd and send TERM!, mwbd replies with TERM~ missing init
   before disconnecting
 
 * mwbd fails with hang is another mwbd is already running
@@ -88,15 +74,13 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 * remove libxml-devel readline-devel glibc-devel and make sure
   configure barf at it.
 
-(fixed?) * in mwbd change read()/write() to sendmsg/recvmsg to avoid SIGPIPE's
-
-(fixed) * in useing address srbp://hostname/domain port 11000 is attempted,
-  not broker
-
-* rarely seen, but on third gateway booting, only one peer is seen
+* (probably fixed) rarely seen, but on third gateway booting, only one peer is seen
   (probaly if replies are too close, both are being connected by third
   gw.)
 
+* in mwd.c::set_instanceid() we use the wrong method to list all interfaces
+
+* in discovery, we broadcast/multicast on one interface only.  
 
 -----------------------------------------------------------------------
 
@@ -117,12 +101,8 @@ Minor BUGS:
 
 * mwadm boot should do a implicit mwattach. 
 
-(fixed) * call in mwadm require an arg to the service, but no arg is OK.
-
 * Outside lib's and mw programs SERVERID, CLIENTID and SERVICEID
   should have stripped the prefix, leaving only the "index" .
-
-(FIXED) mwlog.c::switchlog() don't seem to work
 
 * sigchld on mwd master is recorded but not used.
 
@@ -143,11 +123,6 @@ Minor BUGS:
 
 * update doc, autocleanup don't work on Linux if /proc don't exists.
 
-(FIXED) mwcall() and friends didn't do proper sanity checks on params,
-  notably if a buffer length was gives as 0, a null terminatted buffer
-  is assumed, but length was passed as 0 to server, now strlen() is
-  called in mw(a)call.
-
 * the whole consept of an instance name has become iffy with regards
   to URL, and is effectively broken in mwd.
   We have effectively two instance names. a IPC symbolic, and an URL addr.
@@ -162,26 +137,9 @@ Minor BUGS:
 
 REL: 0.10.0
 
-(FIXED)  *  servers  fail  to  start  when mwd  is  started  with  -D,
-  mwprovide() return ECONNABORTED: Cause wrong mwdpid in ipcmain.
-
-(FIXED) * mwcall fails if NULL as data.
-
-(FIXED) * mwcall return 0  on success, not MWSUCCESS (=1) Actually, it
-	shall return  0 on success, -1  on fail and 1  if more replies
-	are pending
-
 REL: 0.10.1
 
-(fixed) * segfault in mwgwd on ^C without core dump...
-
-(fixed) * memleak in mwbd
-
-* memleak in mwd
-
 REL 0.11.0
-
-(FIXED) * multicast is sent to localhost only
 
 * in _mwGetServiceRequest()  there is  a possible explotable  DoS bug,
   (stack  overrun)  Need  to  change  behavoir  and  find  all  places
@@ -190,36 +148,12 @@ REL 0.11.0
 * If the same mwalloced buffer is used twice, there is no check
   (needed for fast path)
 
+* umask behavior in mwd is not working. 
+
 -----------------------------------------------------------------------
 
 CRITICAL BUGS:
 =======================================================================
-
-FIXED (tested?) * mwreply can be called several times and they all
-  send replys.
-
-FIXED * handling of accidental deletion of shm segments. On HP-UX key
-  is set to IPC_PRIVATE (0) on shmctl(IPC_RMID). On Linux, attempting
-  to attach a segment marked destroyed. results in EIDRM.  Posix.4
-  (1003.1b) handles deletion with shm_unlink() which works like
-  unlink.  THe Inode isn't deleted until the last process closes it.
-  Thus on this edition of sysVIPC on linux is wrong. Made fix to
-  kernel, sendt to Linus.
-
-(FIXED?) * there is something so wrong in mwfetch after mwd and
-  mwservers are down and I'm ^C mwadm.
-
-(GONE?) * ^C doesn't work in normal mode. May be a problem with the
-  previous problem.  INT and QUIT is caught in mwadm. I doubt
-  interrupt handling is OK in mwadm.  (can't really reproduce this
-  one.)
-
-(FIXED, thru -D or mwadm) * mwd should go into daemon state after
-  boot.
-
-(FIXED) * mwd need to accept a shutdown command somehow.
-
-(FIXED) * mwadm need shutdown and boot commands.
 
 * requests on the queue to a server is junked on mwdetach(), they
   should be redirected to another server if available, or returned
@@ -231,7 +165,5 @@ FIXED * handling of accidental deletion of shm segments. On HP-UX key
   malloced buffer. It dissapears when MALLOC_DEBUG_ env is set!
   (Really anoying, have to try efence.).
 
-(fixed) * gwtbl goes full, no info on gwtable in mwadm
-
-(fixed) * mwgwd don't reconnect broker
+* mwd spontaneously dies occationally, looks like the watchdog is left behind. 
 

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/09/21 18:45:56  eggestad
+ * bug fix: url for IPC no not contain //
+ *
  * Revision 1.2  2000/07/20 19:37:10  eggestad
  * new test service test
  *
@@ -129,10 +132,11 @@ main()
   atexit(cleanup);
 
   ipckey = getuid();
-  sprintf (url, "ipc://%d", ipckey);
+  sprintf (url, "ipc:%d", ipckey);
   rc = mwattach(url, "firstserver", NULL, NULL, MWSERVER);
   printf("mwattached on url=\"%s\" returned %d\n", url, rc);
-  
+  if (rc != 0) exit (rc);
+
   rc = mwprovide ("test1", serverhandler1,0L);
   printf("mwprovide \"test1\" returned %d\n", rc);
   

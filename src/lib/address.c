@@ -23,13 +23,18 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:06  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:21:09  eggestad
+ * url prefix for TCP/IP is now srb, not midway. fix up on double include prevention
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:06  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
  *
  */
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <stdlib.h>
 #include <string.h>
@@ -37,7 +42,7 @@
 
 #include <MidWay.h>
 
-#define _ADDRESS
+#define _ADDRESS_H
 #include <address.h>
 
 /* this function ned to find out if the url has a protocol header
@@ -71,7 +76,7 @@ static int url_header(char *url , int * hlen)
     };
     
     /* check for MidWay: */
-    if (len == 6 && ( 0 == strncasecmp("midway", url, len))) {
+    if (len == 6 && ( 0 == strncasecmp("srb", url, len))) {
       return MWNETWORK;
     };
 

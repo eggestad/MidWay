@@ -23,6 +23,16 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2000/09/21 18:35:16  eggestad
+ * Lots of bug fixes:
+ *  - pushQueue didn't work, crashed on first push
+ *  - popQueueByHandle had a endless loop
+ *  - all IPC messages are now NULL'ed out at every function.
+ *  - in pushQueue next was not NULL on push 2 and after.
+ *  - issue of handles are now moved to mwclientapi to be common with SRB handles
+ *  - deadline handling quite diffrent
+ *  - ++
+ *
  * Revision 1.3  2000/08/31 21:50:21  eggestad
  * DEBUG level set propper. In acall, propper clearing of message
  *
@@ -51,9 +61,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <shmalloc.h>
 #include <ipcmessages.h>
 #include <ipctables.h>
-
-extern int _mw_fastpath;
-extern int _mw_attached;
+#include <mwclientapi.h>
 
 /* 
    really need to get all messages into private memory. 
@@ -77,6 +85,14 @@ static int pushQueue(struct InputQueue ** proot, char * message)
   if (proot == NULL) return -1;
   thiselm = *proot;
 
+  /* special case of an empty list */
+  if (thiselm == NULL) {
+    *proot = malloc(sizeof( struct InputQueue));
+    (*proot)->message = message;
+    (*proot)->next = NULL;
+    return 0;
+  }
+  
   /* find an empty element, and use it if avavilable.*/
   while(thiselm->message != NULL) {
     if (thiselm->next == NULL) break;
@@ -92,7 +108,7 @@ static int pushQueue(struct InputQueue ** proot, char * message)
   /* no available, create a new and append at end.*/
   newelm = malloc(sizeof( struct InputQueue));
   newelm->message = message;
-
+  newelm->next = NULL;
   thiselm->next = newelm;
   return 0;
 };
@@ -105,14 +121,17 @@ static char * popReplyQueueByHandle(long handle)
   qelm = replyQueue;
   
   while( qelm != NULL) {
-    callmesg = (Call *) qelm->message;
+    mwlog(MWLOG_DEBUG3, "in  popReplyQueueByHandle tetsing qelm at %p", qelm);
+    callmesg = (Call *) qelm->message;    
     if (callmesg->handle == handle) {
       m = qelm->message;
       qelm->message = NULL;
+      mwlog(MWLOG_DEBUG1, "popReplyQueueByHandle returning message at %p", m);
       return m;
     };
+    qelm = qelm->next;
   };
-
+  mwlog(MWLOG_DEBUG1, "popReplyQueueByHandle no reply with handle %#x", handle);
   return NULL;  
 };
 
@@ -301,6 +320,7 @@ int _mw_ipcsend_attach(int attachtype, char * name, int flags)
 	"CALL: _mw_ipcsend_attach (%d, \"%s\", 0x%x)",
 	attachtype, name, flags);
 
+  memset(&mesg, '\0', sizeof(Attach));
   mesg.mtype = ATTACHREQ;
   mesg.gwid = UNASSIGNED;
   mesg.server = FALSE;
@@ -401,7 +421,8 @@ int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force)
   int rc, len;
 
   mwlog(MWLOG_DEBUG1, "CALL: _mw_ipcsend_detach_indirect()");
-
+  memset(&mesg, '\0', sizeof(Attach));
+  
   mesg.mtype = DETACHREQ;
   mesg.server = FALSE;
   mesg.client = FALSE;
@@ -486,6 +507,8 @@ SERVICEID _mw_ipc_provide(char * servicename, int flags)
   Provide providemesg, * pmesgptr;
   int rc, error, len, svcid;
 
+  memset(&providemesg, '\0', sizeof(Provide));
+  
   providemesg.mtype = PROVIDEREQ;
   providemesg.srvid = _mw_get_my_serverid();
   strncpy(providemesg.svcname, servicename, MWMAXSVCNAME);
@@ -522,6 +545,8 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid)
 {
   Provide unprovidemesg;
   int len, rc;
+
+  memset(&unprovidemesg, '\0', sizeof(Provide));
   
   unprovidemesg.mtype = UNPROVIDEREQ;
   unprovidemesg.srvid = _mw_get_my_serverid();
@@ -547,24 +572,8 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid)
   return unprovidemesg.returncode;
 };
 
-/* used to generate handles for mwacall. We use the TCP approach for sequence number.
-   the first time called we get a random number, the next time we just bump it one.
-*/
-static int getnexthandle(void)
-{
-  static int hdl = 0; 
-
-  if (hdl == 0) {
-    hdl = rand();
-    /* just in case it got to be 0 */
-    if (hdl == 0) hdl = 12345;
-  } else hdl++;
-  return hdl;
-};
-
 /* the IPC implementation of mwacall() */
-int _mwacallipc (char * svcname, char * data, int datalen, 
-		 struct timeval * deadline, int flags)
+int _mwacallipc (char * svcname, char * data, int datalen, int flags)
 {
   int svcid, dest; 
   int rc;
@@ -572,6 +581,7 @@ int _mwacallipc (char * svcname, char * data, int datalen,
   char * dbuf;
   Call calldata;
   struct timeval tm;
+  float timeleft;
 
   memset (&calldata, '\0', sizeof(Call));
   errno = 0;
@@ -589,7 +599,7 @@ int _mwacallipc (char * svcname, char * data, int datalen,
   };
 
   /* should this be a sequential number for each server(thread) */
-  hdl = getnexthandle();
+  hdl = _mw_nexthandle();
 
   mwlog(MWLOG_DEBUG1,
 	"Doing mwacall() to service %s service id %#x with handle %d",
@@ -600,18 +610,19 @@ int _mwacallipc (char * svcname, char * data, int datalen,
   calldata.uissued = tm.tv_usec;
   /* mwbegin() is the tuxedo way of set timeout. We use it too
      The nice feature is to set exactly the same deadline on a set of mwacall()s */
-  if ( (deadline == NULL) || (deadline->tv_sec == 0) )
-    calldata.timeout = 0; 
-  else {
-    int tout;
+    
+  if ( _mw_deadline(NULL, &timeleft)) {
     /* we should maybe say that a few ms before a deadline, we call it expired? */
-    if ((deadline->tv_sec <= tm.tv_sec) && (deadline->tv_usec <= tm.tv_usec)) {
+    if (timeleft <= 0.0) {
       /* we've already timed out */
-      mwlog(MWLOG_DEBUG1, "call to %s was made after deadline had expired", svcname);
+      mwlog(MWLOG_DEBUG1, "call to %s was made %d ms after deadline had expired", 
+	    timeleft, svcname);
       return -ETIME;
     };
-    calldata.timeout = (deadline->tv_sec -  tm.tv_sec) * 1000
-      + (deadline->tv_usec - tm.tv_usec) / 1000;
+    /* timeout is here in ms */
+    calldata.timeout = (int) (timeleft * 1000);
+  } else {
+    calldata.timeout = 0; 
   };
 
   /* now the data string are passed in shm, we only pass the address (offset) , and 
@@ -741,7 +752,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
      If fastpath we return pointers to the shm area, 
      else we copy to private heap.
   */
-  if (! _mw_fastpath) {
+  if (! _mw_fastpath_enabled()) {
     if (*data != NULL) free (*data);
     *data = malloc(callmesg->datalen);
     memcpy(*data, _mwoffset2adr(callmesg->data), callmesg->datalen);
@@ -778,7 +789,7 @@ int _mw_shutdown_mwd(int delay)
   int rc;
   ipcmaininfo * ipcmain = NULL;
 
-  if (_mw_attached == 0) return -ENOTCONN;
+  if (_mw_isattached() == 0) return -ENOTCONN;
   ipcmain = _mw_ipcmaininfo();
   if (ipcmain == NULL) return -EADDRNOTAVAIL;
 

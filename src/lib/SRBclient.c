@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.18  2004/11/17 20:39:42  eggestad
+ * MIssmatch of EVENT & EVENTID SRBP fieldnames between implementation and spec
+ *
  * Revision 1.17  2004/04/12 22:55:17  eggestad
  * - fix of bug where readmessage returned error while actually read a message
  *
@@ -491,9 +494,8 @@ int _mwattach_srb(int type, mwaddress_t *mwadr, char * name, mwcred_t * cred, in
   
    /* here we should check domain and version (see also below) */
    DEBUG3("_mwattach_srb: srb ready OK!");
-   urlmapfree(srbmsg->map);
-   free(srbmsg);
-
+   _mw_srb_destroy(srbmsg);
+     
    len = sizeof(val);
    rc = setsockopt(s, SOL_TCP, TCP_NODELAY, &val, len);
    DEBUG1("Nodelay is set to 1 rc %d errno %d", rc, errno);
@@ -588,11 +590,16 @@ static void process_event(urlmap * map)
    int idx, subid;
 
    DEBUG("enter");
-   name = urlmapgetvalue(map, SRB_EVENT);
-   if (!name) return;
-
+   name = urlmapgetvalue(map, SRB_NAME);
+   if (!name) {
+      Warning("no event string, ignoring event");
+      return;
+   };
    idx = urlmapget(map, SRB_SUBSCRIPTIONID);
-   if (idx == UNASSIGNED) return;
+   if (idx == UNASSIGNED) {
+      Warning("no subscription id, ignoring event");
+      return;
+   };
    subid = atoi(map[idx].value);
    
    idx = urlmapget(map, SRB_DATA);
@@ -603,7 +610,7 @@ static void process_event(urlmap * map)
       data = NULL;
       datalen = 0;
    };
-
+   DEBUG("data len=%d", datalen);
    _mw_doevent(subid, name, data, datalen);      
    return;
 };

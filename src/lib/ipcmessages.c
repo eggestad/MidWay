@@ -23,13 +23,19 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:09  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:22:08  eggestad
+ * Changes needed for SRB clients.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:09  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
  *
  */
+
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <stdlib.h>
 #include <sys/msg.h>
@@ -58,7 +64,7 @@ struct InputQueue
   struct InputQueue * next;
 };
 
-struct InputQueue * replyQueue = NULL;
+static struct InputQueue * replyQueue = NULL;
 
 /* the queues grow, but never shrinks. */
 static int pushQueue(struct InputQueue ** proot, char * message)
@@ -68,7 +74,7 @@ static int pushQueue(struct InputQueue ** proot, char * message)
   if (proot == NULL) return -1;
   thiselm = *proot;
 
-  /* find an empty element, and use that, is avavilable.*/
+  /* find an empty element, and use it if avavilable.*/
   while(thiselm->message != NULL) {
     if (thiselm->next == NULL) break;
     thiselm = thiselm->next;
@@ -108,7 +114,7 @@ static char * popReplyQueueByHandle(long handle)
 };
 
 /* for debugging purposes: */
-static void  dumpmesg(void * mesg)
+void  _mw_dumpmesg(void * mesg)
 {
   long * mtype;
   Attach *am; 
@@ -132,12 +138,13 @@ SERVERID    srvid              =  %#x\n\
 int         client             =  %d\n\
 char        cltname            =  %s\n\
 CLIENTID    cltid              =  %#x\n\
+GATEWAYID   gwid               =  %#x\n\
 int         flags              =  %#x\n\
 int         returncode         =  %d", 
 	  am->mtype, am->ipcqid, am->pid, 
 	  am->server, am->srvname, am->srvid, 
 	  am->client, am->cltname, am->cltid, 
-	  am->flags, am->returncode);
+	  am->gwid, am->flags, am->returncode);
     return;
     
   case PROVIDEREQ:
@@ -162,6 +169,7 @@ int         handle             = %d\n\
 CLIENTID    cltid              = %#x\n\
 SERVERID    srvid              = %#x\n\
 SERVICEID   svcid              = %#x\n\
+GATEWAYID   gwid               = %#x\n\
 int         forwardcount       = %d\n\
 char        service            = %s\n\
 char        origservice        = %s\n\
@@ -175,7 +183,7 @@ int         flags              = %#x\n\
 char        domainname         = %s\n\
 int         returncode         = %d", 
 	  rm->mtype, rm->handle, 
-	  rm->cltid, rm->srvid, rm->svcid, 
+	  rm->cltid, rm->srvid, rm->svcid, rm->gwid,
 	  rm->forwardcount, rm->service, rm->origservice, 
 	  rm->issued, rm->uissued, rm->timeout, 
 	  rm->data, rm->datalen, 
@@ -208,11 +216,8 @@ int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
   if (len == NULL) return -EINVAL;
   *len -= sizeof(long);
 
+  errno = 0;
   rc = msgrcv(_mw_my_mqid(), data, *len, type, flags);
-  *len = rc;
-  *len += sizeof(long);
-  mwlog(MWLOG_DEBUG, "_mw_ipc_getmessage a msgrcv(type=%d, flags=%d) returned %d and %d bytes of data", 
-	type, flags, rc, *len);
   /* if we got an interrupt this is OK, else not.*/
   if (rc < 0) {
     if (errno == EINTR) {
@@ -222,8 +227,14 @@ int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
     mwlog(MWLOG_WARNING, "msgrcv in _mw_ipc_getmessage returned error %d", errno);
     return -errno;
   };
-  dumpmesg((void *)data);
+  *len = rc;
+  *len += sizeof(long);
 
+  mwlog(MWLOG_DEBUG, "_mw_ipc_getmessage a msgrcv(type=%d, flags=%d) returned %d and %d bytes of data", 
+	type, flags, rc, *len);
+  
+  _mw_dumpmesg((void *)data);
+  
   return 0;
 };
 
@@ -231,38 +242,21 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
 {
   int rc; 
   int qid;
-  serverentry * srvent;
-  cliententry * cltent;
-  gatewayentry * gwent;
 
   if (len > MWMSGMAX) {
     mwlog(MWLOG_ERROR, "_mw_ipc_putmessage: got a to long message %d > %d", len, MWMSGMAX);
     return -E2BIG;
   };
-  /* dest is CLIENTID not mqid*/
-  if (dest & MWSERVERMASK) {
-    srvent = _mw_get_server_byid(dest);
-    if (srvent == NULL) return -ENOENT;
-    qid = srvent->mqid;
-    mwlog(MWLOG_DEBUG, "_mw_ipc_putmessage: got a request to send a message to server %#x on mqueue %d", dest, qid);
-  } else if (dest & MWCLIENTMASK) {
-    cltent = _mw_get_client_byid(dest);
-    qid = cltent->mqid;
-    mwlog(MWLOG_DEBUG, "_mw_ipc_putmessage: got a request to send a message to client %#x on mqueue %d", dest, qid);
-  } else if (dest & MWGATEWAYMASK) {
-    gwent = _mw_get_gateway_byid(dest);
-    qid = gwent->mqid;
-    mwlog(MWLOG_DEBUG, "_mw_ipc_putmessage: got a request to send a message to gateway %#x on mqueue %d", dest, qid);
-  } else if (dest == 0) {
-    /* 0 means mwd. */
-    qid = _mw_mwd_mqid();
-  } else {
-    mwlog(MWLOG_DEBUG, "_mw_ipc_putmessage: got a request to send a message to dest %#x which is not a legal ID", dest);
-    return -EBADR;
+  qid = _mw_get_mqid_by_mwid(dest);
+  if (qid < 0) {
+    mwlog(MWLOG_ERROR, "_mw_ipc_putmessage: got a request to send a message to %#x by not such ID exists, reason %d", dest, qid);
+    return qid;
   };
-    
+
+  mwlog(MWLOG_DEBUG, "_mw_ipc_putmessage: got a request to send a message to  %#x on mqueue %d", dest, qid);
+  
   len -= sizeof(long);
-  dumpmesg((void *) data);
+  _mw_dumpmesg((void *) data);
   rc = msgsnd(qid, data, len, flags);
   mwlog(MWLOG_DEBUG, "_mw_ipc_putmessage: msgsnd(dest=%d, msglen=%d, flags=%#x) returned %d", 
 	dest, len, flags, rc);
@@ -298,32 +292,28 @@ int _mw_ipcsend_attach(int attachtype, char * name, int flags)
 {
   
   Attach mesg;
-  int tryserver = FALSE;
-  int tryclient = FALSE;
   int rc, error, len;
-  
+
   mwlog(MWLOG_DEBUG,
 	"CALL: _mw_ipcsend_attach (%d, \"%s\", 0x%x)",
 	attachtype, name, flags);
 
   mesg.mtype = ATTACHREQ;
+  mesg.gwid = UNASSIGNED;
+  mesg.server = FALSE;
+  mesg.client = FALSE;
+
   if ( (attachtype & MWIPCSERVER) &&
        (_mw_get_my_serverid() == UNASSIGNED) ) {
     mesg.server = TRUE;
-    tryserver = TRUE;
     strncpy(mesg.srvname, name, MWMAXNAMELEN);
-  } else {
-    mesg.server = FALSE;
-  };
+  } 
   
   if ( (attachtype & MWIPCCLIENT)  &&
        ( _mw_get_my_clientid() == UNASSIGNED) ) {
     mesg.client = TRUE;
-    tryclient = TRUE;
     strncpy(mesg.cltname, name, MWMAXNAMELEN);
-  } else {
-    mesg.client = FALSE;
-  };
+  } 
 
   if ( (mesg.client == FALSE) && (mesg.server == FALSE)) {
     mwlog(MWLOG_WARNING, "_mw_ipcsend_attach: Attempted to attach as neither client nor server");
@@ -337,10 +327,6 @@ int _mw_ipcsend_attach(int attachtype, char * name, int flags)
   mwlog(MWLOG_DEBUG,
 	"Sending an attach message to mwd name = %s, client = %s server = %s size = %d",
 	name, mesg.client?"TRUE":"FALSE", mesg.server?"TRUE":"FALSE", sizeof(mesg));
-  mwlog(MWLOG_DEBUG,
-	"Previous attachment id client=%d server=%d",
-	_mw_get_my_clientid(), _mw_get_my_serverid()); 
-
 
   rc = _mw_ipc_putmessage(0, (void *) &mesg, sizeof(mesg) ,0);
 
@@ -390,50 +376,51 @@ name = %s, client = %s server = %s srvid=%#x cltid=%#x flags=0x%x rcode=%d",
 };
 
 /*
- * mwd support detaching as either server or client if attached
- * as both. However this is not supported in V1.
- * an detach disconnects us completly, 
- * This function always succeed, but it is not declared void, 
- * we really should have some error hendling, but we need rules how to 
- * to handle errors.
+ * mwd support detaching as either server or client if attached as
+ * both. However this is not supported in V1.  an detach disconnects
+ * us completly, This function always succeed, but it is not declared
+ * void, we really should have some error hendling, but we need rules
+ * how to to handle errors.
 
- the force flags tell us to set the force flag, and not expect a reply.
- It tell the mwd that we're going down, really an ack to a mq removal, 
- mwd uses that to inform us of a shutdown.
- */
-int _mw_ipcsend_detach(int force)
+ * the force flags tell us to set the force flag, and not expect a
+ * reply.  It tell the mwd that we're going down, really an ack to a
+ * mq removal, mwd uses that to inform us of a shutdown.
+
+ * Maybe a bad design/imp desicion, by I need a seperate call to
+ * detach an indirect client, networked, even if _mw_ipcsend_attach()
+ * do both. Maybe we should have a separate attach?. Fortunately
+ * _mw_ipcsedn_detach() is almost directly mapped on
+ * _mw_ipcsend_detach_indirect() */
+
+int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force) 
 {
-  
   Attach mesg;
-  CLIENTID cid;
-  SERVERID sid;
   int rc, len;
 
-  mwlog(MWLOG_DEBUG, "CALL: _mw_ipcsend_detach()");
+  mwlog(MWLOG_DEBUG, "CALL: _mw_ipcsend_detach_indirect()");
 
   mesg.mtype = DETACHREQ;
+  mesg.server = FALSE;
+  mesg.client = FALSE;
   
-  sid = _mw_get_my_serverid();
-  cid = _mw_get_my_clientid();
-
   if (sid != UNASSIGNED) {
     mesg.server = TRUE;
     mesg.srvid = sid;
-  } else {
-    mesg.server = FALSE;
   };
+
   if (cid != UNASSIGNED){
     mesg.client = TRUE;
     mesg.cltid = cid;
-  } else {
-    mesg.client = FALSE;
   };
+
   
   mesg.pid = getpid();
   mesg.flags = 0;
   mesg.ipcqid = _mw_my_mqid();
 
+  /* this is currently used to not wanting a reply */
   if (force) mesg.flags |= MWFORCE;
+
   /* THREAD MUTEX BEGIN */
   mwlog(MWLOG_DEBUG,
 	"Sending a detach message client=%s server=%s", 
@@ -470,9 +457,24 @@ int _mw_ipcsend_detach(int force)
 	     mesg.returncode);
     };
   }; /* !force */
+
+  return 0;
+};
+
+int _mw_ipcsend_detach(int force)
+{
+  CLIENTID cid;
+  SERVERID sid;
+  int rc;
+
+  sid = _mw_get_my_serverid();
+  cid = _mw_get_my_clientid();
+
+  rc = _mw_ipcsend_detach_indirect(cid, sid, force);
+
   _mw_set_my_serverid(UNASSIGNED);
   _mw_set_my_clientid(UNASSIGNED);
-  return 0;
+  return rc;
 };
 
 
@@ -545,7 +547,7 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid)
 /* used to generate handles for mwacall. We use the TCP approach for sequence number.
    the first time called we get a random number, the next time we just bump it one.
 */
-static int getnexthandle()
+static int getnexthandle(void)
 {
   static int hdl = 0; 
 
@@ -631,6 +633,8 @@ int _mwacallipc (char * svcname, char * data, int datalen,
   calldata.data = dataoffset;
   calldata.datalen = datalen;
   calldata.cltid = _mw_get_my_clientid();
+  calldata.gwid = _mw_get_my_gatewayid();
+
   if (calldata.cltid == -1) {
     _mwfree(dbuf);
     mwlog(MWLOG_ERROR, "Failed to get my own clientid! This can't happen.");

@@ -5,7 +5,7 @@
 #include <sys/time.h>
 #include <sys/times.h>
 
-int init(void)
+int _init(void)
 {
   printf ("******************************testsuite server booting\n");
   fflush(stdout);
@@ -72,6 +72,6 @@ int shell(mwsvcinfo * si)
 
 /*
  * Local variables:
- *  compile-command: "gcc -shared -fpic -o shell.so shell.c -lMidWay"
+ *  compile-command: "gcc -nostdlib -shared -fpic -o shell.so shell.c -lMidWay"
  * End:
  */

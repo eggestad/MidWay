@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.20  2004/11/17 20:38:18  eggestad
+ * fix for a bad menory leak, kept allocing new connection message buffers.
+ *
  * Revision 1.19  2004/10/13 18:41:23  eggestad
  * task API updates
  *
@@ -339,7 +342,7 @@ static void gwreadmessage(Connection * conn)
   };
 
   srbDoMessage(conn, srbmsg);
-
+  _mw_srb_destroy(srbmsg);
   return;
 };
 		
@@ -430,9 +433,11 @@ int tcp_do_read_condiion(Connection * conn)
     };
     fd = c_fd;
     /* since the broker must send a complete SRB INIT?, and it's
-       illegal for the client/peer gateway to send anything until
-       a SRB INIT. is received we know that we shall have one and
-       only one message in msg */
+       illegal for the client/peer gateway to send anything until a
+       SRB INIT. is received we know that we shall have one and only
+       one message in msg buffer. Anything more is an attack or broken
+       client
+    */
     
     /* clear \r\n at end before we trace and decode */
     msg[len-2] = '\0'; 
@@ -441,7 +446,8 @@ int tcp_do_read_condiion(Connection * conn)
     conn = conn_add(fd, SRB_ROLE_CLIENT|SRB_ROLE_GATEWAY, 0);
     _mw_srb_trace(SRB_TRACE_IN, conn, msg, len);
     conn->lastrx = time(NULL);
-    conn->messagebuffer = msg;	 
+    memcpy(conn->messagebuffer, msg, len+1);
+    free(msg);
     TIMEPEG();
 
     srbmsg = _mw_srbdecodemessage(conn, conn->messagebuffer);

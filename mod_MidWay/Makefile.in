@@ -4,7 +4,7 @@ APXS = apxs
 
 INC=-I../include
 
-LIB=-L../lib -lMidWay 
+LIB=-L../src/lib -lMidWay 
 
 MODULES = mod_midway.so 
 

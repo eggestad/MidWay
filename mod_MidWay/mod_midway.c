@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2004/07/13 12:25:06  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.3  2004/07/08 11:26:16  eggestad
  * apache 2.0 conversion (incomplete)
  *
@@ -46,6 +49,7 @@
 //#include "http_main.h"
 
 #include <apr_tables.h>
+#include <apr_hooks.h>
 
 #include "util_script.h"
 #include "util_md5.h"
@@ -466,6 +470,7 @@ table *util_parse_cookie(request_rec *r)
 }
 
 /* Make the name of the content handler known to Apache */
+/*
 static handler_rec midway_handlers[] =
 {
   {"midway-handler", midway_handler},
@@ -473,27 +478,21 @@ static handler_rec midway_handlers[] =
   {"midway-urlencoded-handler", midway_urlencoded_handler},
   {NULL}
 };
+*/
+static void modway_reg_hooks(apr_pool_t *p)
+{
+   ap_hook_handler(midway_handler, NULL, NULL, APR_HOOK_MIDDLE);
+};
 
 /* Tell Apache what phases of the transaction we handle */
 module AP_MODULE_DECLARE_DATA midway_module =
 {
-  STANDARD_MODULE_STUFF,
-  NULL,               /* module initializer                 */
+  STANDARD20_MODULE_STUFF,
   NULL,               /* per-directory config creator       */
   NULL,               /* dir config merger                  */
   midway_create_server_config,      /* server config creator              */
   midway_merge_server_config,    /* server config merger               */
   midway_cmds,         /* command table                      */
-  midway_handlers,     /* [7]  content handlers              */
-  NULL,               /* [2]  URI-to-filename translation   */
-  NULL,               /* [5]  check/validate user_id        */
-  NULL,               /* [6]  check user_id is valid *here* */
-  NULL,               /* [4]  check access by host address  */
-  NULL,               /* [7]  MIME type checker/setter      */
-  NULL,               /* [8]  fixups                        */
-  NULL,               /* [9]  logger                        */
-  NULL,               /* [3]  header parser                 */
-  child_init,         /* process initialization             */
-  child_exit,         /* process exit/cleanup               */
-  NULL                /* [1]  post read_request handling    */
+  //  midway_handlers,     /* [7]  content handlers              */
+  modway_reg_hooks
 };

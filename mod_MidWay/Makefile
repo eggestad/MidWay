@@ -4,7 +4,7 @@ APXS = apxs
 
 INC=-I../include
 
-LIB=-L../lib -lMidWay 
+LIB=-L../src/lib -lMidWay 
 
 MODULES = mod_midway.so 
 
@@ -27,3 +27,6 @@ firstinstall: all
 
 clean:
 	rm -f *.o *.so
+
+distclean:
+	rm -f Makefile *~

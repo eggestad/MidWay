@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2002/11/18 00:11:38  eggestad
+ * - _mw_ipcmaininfo prtotype fixup
+ *
  * Revision 1.13  2002/10/07 00:04:40  eggestad
  * - _mw_get_server_by_serviceid() named _mw_get_provider_by_serviceid() that also retun gateways.
  * - _mw_get_service_providers() obsoleted
@@ -301,7 +304,7 @@ MWID _mw_get_my_mwid(void)
 
 /* functions dealing with shm info */
 
-ipcmaininfo * _mw_ipcmaininfo()
+ipcmaininfo * _mw_ipcmaininfo(void)
 {
   return ipcmain;
 };

@@ -23,8 +23,11 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:03  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:14:10  eggestad
+ * fix up on double include prevention
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:03  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
@@ -49,7 +52,7 @@ typedef struct {
   struct sockaddr_in6 * remoteaddress_v6;  
 } mwaddress_t;
 
-#ifdef _ADDRESS
+#ifdef _ADDRESS_H
 mwaddress_t _mwaddress = {0, -1, NULL, NULL, NULL};
 #else 
 extern mwaddress_t _mwaddress;

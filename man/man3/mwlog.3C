@@ -143,6 +143,23 @@ for directory tree.
 It's is set by 
 .BR mwd (1) 
 for all servers. 
+.TP
+.B MWLOGLEVEL
+This will override the loglevel given to 
+.BR mwopenlog "() or" mwsetloglevel "()."
+This allows a user to override the loglevel at runtime. The value can
+either be the named level or an integer indicating the level.
+.TP
+.B MWLOGPREFIX
+This will override the log prefix given to 
+.BR mwopenlog "() or" mwsetlogprefix "()."
+This allows a user to override the logfileprefix at runtime. 
+.TP
+.B MWLOG_STDERR
+If it has the value 0 or no value no logging will be done to stderr,
+any other value (recommended 1) will duplicate logging to stderr, no
+matter the loglevel.
+
 
 .TP
 .B MWINSTANCE

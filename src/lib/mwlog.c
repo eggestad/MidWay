@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.23  2004/03/21 19:23:31  eggestad
+ * added envs to override code on logging
+ *
  * Revision 1.22  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -164,6 +167,7 @@ static int _force_switchlog = 0;
 static char * logprefix = NULL;
 static char * progname = NULL;
 static FILE * copy_on_FILE = NULL;
+static int loginited = 0;
 
 //#define DEBUGGING_X
 // we can use DEBUG here, since we an error here will likely stop all logging 
@@ -274,7 +278,7 @@ _mw_vlogf(int level, char * format, va_list ap)
   if (level > loglevel) return;
   if (format == NULL) return;
 
-  if (logprefix == NULL) mwsetlogprefix(NULL);
+  if (!loginited) mwopenlog(NULL, NULL, MWLOG_INFO);
   switchlog();
 
 #ifdef DEBUGGING_X
@@ -361,14 +365,29 @@ void mwlog(int level, char * format, ...)
 int mwsetloglevel(int level)
 {
   int oldlevel;
+  char * tmp;
 
   if (level == -1) return loglevel;
+
+  // env overrides code
+  if (tmp = getenv("MWLOGLEVEL")) {
+     level = _mwstr2loglevel(tmp);
+  };
+
   if ( (level < MWLOG_FATAL) || (level > MWLOG_DEBUG4) ) return ;
   oldlevel = loglevel;
   loglevel = level;
   DEBUG("loglevel is now %s", levelheader[level]);
-  if (level >= MWLOG_DEBUG) copy_on_FILE = stderr;
-  else copy_on_FILE = NULL;
+
+  tmp = getenv("MWLOG_STDERR");
+  if (tmp) {
+     if (atoi(tmp)) copy_on_FILE = stderr;
+     else copy_on_FILE = NULL;
+  } else {
+     if (level >= MWLOG_DEBUG) copy_on_FILE = stderr;
+     else copy_on_FILE = NULL;
+  };
+  loginited = 1;
   return oldlevel;
 };
 
@@ -396,13 +415,16 @@ static char * logdir = NULL;
 
 void mwsetlogprefix(char * lfp)
 {
-  char * mwhome, * instancename;
+  char * mwhome, * instancename, *tmp;
   ipcmaininfo * ipcmain;
+
+  if (tmp = getenv("MWLOGPREFIX")) lfp = tmp;
 
   _fprintf(stderr, "logprefix arg = %s at %s:%d\n", lfp, __FUNCTION__, __LINE__);
 
   // if arg is null and we've set logprefix, we no not override with default. 
   if ( (logprefix != NULL) && (lfp == NULL) ) return;
+  loginited = 1;
 
   if (lfp != NULL) {
     char * tmp = strdup(lfp); 
@@ -503,5 +525,6 @@ void mwopenlog(char * prog, char * lfp, int level)
 
   mwsetlogprefix(lfp);
   mwsetloglevel(level);
+  loginited = 1;
 
 };

@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.4  2002/11/18 00:16:19  eggestad
+ * - needed to set the peeraddress string for the broker connection
+ *
  * Revision 1.3  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -81,6 +84,7 @@ int connectbroker(char * domain, char * instance)
   Info( "connected to broker at %s \n",unixsockaddr.sun_path);
 
   brokerconn = conn_add(unix_socket, SRB_ROLE_CLIENT|SRB_ROLE_GATEWAY, CONN_TYPE_BROKER);
+  strcpy(brokerconn->peeraddr_string, "broker");
 
   /* first we wait for broker et send SRB READY */
   /* TODO add timeout */

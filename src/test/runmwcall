@@ -1,0 +1,12 @@
+#!/bin/tcsh
+
+@ i = 0
+
+while ( 1 )
+
+    @ i ++
+    echo "$i";
+
+    ./mwcall -A srbp:/testdom test data;
+
+end

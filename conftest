@@ -1,0 +1,4 @@
+#!/bin/sh
+
+export CFLAGS='-g -DDEBUGGING -Wstrict-prototypes -Wmissing-declarations -Wimplicit -Wuninitialized'
+./configure

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/09/05 23:21:08  eggestad
+ * smgrTask() shall not try to start servers in unclean system state
+ *
  * Revision 1.3  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -928,6 +931,11 @@ int smgrTask(void)
 
   DEBUG("smgrtask() beginning");
 
+  i = _mwsystemstate();
+  if (i != 0) {
+    DEBUG("system is not in ready state, we don't try to restart any servers.");
+    return 0;
+  };
 
   for (SG = grouproot; SG != NULL; SG = SG->next) {
     DEBUG("  GROUP %s autoboot=%d", SG->name, SG->autoboot);

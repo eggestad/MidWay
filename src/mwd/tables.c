@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/09/05 23:19:45  eggestad
+ * smgrTask() shall not try to start servers in unclean system state
+ *
  * Revision 1.8  2002/09/04 07:13:31  eggestad
  * mwd now sends an event on service (un)provide
  *
@@ -528,7 +531,7 @@ int delservice(SERVICEID svcid)
   idx = MWID2SVCID(svcid);
 
   evdata.svcid  = idx;
-  strncpy(evdata.name, svctbl[idx].mwname, MWMAXSVCNAME);
+  strncpy(evdata.name, svctbl[idx].servicename, MWMAXSVCNAME);
   if (svctbl[idx].server != UNASSIGNED)
     evdata.provider = svctbl[idx].server;
   else if (svctbl[idx].gateway) 

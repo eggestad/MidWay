@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2002/10/22 21:58:20  eggestad
+ * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
+ *
  * Revision 1.2  2002/10/09 12:30:30  eggestad
  * Replaced all unions for sockaddr_* with a new type SockAddress
  *
@@ -70,6 +73,7 @@ typedef struct {
 
   int protocol;
   SockAddress peeraddr;
+  char   peeraddr_string[128];
   int    mtu;
   int 	 rejects;
   char * domain;
@@ -86,7 +90,7 @@ typedef struct {
   time_t connected;
   time_t lasttx;
   time_t lastrx;
-  int    reverse;
+  int    reverse;  
   void * peerinfo;
 } Connection;
 

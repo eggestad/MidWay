@@ -19,10 +19,11 @@
 */
 
 /*
- * $Id$
- * $Name$
  * 
  * $Log$
+ * Revision 1.18  2002/10/22 21:58:20  eggestad
+ * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
+ *
  * Revision 1.17  2002/10/20 18:11:25  eggestad
  * - added instance to the Call struct. Needed later for gateway to gateway calls
  * - fixup for setting the clientid and gatewayid propperly in Call struct l
@@ -108,7 +109,6 @@
 #include <mwclientapi.h>
 
 static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /* 
    really need to get all messages into private memory. 
@@ -766,6 +766,8 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   struct timeval tm;
   float timeleft;
   SERVICEID * svclist;
+
+  TIMEPEG();
   
   memset (&calldata, '\0', sizeof(Call));
   errno = 0;
@@ -810,6 +812,8 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   strncpy (calldata.origservice, svcname, MWMAXSVCNAME);
   calldata.forwardcount = 0;
 
+  TIMEPEG();
+
   /* should this be a sequential number for each server(thread) */
   hdl = _mw_nexthandle();
 
@@ -818,6 +822,8 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   calldata.flags = flags;
   calldata.appreturncode = 0;
   calldata.returncode = 0;
+
+  TIMEPEG();
 
   if (instance) {
     strncpy(calldata.instance, instance, MWMAXNAMELEN);
@@ -833,6 +839,8 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
 
   calldata.callerid = callerid;
   calldata.hops = hops;
+
+  TIMEPEG();
 
   if (data != NULL) {
     dataoffset = _mwshmcheck(data);
@@ -856,14 +864,20 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   calldata.data = dataoffset;
   calldata.datalen = datalen;
 
+  TIMEPEG();
+
   svclist = _mw_get_services_byname(svcname, &n, flags&MWCONV);
   if (svclist == NULL) return -ENOENT;
+
+  TIMEPEG();
 
   while(n > 0) {
     
     idx = (rand() % n);
     DEBUG1("selecting %d of %d = %d", idx, n, SVCID2IDX(svclist[idx]));
     calldata.svcid = svclist[idx];
+
+    TIMEPEG();
     
     dest = _mw_get_provider_by_serviceid (calldata.svcid);
     if (dest < 0) {
@@ -875,6 +889,8 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
     DEBUG1("Sending a ipcmessage to serviceid %#x service %s on server %#x my clientid %#x buffer at offset%d len %d ", 
 	   calldata.svcid, calldata.service, dest, calldata.cltid, calldata.data, calldata.datalen);
 
+    TIMEPEG();
+
     rc = _mw_ipc_putmessage(dest, (char *) &calldata, sizeof (Call), 0);
     
     DEBUG1("_mw_ipc_putmessage returned %d handle is %d", rc, hdl);
@@ -883,13 +899,19 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
       goto out;
     };
 
+    TIMEPEG();  
+
     /* if we got here, there was a failure, remove the svcid we just tried from the svclist, end we retry */
     n--;
     svclist[idx] = svclist[n];
   };
  out:
+  TIMEPEG();
+
   free(svclist);
   
+  TIMEPEG();
+
   return rc;
 };
     

@@ -67,11 +67,7 @@ struct cliententry
   char clientname[MWMAXNAMELEN];
   char username[MWMAXNAMELEN];
   
-  union {
-    struct sockaddr_in  ip4;
-    struct sockaddr_in6 ip6;
-    struct sockaddr sa;
-  } addr;
+  char addr_string[MWMAXNAMELEN];
 
   int authtype; /* MWAUTHNONE, MWAUTHPASSWD */;
   long authref;
@@ -153,11 +149,8 @@ struct gatewayentry
   int imported_svc;
   int exported_svc;
 
-  union {
-    struct sockaddr_in  ip4;
-    struct sockaddr_in6 ip6;
-    struct sockaddr sa;
-  } addr;
+  char addr_string[MWMAXNAMELEN];
+
 };
 
 typedef struct gatewayentry gatewayentry;

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.14  2002/10/22 21:58:21  eggestad
+ * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
+ *
  * Revision 1.13  2002/10/20 18:21:53  eggestad
  * - added handling of outbound srvcall, and tok out outbound replies in a separate function (where it belongs)
  * - Fatal handling fixup
@@ -422,11 +425,16 @@ int ipcmainloop(void)
   errors = 0;
   while(!globals.shutdownflag) {
     len = MWMSGMAX;
+
+    TIMEPEG();
+    timepeg_log();
     DEBUG( "/\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ ");
     DEBUG("doing _mw_ipc_getmessage()");
     rc = _mw_ipc_getmessage(message, &len, 0, 0);
     DEBUG( "\\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ ");
     DEBUG( "_mw_ipc_getmessage() returned %d", rc);
+    TIMEPEGNOTE("startipc");
+    TIMEPEGNOTE("start");
 
     if (rc == -EIDRM) {
       globals.shutdownflag = TRUE;
@@ -492,7 +500,7 @@ int ipcmainloop(void)
       conn = conn_getentry(fd);
 
       /* copy peer socket addr into the ICP table */ 
-      memcpy (&cltent->addr.sa, &conn->peeraddr.sa, sizeof(conn->peeraddr));
+      conn_setpeername(conn);
 
       _mw_srbsendinitreply(conn, &srbmsg, SRB_PROTO_OK, NULL);
       urlmapfree(srbmsg.map);
@@ -671,6 +679,7 @@ GATEWAYID allocgwid(int location, int role)
       gwtbl[idx].status = MWBOOTING;
       gwtbl[idx].location = location;
       gwtbl[idx].connected = time(NULL);
+      gwtbl[idx].addr_string[0] = '\0';
 
       DEBUG( "allocgwid() returns %d (>)", idx);
       ipcmain->gwtbl_nextidx = idx+1;
@@ -709,7 +718,7 @@ void gw_setipc(struct gwpeerinfo * pi)
 
   gwent->status = MWREADY;
   strncpy(gwent->instancename, pi->instance, MWMAXNAMELEN);
-  memcpy (&gwent->addr.sa, &pi->conn->peeraddr.sa, sizeof(gwent->addr));
+  conn_setpeername(pi->conn);
   return;
 };
   
@@ -728,6 +737,7 @@ void freegwid(GATEWAYID gwid)
   gwtbl[gwid].status = MWDEAD;
   gwtbl[gwid].location = UNASSIGNED;
   gwtbl[gwid].pid = UNASSIGNED;
+  gwtbl[gwid].addr_string[0] = '\0';
   lockgwtbl(UNLOCK);
 };
 

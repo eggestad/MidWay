@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2002/10/22 21:58:20  eggestad
+ * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
+ *
  * Revision 1.10  2002/10/09 12:30:30  eggestad
  * Replaced all unions for sockaddr_* with a new type SockAddress
  *
@@ -496,6 +499,7 @@ mwaddress_t * _mwdecode_url(char * url)
   return NULL;
 };
 
+#ifdef OBSOLETE
 /* if buffer param is NULL, we use a static buffer, but we're not thread safe. */
 const char * _mw_sprintsa(struct sockaddr * sa, char * buffer)
 {
@@ -536,3 +540,4 @@ const char * _mw_sprintsa(struct sockaddr * sa, char * buffer)
   };
 
 };
+#endif

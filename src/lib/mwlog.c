@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/10/22 21:58:20  eggestad
+ * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
+ *
  * Revision 1.8  2002/10/03 21:10:42  eggestad
  * - switchlog() didn't switch log on mwsetlogprefix()
  *
@@ -127,7 +130,6 @@ switchlog (void)
   char newsuffix[100];
   char filename[256];
 
-  TIMEPEG();
 
   if (logprefix == NULL) return ;
 
@@ -139,7 +141,6 @@ switchlog (void)
   } else {
     strftime(newsuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
     if (strcmp(newsuffix, timesuffix) == 0) {
-      TIMEPEG();
       return;
     };
   };
@@ -162,7 +163,6 @@ switchlog (void)
   log = fopen(filename,"a");
   
   mwlog(MWLOG_INFO, "Switched to New Log %s", filename);
-  TIMEPEG();
   return;
 }
 

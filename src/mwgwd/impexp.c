@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.9  2002/10/22 21:58:21  eggestad
+ * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
+ *
  * Revision 1.8  2002/10/20 18:22:44  eggestad
  * dumping of export list is now in DEBUG2 not DEBUG
  *
@@ -381,26 +384,23 @@ int exportservicetopeer(char * service, struct gwpeerinfo * peerinfo)
 {
   Export * exp;
   peerlink ** ppl, * pl;
-  char pn[256];
-
+  
   assert (peerinfo != NULL) ;
   assert (service != NULL) ;
 
   expdumplist();
-
-  conn_getpeername(peerinfo->conn, pn, 255);
-
+  
   DEBUG("exporting service %s to peer %s domid %d at %s", 
-	service , peerinfo->instance, peerinfo->domainid, pn); 
+	service , peerinfo->instance, peerinfo->domainid, peerinfo->conn->peeraddr_string); 
 
   if (peerinfo->domainid == 0) {
-      DEBUG("peer %s is localdomain", pn);
+      DEBUG("peer %s is localdomain", peerinfo->conn->peeraddr_string);
       if (service[0] == '.') {
 	DEBUG("service %s begins with a '.', we do not export it to localdomain", service);
 	return -1;
       };
     } else {
-      DEBUG("peer %s is remotedomain id", pn, peerinfo->domainid);
+      DEBUG("peer %s is remotedomain id", peerinfo->conn->peeraddr_string, peerinfo->domainid);
       return -1;
     };
 

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.13  2002/10/22 21:58:20  eggestad
+ * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
+ *
  * Revision 1.12  2002/10/20 18:17:44  eggestad
  * fixup of debug messages
  *
@@ -71,6 +74,7 @@
 #include <MidWay.h>
 #include <multicast.h>
 #include <SRBprotocol.h>
+#include <ipctables.h>
 #include "gateway.h"
 #include "connections.h"
 
@@ -352,41 +356,75 @@ Connection * conn_getfirstgateway(void)
   return NULL;
 };
 
-void conn_getpeername (Connection * conn, char * name, int namelen)
+void conn_setpeername (Connection * conn)
 {
-  char * ipadr, * ipname;
+  char ipadr[128], * ipname;
   struct hostent *hent ;
-  int len;
-  struct sockaddr_in addr;
-  
-  if (name == NULL) {
-    Error("internal error, conn_getpeername called with NULL buffer");
-    return;
-  };
+  char * role = "unknown";
+  int len, family, rc, id, port;
+  cliententry * cltent = NULL;
+  gatewayentry * gwent = NULL;
+  char * ipcaddrstr = NULL;
 
-  if (namelen < 100) {
-    Error("internal error, conn_getpeername called with to short buffer %d < 100", namelen);
-    name[0] = '\0';
-    return;
-  };
-
-  len = sizeof(addr);
-  getpeername(conn->fd, (struct sockaddr *) &addr, &len);
-  ipadr = inet_ntoa(addr.sin_addr);
-  hent = gethostbyaddr(ipadr, strlen(ipadr), AF_INET);
-  if (hent == NULL)
-    ipname = ipadr;
-  else 
-    ipname = hent->h_name;
+  if (conn == NULL) return;
 
   if (conn->cid != UNASSIGNED) {
-    len = sprintf(name, "client %d at ", CLTID2IDX(conn->cid));
+    role = "client";
+    id = CLTID2IDX(conn->cid);
+    cltent = _mw_getcliententry(conn->cid);
+    if (cltent!= NULL)
+      ipcaddrstr = cltent->addr_string;
   } else if (conn->gwid != UNASSIGNED) {
-    len = sprintf(name, "gateway %d at ", GWID2IDX(conn->gwid));
+    role = "gateway";
+    id = GWID2IDX(conn->gwid);
+    gwent = _mw_getgatewayentry(conn->gwid);
+    if (gwent!= NULL)
+      ipcaddrstr = gwent->addr_string;
+  }; 
+
+  len = sizeof(conn->peeraddr);
+  rc = getpeername(conn->fd, &conn->peeraddr.sa, &len);
+  if (rc == -1) {
+    sprintf (conn->peeraddr_string, "%s id %d error: getpeername returned %s", strerror(errno));
+    return;
   };
 
-  sprintf(name+len, "%s (%s) port %d", ipname, ipadr,
-	  ntohs(addr.sin_port));
+  family = conn->peeraddr.sa.sa_family;
+  switch(family) {
+
+  case AF_INET:
+    inet_ntop(family, &conn->peeraddr.sin4.sin_addr, ipadr, 128);
+    hent = gethostbyaddr(ipadr, strlen(ipadr), family);
+    if (hent == NULL)
+      ipname = ipadr;
+    else 
+      ipname = hent->h_name;
+    port = ntohs(conn->peeraddr.sin4.sin_port);
+    snprintf(conn->peeraddr_string, 128, "%s id %d INET %s (%s) port %d", 
+	     role, id,
+	     ipname, ipadr,
+	     port);
+    if (ipcaddrstr)
+      snprintf(ipcaddrstr, MWMAXNAMELEN, "INET:%s:%d", ipname, port);
+    break;
+
+  case AF_INET6:
+    sprintf(conn->peeraddr_string, "%s id %d: INET6 not yet supported",
+	    role, id);
+    if (ipcaddrstr)
+      snprintf(ipcaddrstr, MWMAXNAMELEN, "INET6:");;
+    break;
+
+  default:
+    sprintf(conn->peeraddr_string, "%s id %d Connection has Unknown address family %d", 
+	    role, id, family);
+    if (ipcaddrstr)
+      snprintf(ipcaddrstr, MWMAXNAMELEN, "??Family %d:", family);
+    break;
+  };
+
+  Info ("fd=%d peeraddr_string = %s, ipcaddr = %s", conn->fd, conn->peeraddr_string, ipcaddrstr);
+
   return;
 };
 
@@ -394,7 +432,7 @@ void conn_getclientpeername (CLIENTID cid, char * name, int namelen)
 {
   int i, fd = -1;
   
-  cid |= MWCLIENTMASK;
+  cid = CLTID2IDX(cid);
 
   for (i = 0; i <= maxsocket; i++) {
     DEBUG2("conn_getclientpeername: foreach fd=%d cid=%#x ?= %#x",
@@ -411,7 +449,9 @@ void conn_getclientpeername (CLIENTID cid, char * name, int namelen)
 	cid, fd, connections[fd].role, SRB_ROLE_CLIENT);
   if (connections[fd].role != SRB_ROLE_CLIENT) return;
 
-  conn_getpeername(&connections[fd], name, namelen);
+  name[127] = '\0';
+  if (namelen > 127) namelen = 127;
+  strncpy(name, connections[fd].peeraddr_string, namelen);
   return;
 };
 
@@ -427,6 +467,10 @@ static void conn_clear(Connection * conn)
     free(conn->messagebuffer);
     conn->messagebuffer = NULL;
   };
+
+  memset(&conn->peeraddr.sa, '\0', sizeof(SockAddress));
+  conn->peeraddr_string[0] = '\0';
+
   conn->leftover = 0;
   conn->type = 0;
   conn->cost = 100;
@@ -632,9 +676,14 @@ int conn_select(int * cause, time_t deadline)
       if (FD_ISSET(i, &rfds)) DEBUG2("waiting on %d\n", i);
 #endif
     
+    TIMEPEG();
+    timepeg_log();
     DEBUG("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");    
     n = select(maxsocket+1, &rfds, NULL, &errfds, tvp);
     DEBUG("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv");    
+    TIMEPEGNOTE("start TCP");
+    TIMEPEGNOTE("start");
+
     if (n == -1) {
       DEBUG("select returned with failure %s", 
 	    strerror(errno));

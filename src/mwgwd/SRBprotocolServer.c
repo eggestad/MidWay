@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.13  2002/10/22 21:58:20  eggestad
+ * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
+ *
  * Revision 1.12  2002/10/20 18:15:42  eggestad
  * major rework for sending calls. srbcall now split into srbcall_req, and srbcall_rpl
  *
@@ -100,7 +103,6 @@
 extern globaldata globals;
 
 static char * RCSId UNUSED = "$Id$";
-
 
 static void srbhello(Connection *, SRBmessage * );
 static void srbterm(Connection *, SRBmessage * );
@@ -263,16 +265,13 @@ static void srbhello(Connection * conn, SRBmessage * srbmsg)
 
 static void srbreject(Connection * conn, SRBmessage * srbmsg)
 {
-  char buff[128];
-  conn_getpeername(conn, buff, 128);
   Error("Got a reject message from %s \"%s\"", 
-	buff, srbmessageencode(srbmsg));
+	conn->peeraddr_string, srbmessageencode(srbmsg));
   return;
 };
 
 static void srbready(Connection * conn, SRBmessage * srbmsg)
 {
-  char buff[128];
   char * domain;
   char * instance;
   int rc;
@@ -319,9 +318,8 @@ static void srbready(Connection * conn, SRBmessage * srbmsg)
   };
 
  error:  
-  conn_getpeername(conn, buff, 128);
   Error("Got an unintelligible ready message from %s \"%s\"", 
-	buff, srbmessageencode(srbmsg));
+	conn->peeraddr_string, srbmessageencode(srbmsg));
   return;
 
   
@@ -330,25 +328,22 @@ static void srbready(Connection * conn, SRBmessage * srbmsg)
 static void srbterm(Connection * conn, SRBmessage * srbmsg)
 {
   int grace;
-  char buff[128];
-
+  
   switch (srbmsg->marker) {
     
   case SRB_REQUESTMARKER:
     iGetOptField(conn, srbmsg, SRB_GRACE, &grace);
 
-    conn_getpeername(conn, buff, 128);
     Info("Got a TERM request GRACE = %d from %s", 
-	  grace, buff);
+	  grace, conn->peeraddr_string);
     _mw_srbsendterm(conn, -1);
     break;
     
   case SRB_RESPONSEMARKER:
     
   case SRB_NOTIFICATIONMARKER:
-    conn_getpeername(conn, buff, 128);
     Info("Got a TERM notification from %s, closing", 
-	  buff);
+	  conn->peeraddr_string);
     
     tcpcloseconnection(conn);
   };
@@ -359,24 +354,22 @@ static void srbprovide(Connection * conn, SRBmessage * srbmsg)
 {
   int cost, rc;
   char * svcname;
-  char buff[128];
-
-  conn_getpeername(conn, buff, 128);
-
+  
   switch (srbmsg->marker) {
     
   case SRB_REQUESTMARKER:
-    Error("got a SRB PROVIDE request from %s rejecting", buff);
+    Error("got a SRB PROVIDE request from %s rejecting", conn->peeraddr_string);
     _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_NOTNOTIFICATION);
     break;
     
   case SRB_RESPONSEMARKER:
-    Error("got a SRB PROVIDE reply from %s  but we never sent a request: rejecting", buff);
+    Error("got a SRB PROVIDE reply from %s  but we never sent a request: rejecting", 
+	  conn->peeraddr_string);
     _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_UNEXPECTED);
     break;
     
   case SRB_NOTIFICATIONMARKER:
-    DEBUG("Got a provide notification from %s", buff);
+    DEBUG("Got a provide notification from %s", conn->peeraddr_string);
     
     if (!(iGetReqField(conn, srbmsg,  SRB_COST, &cost))) {
       return;
@@ -402,24 +395,22 @@ static void srbunprovide(Connection * conn, SRBmessage * srbmsg)
 {
   int cost, rc;
   char * svcname;
-  char buff[128];
-
-  conn_getpeername(conn, buff, 128);
 
   switch (srbmsg->marker) {
     
   case SRB_REQUESTMARKER:
-    Error("got a SRB PROVIDE request from %s rejecting", buff);
+    Error("got a SRB PROVIDE request from %s rejecting", conn->peeraddr_string);
     _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_NOTNOTIFICATION);
     break;
     
   case SRB_RESPONSEMARKER:
-    Error("got a SRB PROVIDE reply from %s  but we never sent a request: rejecting", buff);
+    Error("got a SRB PROVIDE reply from %s  but we never sent a request: rejecting", 
+	  conn->peeraddr_string);
     _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_UNEXPECTED);
     break;
     
   case SRB_NOTIFICATIONMARKER:
-    DEBUG("Got a provide notification from %s", buff);
+    DEBUG("Got a provide notification from %s", conn->peeraddr_string);
     
     if (!(svcname =     szGetReqField(conn, srbmsg, SRB_SVCNAME))) {
       return;
@@ -441,8 +432,6 @@ static void srbcall_rpl(Connection * conn, SRBmessage * srbmsg)
 
   MWID mwid = UNASSIGNED; 
 
-  char buff[128];
-
   char * svcname;
   char * data = NULL;
   int datachunks = -1;
@@ -462,8 +451,7 @@ static void srbcall_rpl(Connection * conn, SRBmessage * srbmsg)
     return;
   };
 
-  conn_getpeername(conn, buff, 128);
-  DEBUG("Got a SVCCALL reply from %s", buff);    
+  DEBUG("Got a SVCCALL reply from %s", conn->peeraddr_string);    
 
   dbg_srbprintmap(srbmsg); 
 
@@ -561,8 +549,6 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
   
   MWID mwid = UNASSIGNED; 
 
-  char buff[128];
-
   char * svcname;
   char * data = NULL;
   int datachunks = -1;
@@ -579,6 +565,8 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
   int hops = 0;
   int maxhops = 30;
 
+  TIMEPEG();
+
   /* I don't like having to hardcode the offset into the fields in the
      message like this, but is quite simple... */
   conn_getinfo(conn->fd, &mwid, NULL, NULL, NULL);
@@ -590,7 +578,9 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
 
   DEBUG("srbcall: beginning SVCCALL from cltid=%d gwid=%d", CLTID(mwid), GWID(mwid));
 
+  TIMEPEG();
   dbg_srbprintmap(srbmsg); 
+  TIMEPEG();
 
   /* first we get the field that are identical on requests as well as
      replies. */
@@ -610,26 +600,24 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
   hops++;
 
   vGetOptBinField(conn, srbmsg, SRB_DATA, &data, &datalen);
+
   if (data == NULL) datalen = 0;
   
   iGetOptField(conn, srbmsg, SRB_DATACHUNKS, &datachunks);
   instance =    szGetOptField(conn, srbmsg, SRB_INSTANCE);
   iGetOptField(conn, srbmsg,  SRB_SECTOLIVE, &sectolive);
 
-  conn_getpeername(conn, buff, 128);
-
-    
   if (srbmsg->marker == SRB_NOTIFICATIONMARKER) {
     /* noreply  */
     DEBUG("Got a SVCCALL notification from %s, NOREPLY", 
-	  buff);
+	  conn->peeraddr_string);
     flags |= MWNOREPLY;
     noreply = 1;
   }
-    
+
   if (srbmsg->marker == SRB_REQUESTMARKER) {
     DEBUG("Got a SVCCALL service=%s from %s", 
-	  svcname, buff);
+	  svcname, conn->peeraddr_string);
     
     /* handle is optional iff noreply */
     if (!(tmp =         szGetReqField(conn, srbmsg, SRB_HANDLE))) {
@@ -659,6 +647,7 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
     };
   
   iGetOptField(conn, srbmsg,  SRB_MAXHOPS, &maxhops);
+  TIMEPEG();
 
   /* 
      This is the special case where we don't have any chunks.
@@ -670,20 +659,23 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
     
     /* we must lock since it happens that the server replies before
        we do storeSetIpcCall() */
-    
+    TIMEPEG();    
     if (srbmsg->marker == SRB_REQUESTMARKER) 
       storeLockCall();
-    
+    TIMEPEG();
+      
     rc = _mwacallipc (svcname, data, datalen, flags, mwid, instance, domain, callerid, hops);
+    TIMEPEG();
     if (rc > 0) {
       DEBUG("_mwacallipc succeeded");  
-      
+
       if ( ! noreply) {
 	storePushCall(mwid, handle, conn->fd, srbmsg->map);
 	srbmsg->map = NULL;
 	DEBUG(
 	      "Storing call fd=%d nethandle=%u mwid=%#x ipchandle=%d",
 	      conn->fd, handle, mwid, rc);
+	TIMEPEG();
 	
 	rc = storeSetIPCHandle(mwid, handle, conn->fd, rc);
 	  
@@ -694,8 +686,10 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
       DEBUG("_mwacallipc failed with %d ", rc);   
       _mw_srbsendcallreply(conn, srbmsg, NULL, 0, 0, _mw_errno2srbrc(rc), 0);
     };
+    TIMEPEG();
     if (srbmsg->marker == SRB_REQUESTMARKER) 
       storeUnLockCall();
+    TIMEPEG();
   };
   return;  
 };
@@ -707,7 +701,7 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
   char * domain = NULL, * name = NULL, * user = NULL, * passwd = NULL; 
   char * agent = NULL, * agentver = NULL, * os = NULL;
   int  rc, l;
-  char * szptr, peername[128]; 
+  char * szptr;
   char * peerdomain = NULL, * instance = NULL;
 
   if (srbmsg->map == NULL) {
@@ -800,8 +794,6 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
        the client or register the gateway */
     DEBUG("SRB INIT correctly formated role=%d ", role); 
 
-    conn_getpeername(conn, peername, 128);
-
     /* we use user and name after gwattach() but anytime after that
        the other thread may have gotten back from mwd and done
        urlmapfre() */
@@ -828,8 +820,8 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
       if (rc >= 0) {
  	srbmsg->map = NULL;
 	Info("Client %s %s%s ID=%#u connected from %s", 
-	      name, user?"Username=":"", user?user:"",
-	      rc , peername);
+	     name, user?"Username=":"", user?user:"",
+	     rc , conn->peeraddr_string);
 	rc = rc | MWCLIENTMASK;
 	conn->role = role;
 	conn_set(conn, SRB_ROLE_CLIENT, CONN_TYPE_CLIENT);
@@ -838,7 +830,7 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
 	szptr = _mw_srb_reason(rc);
  	Info("Client %s %s%s from %s was rejected: ", 
 	      name, user?"Username=":"", user?user:"",
-	      peername);
+	      conn->peeraddr_string);
 	rc = _mw_errno2srbrc(-rc);
 	_mw_srbsendinitreply(conn, srbmsg, rc, NULL);
       }
@@ -865,6 +857,7 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
       // here is OK
       conn_set(conn, SRB_ROLE_GATEWAY, CONN_TYPE_GATEWAY);
       conn->state = CONNECT_STATE_UP;
+      conn_setpeername(conn);
       _mw_srbsendinitreply(conn, srbmsg, 0, NULL);      
       gw_provideservices_to_peer(conn->gwid);     
       break;
@@ -879,6 +872,7 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
     
     if (rc == 0) {
       conn->state = CONNECT_STATE_UP;
+      conn_setpeername(conn);
       gw_provideservices_to_peer(conn->gwid);
     } else 
       gw_closegateway(conn->gwid);
@@ -908,7 +902,8 @@ int srbDoMessage(Connection * conn, char * message)
   int commandlen;
   char * ptr;
   SRBmessage srbmsg;
-  
+
+  TIMEPEG();  
   if ( (ptr = strchr(message, SRB_REQUESTMARKER)) == NULL)
     if ( (ptr = strchr(message, SRB_RESPONSEMARKER)) == NULL)
       if ( (ptr = strchr(message, SRB_NOTIFICATIONMARKER)) == NULL) {
@@ -927,12 +922,15 @@ int srbDoMessage(Connection * conn, char * message)
   strncpy(srbmsg.command, message, commandlen);
   srbmsg.command[commandlen] = '\0';
   srbmsg.marker = *ptr;
+  TIMEPEG();
   srbmsg.map = urlmapdecode(message+commandlen+1);
-  
+    TIMEPEG();
+
   DEBUG2("srbDoMessage: command=%*.*s marker=%c on fd=%d", 
 	commandlen, commandlen, message, *ptr, conn->fd);
 
   dbg_srbprintmap(srbmsg); 
+  TIMEPEG();
 
   /* switch on command length in order to speed up (avoiding excessive
      strcmp()'s */
@@ -960,6 +958,7 @@ int srbDoMessage(Connection * conn, char * message)
 
   case 7:
     if ( strcasecmp(srbmsg.command, SRB_SVCCALL) == 0) {
+      TIMEPEG();  
       if ( (srbmsg.marker == SRB_REQUESTMARKER) || 
 	   (srbmsg.marker == SRB_NOTIFICATIONMARKER) )
 	srbcall_req(conn, &srbmsg);

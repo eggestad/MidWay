@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.10  2002/10/22 21:58:21  eggestad
+ * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
+ *
  * Revision 1.9  2002/10/20 18:23:18  eggestad
  * debug messages fixup
  *
@@ -275,6 +278,8 @@ static void gwreadmessage(Connection * conn)
 
   if (conn == NULL) return;
 
+  TIMEPEG();
+
   n = conn_read(conn);
   DEBUG2("read a message from fd=%d returned %d errno=%d", conn->fd, n, errno);
 
@@ -288,7 +293,7 @@ static void gwreadmessage(Connection * conn)
   DEBUG("readmessage(fd=%d) read %d bytes + %d leftover buffer now:%.*s", 
 	conn->fd, n, conn->leftover, end, conn->messagebuffer);
 
-  
+  TIMEPEG();
   /* we start at leftover since there can't be a \r\n in what was
      leftover from the last time we read from the connection. */
   for (i = conn->leftover ; i < end; i++) {
@@ -298,12 +303,15 @@ static void gwreadmessage(Connection * conn)
 	 (conn->messagebuffer[i+1] == '\n') ) {
       conn->messagebuffer[i] = '\0';
 
+      TIMEPEG();
       DEBUG2("read a message from fd=%d, about to process with srbDomessage", conn->fd);
 
       _mw_srb_trace(SRB_TRACE_IN, conn, conn->messagebuffer, i);
 
       conn->lastrx = time(NULL);
+      TIMEPEG();
       srbDoMessage(conn, conn->messagebuffer+start);
+      TIMEPEG();
       DEBUG("srbDomessage completed");
 
       i += 2;
@@ -428,6 +436,7 @@ int tcp_do_read_condiion(Connection * conn)
     _mw_srb_trace(SRB_TRACE_IN, conn, msg, len);
     conn->lastrx = time(NULL);
     conn->messagebuffer = msg;	 
+    TIMEPEG();
     srbDoMessage(conn, conn->messagebuffer);
     
     DEBUG("srbDomessage completed");
@@ -440,6 +449,7 @@ int tcp_do_read_condiion(Connection * conn)
   };
   
   DEBUG("doing readmessage on fd %d", conn->fd);
+  TIMEPEG();
   gwreadmessage(conn);
   return 0;
 }; 
@@ -515,6 +525,7 @@ void * tcpservermainloop(void * param)
     fd = conn_select(&cond, timeout);
     DEBUG2("conn_select returned %d errno=%d", fd, errno);
 
+    TIMEPEG();
     if (fd < 0) {
       if (fd == -ETIME) {
 	timer_task();
@@ -527,11 +538,11 @@ void * tcpservermainloop(void * param)
       globals.shutdownflag = 1;
       continue;
     }
-
+    TIMEPEG();
     conn = conn_getentry(fd);
     DEBUG("conn info fd=%d listen=%d broker=%d cond=%#x", 
 	  fd, conn->type & CONN_TYPE_LISTEN, conn->type & CONN_TYPE_BROKER, cond);
-
+    TIMEPEG();
     if (cond & COND_ERROR) {
       rc = tcp_do_error_condiion(conn);
       continue;

@@ -22,6 +22,9 @@
 #ifndef _MIDWAY_H
 
 #include <time.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 
 #define _MIDWAY_H
 
@@ -176,6 +179,18 @@ extern "C" {
   void mwopenlog(char * progname, char * fileprefix, int loglevel);
   int mwsetloglevel(int level);
   void mwlog(int level, char * format, ...);
+
+
+  /* discovery api */
+
+typedef struct  {
+  char version[8];
+  char instance[MWMAXNAMELEN];
+  char domain[MWMAXNAMELEN];
+  struct sockaddr address;
+} instanceinfo;
+
+instanceinfo * mwbrokerquery(char * domain, char * instance);
 
 
 #ifdef	__cplusplus

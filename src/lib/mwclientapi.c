@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.20  2004/06/16 06:53:58  eggestad
+ * mwattach: If mwattach() failed the lib was still in attached state
+ *
  * Revision 1.19  2004/05/31 19:40:00  eggestad
  * changes for allowing foreign language bindings access to internal API
  *
@@ -375,7 +378,7 @@ int mwattach(char * url, char * name, int flags)
   FILE * proc;
   int type;
   char buffer[256];
-  int rc;
+  int rc, retval;
 
   /* if we're already connected .... */
   if (_mwaddress.protocol != MWNOTCONN) 
@@ -383,18 +386,27 @@ int mwattach(char * url, char * name, int flags)
 
   rc = _mwsystemstate();
   DEBUG3("_mwsystemstate returned %d", rc);
-  if (rc == 0) return -EISCONN;;
-  if (rc != -ENAVAIL) return rc;
+  if (rc == 0) {
+     retval = -EISCONN;;
+     goto out;
+  };
+
+  if (rc != -ENAVAIL) {
+     retval = rc;
+     goto out;
+  };
 
   errno = 0;
   rc = _mwdecode_url(url, &_mwaddress);
   if (rc != 0) {
      DEBUG1("_mwdecode_url(%s, ...) returned %d", url, rc);
     if (errno == ETIME) {
-      return -EHOSTDOWN;
+      retval = -EHOSTDOWN;
+      goto out;
     };
     Error("The URL %s is invalid, decode returned %d", url, errno);
-    return -EINVAL;
+    retval = -EINVAL;
+    goto out;
   };
 
   if (name == NULL) {
@@ -411,7 +423,8 @@ int mwattach(char * url, char * name, int flags)
     
   if ( (flags & MWSERVER) && (_mwaddress.protocol != MWSYSVIPC) ) {
      Error("Attempting to attach as a server on a protocol other than IPC.");
-     return -EINVAL;
+     retval = -EINVAL;
+     goto out;
   };
 
 #ifdef SYSVIPCPROTO
@@ -423,7 +436,10 @@ int mwattach(char * url, char * name, int flags)
     type = 0;
     if (flags & MWSERVER)       type |= MWIPCSERVER;
     if (!(flags & MWNOTCLIENT)) type |= MWIPCCLIENT;
-    if ((type < 1) || (type > 3)) return -EINVAL;
+    if ((type < 1) || (type > 3)) {
+       retval = -EINVAL;
+       goto out;
+    };
 
     DEBUG("attaching to IPC name=%s, IPCKEY=0x%x type=%#x", 
 	  name, _mwaddress.sysvipckey, type);
@@ -432,7 +448,8 @@ int mwattach(char * url, char * name, int flags)
       DEBUG("attaching to IPC failed with rc=%d",rc);
       _mw_clear_mwaddress();
     };
-    return rc;
+    retval = rc;
+    goto out;
   }
 #endif
 
@@ -441,11 +458,17 @@ int mwattach(char * url, char * name, int flags)
   if (_mwaddress.protocol == MWSRBP) {
      
      _mwsrbprotosetup(&_mwaddress);
-     return _mwaddress.proto.attach(MWCLIENT, &_mwaddress, name, &credentials, flags);
+     retval = _mwaddress.proto.attach(MWCLIENT, &_mwaddress, name, &credentials, flags);
+     goto out;
   };
 #endif
 
-  _mw_clear_mwaddress();
+  out:
+  
+  if (retval < 0)  _mw_clear_mwaddress();
+  return retval;
+
+
   return -EINVAL;
 };
 

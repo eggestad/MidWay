@@ -1,3 +1,8 @@
+2004-06-16  Terje Eggestad  <te@pc-16.office.scali.no>
+
+	* mwattach: If failed the lib was still in attached state, forcing
+	a mwdetach() before a retry was possible. Now fixed.
+
 2004-04-08  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* introduced a struct with pointers to the functions implementing

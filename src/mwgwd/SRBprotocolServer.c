@@ -24,6 +24,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.3  2000/09/24 14:10:42  eggestad
+ * Changed a few mwlog()  messages to be DEBUG
+ *
  * Revision 1.2  2000/09/21 18:57:55  eggestad
  * - Bug fix: had a lot of \n in the end of mwlog()
  * - Bug fix: srbmsg.map was not inited to NULL many placed, cased core dumps.
@@ -257,12 +260,12 @@ static void srbcall(int fd, SRBmessage * srbmsg)
      message like this, but is quite simple... */
   tcpgetconninfo(fd, &cltid, NULL, NULL, NULL);
   if (cltid == UNASSIGNED) {
-    mwlog(MWLOG_WARNING, "Got a SVCCALL before SRB INIT cltid=%d", cltid);
+    mwlog(MWLOG_WARNING, "Got a SVCCALL before SRB INIT cltid=%d", cltid&MWINDEXMASK);
     _mw_srbsendcallreply(fd, srbmsg, NULL, 0, 0, SRB_PROTO_NOINIT, 0);
     return;
   };
 
-  mwlog(MWLOG_WARNING, "srbcall: beginning SVCCALL from cltid=%d", cltid);
+  mwlog(MWLOG_DEBUG, "srbcall: beginning SVCCALL from cltid=%d", cltid&MWINDEXMASK);
 
   /* first we get the field that are identical on requests as well as
      replies. */
@@ -294,14 +297,14 @@ static void srbcall(int fd, SRBmessage * srbmsg)
     
     if (srbmsg->marker == SRB_NOTIFICATIONMARKER) {
       /* noreply  */
-      mwlog(MWLOG_INFO, "Got a SVCCALL notification from %s, NOREPLY", 
+      mwlog(MWLOG_DEBUG, "Got a SVCCALL notification from %s, NOREPLY", 
 	    tcpgetconnpeername(fd));
       flags |= MWNOREPLY;
       noreply = 1;
     }
     
     if (srbmsg->marker == SRB_REQUESTMARKER) {
-      mwlog(MWLOG_INFO, "Got a SVCCALL service=%s from %s", 
+      mwlog(MWLOG_DEBUG, "Got a SVCCALL service=%s from %s", 
 	    svcname, tcpgetconnpeername(fd));
 
       /* handle is optional iff noreply */
@@ -380,7 +383,7 @@ static void srbcall(int fd, SRBmessage * srbmsg)
       break;
     };
 
-    mwlog(MWLOG_INFO, "Got a SVCCALL reply from %s, ignoring", 
+    mwlog(MWLOG_DEBUG, "Got a SVCCALL reply from %s, ignoring", 
 	  tcpgetconnpeername(fd));
     
   };

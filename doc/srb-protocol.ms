@@ -28,7 +28,7 @@ Status of this Memo
 
 .fi
 .in 3
-This memo describes a Service Request Broker (SRB) protocol, and
+This memo describes a Service Request Broker (SRB) protocol, which is 
 implemented by MidWay.  This memo is under development and MUST be
 regarded as an experimental, not recommended standard.  Distribution
 of this memo is unlimited.
@@ -37,6 +37,11 @@ of this memo is unlimited.
 Overview and Rational
  
 This is the description of the TCP/IP protocol.
+
+Why not IIOP? K.I.S.S.! I wanted somthing simpler.
+
+ISO OSI defined a protocol called OSITP, that should implement any of teh same features, 
+but you have to buy the spec. and I be dammed if I'mm pay for it!
 
 keywords are to be interpreted as described in RFC 2119.
 
@@ -54,6 +59,58 @@ It may or may not be a a octet stream (TCP), but it must be in sequence (!?!)
 
 Service calls shall only be passed in the same direction as the TCP
 sessions was established, unless calling side passes REVERSE=YES in SRB INIT.
+
+.ti 0
+Glossary
+
+SRB - Service Request Broker.
+
+MidWay - is an implementation of a Service Request Broker
+
+Instance - Really a consept from MidWay, a manager that manages a set
+of servers that provides services in a specific domain.
+
+broker - a daemon on a node that keep track of all the instances on a
+node, and can mediate the connection between clients and an instance.
+It is however not requiered in order to operate, if the instance is
+listening on it own TCP port, and the client know of the port.
+
+NIS - Network information system (RFC: ?)
+
+MTU - Maximun Transfer Unit
+
+XDM - X Display Manager
+
+srb message - 
+
+.ti 0
+Domains 
+
+The consept of domain is introduced in order to have running instances
+on diffrent nodes that are either providing the same services, or are
+interconnected. This is similar to the consept of domain in NIS. This
+allows a client to ask for any node providing a gived domain, and
+attach it self to one. This is done in a similar manner to X11's XDM,
+sending an UDP packet to a given port.  The UDP packet shall contain a
+SRB READY
+.I request
+with the requested domain. All brokers that has an instance with the
+given domain respond with a UDP packet containing a SRB READY repsponse.
+
+.ti 0 
+Error handling
+
+If a srb message is so malformated that it can't even be parsed, it shall
+be rejected with a REJECT message, signifying at what byte offset into the 
+message the error occured, and the reason. In the SRB INIT message, the
+parties may instruct the other side to suppress these messages, and just
+silently ignore them.
+
+If a srb message misses a field, or has an illegal value the message
+shall be returned with a reject marker '~', and the field CAUSEFIELD
+and REASONCODE must be set.  If the value of the field was the source
+of the error a CAUSEVALUE must be set.  An optional field REASON may
+bve set, containing a free text describing the cause.
 
 .ti 0
 Large Amount of Data
@@ -134,9 +191,11 @@ command =; "SRB INIT"
 marker = ;requestmarker 
 ;| responsemarker 
 ;| notificationmarker
+;| rejectmarker
 requestmarker =; "?"
 responsemarker =; "."
 notificationmarker =; "!"
+rejectmarker =; "~"
 parameter =; parametername "=" [ parametervalue ]
 parameterseparator =; "&"
 parametername =; "AGENT"
@@ -163,7 +222,6 @@ parametername =; "AGENT"
 ;| "MORE"
 ;| "MULTIPLE"
 ;| "NAME"
-;| "NOREPLY"
 ;| "OFFSET"
 ;| "OS"
 ;| "PASSWORD"
@@ -196,7 +254,9 @@ parameters not described here are sliently ignored.
 SRB INIT 
 Request/Response ?.
 
-Must be the first message, is either rejected or accepted.
+Must be the first message, is either declined or accepted.
+Note that a decline is different than a reject. The cause field must not 
+be confused with the field used with rejects.
 
 .TS
 box, tab(;);
@@ -221,9 +281,7 @@ AGENT;1*token;oi;; e.g. "MidWay"
 AGENTVERSION;1*token;oi;;
 OS;1*token;oi;
 RETURNCODE;1*3digit;n/a;m   
-CAUSE;1*token;n/a;oi  
-CAUSEFIELD;1*token;n/a;o;parameter name 
-;;;;that cause RC!=0
+CAUSE;1*token;n/a;oi;the cause RC!=0  
 .TE
 
 
@@ -305,7 +363,11 @@ REMOTETIME;1*DIGIT "." 6DIGIT;o;r;
 
 
 SVCCALL
-Request/Response ?.
+Request/Response/event ?.! 
+
+If the Event maker is used, it is a flag that signal that the client
+don't want a reply, not even an acknowledge that the call was even
+processed. Inthis case the handle field is ignored and may be ommited.
 
 .TS
 box, tab(;);
@@ -321,7 +383,6 @@ INSTANCE;1*64token;m;m;See **
 DOMAIN;1*64token;o;n/a;
 CLIENTNAME;1*64token;oi;n/a;
 HANDLE;8HEXDIG;o;m;
-NOREPLY;"yes"|"NO";o;n/a;
 MULTIPLE;"yes"|"NO";o;n/a;
 MORE;"yes"|"NO";n/a;o;Used only if 
 ;;;;MULTIPLE was set 
@@ -423,10 +484,26 @@ CAUSEVALUE;1*token;o;;
 .ti 0
 Security Considerations
 
+The security considerations can be divided into two categories. On is
+authentication which is discussed in a separate section.
+
+The other is the fact that we are asking a machine to execute a piece
+of one on our behalf. In fact, every protcol is designed to do pretty
+much just that, but the SRB protcol, and the consept of a SRB is
+designed to do this as safely as possible.
+
+The protocol itself has no length headers, shall not accept binary
+data, even if it causes the implemenentations to be less than optiomal
+efficient.
+
+The SRB consept ensures that only a minimal set of code actually used
+in processing a request, and that it is not normally done as the
+superuser, nor do it require any change of userid when executing.
+
 .ti 0
 Full Copyright Statement
 
-Copyright (C) The Internet Society (1997).  All Rights Reserved.
+Copyright (C) The Internet Society (2000).  All Rights Reserved.
 
 This document and translations of it may be copied and furnished to
 others, and derivative works that comment on or otherwise explain it

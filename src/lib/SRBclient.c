@@ -21,6 +21,10 @@
 
 /*
  * $Log$
+ * Revision 1.10  2003/07/13 22:40:59  eggestad
+ * - mwfetch(,,,MWMULTPILE) returned queued replies in the wrong order
+ * - added timepegs
+ *
  * Revision 1.9  2003/01/07 08:26:41  eggestad
  * added TCP_NODELAY
  *
@@ -135,6 +139,7 @@ static int pushCRqueue(urlmap * map)
   struct _srb_callreplyqueue_element * crelm;
   int idx;
 
+  TIMEPEGNOTE("begin");
   DEBUG3("pushCRqueue starts");
 
   if (map == NULL) return 0;
@@ -175,15 +180,17 @@ static int pushCRqueue(urlmap * map)
     callreplyqueue = crelm;
     DEBUG3("pushCRqueue: complete!");
   } 
+  TIMEPEGNOTE("end");
   return 1;
 };
 
 static int pushCRqueueDATA(urlmap * map);
 static urlmap * popCRqueue(char * handle)
 {
-  struct _srb_callreplyqueue_element * crethis, * creprev;
+  struct _srb_callreplyqueue_element * crethis, * creprev, **creprevmatch;
   urlmap * map;
 
+  TIMEPEGNOTE("begin");
   if (callreplyqueue == NULL) {
     DEBUG3("popCRqueue: queue empty");
     return NULL;
@@ -195,12 +202,16 @@ static urlmap * popCRqueue(char * handle)
     if (handle != NULL) {
       /* the only queue entry, and handle != NULL, and handle
 	 don't match, return */
-      if (strcasecmp(callreplyqueue->handle,handle) != 0)
-	return NULL;
-    }
+       if (strcasecmp(callreplyqueue->handle,handle) != 0) {
+	  TIMEPEGNOTE("end no found (1)");
+	  return NULL;
+       }
+    };
     map = callreplyqueue->map;
     free(callreplyqueue);
     callreplyqueue = NULL;
+    DEBUG3("popCRqueue: poped the only (and correct) element");
+    TIMEPEGNOTE("end one and only");
     return map;
   };
 
@@ -216,32 +227,39 @@ static urlmap * popCRqueue(char * handle)
     map = crethis->map;
     free (crethis);
     DEBUG3("popCRqueue: poped the oldest");
+    TIMEPEGNOTE("end any");
     return map;
   };
-  /* search thru for the handle */
+
+  /* search thru for the handle, but we most get the oldest, (at the end) */
   crethis = callreplyqueue;
   creprev = NULL;
+  creprevmatch = NULL;
   while (crethis != NULL) {
-    if (strcasecmp(crethis->handle,handle) == 0) 
-      break;
-    
-    creprev = crethis;
-    crethis = crethis->next;
+     if (strcasecmp(crethis->handle,handle) == 0) {
+	if (creprev == NULL) {
+	   creprevmatch = &callreplyqueue;
+	} else {
+	   creprevmatch = &creprev->next;
+	};
+     };
+     creprev = crethis;
+     crethis = crethis->next;
   };
 
-  if (crethis == NULL) {
+  if (creprevmatch == NULL) {
     DEBUG3("popCRqueue: no entry to pop for handle %s", handle);
+    TIMEPEGNOTE("end no found");
     return NULL;
   };
 
-  if (creprev == NULL) {
-    callreplyqueue = crethis->next;
-  } else {
-    creprev->next = crethis->next;
-  };
+  crethis = *creprevmatch;
+  *creprevmatch = crethis->next;
+
   map = crethis->map;
   free(crethis);
   DEBUG3("popCRqueue: poped the reply for handle %s", handle);
+  TIMEPEGNOTE("end found");
   return map;
 };
 
@@ -262,6 +280,8 @@ static SRBmessage * readmessage(int blocking)
   static int count = 0;
   char * szTmp;
   SRBmessage * srbmsg = NULL;
+
+  TIMEPEGNOTE("begin");
 
   if (recvbuffer == NULL) recvbuffer = malloc(SRBMESSAGEMAXLEN);
   if (recvbuffer == NULL) return NULL;
@@ -286,9 +306,14 @@ static SRBmessage * readmessage(int blocking)
     DEBUG3("client readmessage: calling read(fd=%d) with %d bytes in the buffer",
 	  connectionstate.fd, recvbufferend-recvbufferoffset);
 
+    TIMEPEGNOTE("doing read");
+
     rc = read(connectionstate.fd, 
 	      recvbuffer+recvbufferend,
 	      9000-recvbufferend);
+
+    TIMEPEGNOTE("done");
+
     if (rc == -1) {
       if (errno == EINTR) break;
       if (errno == EAGAIN) break;
@@ -299,6 +324,7 @@ static SRBmessage * readmessage(int blocking)
       close(connectionstate.fd);
       connectionstate.fd = -1;
       errno = EPIPE;
+      TIMEPEGNOTE("end NULL");
       return NULL;
     };
     DEBUG3("client readmessage: read %d bytes: \"%s\"", 
@@ -340,6 +366,7 @@ static SRBmessage * readmessage(int blocking)
 	connectionstate.fd = -1;
 	recvbufferoffset = recvbufferend = 0;
 	errno = EPROTO;
+	TIMEPEGNOTE("end broken mesg");
 	return NULL;
       };
     };
@@ -370,6 +397,7 @@ static SRBmessage * readmessage(int blocking)
       count = 0; /* just in case */
     };
   }
+  TIMEPEGNOTE("end good messgae");
   return srbmsg ;
 };
   
@@ -514,6 +542,7 @@ int _mwacall_srb(char * svcname, char * data, int datalen, int flags)
   int handle;
   int rc; 
 
+  TIMEPEGNOTE("begin");
   handle = _mw_nexthandle();  
   DEBUG1("_mwacall_srb: got handle=%#x", handle);
   rc = _mw_srbsendcall(&connectionstate, handle, svcname, data, datalen, 
@@ -524,6 +553,8 @@ int _mwacall_srb(char * svcname, char * data, int datalen, int flags)
   };
   DEBUG1("_mwacall_srb: _mw_srbsendcall returned %d, returning handle=%#x", 
 	rc, handle);
+
+  TIMEPEGNOTE("end");
   return handle;
 };
   
@@ -534,6 +565,8 @@ int _mwfetch_srb(int handle, char ** data, int * len, int * appreturncode, int f
   char szHdl[9];
   int queueempty = 0;
   int idx= -1, rc;
+
+  TIMEPEGNOTE("begin");
 
   /* first of we check to see if a reply with the handle exists in the
      CR queue already */
@@ -550,6 +583,7 @@ int _mwfetch_srb(int handle, char ** data, int * len, int * appreturncode, int f
 	szHdl, handle, mapFetched?"found a match":"had no match");
 
   /* we drain of all the messages in the TCP queue */
+  TIMEPEGNOTE("begin drain");
   do {
     DEBUG3("_mwfetch_srb: at top of drain loop about to call readmessage(%s)", 
 	  (!mapFetched | (flags&MWNOBLOCK)) ? "blocking":"nonblocking");
@@ -654,6 +688,7 @@ int _mwfetch_srb(int handle, char ** data, int * len, int * appreturncode, int f
       };
     } 
   } while (!queueempty);
+  TIMEPEGNOTE("end drain");
 
   /* now mapFetched MUST be not NULL */
   if (mapFetched == NULL) {
@@ -711,6 +746,7 @@ int _mwfetch_srb(int handle, char ** data, int * len, int * appreturncode, int f
   };
   
  errout:
+  TIMEPEGNOTE("end");
   return rc; 
 
 };

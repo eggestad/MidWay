@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2000/09/21 18:45:10  eggestad
+ * bug fix: core dump if SRB since _mwHeap was not tested for NULL
+ *
  * Revision 1.3  2000/08/31 21:56:00  eggestad
  * DEBUG level set propper. moved out test for malloc()
  *
@@ -158,7 +161,10 @@ int _mwshmcheck(void * adr)
 {
   int offset;
   int size;
-  
+
+  /* if SRBP then we have no heap... */
+  if (_mwHeapInfo == NULL) return -1;
+
   /* first we make sure that adr is within the heap*/
   if (adr < (void *) ((int)_mwHeapInfo + sizeof(struct segmenthdr))) return -1;
   if (adr > (void *) ((int)_mwHeapInfo + _mwHeapInfo->segmentsize)) return -1;

@@ -18,11 +18,11 @@
   Boston, MA 02111-1307, USA. 
 */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 /* 
  * $Log$
+ * Revision 1.4  2002/07/07 22:33:41  eggestad
+ * We now operate on Connection structs not filedesc.
+ *
  * Revision 1.3  2002/02/17 14:25:52  eggestad
  * added missing includes
  *
@@ -46,12 +46,15 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <sys/un.h>
 #include <netinet/in.h>
 
+#include <MidWay.h>
 #include <SRBprotocol.h>
 #include <multicast.h>
+#include <connection.h>
 
 #include "mwbd.h"
 #include "mwbd_sockets.h"
 
+static char * RCSId UNUSED = "$Id$";
 
 /* the three sockets that never die and their addresses */
 static struct sockaddr_in tcpsockaddr;
@@ -74,6 +77,18 @@ static int maxfd = -1;
 
 struct fd_info * gw_root = NULL, * gw_tail = NULL;
 struct fd_info * client_root = NULL, * client_tail = NULL;
+
+/* some funcs that operation on a Connection * are used with teh UDP
+   socket.  we need this peudo var for these calls. */
+static Connection pseudoconn = { 
+  fd:            -1, 
+  rejects:        1,
+  domain:        NULL, 
+  version:       0.0, 
+  messagebuffer: NULL,
+  role:          -1
+};  
+
 
 /* functions that deal with fd sets for select() */
 
@@ -296,7 +311,8 @@ void closeall(void)
   };
 
   for (fdi = client_root; fdi != NULL; fdi = fdi->next) {
-    _mw_srbsendterm(fdi->fd, 0);
+    pseudoconn.fd = fdi->fd;
+    _mw_srbsendterm(&pseudoconn, 0);
     unmarkfd(fdi->fd);
     /* we shoudl delete, but I think we can allow a mem leak here, 
        this func shoudl only be called just before exit().*/
@@ -304,7 +320,8 @@ void closeall(void)
   };
   
   for (fdi = gw_root; fdi != NULL; fdi = fdi->next) {
-    _mw_srbsendterm(fdi->fd, 0);
+    pseudoconn.fd = fdi->fd;
+    _mw_srbsendterm(&pseudoconn, 0);
     unmarkfd(fdi->fd);
     /* we shoudl delete, but I think we can allow a mem leak here, 
        this func shoudl only be called just before exit().*/
@@ -426,7 +443,7 @@ int accept_tcp(void)
 
 int accept_unix(void)
 {
-  int newfd, rc, iOpt, optlen;
+  int newfd;
   
   newfd = accept(unix_socket, NULL, 0);
   debug( "accept on unix returned fd=%d", newfd);
@@ -474,7 +491,7 @@ int waitdata(int * fd, int * operation)
   int i, n;
   struct timeval to;
 
-  fd_set rfdset, wfdset, efdset;
+  fd_set rfdset, efdset;
 
   /* if there are no files open */
   if (maxfd < 0)  {

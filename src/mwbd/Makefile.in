@@ -28,7 +28,7 @@ install:
 uninstall:
 	rm -f @sbindir@/mwbd
 
-tags:
+TAGS:
 	etags -a -o ../TAGS *.c *.h
 
 depend:

@@ -22,6 +22,9 @@
 
 /* 
  * $Log$
+ * Revision 1.2  2002/07/07 22:33:41  eggestad
+ * We now operate on Connection structs not filedesc.
+ *
  * Revision 1.1  2001/09/15 23:40:09  eggestad
  * added the broker daemon
  *
@@ -59,3 +62,6 @@ int opensockets(void);
 int waitdata(int * fd, int * operation);
 int sendfd(int new_fd, int gwfd, char * message, int messagelen);
 void closeall(void);
+void client_clean(void);
+
+void initmcast(void);

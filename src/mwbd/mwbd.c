@@ -18,11 +18,11 @@
   Boston, MA 02111-1307, USA. 
 */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 /* 
  * $Log$
+ * Revision 1.4  2002/07/07 22:33:41  eggestad
+ * We now operate on Connection structs not filedesc.
+ *
  * Revision 1.3  2001/10/16 16:18:09  eggestad
  * Fixed for ia64, and 64 bit in general
  *
@@ -50,12 +50,17 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <MidWay.h>
 #include <SRBprotocol.h>
 #include <multicast.h>
+#include <connection.h>
 
 #define _MWBD_C
 #include "mwbd.h"
 #include "mwbd_sockets.h"
 
 #define AGENT "MidWay broker daemon"
+
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
+
 
 /* notes
 
@@ -81,6 +86,18 @@ int debugging = 0;
 
 extern struct fd_info * gw_root, * gw_tail;
 
+/* all function that send and recv SRB messages operate on a
+   Connection struct *.  we really only work on fd's in mwbd, so we
+   have this pseudo connection for whenever we call _mw_srb* */
+static Connection pseudoconn = { 
+  fd:            -1, 
+  rejects:        1,
+  domain:        NULL, 
+  version:       0.0, 
+  messagebuffer: NULL,
+  role:          -1
+};  
+
 
 void Exit(char * reason, int exitcode)
 {
@@ -101,13 +118,15 @@ int send_srb_ready_not(int fd)
   SRBmessage srbmsg;
   int rc;
 
+  pseudoconn.fd = fd;
+
   strcpy(srbmsg.command, SRB_READY);
   srbmsg.marker = SRB_NOTIFICATIONMARKER;
   srbmsg.map = NULL;
   srbmsg.map = urlmapadd(srbmsg.map, SRB_VERSION, SRBPROTOCOLVERSION);
   srbmsg.map = urlmapadd(srbmsg.map, SRB_AGENT, AGENT);
   srbmsg.map = urlmapadd(srbmsg.map, SRB_AGENTVERSION, RCSName);
-  rc = _mw_srbsendmessage(fd, &srbmsg);
+  rc = _mw_srbsendmessage(&pseudoconn, &srbmsg);
   urlmapfree(srbmsg.map);
   return rc; 
 };
@@ -121,22 +140,24 @@ void read_from_client(int fd, struct fd_info * cinfo)
   SRBmessage * srbmsg = NULL;
   char * domain = NULL, * instance = NULL, ver[8];;
 
+  pseudoconn.fd = fd;
+
   debug("reading data from client on %d", fd);
   buflen = read(fd, buffer, SRBMESSAGEMAXLEN);
   if (buflen == -1) return;
   if (buflen == SRBMESSAGEMAXLEN) {
     error("received a message exceeding %d bytes, discarding and disconnecting", 
 	  SRBMESSAGEMAXLEN);
-    _mw_srbsendreject_sz(fd, "Message too long", SRBMESSAGEMAXLEN);
+    _mw_srbsendreject_sz(&pseudoconn, "Message too long", SRBMESSAGEMAXLEN);
     goto clean;
   };
   srbmsg = _mw_srbdecodemessage(buffer);
   if (srbmsg == NULL) {
     error("received an undecodable message");
-    _mw_srbsendreject_sz(fd, "Expected SRB INIT?....", 0);
+    _mw_srbsendreject_sz(&pseudoconn, "Expected SRB INIT?....", 0);
     goto clean;
   };
-  _mw_srb_trace(SRB_TRACE_IN, fd, buffer, buflen);
+  _mw_srb_trace(SRB_TRACE_IN, &pseudoconn, buffer, buflen);
 
   cinfo->lastused = time(NULL);
 
@@ -157,14 +178,14 @@ void read_from_client(int fd, struct fd_info * cinfo)
       _mw_srb_setfield(&srbmsg_reply, SRB_VERSION, ver);
       _mw_srb_setfield(&srbmsg_reply, SRB_DOMAIN, gwinfo->domain);
       _mw_srb_setfield(&srbmsg_reply, SRB_INSTANCE, gwinfo->instance);
-      rc = _mw_srbsendmessage(fd, &srbmsg_reply);
+      rc = _mw_srbsendmessage(&pseudoconn, &srbmsg_reply);
     };
     _mw_srb_setfield(&srbmsg_reply, SRB_VERSION, SRBPROTOCOLVERSION);
     _mw_srb_delfield(&srbmsg_reply, SRB_DOMAIN);
     _mw_srb_delfield(&srbmsg_reply, SRB_INSTANCE);
     _mw_srb_setfield(&srbmsg_reply, SRB_AGENT, AGENT);
     _mw_srb_setfield(&srbmsg_reply, SRB_AGENTVERSION, RCSName);
-    rc = _mw_srbsendmessage(fd, &srbmsg_reply);
+    rc = _mw_srbsendmessage(&pseudoconn, &srbmsg_reply);
     
     return;
   };
@@ -172,12 +193,12 @@ void read_from_client(int fd, struct fd_info * cinfo)
   /* the only legal message now is SRB INIT */
   if (strcmp(srbmsg->command, SRB_INIT) != 0) {
     error("received a message with command %s not %s", srbmsg->command, SRB_INIT);
-    _mw_srbsendreject(fd, srbmsg, NULL, NULL, SRB_PROTO_NOINIT);
+    _mw_srbsendreject(&pseudoconn, srbmsg, NULL, NULL, SRB_PROTO_NOINIT);
     goto clean;
   };
   if (srbmsg->marker !=  SRB_REQUESTMARKER) {
     error("received a message with command %s but not a request", srbmsg->command);
-    _mw_srbsendreject(fd, srbmsg, NULL, NULL, SRB_PROTO_NOTREQUEST);
+    _mw_srbsendreject(&pseudoconn, srbmsg, NULL, NULL, SRB_PROTO_NOTREQUEST);
     goto clean;
   };
   
@@ -189,7 +210,7 @@ void read_from_client(int fd, struct fd_info * cinfo)
 
   if ( (instance == NULL)  && (domain == NULL) ){
     error("received a %s message without domain", srbmsg->command);
-    _mw_srbsendreject(fd, srbmsg, SRB_INSTANCE, NULL, SRB_PROTO_FIELDMISSING);
+    _mw_srbsendreject(&pseudoconn, srbmsg, SRB_INSTANCE, NULL, SRB_PROTO_FIELDMISSING);
     goto clean;
   };
   
@@ -200,11 +221,12 @@ void read_from_client(int fd, struct fd_info * cinfo)
   if (gwinfo == NULL) {
     error("client requested domain %s & instance %s, but not available", 
 	  domain?domain:"", instance?instance:"");     
-    _mw_srbsendreject(fd, srbmsg, NULL, NULL, SRB_PROTO_NOGATEWAY_AVAILABLE); 
+    _mw_srbsendreject(&pseudoconn, srbmsg, NULL, NULL, SRB_PROTO_NOGATEWAY_AVAILABLE); 
     goto clean; // do not disconnect here
   };
   
-  _mw_srb_trace(SRB_TRACE_OUT, gwinfo->fd, buffer, buflen);
+  pseudoconn.fd = gwinfo->fd;
+  _mw_srb_trace(SRB_TRACE_OUT, &pseudoconn, buffer, buflen);
 
   debug("about to send fd with SRB init to gw");
   // markfd(fd);
@@ -248,8 +270,9 @@ static void  do_udp_dgram(int sd)
   debug ("from socket %d, we got a message %s sender %s:%d (%d)", 
 	sd, buffer, addrbuf , ntohs(from.sin_port), fromlen);
 
+  pseudoconn.fd = sd;    
 
-  _mw_srb_trace(SRB_TRACE_IN, sd, buffer, rc);
+  _mw_srb_trace(SRB_TRACE_IN, &pseudoconn, buffer, rc);
   
   srbmsg_req = _mw_srbdecodemessage(buffer);
   if (srbmsg_req == NULL) {
@@ -264,11 +287,11 @@ static void  do_udp_dgram(int sd)
   };
 
   i = urlmapget(srbmsg_req->map, SRB_INSTANCE);
-  if (i == -1) instance == NULL;
+  if (i == -1) instance = NULL;
   else instance = srbmsg_req->map[i].value;
 
   i = urlmapget(srbmsg_req->map, SRB_DOMAIN);
-  if (i == -1) domain == NULL;
+  if (i == -1) domain = NULL;
   else domain = srbmsg_req->map[i].value;
 
   strcpy(srbmsg_reply.command, SRB_READY);
@@ -297,7 +320,8 @@ static void  do_udp_dgram(int sd)
 	    gwinfo->majorversion, gwinfo->minorversion, strerror(errno));
       continue;
     }
-    _mw_srb_trace(SRB_TRACE_OUT, sd, buffer, rc);
+
+    _mw_srb_trace(SRB_TRACE_OUT, &pseudoconn, buffer, rc);
     inet_ntop(AF_INET, &from.sin_addr, addrbuf, 100);
 
     debug ("from socket %d, we sending reply to sender %s:%d (%d)", 
@@ -315,6 +339,7 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
   int rc, len, inbuffer, n;
   SRBmessage * srbmsg;
 
+  pseudoconn.fd = fd;    
   len = read(fd, buffer, SRBMESSAGEMAXLEN);
 
   if (len < 0) {
@@ -342,9 +367,9 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
     close(fd);
     return;
   }
-
+  
   debug("read %d bytes of data", len);
-  _mw_srb_trace(SRB_TRACE_IN, fd, buffer, len);
+  _mw_srb_trace(SRB_TRACE_IN, &pseudoconn, buffer, len);
   
   /* now we may have prev incomplete data in gwindo, if so append the
      new buffer, and process. If not process from buffer */
@@ -368,6 +393,9 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
      realloc()s and memmoves would offset all perf gains. What we
      really want is a version of _mw_srbdecodemessage() that take an
      iovec as input. */
+
+  pseudoconn.fd = gwinfo->fd;    
+
   while(len != 0) {
     debug("beginning parse loop inbuffer=%s len=%d", inbuffer?"yes":"no", len);
     msgend = strstr(msg, "\r\n");
@@ -385,6 +413,8 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
 	memmove(msg, gwinfo->incomplete_mesg, len);
       return;
     };
+
+
     srbmsg = _mw_srbdecodemessage(buffer);
 
     if (srbmsg == NULL) {
@@ -402,14 +432,14 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
     if ((strcmp(srbmsg->command, SRB_READY) != 0) ||
 	(srbmsg->marker != SRB_NOTIFICATIONMARKER)) {
       error("Got an unecpected message from ...");
-      _mw_srbsendreject (gwinfo->fd, srbmsg, NULL, NULL, SRB_PROTO_UNEXPECTED);
+      _mw_srbsendreject (&pseudoconn, srbmsg, NULL, NULL, SRB_PROTO_UNEXPECTED);
       goto close_n_out;
     };
     
     n = urlmapget(srbmsg->map, SRB_DOMAIN);
     if ( n == -1) {
       error ("domain missing in SRB READY message");
-      _mw_srbsendreject (gwinfo->fd, srbmsg, SRB_DOMAIN, NULL, SRB_PROTO_FIELDMISSING);
+      _mw_srbsendreject (&pseudoconn, srbmsg, SRB_DOMAIN, NULL, SRB_PROTO_FIELDMISSING);
       goto close_n_out;
     };
     strncpy(gwinfo->domain, srbmsg->map[n].value, MWMAXNAMELEN);
@@ -417,7 +447,7 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
     n = urlmapget(srbmsg->map, SRB_INSTANCE);
     if ( n == -1) {
       error ("instance missing in SRB READY message");
-      _mw_srbsendreject (gwinfo->fd, srbmsg, SRB_INSTANCE, NULL, SRB_PROTO_FIELDMISSING);
+      _mw_srbsendreject (&pseudoconn, srbmsg, SRB_INSTANCE, NULL, SRB_PROTO_FIELDMISSING);
       goto close_n_out;
     };
     strncpy(gwinfo->instance, srbmsg->map[n].value, MWMAXNAMELEN);
@@ -426,7 +456,7 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
     n = urlmapget(srbmsg->map, SRB_VERSION);
     if ( n == -1) {
       error ("version missing in SRB READY message");
-      _mw_srbsendreject (gwinfo->fd, srbmsg, SRB_VERSION, NULL, SRB_PROTO_FIELDMISSING);
+      _mw_srbsendreject (&pseudoconn, srbmsg, SRB_VERSION, NULL, SRB_PROTO_FIELDMISSING);
       goto close_n_out;
     };
     rc = sscanf(srbmsg->map[n].value, "%d.%d", 
@@ -434,7 +464,7 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
 		&gwinfo->minorversion);
     if (rc != 2) {
       error ("wrong version (%s) in SRB READY message",srbmsg->map[n].value );
-      _mw_srbsendreject (gwinfo->fd, srbmsg, SRB_VERSION, NULL, SRB_PROTO_ILLEGALVALUE);
+      _mw_srbsendreject (&pseudoconn, srbmsg, SRB_VERSION, NULL, SRB_PROTO_ILLEGALVALUE);
       goto close_n_out;
     };
     info ("Instance %s provides domain %s, version %d.%d", 
@@ -605,7 +635,7 @@ int main(int argc, char ** argv)
 
   info("using multicast address %s", MCASTADDRESS_V4);
   _mw_setmcastaddr();
-  initmcast(udp_socket);
+  initmcast();
 
   /* signal OK startup */
   kill(parent, SIGUSR1);

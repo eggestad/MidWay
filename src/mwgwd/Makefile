@@ -8,7 +8,7 @@ LDFLAGS = -L../lib -L../liburlencode
 
 EXE = mwgwd
 
-OBJS = SRBprotocol.o connections.o tcpserver.o gateway.o store.o
+OBJS = SRBprotocolServer.o connections.o tcpserver.o gateway.o store.o
 
 all: $(EXE)
 
@@ -25,7 +25,7 @@ mwgwd: $(OBJS)
 store: store.c store.h 
 	 gcc -g -DMODULETEST -o store store.c -I../include -L../lib -L../liburlencode/ -lurlencode -lMidWay
 
-SRBprotocol.o: SRBprotocol.c tcpserver.h gateway.h ../include/SRBprotocol.h
+SRBprotocolServer.o: SRBprotocolServer.c tcpserver.h gateway.h ../include/SRBprotocol.h
 
 connections.o: connections.c
 

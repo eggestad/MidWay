@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.12  2002/10/06 23:58:35  eggestad
+ * _mw_get_services_byname() has a new prototype
+ *
  * Revision 1.11  2002/10/03 21:19:35  eggestad
  * - fix to prevent export of imported services (we still need to handle foreign domains later)
  * - impsetsvcid() needed GWID.
@@ -933,7 +936,7 @@ int gw_getcostofservice(char * service)
   int n = 0, cost = INT_MAX, idx, tmpcost;;
 
   svctbl = _mw_getserviceentry(0);
-  svclist = _mw_get_services_byname(service, 0);
+  svclist = _mw_get_services_byname(service, NULL, 0);
 
   DEBUG2("svctbl = %p, svclist = %p",svctbl,  svclist);
 

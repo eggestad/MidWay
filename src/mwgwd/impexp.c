@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.6  2002/10/06 23:58:35  eggestad
+ * _mw_get_services_byname() has a new prototype
+ *
  * Revision 1.5  2002/10/03 21:22:21  eggestad
  * - added debug dump functions of both imp and exp lists.
  * - changed beh so that a service is importet to IPC table for each peer, thus svcid++ moved from Import to _peerlink
@@ -441,7 +444,8 @@ void dounprovideevent(char * servicename)
 {
   SERVICEID * svclist;
 
-  svclist = _mw_get_services_byname(servicename, 0);
+  // TODO: we should have a more efficient function than this one */
+  svclist = _mw_get_services_byname(servicename, NULL, 0);
    
   if (svclist == NULL) unexportservice(servicename);
   else free(svclist);

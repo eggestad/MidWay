@@ -8,11 +8,12 @@ MDHOME = @top_srcdir@
 CC = @CC@
 INSTALL = @INSTALL@
 
-LIBS = -lMidWay -lm
+LIBS = -lMidWay -lm -lxml2
 
 CFLAGS = @CFLAGS@ -I../include -I../liburl 
 
-OBJS = mwd.o shmallocfmt.o requestparse.o tables.o watchdog.o
+OBJS = mwd.o shmallocfmt.o requestparse.o tables.o watchdog.o \
+	servermgr.o xmlconfig.o utils.o
 
 EXE = mwd
 

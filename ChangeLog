@@ -1,3 +1,7 @@
+2001-10-09  Terje Eggestad  <terje@localhost.localdomain>
+
+	* multicast was only sendt to localhost, now fixed
+
 2001-10-04  Terje Eggestad  <terje@localhost.localdomain>
 
 	* a lot of bugfixes, all memleaks in mwgwd now seem to be plugged.

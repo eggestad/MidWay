@@ -24,6 +24,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /* 
  * $Log$
+ * Revision 1.3  2001/10/09 11:05:47  eggestad
+ * Multicast was sendt only on loopbackdevice during attach
+ *
  * Revision 1.2  2001/10/05 14:34:19  eggestad
  * fixes or RH6.2
  *
@@ -70,8 +73,8 @@ int _mw_initmcast(int s)
   int rc;
 
   rc = setsockopt (s, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr, sizeof(struct ip_mreq));
-  mwlog(MWLOG_DEBUG1, "add membership returned %d errno =%d", rc, errno)
-;
+  mwlog(MWLOG_DEBUG1, "add membership returned %d errno =%d", rc, errno);
+
   rc = setsockopt (s, IPPROTO_IP, IP_MULTICAST_IF, &mr.imr_interface, 
 		   sizeof(struct in_addr));
   mwlog(MWLOG_DEBUG1, "add multicast_if returned %d errno =%d", rc, errno);
@@ -103,6 +106,9 @@ int _mw_sendmcastquery(int s, char * domain, char * instance)
   SRBmessage srbreq;
   char buffer[SRBMESSAGEMAXLEN];
   int rc, len;
+
+  rc =  _mw_setmcastaddr();
+  if (rc == -1) return rc;
 
   strcpy(srbreq.command, SRB_READY);
   srbreq.marker = SRB_REQUESTMARKER;

@@ -64,6 +64,8 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 
 * in the urlencode lib - when a empty value &name=& the = is required.
 
+* testnet to mwbd and send TERM!, mwbd replies with TERM~ missing init
+  before disconnecting
 
 -----------------------------------------------------------------------
 
@@ -146,6 +148,9 @@ REL: 0.10.1
 * memleak in mwd
 
 REL 0.11.0
+
+(FIXED) * multicast is sent to localhost only
+
 
 -----------------------------------------------------------------------
 

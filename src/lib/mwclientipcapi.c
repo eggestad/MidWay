@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2004/03/01 12:52:15  eggestad
+ * change in mwfetch() params
+ *
  * Revision 1.12  2003/12/11 14:18:03  eggestad
  * added mwlistsvc for IPC
  *
@@ -194,7 +197,7 @@ void _mw_doipcevents(void)
 
 
 
-int _mwfetch_ipcxx(int handle, char ** data, int * len, int * appreturncode, int flags) 
+int _mwfetch_ipcxx(int * handle, char ** data, int * len, int * appreturncode, int flags) 
 {
   int rc;
   char * tmpdata = NULL;

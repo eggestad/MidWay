@@ -152,7 +152,7 @@ extern "C" {
 	     char ** rdata, int * rlen, 
 	     int * appreturncode, int flags);
   int mwacall(char * svcname, char * data, int len, int flags);
-  int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags);
+  int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flags);
    
    /* return a list of service names matching glob. What plist points
       to shall be free'ed with a single free */

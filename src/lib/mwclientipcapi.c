@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/08/31 21:52:16  eggestad
+ * Top level API moved to mwclientapi.c.
+ *
  * Revision 1.2  2000/07/20 19:24:22  eggestad
  * CVS keywords were missing.
  *
@@ -58,28 +61,8 @@ static char * RCSName = "$Name$"; /* CVS TAG */
   Here we provide the "visible" library API, in the IPC only form.
   This is however limited to the client API, since the server API are 
   available in IPC only.
-  
-  This module is only linked in with ipc only lib.
-  IPC Only in libmw.c we provide the top level API version 
-  that do both IPC and TCP 
 
-  !!!!!!  well we just have to see about that. 
-  THere was a reason for this, but I think it was before I chose URI as adress format.
-
-  Also see documentation on linking
-  with IPC lib only, Network only, and with both libs.
 */
-
-/*
-  fastpath flag. This spesify weither programs are passed a copy
-  of the data passed thru shared memoery or a pointer to shared
-  memory directly.
-  (Does it need to be global??)
-*/
-int _mw_fastpath = 0;
-int _mw_attached = 0;
-
-static struct timeval deadline = {0, 0};
 
 
 int _mwattachipc(int type, char * name, int key)
@@ -88,79 +71,25 @@ int _mwattachipc(int type, char * name, int key)
   
   if (key <= 0) return -EINVAL;
 
+  mwlog(MWLOG_DEBUG3, "_mwattachipc: Attaching to IPC with key %d", key);
   rc = _mw_attach_ipc(key, type);
   if (rc != 0) return rc;
   
+  mwlog(MWLOG_DEBUG3, "_mwattachipc: Sending attach request to mwd type=d name = %s", type, name);
   return _mw_ipcsend_attach(type, name, 0);
 };
 
-/* should it take a struct as arg??, bust as well not, even in a struct, all
-   members must be init'ed.*/
-int mwattach(char * url, char * name, 
-	     char * username, char * password, int flags)
+int _mwdetachipc(void)
 {
-  FILE * proc;
-  int ipckey, type;
-  char buffer[256];
-  int rc;
-
-  /* if we're already connected .... */
-  rc = _mwsystemstate();
-  if (rc == 0) return -EISCONN;;
-  if (rc != 1) return rc;
-
-  errno = 0;
-  rc = _mwdecode_url(url);
-  if (_mwaddress.protocol == 0) {
-    mwlog(MWLOG_ERROR, "The URL %s is invalid, decode returned %d", url, rc);
-    return -EINVAL;
-  };
-
-  if (name == NULL) {
-    /* if on linux this works, else open fails 
-     * /proc/self/cmdline gives each cmdline param, \0 terminated.
-     */
-    proc = fopen("/proc/self/cmdline", "r");
-    if (proc == NULL) name = "Anonymous";
-    else {
-      fgets(buffer, 255, proc);
-      name = buffer;
-    };
-  };
-    
-  if ( (flags & MWSERVER) && (_mwaddress.protocol != MWSYSVIPC) ) {
-    mwlog(MWLOG_ERROR, "Attempting to attach as a server on a protocol other than IPC.");
-      return -EINVAL;
-  };
-
-  if (_mwaddress.protocol == MWSYSVIPC) {
-
-    type = 0;
-    if (flags & MWSERVER)       type |= MWIPCSERVER;
-    if (!(flags & MWNOTCLIENT)) type |= MWIPCCLIENT;
-    if ((type < 1) || (type > 3)) return -EINVAL;
-
-    mwlog(MWLOG_DEBUG, "attaching to IPC name=%s, IPCKEY=0x%x type=%#x", 
-	  name, _mwaddress.sysvipckey, type);
-    rc = _mwattachipc(type, name, _mwaddress.sysvipckey);
-    if (rc == 0) _mw_attached = 1;
-    return rc;
-  }
-
-  return -EINVAL;
-};
-
-int mwdetach()
-{
-  int rc;
-
   ipcmaininfo * ipcmain;
-  
-  /* If we're not attached */
+  int rc;
+
   ipcmain = _mw_ipcmaininfo(); 
   if (ipcmain == NULL) return 0;
-
+  
   rc = _mwsystemstate();
+  mwlog(MWLOG_DEBUG3, "_mwdetachipc: system is %s in shutdown", rc?"":"not");
+
   if (!rc) {
     errno = 0;
     rc = _mw_ipcsend_detach(0);
@@ -168,11 +97,8 @@ int mwdetach()
     rc = _mw_ipcsend_detach(1);
   };
   _mw_detach_ipc();
-  _mw_attached = 0;
-  return 0;
+  return 1;
 };
-
-
 /* This conclude the administrative calls.*/
 
 
@@ -193,12 +119,9 @@ int mwdetach()
 
 
 /* the now usuall fallback incase libmw.c are not before in the link path */
-int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags) 
+int _mwfetch_ipc(int handle, char ** data, int * len, int * appreturncode, int flags) 
 {
   int rc;
-
-  if ( (data == NULL) || (len == NULL) || (appreturncode == NULL) )
-    return -EINVAL;
 
   rc = _mwsystemstate();
   if (rc) return rc;
@@ -208,90 +131,12 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
 /* the usuall IPC only API, except that mwcall() is implemeted
    entierly here. Reemeber to do the same in lwbmw.c and TCP imp.
 */
-int mwacall(char * svcname, char * data, int datalen, int flags) 
+int _mwacall_ipc(char * svcname, char * data, int datalen, int flags) 
 {
   int rc;
   
   rc = _mwsystemstate();
   if (rc) return rc;
 
-  /* input sanyty checking, everywhere else we depend on params to be sane. */
-  if ( (data == NULL ) || (datalen < 0) || (svcname == NULL) ) 
-    return -EINVAL;
-
-  /* clen may be zero if data is null terminated */
-  if (datalen == 0) datalen = strlen(data);
-  
   return _mwacallipc (svcname, data, datalen, &deadline, flags);
 }
-
-int mwcall(char * svcname, 
-	   char * cdata, int clen, 
-	   char ** rdata, int * rlen, 
-	   int * appreturncode, int flags)
-{
-  int hdl;
-  mwsvcinfo * si;
-  int rc;
-  
-  rc = _mwsystemstate();
-  if (rc) return rc;
-
-  /* input sanyty checking, everywhere else we depend on params to be sane. */
-  if ( (cdata == NULL ) || (clen < 0) || (svcname == NULL) ) 
-    return -EINVAL;
-  if  ( !(flags & MWNOREPLY) && ((rlen == NULL) || (rdata == NULL)))
-    return -EINVAL; 
-
-  /* clen may be zero if data is null terminated */
-  if (clen == 0) clen = strlen(cdata);
-
-  hdl = _mwacallipc (svcname, cdata, clen, &deadline, flags);
-  if (hdl < 0) return hdl;
-  hdl = _mwfetchipc ( hdl, rdata, rlen, appreturncode, flags);
-  return hdl;
-};
-
-/* TRANSACTIONAL API
-   these calls are currently here only to set a deadline.
-   (the MWNOTRAN flags is implied. Should we require it?)
-*/
-int mwbegin(float fsec, int flags)
-{
-  struct timeval now;
-  float s, ss;
-  
-  errno = 0;
-  if (fsec <= 0) return -EINVAL;
-
-  gettimeofday(&now, NULL);
-  s = fabs(fsec);
-  ss = fsec - s;
-  
-  deadline.tv_sec = now.tv_sec + (int) s;
-  deadline.tv_usec = now.tv_usec + (int) (ss * 1000000); /*micro secs*/
-  return 0;
-};
-
-int mwcommit()
-{
-  deadline.tv_sec = 0;
-  deadline.tv_usec = 0;
-};
-
-int mwabort()
-{
-  deadline.tv_sec = 0;
-  deadline.tv_usec = 0;
-};
-
-/* for IPC we use shmalloc. For network we use std malloc */
-void * mwalloc(int size) {
-  return _mwalloc(size);
-};
-void * mwrealloc(void * adr, int newsize) {
-  return _mwrealloc(adr, newsize);
-};
-int mwfree(void * adr) {
-  return _mwfree( adr);
-};

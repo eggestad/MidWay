@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.25  2004/11/17 20:50:52  eggestad
+ * added function  _mwid2str helper for debugging
+ *
  * Revision 1.24  2004/08/11 20:28:42  eggestad
  * changed loglevel env var name
  *
@@ -351,6 +354,41 @@ int _mwstr2loglevel(char * arg)
    };
    return loglevel;
 };
+
+static char strbuf[64];
+char * _mwid2str(MWID id, char * buffer)
+{
+   int idx;
+   if (!buffer) buffer = strbuf;
+
+   if ( (idx=SRVID2IDX(id)) != UNASSIGNED) {
+      sprintf(buffer, "SRV:%d", idx);
+      return buffer;
+   } 
+
+   if ( (idx=GWID2IDX(id)) != UNASSIGNED) {
+      sprintf(buffer, "GW:%d", idx);
+      return buffer;
+   } 
+
+   if ( (idx=SVCID2IDX(id)) != UNASSIGNED) {
+      sprintf(buffer, "SVC:%d", idx);
+      return buffer;
+   } 
+
+   if ( (idx=CLTID2IDX(id)) != UNASSIGNED) {
+      sprintf(buffer, "CLT:%d", idx);
+      return buffer;
+   } 
+
+   if (id == UNASSIGNED) {
+      sprintf(buffer, "UNASSIGNED");
+      return buffer;
+   } 
+   
+   sprintf(buffer, "ERROR:%#x", id);
+   return buffer;
+} 
 
 void mwlog(int level, char * format, ...)
 {

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2004/04/12 23:05:24  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.7  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -110,7 +113,7 @@ static int formatfreelist(int iStart, int basechunksize,
     pCFoot->next = iCHead + (iCSize + CHUNKOVERHEAD);
     pCFoot->prev = iCHead - (iCSize + CHUNKOVERHEAD);
     
-    DEBUG2("chunk %d: %d octes at %#x footer at %#x next at %#x prev at %#x", 
+    DEBUG2("chunk %d: %d octes at %p footer at %p next at %#x prev at %#x", 
 	  i, pCHead->size * _mwHeapInfo->basechunksize,  pCHead, pCFoot, pCFoot->next, pCFoot->prev);
 
   }
@@ -118,13 +121,13 @@ static int formatfreelist(int iStart, int basechunksize,
   pCHead = _mwoffset2adr(iStart);
   pCFoot = _mwfooter(pCHead);
   pCFoot->prev = iStart + (chunks-1) * (iCSize + CHUNKOVERHEAD);
-  DEBUG1("correcting first chunk at 0x%x next at 0x%x prev at 0x%x", 
+  DEBUG1("correcting first chunk at %p next at %d prev at %d", 
 	pCHead, pCFoot->next, pCFoot->prev);
       
   pCHead = _mwoffset2adr(pCFoot->prev);
   pCFoot = _mwfooter(pCHead);
   pCFoot->next = iStart;
-  DEBUG1("correcting last chunk at 0x%x next at 0x%x prev at 0x%x", 
+  DEBUG1("correcting last chunk at %p next at %d prev at %d", 
 	pCHead, pCFoot->next, pCFoot->prev);
 
   return iStart + (chunks) * (iCSize + CHUNKOVERHEAD);;
@@ -173,7 +176,7 @@ int shmb_format(int mode, long chunksize, long chunkspersize)
     return -1;
   };
   
-  DEBUG("Shared memory seg %d attached at 0x%x size %d ends at 0x%x",
+  DEBUG("Shared memory seg %d attached at %p size %d ends at %p",
 	  segmentid,pSegmentStart, segmentsize, pSegmentStart+segmentsize);
 
   /* now we have a attached shm segment, formating... */

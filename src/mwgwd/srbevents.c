@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2004/04/12 23:05:25  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.1  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -266,7 +269,7 @@ void do_srb_event_dispatch(Event * ev)
       if (rc == 0) {
 	 _mw_srb_setfieldi(&srbmsg, SRB_SUBSCRIPTIONID, ev->subscriptionid);
 	 rc = _mw_srbsendmessage(p->conn, &srbmsg);
-	 DEBUG ("sent event to %s rc=%d", p->conn->peeraddr_string);
+	 DEBUG ("sent event to %s rc=%d", p->conn->peeraddr_string, rc);
       };
       p = p->next;      
    };

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.24  2004/04/12 23:05:25  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.23  2004/04/08 10:34:06  eggestad
  * introduced a struct with pointers to the functions implementing the midway functions
  * for a given protocol.
@@ -428,13 +431,13 @@ static void do_svcreply(Call * cmsg, int len)
   DEBUG("fetching SRB map from store for %#x handle = %x", mwid, cmsg->handle);
   if (cmsg->returncode == MWMORE) {
     rc = storeGetCall(mwid, cmsg->handle, &fd, &srbmsg.map);
-    DEBUG2("storeGetCall returned %d, address of old map is %#x", 
+    DEBUG2("storeGetCall returned %d, address of old map is %p", 
 	   rc, srbmsg.map);
     srbmsg.map = urlmapdup(srbmsg.map);
-    DEBUG2("dup map: new map at %#x", srbmsg.map);
+    DEBUG2("dup map: new map at %p", srbmsg.map);
   } else {
     rc = storePopCall(mwid, cmsg->handle, &fd, &srbmsg.map);
-    DEBUG2("storePopCall returned %d, address of old map is %#x", 
+    DEBUG2("storePopCall returned %d, address of old map is %p", 
 	   rc, srbmsg.map);
   };
   storeUnLockCall();
@@ -755,7 +758,7 @@ Connection * gwlocalclient(CLIENTID cid)
   };
 
   if (ce->gwid !=  _mw_get_my_gatewayid()) {
-    DEBUG2(" client %d is handeled by GWID %d, which is not us", GWID2IDX(ce->gwid));
+    DEBUG2(" client %d is handeled by GWID %d, which is not us", CLTID2IDX(cid), GWID2IDX(ce->gwid));
     return NULL; 
   };
 
@@ -1163,7 +1166,7 @@ void gw_provideservice_to_peers(char * service)
    for (i = 0; i < GWcount; i++) {
       pi = & GWENTRY(i);
       if (pi->conn == NULL) {
-	 DEBUG(" peer %d is not connected");
+	 DEBUG(" peer %d is not connected", i);
 	 continue;
       };
 
@@ -1189,7 +1192,7 @@ void gw_send_to_peers(SRBmessage * srbmsg)
    for (i = 0; i < GWcount; i++) {
       pi = & GWENTRY(i);
       if (pi->conn == NULL) {
-	 DEBUG(" peer %d is not connected");
+	 DEBUG(" peer %d is not connected", i);
 	 continue;
       };
 

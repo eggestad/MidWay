@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.18  2004/04/12 23:05:24  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.17  2004/03/01 14:09:31  eggestad
  * serviceinfo struct (mwsvcinfo) expanded with username, clientname and authentication method
  *
@@ -310,7 +313,7 @@ int mwunprovide(char * service)
   rc = _mw_ipc_unprovide(service,  svcid);
   _mw_popservice(svcid);
   provided--;
-  DEBUG1("mwunprovide() returned %d");
+  DEBUG1("mwunprovide() returned %d", rc);
   return rc;
 }
 
@@ -639,7 +642,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
 	   "%d milliseconds, replying ETIME", 
 	   -rc);
     
-    DEBUG1("issued %d.%d timeout %d now %d.%d deadline %d.%d",
+    DEBUG1("issued %ld.%d timeout %d now %ld.%ld deadline %ld.%d",
 	  callmesg->issued, callmesg->uissued, callmesg->timeout,
 	  starttv.tv_sec ,  starttv.tv_usec, 
 	  svcreqinfo->deadline, svcreqinfo->udeadline);
@@ -749,7 +752,7 @@ int mwservicerequest(int flags)
   /* it will return on failure or interrupt.
      if noblovking return, with errno, else do a recurive call until success.
   */
-  DEBUG1("mwGetServiceRequest(%#x) returned %#X with errno = %d", 
+  DEBUG1("mwGetServiceRequest(%#x) returned %p with errno = %d", 
 	flags, svcinfo, errno);
   
   /*  if (svcinfo == NULL && (flags & MWNOBLOCK)) return -errno; */

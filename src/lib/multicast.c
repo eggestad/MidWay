@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.10  2004/04/12 23:05:24  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.9  2004/02/21 15:15:35  eggestad
  * multicast flag
  *
@@ -255,7 +258,7 @@ int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
   
   tv.tv_sec = (int) timeout;
   tv.tv_usec  = ( timeout - ((float) tv.tv_sec)) * 1000000;
-  DEBUG1("waiting for udp packet on %d for %d.%d (%f) secs", 
+  DEBUG1("waiting for udp packet on %d for %ld.%ld (%f) secs", 
 	s, tv.tv_sec, tv.tv_usec, timeout);
 
   n = select(s+1, &rfdset, NULL, NULL, &tv);

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.21  2004/04/12 23:05:24  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.20  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -580,11 +583,11 @@ static void srbcall_rpl(Connection * conn, SRBmessage * srbmsg)
       storeLockCall();
       if (cmsg.returncode == MWMORE) {
 	rc = storeGetCall(mwid, cmsg.handle, NULL, &srborigmsg.map);
-	DEBUG2("storeGetCall returned %d, address of old map is %#x", 
+	DEBUG2("storeGetCall returned %d, address of old map is %p", 
 	       rc, srborigmsg.map);
       } else {
 	rc = storePopCall(mwid, cmsg.handle, NULL, &srborigmsg.map);
-	DEBUG2("storePopCall returned %d, address of old map is %#x", 
+	DEBUG2("storePopCall returned %d, address of old map is %p", 
 	       rc, srborigmsg.map);
 	freemap = 1;
       };
@@ -1423,7 +1426,7 @@ int _mw_srbsendgwinit(Connection * conn)
     _mw_srb_setfield (&srbmsg, SRB_AUTHENTICATION, SRB_AUTH_PASS);
     _mw_srb_setfield(&srbmsg, SRB_PASSWORD, peerinfo->password);
   } else {
-    DEBUG("connecting with no authentication", peerinfo->password);
+    DEBUG("connecting with no authentication");
     _mw_srb_setfield (&srbmsg, SRB_AUTHENTICATION, SRB_AUTH_NONE);
   };
 

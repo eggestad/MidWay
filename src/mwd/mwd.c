@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.19  2004/04/12 23:05:24  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.18  2004/04/08 10:34:06  eggestad
  * introduced a struct with pointers to the functions implementing the midway functions
  * for a given protocol.
@@ -475,7 +478,7 @@ create_ipc(int mode)
 	  mainid, strerror(errno));
     return -errno;
   };
-  DEBUG("main shm info table attached at 0x%x",ipcmain);
+  DEBUG("main shm info table attached at %p",ipcmain);
 
   /* 
    * attaching all the other tables 
@@ -489,7 +492,7 @@ create_ipc(int mode)
     return -errno;
   };
   clttbl = (cliententry *) shmat(ipcmain->clttbl_ipcid, NULL, 0);
-  DEBUG("client table id=%d attached at 0x%x", 
+  DEBUG("client table id=%d attached at %p", 
 	ipcmain->clttbl_ipcid,clttbl);
   
   /*** SERVER TABLE ***/
@@ -501,7 +504,7 @@ create_ipc(int mode)
     return -errno;
   };
   srvtbl = (serverentry *) shmat(ipcmain->srvtbl_ipcid, (void *) 0, 0);
-  DEBUG("Server table id=%d attached at 0x%x",
+  DEBUG("Server table id=%d attached at %p",
 	ipcmain->srvtbl_ipcid ,srvtbl);
 
   /*** SERVICE TABLE ***/
@@ -513,7 +516,7 @@ create_ipc(int mode)
     return -errno;
   };
   svctbl = (serviceentry *) shmat(ipcmain->svctbl_ipcid, (void *) 0, 0);
-  DEBUG("service table id=%d attached at 0x%x",
+  DEBUG("service table id=%d attached at %p",
 	ipcmain->svctbl_ipcid, svctbl);
 
   /*** GATEWAYS TABLE ***/
@@ -525,7 +528,7 @@ create_ipc(int mode)
     return -errno;
   };
   gwtbl = (gatewayentry *) shmat(ipcmain->gwtbl_ipcid, (void *) 0, 0);
-  DEBUG("gateway table id=%d attached at 0x%x",
+  DEBUG("gateway table id=%d attached at %p",
 	ipcmain->gwtbl_ipcid, gwtbl);
 
   /*** CONVERSATIONS TABLE ***/
@@ -537,7 +540,7 @@ create_ipc(int mode)
     return -errno;
   };
   convtbl = (conv_entry *) shmat(ipcmain->convtbl_ipcid, (void *) 0, 0);
-  DEBUG("convserver table attached at 0x%x",convtbl);
+  DEBUG("convserver table attached at %p",convtbl);
 
   /*** SHARED MEMORY DATA BUFFERS ***/
   ipcmain->heap_ipcid = shmb_format(heapmode, bufferbasesize, numbuffers);

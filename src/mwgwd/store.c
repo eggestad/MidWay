@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.8  2004/04/12 23:05:25  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.7  2003/03/16 23:50:24  eggestad
  * Major fixups
  *
@@ -113,7 +116,7 @@ void storePushCall(MWID mwid, int nethandle, int fd, urlmap *map)
 {
   struct PendingCall * PCtmp;
 
-  DEBUG2("Pushing PendingCall id=%#x, handle=%u fd=%d, map @ %#x", 
+  DEBUG2("Pushing PendingCall id=%#x, handle=%u fd=%d, map @ %p", 
 	mwid, nethandle, fd, map);
   PCtmp = freePendingCall();
   PCtmp->fd = fd;

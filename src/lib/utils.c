@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.7  2004/04/12 23:05:24  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.6  2003/07/13 20:38:03  eggestad
  * robustness fixes.
  *
@@ -126,7 +129,7 @@ void _mw_setrealtimer(long long usecs)
   itv.it_value.tv_sec = usecs / (long) 1e6;
   itv.it_value.tv_usec = usecs % (long) 1e6;
 
-  DEBUG1("usecs = %lld tv = { %d . %d }", usecs, 
+  DEBUG1("usecs = %lld tv = { %ld . %ld }", usecs, 
 	itv.it_value.tv_sec, itv.it_value.tv_usec);
 
   rc = setitimer(ITIMER_REAL,  &itv, NULL);

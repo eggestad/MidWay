@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.3  2004/04/12 23:05:24  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.2  2003/04/25 13:04:20  eggestad
  * - fixes to task API
  *
@@ -236,7 +239,7 @@ int mwdotasks(void)
 	if (t->interval < 0) {
 	   t->state = TASK_SUSP;
 	   t->nextsched = 0;
-	   DEBUG1("task complete suspending, runnable %d", t->nextsched, runnable);
+	   DEBUG1("task complete suspending, runnable %d", runnable);
 	} else {	   
 	   t->state = TASK_WAIT;
 	   t->nextsched = _mw_llgtod() + t->interval;

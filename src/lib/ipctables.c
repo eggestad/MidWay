@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.20  2004/04/12 23:05:24  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.19  2004/04/08 10:34:06  eggestad
  * introduced a struct with pointers to the functions implementing the midway functions
  * for a given protocol.
@@ -177,7 +180,7 @@ int _mw_attach_ipc(key_t key, int type)
     /* MUTEX END */
     return -errno;
   };
-  DEBUG1("main shm info table attached at 0x%x",ipcmain);
+  DEBUG1("main shm info table attached at %p",ipcmain);
 
 
   /* attaching all the other tables */
@@ -188,7 +191,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->clttbl_ipcid, strerror(errno));
     return -errno;
   };
-  DEBUG1("client table attached at 0x%x",clttbl);
+  DEBUG1("client table attached at %p",clttbl);
   
   srvtbl = shmat(ipcmain->srvtbl_ipcid, NULL, readonly);
   if (srvtbl == (void *) -1) {
@@ -196,7 +199,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->srvtbl_ipcid, strerror(errno));
     return -errno;
   };
-  DEBUG1("Server table attached at 0x%x",srvtbl);
+  DEBUG1("Server table attached at %p",srvtbl);
   
   svctbl = shmat(ipcmain->svctbl_ipcid, NULL, readonly);
   if (svctbl == (void *) -1) {
@@ -204,7 +207,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->svctbl_ipcid, strerror(errno));
     return -errno;
   };
-  DEBUG1("service table attached at 0x%x",svctbl);
+  DEBUG1("service table attached at %p",svctbl);
   
   gwtbl = shmat(ipcmain->gwtbl_ipcid, NULL, readonly);
   if (gwtbl == (void *) -1) {
@@ -212,7 +215,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->gwtbl_ipcid, strerror(errno));
     return -errno;
   };
-  DEBUG1("gateway table attached at 0x%x",gwtbl);
+  DEBUG1("gateway table attached at %p",gwtbl);
   
   convtbl = shmat(ipcmain->convtbl_ipcid, NULL, readonly);
   if (convtbl == (void *) -1) {
@@ -220,7 +223,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->convtbl_ipcid, strerror(errno));
     return -errno;
   };
-  DEBUG1("convserver table attached at 0x%x",convtbl);
+  DEBUG1("convserver table attached at %p",convtbl);
 
   my_mqid = msgget(IPC_PRIVATE, 0622); /* perm = rw--w--w- */ 
   if (my_mqid == -1) {
@@ -272,7 +275,7 @@ int _mw_my_mqid()
 int _mw_mwd_mqid()
 {
   if (ipcmain == NULL) return -EILSEQ;
-  DEBUG1("lookup of mwd msgqid gave %d from ipcmain at 0x%x", 
+  DEBUG1("lookup of mwd msgqid gave %d from ipcmain at %p", 
 	ipcmain->mwd_mqid, ipcmain);
   return ipcmain->mwd_mqid;
 };
@@ -895,7 +898,7 @@ int _mw_get_mqid_by_mwid(int dest)
    * should we clean up on error?
 */
 
-int _mwsystemstate()
+int _mwsystemstate(void)
 {
   int rc; 
 

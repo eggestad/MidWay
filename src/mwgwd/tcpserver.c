@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.18  2004/04/12 23:05:25  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.17  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -100,6 +103,7 @@
 #include "gateway.h"
 #include "connections.h"
 #include "broker.h"
+#include "srbevents.h"
 
 static char * RCSId UNUSED = "$Id$";
 
@@ -304,7 +308,6 @@ void tcpcloseall(void)
 
 static void gwreadmessage(Connection * conn)
 {
-  int i, n, end, start = 0;
   SRBmessage * srbmsg;
 
   if (conn == NULL) return;
@@ -470,7 +473,7 @@ void timer_task(void)
   char t[16];
   int fd;
 
-  DEBUG("vvvvvvvvvv starting timer task %d secs after timeout", time(NULL) - timeout);
+  DEBUG("vvvvvvvvvv starting timer task %ld secs after timeout", time(NULL) - timeout);
   if (globals.mydomain && globals.myinstance) {
     /* reconnect broker */
     if (reconnect_broker) {
@@ -492,7 +495,7 @@ void timer_task(void)
 
   timeout = time(NULL) + TASK_INTERVAL;
   strftime ( t, 16, "%T", localtime(&timeout));
-  DEBUG("^^^^^^^^^^ ending timer task, next at %s (%d now %d)", t, timeout, time(NULL));
+  DEBUG("^^^^^^^^^^ ending timer task, next at %s (%ld now %ld)", t, timeout, time(NULL));
 
 };
 
@@ -500,7 +503,7 @@ void timer_task(void)
 /* the main loop, here we select on all sockets and issue actions. */
 void * tcpservermainloop(void * param)
 {
-  int fd, cond, rc;
+  int cond, rc;
   Connection * conn;
   char * penv;
 

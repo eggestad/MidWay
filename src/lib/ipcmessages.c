@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.30  2004/04/12 23:05:24  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.29  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -427,7 +430,7 @@ void  _mw_dumpmesg(void * mesg)
   case DETACHREQ:
   case DETACHRPL:
     am = (Attach * ) mesg;
-    DEBUG1("%s MESSAGE: %#x\n\
+    DEBUG1("%s MESSAGE: %#lx\n\
           int         ipcqid             =  %d\n\
           pid_t       pid                =  %d\n\
           int         server             =  %d\n\
@@ -450,7 +453,7 @@ void  _mw_dumpmesg(void * mesg)
   case UNPROVIDEREQ:
   case UNPROVIDERPL:
     pm = (Provide * ) mesg;
-    DEBUG1("%s MESSAGE: %#x\n\
+    DEBUG1("%s MESSAGE: %#lx\n\
           SERVERID    srvid              =  %#x\n\
           SERVICEID   svcid              =  %#x\n\
           GATEWAYID    gwid              =  %#x\n\
@@ -465,7 +468,7 @@ void  _mw_dumpmesg(void * mesg)
   case SVCFORWARD:
   case SVCREPLY:
     rm = (Call * )  mesg;
-    DEBUG1("%s MESSAGE: %#x\n\
+    DEBUG1("%s MESSAGE: %#lx\n\
           int         handle             = %d\n\
           CLIENTID    cltid              = %#x\n\
           SERVERID    srvid              = %#x\n\
@@ -475,7 +478,7 @@ void  _mw_dumpmesg(void * mesg)
           int         forwardcount       = %d\n\
           char        service            = %.32s\n\
           char        origservice        = %.32s\n\
-          time_t      issued             = %d\n\
+          time_t      issued             = %ld\n\
           int         uissued            = %d\n\
           int         timeout            = %d\n\
           int         data               = %d \"%s\"\n\
@@ -498,7 +501,7 @@ void  _mw_dumpmesg(void * mesg)
   case EVENT:
   case EVENTACK:
     ev = (Event *) mesg;
-    DEBUG1("%s MESSAGE: %#x\n"
+    DEBUG1("%s MESSAGE: %#lx\n"
 	   "          event                          = %.64s\n"
 	   "          MWID        eventid            = %#x\n"
 	   "          MWID        subscriptionid     = %d\n"
@@ -533,7 +536,7 @@ void  _mw_dumpmesg(void * mesg)
   case EVENTUNSUBSCRIBEREQ:
   case EVENTUNSUBSCRIBERPL:
     ev = (Event *) mesg;
-    DEBUG1("%s MESSAGE: %#x\n"
+    DEBUG1("%s MESSAGE: %#lx\n"
 	   " event                          = %.64s\n"
 	   " MWID        subscriptionid     = %d\n"
 	   " MWID        senderid           = %#x\n"
@@ -560,7 +563,7 @@ void  _mw_dumpmesg(void * mesg)
     return;
 
   default:
-    DEBUG1("Unknown message type %#X ", (long *) mesg);
+    DEBUG1("Unknown message type %#lx ", * (long *) mesg);
     return;
   };
   
@@ -920,11 +923,11 @@ SERVICEID _mw_ipc_provide(char * servicename, int flags)
   rc = _mw_ipc_getmessage((char *) &providemesg, &len, PROVIDERPL, 0);
   /* MUTEX END */
   if (rc == -1) {
-    Error(	   "Failed to get a reply to a provide request error %d(%s)", 
+    Error("Failed to get a reply to a provide request error %d(%s)", 
 	   errno, strerror(errno));
     return -error;
   };
-  DEBUG1("Received a provide reply with service id %d and rcode %d",
+  DEBUG1("Received a provide reply with service id %x and rcode %d",
 	providemesg.srvid, providemesg.returncode);
 
   if (providemesg.svcid < 0) return providemesg.returncode;
@@ -969,7 +972,7 @@ int _mw_ipcsend_unprovide_for_id(MWID mwid, char * servicename,  SERVICEID svcid
     Error("mwunprovide() failed with rc=%d",rc);
     return rc;
   };
-  DEBUG1("mwunprovide() sent request for unprovide %s with serviceid=%d to mwd", 
+  DEBUG1("sent request for unprovide %s with serviceid=%x to mwd", 
 	servicename, SVCID2IDX(svcid));
 
   return rc;
@@ -984,7 +987,7 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid)
 
   len = MWMSGMAX;
   rc = _mw_ipc_getmessage((char *) &unprovidemesg, &len, UNPROVIDERPL, 0);
-  DEBUG1("mwunprovide() got reply for unprovide %s with rcode=%d serviceid = %d(rc=%d)", 
+  DEBUG1("got reply for unprovide %s with rcode=%d serviceid = %x (rc=%d)", 
 	servicename, unprovidemesg.returncode, svcid, rc);
   
   return unprovidemesg.returncode;
@@ -1014,7 +1017,7 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   TIMEPEG();
 
   DEBUG1("BEGIN: (svcname=%s, data=%p, datalen=%d, flags=%#x, mwid=%#x, instance=%s, domain=%s, "
-	 "callerid=%ld, hops=%d", svcname, data, datalen, flags, mwid, 
+	 "callerid=%d, hops=%d", svcname, data, datalen, flags, mwid, 
 	 instance?instance:"(NULL)", domain?domain:"(NULL)", callerid, hops);
 
   memset (&callmesg, '\0', sizeof(Call));
@@ -1031,8 +1034,8 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
     /* we should maybe say that a few ms before a deadline, we call it expired? */
     if (timeleft <= 0.0) {
       /* we've already timed out */
-      DEBUG1("call to %s was made %d ms after deadline had expired", 
-	    timeleft, svcname);
+      DEBUG1("call to %s was made %f ms after deadline had expired", 
+	    svcname, timeleft);
       return -ETIME;
     };
     /* timeout is here in ms */
@@ -1237,7 +1240,7 @@ int _mwfetchipc (int * hdl, char ** data, int * len, int * appreturncode, int fl
   };
   
   /* we now have the requested reply */
-  DEBUG1("Got a message of type %#x handle %d ", 
+  DEBUG1("Got a message of type %#lx handle %d ", 
 	callmesg->mtype, callmesg->handle);
   /* Retriving info from the message 
      If fastpath we return pointers to the shm area, 

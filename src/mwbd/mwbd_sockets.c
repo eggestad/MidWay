@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.9  2004/04/12 23:05:24  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.8  2003/06/12 07:24:00  eggestad
  * comment fixup
  *
@@ -481,7 +484,7 @@ void client_clean(void)
   now = time(NULL);
  restart:
   for (cfi = client_root; cfi != NULL; cfi = cfi->next) {
-    DEBUG("checking if fd=%d has exired %d < %d", fd, cfi->lastused,  now - 10);
+    DEBUG("checking if fd=%d has exired %ld < %d", fd, cfi->lastused,  now - 10);
     if (cfi->lastused < now - 10) {
       fd = cfi->fd;
       Info("closing client withfd=%d due to timeout", fd);
@@ -519,7 +522,7 @@ int waitdata(int * fd, int * operation)
   to.tv_sec = 30;
   to.tv_usec = 0;
   errno = 0;
-  DEBUG( "about to select(%d, , , , %d.%d) ", maxfd, to.tv_sec, to.tv_usec);
+  DEBUG( "about to select(%d, , , , %ld.%ld) ", maxfd, to.tv_sec, to.tv_usec);
   {
     char line[256];
     int i, len = 0;

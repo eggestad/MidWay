@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.14  2004/04/12 23:05:25  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.13  2003/06/12 07:36:51  eggestad
  * fix in impcleanuppeer()
  *
@@ -150,7 +153,7 @@ void impsetsvcid(char * service, SERVICEID svcid, GATEWAYID gwid)
 
   imp = impfind(service);
   if (imp) {
-    DEBUG("imported service %s from gwid has serviceid %d", 
+    DEBUG("imported service %s from gwid %d has serviceid %d", 
 	  service, GWID2IDX(gwid), SVCID2IDX(svcid));
 
     for (pl = imp->peerlist; pl != NULL; pl = pl->next) {
@@ -161,7 +164,7 @@ void impsetsvcid(char * service, SERVICEID svcid, GATEWAYID gwid)
     };
   } 
 
-  DEBUG("Apparently the peer unprovided %s before mwd replied with svcid, sending unprovide to mwd");
+  DEBUG("Apparently the peer unprovided %s before mwd replied with svcid, sending unprovide to mwd", service);
   _mw_ipcsend_unprovide_for_id (gwid, service, 0);
 
  out:
@@ -478,7 +481,7 @@ int exportservicetopeer(char * service, struct gwpeerinfo * peerinfo)
 	return -1;
       };
     } else {
-      DEBUG("peer %s is remotedomain id", peerinfo->conn->peeraddr_string, peerinfo->domainid);
+      DEBUG("peer %s is remotedomain id %d", peerinfo->conn->peeraddr_string, peerinfo->domainid);
       return -1;
     };
 

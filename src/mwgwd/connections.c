@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.22  2004/04/12 23:05:25  eggestad
+ * debug format fixes (wrong format string and missing args)
+ *
  * Revision 1.21  2003/09/25 19:36:17  eggestad
  * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
  * - also improved logic in blocking/nonblocking of reading on Connection objects
@@ -462,7 +465,6 @@ Connection * conn_getfirstgateway(void)
 void conn_setpeername (Connection * conn)
 {
   char ipadr[128], * ipname;
-  struct hostent *hent ;
   char * role = "unknown";
   int len, family, rc, id = UNASSIGNED, port;
   cliententry * cltent = NULL;
@@ -911,7 +913,7 @@ int conn_select(Connection ** pconn, int * cause, time_t deadline)
     
     /* if already expired */
     if (deadline <= now) {
-      DEBUG("deadline expired (%d <= %d)", deadline, now);    
+      DEBUG("deadline expired (%ld <= %d)", deadline, now);    
       return -ETIME;;
     };
 
@@ -940,7 +942,7 @@ int conn_select(Connection ** pconn, int * cause, time_t deadline)
     copy_fd_set(&rfds, &sockettable, maxsocket); 
     copy_fd_set(&errfds, &sockettable, maxsocket);
   
-    DEBUG2("about to select() timeout = %d", 
+    DEBUG2("about to select() timeout = %ld", 
 	  deadline==-1?deadline:tv.tv_sec);    
 
 #ifdef DEBUGGING

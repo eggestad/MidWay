@@ -43,17 +43,19 @@ sed s+${RPM_BUILD_ROOT}++g ${RPM_BUILD_ROOT}/usr/sbin/midway.rc > ${RPM_BUILD_RO
 rm -rf $RPM_BUILD_ROOT
 
 %post 
-ln -s /usr/lib/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@ /usr/lib/libMidWay.so.@MAJOR_VERSION@
+ln -sf /usr/lib/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@ /usr/lib/libMidWay.so.@MAJOR_VERSION@
 chkconfig --add mwbd
-service mwbd start
+service mwbd restart
 
 %preun
+if [ 0 == $1 ]; then
 service mwbd stop
 chkconfig --del mwbd
 rm -f /usr/lib/libMidWay.so.@MAJOR_VERSION@
+fi
 
 %post devel
-ln -s /usr/lib/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@ /usr/lib/libMidWay.so
+ln -sf /usr/lib/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@ /usr/lib/libMidWay.so
 
 %preun devel 
 rm -f /usr/lib/libMidWay.so

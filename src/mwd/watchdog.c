@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2003/06/12 07:29:19  eggestad
+ * - sighandlers are now private
+ * - added MWD_WATCHDOG_INTERVAL env
+ * - added trigger_watchdog() func for srvmgr
+ *
  * Revision 1.8  2003/04/25 13:03:12  eggestad
  * - fix for new task API
  * - new shutdown procedure, now using a task
@@ -66,15 +71,53 @@
 
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
+  
+/****************************************************************************************
+ * Signal handling
+ ****************************************************************************************/
+
+static int patrol_now = 0;
+
+static void sighandler(int sig)
+{
+   switch(sig) {
+      
+   case SIGALRM:      
+   case SIGTERM:
+   case SIGINT:
+   case SIGHUP:
+   case SIGQUIT:
+      return;
+
+      
+   case SIGUSR1:
+      patrol_now = 1;
+   }
+};
+
+static void inst_sighandlers(void)
+{
+  struct sigaction action;
+  int failed = 0;
+
+  action.sa_flags = 0;
+  action.sa_handler = sighandler;
+  sigfillset(&action.sa_mask);
+  
+  if (sigaction(SIGTERM, &action, NULL)) failed++;
+  if (sigaction(SIGHUP, &action, NULL)) failed++;
+  if (sigaction(SIGINT, &action, NULL)) failed++;
+  if (sigaction(SIGQUIT, &action, NULL)) failed++;
+  if (sigaction(SIGUSR1, &action, NULL)) failed++;
+
+  if (failed != 0) {
+    Error("failed to install %d signals handlers\n", failed);
+    exit(-19);
+  }
+};
 
 /* undocumented func in lib/mwlog.c */
 void _mw_copy_on_stdout(int flag);
-
-
-/* The periode in seconds  between every time the dog shall go on patrol */
-#ifndef INTERVAL
-#define INTERVAL 120
-#endif
 
 static int go_on_patrol(void)
 {
@@ -98,16 +141,32 @@ static int run_watchdog(void)
   int rc;
   int remaining, sleeping; 
   time_t now;
+  char * envp;
+  /* The periode in secaonds  between every time the dog shall go on patrol */
+  int interval = 120;
 
+  DEBUG("begin run watchdog");
+
+  envp = getenv("MWD_WATCHDOG_INTERVAL");
+  DEBUG ("MWD_WATCHDOG_INTERVAL = %p", envp);
+  DEBUG ("MWD_WATCHDOG_INTERVAL = %s", envp?envp:"(NULL)");
+  if (envp) {
+     rc = atoi(envp);
+     if (rc > 0) interval = rc;
+  }
+
+  DEBUG("Watchdog Interval %d seconds", interval);
   remaining = 0;
-  sleeping = INTERVAL;
+  sleeping = interval;
 
   now = time(NULL);
 
   while(1) {
-    if (remaining == 0) sleeping = INTERVAL;
+    DEBUG("while begin");
+    if (remaining == 0) sleeping = interval;
     else sleeping = remaining;
     
+    DEBUG("sleeping %d ipcmain = %p", sleeping, ipcmain);
     /* shutdown time is within the next interval */
     if ( (ipcmain->shutdowntime > ipcmain->boottime) && 
 	 (ipcmain->shutdowntime < remaining + now) ) 
@@ -116,6 +175,7 @@ static int run_watchdog(void)
     /***************************************************
      * SLEEPING 
      ***************************************************/
+    DEBUG("watchdog going to sleep for %d secs", sleeping);
     remaining = sleep(sleeping);     
     now = time(NULL);
 
@@ -134,11 +194,18 @@ static int run_watchdog(void)
       exit(0);
     };
 
-    /* if sleep returned before end of INTERVAL, 
-     * this is casued by a signal, it shall be normally a signal from the parent 
-     * mwd (requester) by coudl be strays from som other process.
-     * of course shutdown(8) will give it too.
+    /* if sleep returned before end of interval, this is casued by a
+     * signal, it shall normally be a signal from the parent mwd
+     * (requester) by could be strays from som other process.  of
+     * course shutdown(8) will give it too. A sigusr1 will cause an
+     * immediate patrol. Used by mwd when a gw or server dies.
      */
+    if (patrol_now) {
+       DEBUG("watchdog triggered");
+       patrol_now = 0;
+       remaining = 0;
+    };
+
     if (remaining > 0) {
       DEBUG("sleep(%d) ended prematurely with %d second to go", 
 	    sleeping, remaining);
@@ -154,6 +221,17 @@ static int run_watchdog(void)
   };
   return 0;
 };
+
+void trigger_watchdog(void)
+{
+   DEBUG("triggering watchdog");
+   if (ipcmain) {
+      if (ipcmain->mwwdpid > 1)
+	 kill(ipcmain->mwwdpid, SIGUSR1);
+      else Error("watchdog pid invalid (%d <= 1)", ipcmain->mwwdpid);
+   } else Error("mwd without ipcmain!?!");
+};
+
 /* I'm not sure if the watchdog should be a thread or separate process.
     Its a process until futher.
  */
@@ -179,6 +257,7 @@ int start_watchdog(void)
   /* parent */
   if (rc > 0) {
     ipcmain->mwwdpid = rc;
+    DEBUG("Watchdog pid = %d", ipcmain->mwwdpid);
     return rc;
   }
 

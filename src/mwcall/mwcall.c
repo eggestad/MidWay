@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2004/05/31 19:48:33  eggestad
+ * main API changes
+ *
  * Revision 1.8  2003/06/05 21:52:56  eggestad
  * commonized handling of -l option
  *
@@ -219,9 +222,7 @@ int main(int argc, char ** argv)
        rc = _mwstr2loglevel(optarg);
        if (rc == -1) usage(-1);
        loglevel = rc;
-      mwsetloglevel(loglevel);
-      DEBUG("mwcall loglevel set to %s", optarg);
-      break;
+       break;
     case 'R':
       noreply = 1;
       break;
@@ -235,9 +236,8 @@ int main(int argc, char ** argv)
       if (strcmp(logfile, "-") == 0) {
 	/* internal flag in lib/mwlog.c */
 	_mw_copy_on_stderr(TRUE);
-      } else {
-	mwopenlog(prog, logfile, loglevel);
-      };
+	logfile = NULL;
+      }
       break;
 
     case 'i':
@@ -252,16 +252,19 @@ int main(int argc, char ** argv)
       usage(-1);
     }
   }
+  printf ("logfile = %s loglevel = %d\n", logfile, loglevel);
+  mwopenlog(prog, logfile, loglevel);
   DEBUG("mwcall client starting");
 
   if (optind >= argc) usage (-2);
 
-  rc = mwattach(url, "mwcall", NULL, NULL, 0 );
+  rc = mwattach(url, "mwcall", 0 );
   if (rc != 0) {
     Error("mwattach on url %s returned %d", url, rc);
     exit(rc);
   };
 
+  Info("attached to %s", mwgeturl());
   rc = call(argc - optind, argv+optind) ;
 
   DEBUG("call returned %d", rc);   

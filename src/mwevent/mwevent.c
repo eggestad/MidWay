@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2004/05/31 19:48:33  eggestad
+ * main API changes
+ *
  * Revision 1.2  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -277,13 +280,17 @@ int main(int argc, char ** argv)
   }
   if (optind >= argc) usage (3);
 
+  if (username) {
+     mwsetcred(MWAUTH_PASSWORD, username, password);
+  };
+
   if (mode == 0) {
      DEBUG("mwevent client starting");
      
      if (outputfile) usage(1);
      if (subflag != MWEVSTRING) usage(1);
      
-     rc = mwattach(url, myclientname, username, password, 0 );
+     rc = mwattach(url, myclientname, 0);
      if (rc != 0) {
 	Error("mwattach on url %s returned %d", url, rc);
 	exit(rc);
@@ -313,7 +320,7 @@ int main(int argc, char ** argv)
 	fp = stdout;
      };
 
-     rc = mwattach(url, myclientname, username, password, 0 );
+     rc = mwattach(url, myclientname, 0);
      if (rc != 0) {
 	Error("mwattach on url %s returned %d", url, rc);
 	exit(rc);

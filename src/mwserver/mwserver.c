@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2004/05/31 19:48:33  eggestad
+ * main API changes
+ *
  * Revision 1.8  2003/06/05 21:52:57  eggestad
  * commonized handling of -l option
  *
@@ -155,7 +158,7 @@ int main(int argc, char ** argv)
   mwopenlog(argv[0], logprefix, loglevel);
 
 
-  rc = mwattach(uri, servername, NULL, NULL, MWSERVER);  
+  rc = mwattach(uri, servername, MWSERVER);  
   DEBUG("mwattached on uri=\"%s\" returned %d\n", uri, rc);
   if (rc < 0) {
     Error("attached failed");

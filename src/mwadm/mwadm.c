@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2004/05/31 19:48:33  eggestad
+ * main API changes
+ *
  * Revision 1.10  2003/07/06 18:59:56  eggestad
  * introduced a table api for commands.c to return data in
  *
@@ -328,7 +331,7 @@ int attach(int argc, char ** argv)
 {
   int rc;
     
-  rc = mwattach(url, "mwadm", NULL, NULL, 0 );
+  rc = mwattach(url, "mwadm", 0 );
   DEBUG("mwattach on url %s returned %d", url, rc);
   if (rc == 0) {
     ipcmain = _mw_ipcmaininfo();

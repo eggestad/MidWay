@@ -25,7 +25,7 @@ main(int argc, char ** argv)
 
   rbuffer = (char *) &rd;
 
-  rc = mwattach(NULL, argv[0], NULL, NULL, 0);
+  rc = mwattach(NULL, argv[0], 0);
   if (rc != 0) {
     printf("mwattach() failed with rc = %d\n", rc);
     exit(rc);

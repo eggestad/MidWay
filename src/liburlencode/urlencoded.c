@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2003/06/12 07:18:39  eggestad
+ * unhex() failed for %ff (returned -1)
+ *
  * Revision 1.5  2002/07/07 22:34:46  eggestad
  * added urlmapdup
  *
@@ -73,16 +76,20 @@ static void hex (char c, char * high, char * low)
  */
 static int unhex(char high, char low)
 {
-
-  if (isdigit(high)) high = (0xf & high);
-  else if (isxdigit(high)) high = (0xf & high) + 9;
-  else return -1;
-
-  if (isdigit(low)) low = (0xf & low);
-  else if (isxdigit(low)) low = (0xf & low) + 9;
-  else return -1;
-
-  return (high << 4) + low;
+   int res = 0;
+   if (isdigit(high)) high = (0xf & high);
+   else if (isxdigit(high)) high = (0xf & high) + 9;
+   else return -1;
+   debug1("highnibble %x", high);
+   if (isdigit(low)) low = (0xf & low);
+   else if (isxdigit(low)) low = (0xf & low) + 9;
+   else return -1;
+   debug1("low nibble %x", low);
+   res = high & 0xf;
+   res <<= 4;
+   res += low & 0xf;
+   debug1("char value is %d", res);
+   return res;
 };
 
 /*********************************************************
@@ -197,8 +204,8 @@ int urldecodedup(char ** ret, char * encoded)
    whatever comes first.  return number of octets in return buffer.  */
 int urldecode(char * plain, char * encoded)
 {
-  char c, * equal, * ampersand;
-  int i, len;
+  char * equal, * ampersand;
+  int c, i, len;
   int j = 0;
 
   if ( (plain == NULL) || (encoded == NULL) ) {
@@ -223,11 +230,13 @@ int urldecode(char * plain, char * encoded)
       i++;
       c = unhex (encoded[i], encoded[i+1]);
       if (c == -1) {
+	 debug1("Failed to get hex value of %c(%d)%c(%d)", 
+		encoded[i], encoded[i], encoded[i+1], encoded[i+1]);
 	errno = EINVAL;
 	return -1;
       };
       i++;
-      plain[j++] = c;
+      plain[j++] = (char) c;
     } else if (encoded[i] == '+') {
       plain[j++] = ' ';
       i++;

@@ -23,8 +23,11 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:04  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:17:58  eggestad
+ * general prototype fixups.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:04  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
@@ -32,8 +35,8 @@
  */
 
 char * major = NULL, * minor = NULL, * patch = NULL;
-const char * mwversion();
+const char * mwversion(void);
  
 int _mwgetversion(int * vmaj, int * vmin, int * ptcl);
 
-const char * _mwgetmagic();
+const char * _mwgetmagic(void);

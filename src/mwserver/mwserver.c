@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/07/07 22:29:16  eggestad
+ * fixes to shared object search paths
+ *
  * Revision 1.3  2001/10/04 19:18:10  eggestad
  * CVS tags fixes
  *
@@ -37,9 +40,6 @@
  *
  */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 #include <MidWay.h>
 #include <signal.h>
 #include <stdio.h>
@@ -49,8 +49,12 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <errno.h>
 
 #include "shared_lib_services.h"
+#include <ipctables.h>
 
-void cleanup()
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
+
+void cleanup(void)
 {
   mwdetach();
 };
@@ -60,11 +64,11 @@ void sighandler(int sig)
   exit(-sig);
 };
 
-usage() 
+void usage(void) 
 {
-  fprintf(stderr, "mwserver [-d loglevel] [-A uri] [-l logprefix] [-n name] {-s service[:function]} dynamiclibraries...\n");
+  fprintf(stderr, "mwserver [-l loglevel] [-A uri] [-L logprefix] [-n name] {-s service[:function]} dynamiclibraries...\n");
   fprintf(stderr, "    loglevel is one of error, warning, info, debug, debug1, debug2\n");
-  fprintf(stderr, "    uri is the address of the MidWay instance e.g. ipc://12345\n");
+  fprintf(stderr, "    uri is the address of the MidWay instance e.g. ipc:12345\n");
   fprintf(stderr, "    logprefix is the path inclusive the beginning of the file name the logfile shall have.\n");
   fprintf(stderr, "    service:function ties a service to a function in the given libs.\n");
   fprintf(stderr, "      if :function is omitted, the function name is assumed to be service.\n");
@@ -77,38 +81,39 @@ extern char *optarg;
 extern int optind, opterr, optopt;
 char * uri = NULL;
 char * servername = NULL;
+char * libdir, * rundir;
 
 int main(int argc, char ** argv)
 {
   char option;
-  int rc, i ;
-  char * svcname, * funcname, * tmpp;
+  int rc, i, loglevel;
+  char * svcname, * funcname, * tmpp, * logprefix = "mwserver";
+  char  * mwhome, * instance;
+  ipcmaininfo * ipcmain;
 
-  mwsetlogprefix("mwserver");
-  
-  mwsetloglevel(MWLOG_DEBUG2);
+  loglevel = MWLOG_DEBUG2;
 
-  while ((option = getopt(argc, argv, "d:l:s:A:")) != EOF) {
+  while ((option = getopt(argc, argv, "l:L:s:A:")) != EOF) {
     
     switch (option) {
       
-    case 'd':
-      if      (strcmp(optarg, "error")   == 0) mwsetloglevel(MWLOG_ERROR);
-      else if (strcmp(optarg, "warning") == 0) mwsetloglevel(MWLOG_WARNING);
-      else if (strcmp(optarg, "info")    == 0) mwsetloglevel(MWLOG_INFO);
-      else if (strcmp(optarg, "debug")   == 0) mwsetloglevel(MWLOG_DEBUG);
-      else if (strcmp(optarg, "debug1")  == 0) mwsetloglevel(MWLOG_DEBUG1);
-      else if (strcmp(optarg, "debug2")  == 0) mwsetloglevel(MWLOG_DEBUG2);
+    case 'l':
+      if      (strcmp(optarg, "error")   == 0) loglevel = MWLOG_ERROR;
+      else if (strcmp(optarg, "warning") == 0) loglevel = MWLOG_WARNING;
+      else if (strcmp(optarg, "info")    == 0) loglevel = MWLOG_INFO;
+      else if (strcmp(optarg, "debug")   == 0) loglevel = MWLOG_DEBUG;
+      else if (strcmp(optarg, "debug1")  == 0) loglevel = MWLOG_DEBUG1;
+      else if (strcmp(optarg, "debug2")  == 0) loglevel = MWLOG_DEBUG2;
       else usage();
 
-      mwlog (MWLOG_DEBUG, "mwadm client starting");
+      DEBUG("mwserver client starting");
       break;
 
     case 'A':
       uri = strdup(optarg);
       break;
 
-    case 'l':
+    case 'L':
       mwsetlogprefix(optarg);
       break;
 
@@ -131,19 +136,66 @@ int main(int argc, char ** argv)
       break;
 
     case '?':
-      usage;
+      usage();
     }
   }
 
+  mwopenlog(argv[0], logprefix, loglevel);
+
+
+  rc = mwattach(uri, servername, NULL, NULL, MWSERVER);  
+  DEBUG("mwattached on uri=\"%s\" returned %d\n", uri, rc);
+  if (rc < 0) {
+    Error("attached failed");
+    exit(rc);
+  };
+
+
+
+  mwhome = getenv ("MWHOME");
+  instance = getenv ("MWINSTANCE");
+  
+  DEBUG("MWHOME = %s", mwhome);
+  DEBUG("MWINSTANCE = %s", instance);
+  
+  ipcmain = _mw_ipcmaininfo();
+  
+  if (mwhome == NULL) mwhome = ipcmain->mw_homedir;
+  if (instance == NULL) instance = ipcmain->mw_instance_name;
+  
+  
+  DEBUG("home = %s", mwhome);
+  DEBUG("instance = %s", instance);
+
+  i = strlen(mwhome)+strlen(instance)+10;
+  libdir = malloc(i);
+  rundir = malloc(i);
+  
+  sprintf(libdir, "%s/%s/lib", mwhome, instance);
+  sprintf(rundir, "%s/%s/run", mwhome, instance);
+  
+  DEBUG("libdir = %s", libdir);
+  DEBUG("rundir = %s", rundir);
+
+  rc = access(libdir, R_OK|X_OK);
+  if (rc != 0) Fatal("rx access failed of lib directory %s", libdir);
+
+  rc = access(rundir, R_OK|W_OK|X_OK);
+  if (rc != 0) Fatal("rx access failed of run directory %s", rundir); 
+
+  rc = chdir (rundir);
+  if (rc != 0) Error("failed to change dir to %s", rundir);
+  else Info ("changed dir to %s", rundir);
   /* all the options are parsed, whar now remain on the comamnd line is the libraries.
      If there are none complain. */
   if (optind >= argc) {
-    fprintf(stderr, "No libraries specified.\n\n");
+    Error("No libraries specified.");
     usage();
   };
+
   for (i = optind; i < argc; i++ ) {
     if ((rc = add_library(argv[i])) != 0) {
-      fprintf(stderr,"%s: failed to load shared library %s reason ", 
+      Error("%s: failed to load shared library %s reason ", 
 	      argv[0],argv[i], rc);
       exit(rc);
     };
@@ -159,14 +211,12 @@ int main(int argc, char ** argv)
     servername = (char *) malloc(20);
     sprintf(servername, "([%d])", getpid());
   };
-  rc = mwattach(uri, servername, NULL, NULL, MWSERVER);  
-  printf("mwattached on uri=\"%s\" returned %d\n", uri, rc);
-  
+
   provide_services();
   mwMainLoop(0);
   
   mwdetach();
-  printf("detached\n");
+  DEBUG("detached\n");
 }
 
 

@@ -2,4 +2,4 @@
   
 int add_service(char * svcname, char * funcname);
 int add_library(char * libpath);
-int provide_services();
+int provide_services(void);

@@ -23,17 +23,24 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2002/07/07 22:29:16  eggestad
+ * fixes to shared object search paths
+ *
  * Revision 1.2  2001/10/04 19:18:10  eggestad
  * CVS tags fixes
  *
  */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <MidWay.h>
+
+static char * RCSId UNUSED = "$Id$";
 
 struct service {
   char * svcname;
@@ -85,22 +92,52 @@ int add_service(char * svcname, char * funcname)
   return 0;
 };
 
-char * wd;
+static char * wd;
 
-int add_library(char * libpath)
+int add_library(char * libarg)
 {
   struct library * tmplib, * plib;
-
-  if (wd == NULL ) {
-    wd = malloc(4096);
-    getcwd(wd, 4090);
-  };
+  char libpath[4096];
+  extern char * libdir, * rundir;
+  int rc;
 
   if (libpath == NULL) return -EINVAL;
   
+  if (wd == NULL ) {
+    wd = malloc(4096);
+    getcwd(wd, 4090);
+    DEBUG("wd = %s", wd);
+  };
+
+  /* is absolute path go directly, else search */
+  if (libarg[0] == '/') {
+    strncpy(libpath, libarg, 4000);
+  } else {
+    sprintf (libpath, "%s/%s", wd, libarg);
+    DEBUG("checking shared exec %s", libpath);
+    rc = access (libpath, X_OK);
+    if (rc != 0) {
+      DEBUG("access failed reason %d", errno);
+      sprintf (libpath, "%s/%s", wd, libarg);
+	     
+      sprintf (libpath, "%s/%s", libdir, libarg);
+      DEBUG("checking shared exec %s", libpath);
+      
+      rc = access (libpath, X_OK);
+      if (rc != 0) {
+	DEBUG("access failed reason %d", errno);
+	Error("failed to find library %s", libarg);
+	return -errno;
+      };
+    };
+  }
+
+  DEBUG("using shared exec %s", libpath);
+
   /* test for duplicate libraries.
      in the end plib is pointing to the last element in the list.
      is the list is empty plib is NULL. */
+
   plib = NULL;
   tmplib = libraries;
   while(tmplib != NULL) {
@@ -109,13 +146,16 @@ int add_library(char * libpath)
     tmplib = tmplib->next;
   };
 
+  Info("using shared library exec %s", libpath);
+
   /* create a new element, init it. */
   tmplib = malloc(sizeof(struct library));
-  tmplib->libname = malloc(4100);
-  sprintf(tmplib->libname, "%s/%s", wd, libpath);
-  tmplib->handle = dlopen(tmplib->libname,RTLD_NOW);
+  tmplib->libname = strdup(libpath);
+  
+  tmplib->handle = dlopen(tmplib->libname, RTLD_NOW);
   if (tmplib->handle == NULL) {
-    fprintf(stderr, "failed to open library %s, reason %s", tmplib->libname, dlerror());
+    Error("failed to open library %s, reason %s", 
+	  tmplib->libname, dlerror());
     return -ELIBACC;
   };
   tmplib->next = NULL;
@@ -128,7 +168,7 @@ int add_library(char * libpath)
   return 0;
 };
 
-int provide_services()
+int provide_services(void)
 {
   struct service * tmpsvc;   
   struct library * tmplib;;
@@ -141,25 +181,25 @@ int provide_services()
   while(tmpsvc != NULL) {
     
     if (tmpsvc->funcname == NULL) tmpsvc->funcname = tmpsvc->svcname;
-    mwlog(MWLOG_DEBUG, "For service %s we are looking for symbol %s", 
+    DEBUG("For service %s we are looking for symbol %s", 
 	  tmpsvc->svcname, tmpsvc->funcname);
 	  
     tmplib = libraries;
     while (tmplib != NULL) {
       tmpsvc->func = dlsym(tmplib->handle, tmpsvc->funcname);
       if (tmpsvc->func != NULL) {
-	mwlog(MWLOG_INFO, "For service %s we are using symbol %s in library %s", 
+	Info("For service %s we are using symbol %s in library %s", 
 	       tmpsvc->svcname, tmpsvc->funcname, tmplib->libname);
 	tmpsvc->libhandle = tmplib->handle;
 	break;
       } else 
-	mwlog(MWLOG_DEBUG, "For service %s we didn't find symbol %s in library %s", 
+	DEBUG("For service %s we didn't find symbol %s in library %s", 
 	      tmpsvc->svcname, tmpsvc->funcname, tmplib->libname);	
       tmplib = tmplib->next;
     };
 
     if (tmpsvc->func == NULL) {
-      mwlog(MWLOG_ERROR, "Failed to resolve the symbol %s for service %s", 
+      Error("Failed to resolve the symbol %s for service %s", 
 	    tmpsvc->funcname, tmpsvc->svcname);
     } else {
       mwprovide (tmpsvc->svcname, tmpsvc->func, 0);

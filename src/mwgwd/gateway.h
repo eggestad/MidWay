@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2000/08/31 22:08:31  eggestad
+ * new global vars in gateway.c
+ *
  * Revision 1.1  2000/07/20 18:49:59  eggestad
  * The SRB daemon
  *
@@ -42,3 +45,9 @@ int gwunimportservice(char *, char *);
 
 GATEWAYID allocgwid(int location, int role);
 void freegwid(GATEWAYID gwid);
+
+#ifndef _GATEWAY_C
+extern char * mydomain;
+extern char * myinstance;
+#endif
+

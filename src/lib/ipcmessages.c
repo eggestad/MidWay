@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.27  2003/12/08 16:04:01  eggestad
+ * call reply queue was a FILO queue, should be a FIFO, which it now is
+ *
  * Revision 1.26  2003/09/25 19:36:17  eggestad
  * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
  * - also improved logic in blocking/nonblocking of reading on Connection objects
@@ -155,20 +158,24 @@ static void debugReplyQueue(void)
    struct CallReplyQueue * elm;
    int q = 0, f = 0;
 
-   DEBUG1(" Callreply queue length = %d free %d", q, f);   
    for (elm = callReplyQueue; elm != NULL; elm = elm->next) q++;
-   DEBUG1(" Callreply queue length = %d free %d", q, f);
    for (elm = callReplyFreeList; elm != NULL; elm = elm->next) f++;
    
    DEBUG1(" Callreply queue length = %d free %d", q, f);
 };
  
+
+// push  at end, pop from the start
 static int pushCallReply(Call * callmsg)
 {
-   struct CallReplyQueue * newelm;
+   struct CallReplyQueue * newelm, ** pplast;
 
    DEBUG1("pushing call with handle %d", callmsg->handle);
    debugReplyQueue();
+
+   for (pplast = &callReplyQueue; (*pplast) != NULL; pplast = &(*pplast)->next);
+
+   DEBUG1("got the last entry pplast=%p (*pplast) = %p", pplast, *pplast);
 
    if (callReplyFreeList == NULL) {
       DEBUG1("new elm");
@@ -180,8 +187,8 @@ static int pushCallReply(Call * callmsg)
    };
    DEBUG1("newelm %p callReplyQueue %p newelm->next %p", newelm, callReplyQueue, newelm->next);
    newelm->callmessage = callmsg;
-   newelm->next = callReplyQueue;
-   callReplyQueue = newelm;
+   newelm->next = *pplast;
+   *pplast = newelm;
    DEBUG1("newelm %p callReplyQueue %p newelm->next %p", newelm, callReplyQueue, newelm->next);
    debugReplyQueue();
    return 0;

@@ -39,7 +39,7 @@ depend:
 	makedepend -- $(CFLAGS) -- *.c
 
 mwgwd: $(OBJS)
-	$(CC) $(LDFLAGS) -o $@ $(OBJS) -lefence $(LIBS)
+	$(CC) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
 # used for testing store module.
 store: store.c store.h 

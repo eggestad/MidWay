@@ -23,8 +23,11 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:31  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:55:49  eggestad
+ * mwMainLoop() now has an argument
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:31  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
@@ -154,7 +157,7 @@ int main(int argc, char ** argv)
   printf("mwattached on uri=\"%s\" returned %d\n", uri, rc);
   
   provide_services();
-  mwMainLoop();
+  mwMainLoop(0);
   
   mwdetach();
   printf("detached\n");

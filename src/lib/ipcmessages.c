@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2001/05/12 18:00:31  eggestad
+ * changes to multiple reply handling, MWMULTIPLE are no langer sent to server, replies are cat'ed in client
+ *
  * Revision 1.6  2000/11/15 21:23:38  eggestad
  * fix for NULL as input data
  *
@@ -777,9 +780,12 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
 
   /* deadline info is invalid even though I can provide it */
 
-  mwlog(MWLOG_DEBUG1, "_mwfetch: returned with rc=%d and with %d bytes of data", 
-	rc, callmesg->datalen);
-  return callmesg->returncode;
+  mwlog(MWLOG_DEBUG1, "_mwfetch: returned with returncode=%d and with %d bytes of data", 
+	callmesg->returncode, callmesg->datalen);
+
+  if (callmesg->returncode == 0) return 0;
+  if (callmesg->returncode == MWMORE) return 1;
+  return -1;
 };
 
 int _mwCurrentMessageQueueLength()

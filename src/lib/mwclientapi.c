@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2001/05/12 18:00:31  eggestad
+ * changes to multiple reply handling, MWMULTIPLE are no langer sent to server, replies are cat'ed in client
+ *
  * Revision 1.3  2000/11/15 21:23:38  eggestad
  * fix for NULL as input data
  *
@@ -328,7 +331,8 @@ int mwcall(char * svcname,
     mwlog(MWLOG_DEBUG1, "mwcall using  SYSVIPC");
     hdl = _mwacall_ipc (svcname, cdata, clen, flags);
     if (hdl < 0) return hdl;
-    hdl = _mwfetchipc (hdl, rdata, rlen, appreturncode, flags);
+    hdl = _mwfetch_ipc (hdl, rdata, rlen, appreturncode, flags);
+    mwlog(MWLOG_DEBUG1, "mwcall(): _mwfetch_ipc() returned %d", hdl);
     return hdl;
     
   case MWSRBP:

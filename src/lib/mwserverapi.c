@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2001/05/12 18:00:31  eggestad
+ * changes to multiple reply handling, MWMULTIPLE are no langer sent to server, replies are cat'ed in client
+ *
  * Revision 1.6  2000/11/29 23:18:01  eggestad
  * - Added two support function for Perl native module\n- Fixed some statitics bugs
  *
@@ -330,11 +333,15 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
     callmesg->datalen = 0;
   }
 
-  /* return code handling. returncode is boolean. */
-  if (returncode)
+  /* return code handling. returncode is EFAULT if MWFAIL, 
+     0 on MWSUCCESS and MWMORE on MWMORE. */
+  if (returncode == MWSUCCESS)
     callmesg->returncode = 0;
-  else 
+  else if (returncode == MWMORE)
+    callmesg->returncode = MWMORE;
+  else
     callmesg->returncode = EFAULT;
+
   callmesg->appreturncode = appreturncode;
 
   /* set "opcode" on message */
@@ -358,7 +365,7 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
 
      We only update stats on service call completion.
   */
-  if (! (flags & MWMORE)) {
+  if ((! (flags & MWMORE)) && (callmesg->returncode != MWMORE)) {
     _mw_requestpending = 0;  
     gettimeofday(&endtv, NULL);
     completeStats();

@@ -23,8 +23,11 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:17  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:38:37  eggestad
+ * prototype fix up.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:17  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
@@ -37,26 +40,32 @@
 /* MAGIC are used to tag the ipcmain shm segment. */
 #define MAGIC "MW10"
 
+static char * RCSId = "$Id$";
 static const char * Name = "$Name$";
+
 /* RCS Name are to be on the format $Name$ , 
    where TYPE is either RELEASE, ALPHA, BETA, or EXPERIMENTAL (default).
    M, N, P are the version sumber, Major, minor, patchlevel.
 */
 
 char * major = NULL, * minor = NULL, * patch = NULL;
-const char * mwversion() 
+const char * mwversion(void) 
 {
   int len;
   /*  static char *  version = NULL; */
   static char version[1024];
 
   const char rcsname[] = { '$', 'N', 'a', 'm', 'e', '$', '\0' };
+  const char rcsname2[] = "$Name$" ;
   char * buf, * t, * m, * n, * p;
 
   /*
   if (version != NULL) return version;
   */
   if (strcmp(Name , rcsname) == 0) 
+    return "EXPERIMENTAL";
+
+  if (strcmp(Name , rcsname2) == 0) 
     return "EXPERIMENTAL";
 
   buf = malloc(strlen(Name));
@@ -130,7 +139,7 @@ int _mwgetversion(int * vmaj, int * vmin, int * ptcl)
   }
 };
 
-const char * _mwgetmagic()
+const char * _mwgetmagic(void)
 {
   return MAGIC;
 };

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2003/07/14 22:05:27  eggestad
+ * Timepeg fix
+ *
  * Revision 1.7  2003/07/13 20:34:49  eggestad
  * - unhex debugging from level 1 to 3
  * - added timepegs
@@ -138,7 +141,7 @@ int urlnencode(char * encode, char * uncoded, int len)
 
   int j;
 
-  TIMEPEGNOTE("begin");
+  URLTIMEPEGNOTE("begin");
   /* Input control */  
   if ( (encode == NULL) || (uncoded == NULL) || (len < 0) ) {
     errno = EINVAL;
@@ -165,7 +168,7 @@ int urlnencode(char * encode, char * uncoded, int len)
     };
   };
   encode[j] = '\0';
-  TIMEPEGNOTE("end");
+  URLTIMEPEGNOTE("end");
   return j;
 };
 
@@ -215,7 +218,7 @@ int urldecode(char * plain, char * encoded)
   int c, i, len;
   int j = 0;
 
-  TIMEPEGNOTE("begin");
+  URLTIMEPEGNOTE("begin");
 
   if ( (plain == NULL) || (encoded == NULL) ) {
     errno = EINVAL;
@@ -242,7 +245,7 @@ int urldecode(char * plain, char * encoded)
 	 debug1("Failed to get hex value of %c(%d)%c(%d)", 
 		encoded[i], encoded[i], encoded[i+1], encoded[i+1]);
 	errno = EINVAL;
-	TIMEPEGNOTE("end format error");
+	URLTIMEPEGNOTE("end format error");
 	return -1;
       };
       i++;
@@ -255,7 +258,7 @@ int urldecode(char * plain, char * encoded)
     };
   };
   plain[j] = '\0';
-  TIMEPEGNOTE("end good decode");
+  URLTIMEPEGNOTE("end good decode");
   return j;
 };
 

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.4  2002/12/12 16:08:07  eggestad
+ * inline asm in rt_sample was not hammer compat. Now it's both ia32 and hammer OK
+ *
  * Revision 1.3  2002/10/29 23:54:50  eggestad
  * attempted to subtract debugging from timepegs
  *
@@ -135,12 +138,27 @@ void _mw_setrealtimer(long long usecs)
  ************************************************************************/
 #ifdef TIMEPEGS
 
+// this works on both ia32 and x64-64.
+static inline long long  rt_sample()
+{
+  long long val;
+  long msb, lsb;
+  asm volatile ("rdtsc"  : "=d" (msb), "=a" (lsb));
+  val = msb;
+  val <<= 32;
+  val += lsb;
+  return val;
+};
+
+#if 0
+// this works on x86, but not x86-64.
 static inline long long  rt_sample(void)
 {
   long long val;
   asm volatile ("rdtsc"  : "=A" (val));
   return val;
 };
+#endif
 
 static long long last, debug_subtract, _pause;
 

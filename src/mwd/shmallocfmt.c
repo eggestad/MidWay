@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/09/21 18:55:18  eggestad
+ * Corrected loglevel on a debugmessage
+ *
  * Revision 1.2  2000/07/20 19:49:40  eggestad
  * prototype fixup.
  *
@@ -93,7 +96,7 @@ static int formatfreelist(int iStart, int basechunksize,
     pCFoot->next = iCHead + (iCSize + CHUNKOVERHEAD);
     pCFoot->prev = iCHead - (iCSize + CHUNKOVERHEAD);
     
-    mwlog(MWLOG_DEBUG1, "chunk %d: %d octes at %#x footer at %#x next at %#x prev at %#x", 
+    mwlog(MWLOG_DEBUG2, "chunk %d: %d octes at %#x footer at %#x next at %#x prev at %#x", 
 	  i, pCHead->size * _mwHeapInfo->basechunksize,  pCHead, pCFoot, pCFoot->next, pCFoot->prev);
 
   }

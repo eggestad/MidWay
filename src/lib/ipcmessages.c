@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.31  2004/04/20 08:55:17  eggestad
+ * avoid event round loop
+ *
  * Revision 1.30  2004/04/12 23:05:24  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -1422,7 +1425,7 @@ int _mw_ipcsend_unsubscribe (int subid)
 
   return rc;
 };
-    
+
 int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, char * clientname, 
 		       MWID fromid, int remoteflag)
 {
@@ -1467,7 +1470,14 @@ int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, 
   ev.data = dataoffset;
   ev.datalen = datalen;
 
-  id = _mw_get_my_mwid();
+  if (remoteflag)
+     ev.flags = MWEVENTPEERGENERATED;
+
+  if (fromid != UNASSIGNED) 
+     id = _mw_get_my_mwid();
+  else 
+     id = fromid;
+
   if (id == UNASSIGNED) {	
     return -ENOENT;
   }

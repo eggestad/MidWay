@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.24  2004/11/26 16:39:15  eggestad
+ * Yet another function for finding a serviceid from service name this get an IPC is possible, SRBP otherwise
+ *
  * Revision 1.23  2004/11/17 20:48:43  eggestad
  * 2 byte Emacs C indent
  *
@@ -597,7 +600,7 @@ SERVICEID * _mw_get_services_byname (char * svcname, int * N, int flags)
   for (index = 0; index < ipcmain->svctbl_length+1; index++) 
     slist[index] = UNASSIGNED;
 
-  x = 1+(rand() % ipcmain->svctbl_length);
+  x = _mw_irand(ipcmain->svctbl_length);
   DEBUG3("we start at the random entry in the svctbl %d", x);
 
   for (i = 0; i < ipcmain->svctbl_length; i++) {
@@ -730,8 +733,59 @@ int _mw_list_services_byglob (char * glob, char *** plist, int inflags)
    return n; 
 };
 
+/* this is a simplified version of _mw_get_services_byname().
+   _mw_get_services_byname() get the complete list to avoid multiple
+   scans thru the service list.  This function just gived the first
+   service with the name, but gives preferences to local services if
+   they exist. For example of a service S is both a local service and
+   an imported one, the local is returned.
+*/
+SERVICEID _mw_get_best_service (char * svcname, int flags)
+{
+  SERVICEID sid = UNASSIGNED;
+  int type, i, index, n = 0, x;
+  int convflag = flags & MWCONV;
+  
+  if (ipcmain == NULL) { 
+    return UNASSIGNED;
+  };
 
-  /* depreciated */
+  x = _mw_irand(ipcmain->svctbl_length);
+  DEBUG3("we start at the random entry in the svctbl %d", x);
+  
+  
+  for (i = 0; i < ipcmain->svctbl_length; i++) {
+
+    /* we begin in  a random place in the table, in  order not to give
+       the first service first in the list every time */
+    index = (x + i) % ipcmain->svctbl_length;
+
+    if (svctbl[index].type == UNASSIGNED) continue;
+    if (svctbl[index].type != type) continue;
+
+    DEBUG3("checking index %d service %s type = %d", 
+	   index, svctbl[index].servicename, svctbl[index].type);
+
+    if (strncmp(svctbl[index].servicename, svcname, MWMAXSVCNAME) == 0) {
+      DEBUG3("found matching svcentry with index %d n = %d", index, n);
+
+      if (svctbl[index].location == GWLOCAL) {
+	DEBUG3("service is local");
+	sid = index;
+	break;
+      };
+
+      if ( (svctbl[index].location == GWPEER) && (sid != UNASSIGNED) ) {
+	DEBUG3("service is at a peer");
+	sid = index;
+      };
+    };
+  };
+
+  return sid | MWSERVICEMASK;
+};
+
+// depreciated */
 SERVICEID _mw_get_service_byname (char * svcname, int convflag)
 {
   int index, type, selectedid = UNASSIGNED;

@@ -23,11 +23,14 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:30  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:54:26  eggestad
+ * prototype fixup.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:30  eggestad
+ * Initial Release
  *
  * 
  */
 
-int start_watchdog();
+int start_watchdog(void);
 

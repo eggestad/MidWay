@@ -23,15 +23,19 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:30  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:50:19  eggestad
+ * prototype fixup.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:30  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
  *
  */
-
 #ifndef _TABLES_C
+#define _TABLES_C
+
 extern cliententry  * clttbl;
 extern serverentry  * srvtbl;
 extern serviceentry * svctbl;
@@ -39,11 +43,12 @@ extern gatewayentry * gwtbl;
 extern conv_entry   * convtbl;
 #endif
 
+
 #include <MidWay.h>
 #include <ipctables.h>
 
-void init_tables();
-void term_tables();
+void init_tables(void);
+void term_tables(void);
 
 SERVERID addserver(char * name, int mqid, pid_t pid);
 CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int sid);
@@ -57,7 +62,7 @@ int delservice(SERVICEID svcid, SERVERID srvid);
 
 serverentry *  _mw_get_server_byid(SERVERID);
 
-int shutdown();
-int kill_all_members();
-int check_tables();
+int shutdown(void);
+int kill_all_members(void);
+int check_tables(void);
 int get_pids(int *, int **);

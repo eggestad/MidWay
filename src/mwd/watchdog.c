@@ -23,11 +23,17 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:30  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:54:52  eggestad
+ * prototype fixup.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:30  eggestad
+ * Initial Release
  *
  * 
  */
+
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <errno.h>
 #include <stdio.h>
@@ -41,10 +47,11 @@
 #include "watchdog.h"
 
 /* The periode in seconds  between every time the dog shall go on patrol */
+#ifndef INTERVAL
 #define INTERVAL 120
+#endif
 
-
-static int go_on_patrol()
+static int go_on_patrol(void)
 {
   struct timeval tm;
   int npids, * pids;
@@ -62,7 +69,7 @@ static int go_on_patrol()
   return 0;
 };
 
-static int run_watchdog()
+static int run_watchdog(void)
 {
   int rc;
   int remaining, sleeping; 
@@ -137,7 +144,7 @@ static int run_watchdog()
 /* I'm not sure if the watchdog should be a thread or separate process.
     Its a process until futher.
  */
-int start_watchdog()
+int start_watchdog(void)
 {
   int rc;
   

@@ -23,8 +23,11 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:27  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:49:40  eggestad
+ * prototype fixup.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:27  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
@@ -269,7 +272,7 @@ int shm_cleanup(int shmid)
   shmdt(pSegmentStart);
 };
 
-int shm_destroy()  
+int shm_destroy(void)  
 {
   mwlog(MWLOG_DEBUG, "destroying heap");
   if (_mwHeapInfo == NULL) return -ENOENT;

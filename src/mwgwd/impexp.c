@@ -20,6 +20,11 @@
 
 /*
  * $Log$
+ * Revision 1.5  2002/10/03 21:22:21  eggestad
+ * - added debug dump functions of both imp and exp lists.
+ * - changed beh so that a service is importet to IPC table for each peer, thus svcid++ moved from Import to _peerlink
+ * - impsetsvcid() needed gwid (reason in line above)
+ *
  * Revision 1.4  2002/09/29 17:44:34  eggestad
  * added unproviding and importlist now has a mutex
  *
@@ -58,6 +63,46 @@ static Import * importlist = NULL;
 
 DECLAREMUTEX(impmutex);
 
+
+static void impdumplist(void)
+{
+  Import * imp;
+  peerlink * pl;
+
+  DEBUG("********************* DUMPING IMPORT LIST *********************");
+  DEBUG("******** importlist = %p", importlist);
+  for (imp = importlist; imp != NULL; imp = imp->next) {
+    DEBUG("********** imp=%p servicename=%s peerlist=%p next=%p", 
+	  imp, imp->servicename, imp->peerlist, imp->next);
+    for (pl = imp->peerlist; pl != NULL; pl = pl->next) {
+      DEBUG("************ peerlist=%p instance=%s svcid=%d cost=%d gwid=%d next=%p", 
+	    pl, pl->peer->instance, 
+	    SVCID2IDX(pl->svcid), pl->cost, GWID2IDX(pl->peer->gwid), pl->next);
+    };
+  };
+  DEBUG("******************* DUMP IMPORT LIST COMPLETE *****************");
+
+};
+
+static void expdumplist(void)
+{
+  Export * exp;
+  peerlink * pl;
+
+  DEBUG("********************* DUMPING EXPORT LIST *********************");
+  DEBUG("******** exportlist = %p", importlist);
+  for (exp = exportlist; exp != NULL; exp = exp->next) {
+    DEBUG("********** exp=%p servicename=%s cost=%d peerlist=%p next=%p", 
+	  exp, exp->servicename, exp->cost, exp->peerlist, exp->next);
+    for (pl = exp->peerlist; pl != NULL; pl = pl->next) {
+      DEBUG("************ peerlist=%p instance=%s gwid=%d next=%p", 
+	    pl, pl->peer->instance, GWID2IDX(pl->peer->gwid), pl->next);
+    };
+  };
+  DEBUG("******************* DUMP EXPORT LIST COMPLETE *****************");
+
+};
+
 /* find the Import element in the import list if it exist, or return NULL) */
 static Import * impfind(char * service)
 {
@@ -71,21 +116,30 @@ static Import * impfind(char * service)
   return NULL;
 };
     
-void impsetsvcid(char * service, SERVICEID svcid)
+void impsetsvcid(char * service, SERVICEID svcid, GATEWAYID gwid)
 {
   Import * imp;
-  
+  peerlink  * pl;
+
   LOCKMUTEX(impmutex);
 
   imp = impfind(service);
   if (imp) {
-    DEBUG("imported service %s has serviceid %d", service, SVCID2IDX(svcid));
-    imp->svcid = svcid;
-  } else {
-    DEBUG("Apparently the peer unprovided %s before mwd replied with svcid, sending unprovide to mwd");
-    _mw_ipcsend_unprovide (service, 0);
-  };
-  
+    DEBUG("imported service %s from gwid has serviceid %d", 
+	  service, GWID2IDX(gwid), SVCID2IDX(svcid));
+
+    for (pl = imp->peerlist; pl != NULL; pl = pl->next) {
+      if (pl->peer->gwid == gwid) {
+	pl->svcid = svcid;
+	goto out;
+      };
+    };
+  } 
+
+  DEBUG("Apparently the peer unprovided %s before mwd replied with svcid, sending unprovide to mwd");
+  _mw_ipcsend_unprovide_for_id (gwid, service, 0);
+
+ out:
   UNLOCKMUTEX(impmutex);
 };
 
@@ -102,13 +156,11 @@ static Import *  condnewimport(char * service, int cost)
 
     DEBUG("primed the Import list with the service %s", service);
     imp = malloc(sizeof(Import));
-    imp->svcid = UNASSIGNED;
     imp->next = NULL;
     imp->peerlist = NULL;
     strncpy(imp->servicename, service, MWMAXSVCNAME);
 
     importlist = imp;
-    _mw_ipcsend_provide (service, cost, 0);
 
     return imp;
   };
@@ -117,32 +169,32 @@ static Import *  condnewimport(char * service, int cost)
   
   // if the for loop found a match we return it. 
   if (imp != NULL) {
-    DEBUG("We already have an import if the service %s with svcid = %#x", imp->servicename, imp->svcid); 
+    DEBUG("We already have an import if the service %s ", imp->servicename); 
     return imp;
   };
 
   DEBUG("adding service %s to the top of importlist", service);
   imp = malloc(sizeof(Import));
-  imp->svcid = UNASSIGNED;
   imp->next = NULL;
   imp->peerlist = NULL;
   strncpy(imp->servicename, service, MWMAXSVCNAME);
   imp->next = importlist;
-  importlist->next = imp;
+  importlist = imp;
   
-  _mw_ipcsend_provide (service, cost, 0);
-  
+  impdumplist();
+
   return imp;
 };
   
   
 int importservice(char * service, int cost, struct gwpeerinfo * peerinfo)
 {
-  
+  int rc;
   Import * imp;
   peerlink ** ppl, * pl;
 
   LOCKMUTEX(impmutex);
+  impdumplist();
   imp = condnewimport(service, cost);
 
   /* find the last peerlink, but we check to see if we already has a
@@ -151,14 +203,26 @@ int importservice(char * service, int cost, struct gwpeerinfo * peerinfo)
     if ( (*ppl)->peer == peerinfo) {
       DEBUG("Hmmm import of service from a peer we already have an import from, " 
 	    "this is probably a repeat from peer, OK!");
-      UNLOCKMUTEX(impmutex);
-      return 0;
+      goto out;
     };
   };
     
   *ppl = pl = malloc(sizeof(peerlink));
   pl->next = NULL;
+  pl->svcid = UNASSIGNED;
   pl->peer = peerinfo;
+
+  rc = _mw_ipcsend_provide_for_id (peerinfo->gwid, service, cost, 0);
+
+  if (rc < 0) {
+    Error("in sending a provide message to mwd, should not be able to happen, rc = %d", rc);
+    UNLOCKMUTEX(impmutex);
+    unimportservice(service, peerinfo);
+    return rc;
+  };
+
+ out:  
+  impdumplist();
   UNLOCKMUTEX(impmutex);
   return 0;
 };
@@ -173,6 +237,7 @@ int unimportservice(char * service, struct gwpeerinfo * pi)
 
   LOCKMUTEX(impmutex);
 
+  impdumplist();
   imp = impfind(service);
   
   if (imp == NULL) {
@@ -184,7 +249,18 @@ int unimportservice(char * service, struct gwpeerinfo * pi)
     pl = * ppl;
     if ( pl->peer != pi) continue;
     
-    DEBUG("found the peerlist emelemt, removing");
+    DEBUG("found the peerlist element, removing");
+
+    DEBUG("last peer to provide %s (%d), sending unprovide to mwd", service, SVCID2IDX(pl->svcid));
+    /* if we fail, we fail... */
+    if (pl->svcid != UNASSIGNED) 
+      _mw_ipcsend_unprovide_for_id (pl->peer->gwid, service, pl->svcid);
+    else 
+      DEBUG("we got an unimport before svcid has been assigned, probably because mwd has not yet answered."
+	    " we're not sending unprovide to mwd, it will be done in the impsetsvcid()"
+	    " when the provide replyy comes. ");
+
+
     *ppl = pl->next;
     free(pl);
     
@@ -193,20 +269,13 @@ int unimportservice(char * service, struct gwpeerinfo * pi)
       // TODO: recalc cost
       goto out;
     };
-    DEBUG("last peer to provide %s (%d), sending unprovide to mwd", service, SVCID2IDX(imp->svcid));
-
-    if (imp->svcid != UNASSIGNED) 
-      _mw_ipcsend_unprovide (service, imp->svcid);
-    else 
-      DEBUG("we got an unimport before svcid has been assigned, probably because mwd has not yet answered."
-	    " we're not sending unprovide to mwd, it will be done in the impsetsvcid()"
-	    " when the provide replyy comes. ");
 
     DEBUG("now we must remove the  Import element from the importlist %p", importlist);
+
     for (pimp = &importlist; *pimp != NULL; *pimp = (*pimp)->next) {
       DEBUG(" pimp = %p *pimp = %p imp = %p", pimp, *pimp, imp);
       if (imp ==  *pimp) {
-	pimp = &imp->next;
+	*pimp = imp->next;
 	free(imp);
 	goto out;
       }; 
@@ -218,6 +287,7 @@ int unimportservice(char * service, struct gwpeerinfo * pi)
   Warning("Hmm went thru the peerlist but didn't find the peer, could ab a dublicate unprovide message");
 
  out:
+  impdumplist();
   UNLOCKMUTEX(impmutex);
   return error;
 };
@@ -263,6 +333,8 @@ static Export *  condnewexport(char * service)
   strncpy(exp->servicename, service, MWMAXSVCNAME);
   
   *prevexp = exp;
+
+  expdumplist();
   return exp;
 };
 
@@ -275,6 +347,7 @@ int exportservicetopeer(char * service, struct gwpeerinfo * peerinfo)
   assert (peerinfo != NULL) ;
   assert (service != NULL) ;
 
+  expdumplist();
 
   conn_getpeername(peerinfo->conn, pn, 255);
 
@@ -310,7 +383,7 @@ int exportservicetopeer(char * service, struct gwpeerinfo * peerinfo)
 
   *ppl = pl;
 
-
+  expdumplist();
   DEBUG("Sending SRB PROVIDE cost = %d", exp->cost);
   return  _mw_srbsendprovide (peerinfo->conn, service, exp->cost);
 };
@@ -320,6 +393,7 @@ static void unexportservice(char * servicename)
     Export * exp, **prevexp;
     peerlink * pl, *pl2;
 
+    expdumplist();
     prevexp = &exportlist;
     for (exp = exportlist; exp != NULL; prevexp = &exp->next, exp = exp->next) 
       if (strcmp(exp->servicename, servicename) == 0) break;
@@ -340,6 +414,7 @@ static void unexportservice(char * servicename)
     };
 
     free(exp);
+    expdumplist();
     DEBUG("unexport complete");
 };
 

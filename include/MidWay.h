@@ -56,6 +56,10 @@ typedef struct {
 
   time_t deadline; /* deadline here is pretty much a timeval struct. */
   int   udeadline; /* see gettimeofday(); */
+
+   int autentication;
+   char username[MWMAXNAMELEN];
+   char clientname[MWMAXNAMELEN];
 } mwsvcinfo;  
 
 

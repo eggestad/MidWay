@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.17  2004/03/01 14:09:31  eggestad
+ * serviceinfo struct (mwsvcinfo) expanded with username, clientname and authentication method
+ *
  * Revision 1.16  2004/02/17 07:27:35  eggestad
  * fix for wrong setting of non blocking flag in mwreply()
  *
@@ -542,6 +545,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   int rc, mesglen;
   ipcmaininfo * ipcmain;
   serviceentry * svcent;
+  cliententry * cltent;
   mwsvcinfo * svcreqinfo;
   long * mtype;
   MWID mwid;
@@ -668,6 +672,20 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   svcreqinfo->flags = callmesg->flags;
   memset(svcreqinfo->service, 0, MWMAXSVCNAME);
   strncpy(svcreqinfo->service, callmesg->service, MWMAXSVCNAME);
+
+  memset(svcreqinfo->username, 0, MWMAXSVCNAME);
+  memset(svcreqinfo->clientname, 0, MWMAXSVCNAME);
+  svcreqinfo->autentication = UNASSIGNED;
+  
+  /* get autentication info from client table */
+  if (callmesg->cltid != UNASSIGNED) {
+     cltent = _mw_get_client_byid(callmesg->cltid);
+     if (cltent) {
+	strncpy(svcreqinfo->username, cltent->username, MWMAXSVCNAME);
+	strncpy(svcreqinfo->clientname, cltent->clientname, MWMAXSVCNAME);
+	svcreqinfo->autentication = cltent->authtype;
+     };
+  };
 
   return svcreqinfo;
 };

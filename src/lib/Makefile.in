@@ -1,6 +1,7 @@
 
-CC = gcc
-INSTALL = /usr/bin/install
+
+CC = @CC@
+INSTALL = @INSTALL@
 
 INCLUDES = -I../include 
 
@@ -19,13 +20,16 @@ all: $(LIBS) testmidway
 clean: 
 	rm -f $(LIBS) $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) testmidway core 
 
+distclean:
+	rm -f Makefile *~
+
 install:
-	$(INSTALL) -D libMidWay.so $(INSTALLDIR)/lib/libMidWay.so
-	$(INSTALL) -D -m 644 libMidWay.a $(INSTALLDIR)/lib/libMidWay.a
+	$(INSTALL) libMidWay.so @libdir@/libMidWay.so
+	$(INSTALL) -m 644 libMidWay.a @libdir@/libMidWay.a
 
 uninstall:
-	rm -f $(INSTALLDIR)/lib/libMidWay.so
-	rm -f $(INSTALLDIR)/lib/libMidWay.a
+	rm -f @libdir@/libMidWay.so
+	rm -f @libdir@/libMidWay.a
 
 tags:
 	etags -a -o ../TAGS *.c *.h
@@ -34,7 +38,7 @@ libMidWay.a: $(IPCOBJS) $(COMMONOBJS) $(NETOBJS)
 	ar qcs $@ $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
 
 libMidWay.so: $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
-	gcc -shared -o $@ $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
+	$(CC) -shared -o $@ $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
 
 #	ld -Bshareable -g -o $@ $(IPCOBJS) $(COMMONOBJS)
 
@@ -45,29 +49,29 @@ ipctables.o: ipctables.c ../include/MidWay.h ../include/ipctables.h
 ipcmessages.o: ipcmessages.c ../include/MidWay.h ../include/ipcmessages.h 
 
 shmalloc.o: shmalloc.c ../include/shmalloc.h ../include/MidWay.h  
-	gcc -o shmalloc-m.o -c  shmalloc.c $(CFLAGS) 
+	$(CC) -o shmalloc-m.o -c  shmalloc.c $(CFLAGS) 
 	ld -i -o shmalloc.o shmalloc-m.o -lm -L/usr/lib
 
 mwlog.o: mwlog.c ../include/MidWay.h
 
 mwclientipcapi.o: mwclientipcapi.c ../include/MidWay.h 
 mwclientipcapi.o: ../include/ipctables.h  ../include/ipcmessages.h ../include/address.h 
-	gcc -o mwclientipcapi-m.o -c mwclientipcapi.c $(CFLAGS) 
+	$(CC) -o mwclientipcapi-m.o -c mwclientipcapi.c $(CFLAGS) 
 	ld -i -o mwclientipcapi.o mwclientipcapi-m.o -lm -L/usr/lib
 
 mwserverapi.o: mwserverapi.c ../include/MidWay.h 
 mwserverapi.o: ../include/ipctables.h  ../include/ipcmessages.h 
 
 SRBclient.o: SRBclient.c ../include/MidWay.h ../include/SRBprotocol.h ../include/urlencode.h ../liburlencode/liburlencode.a
-#	gcc -o SRBclient-m.o -c SRBclient.c $(CFLAGS) 	
+#	$(CC) -o SRBclient-m.o -c SRBclient.c $(CFLAGS) 	
 #	ld -i -o SRBclient.o SRBclient-m.o ../liburlencode/liburlencode.a
 
 SRBprotocol.o: SRBprotocol.c ../include/MidWay.h ../include/SRBprotocol.h ../include/urlencode.h ../liburlencode/liburlencode.a
-	gcc -o SRBprotocol-m.o -c SRBprotocol.c $(CFLAGS) 	
+	$(CC) -o SRBprotocol-m.o -c SRBprotocol.c $(CFLAGS) 	
 	ld -i -o SRBprotocol.o SRBprotocol-m.o ../liburlencode/liburlencode.a
 
 version.o: version.c
 
 testmidway: testmidway.c ../include/MidWay.h libMidWay.a
-	gcc -o $@ testmidway.c -I../include -L. -lMidWay -lm 
+	$(CC) -o $@ testmidway.c -I../include -L. -lMidWay -lm 
 

@@ -1,0 +1,20 @@
+
+@SET_MAKE@
+INSTALL = @INSTALL
+
+all: 
+
+clean::
+
+distclean:: clean
+	rm -f Makefile *~
+
+install::
+	@ for man in ´ls *.3*´; do\
+	$(INSTALL) -m 644 @mandir@/man3/$$man; \
+	done;
+
+uninstall::
+	@ for man in ´ls *.3*´; do\
+	rm -f @mandir@/man3/$$man;\
+	done;

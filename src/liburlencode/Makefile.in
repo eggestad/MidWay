@@ -1,6 +1,6 @@
 
-CC = gcc
-INSTALL = /usr/bin/install
+CC = @CC@
+INSTALL = @INSTALL@
 
 LIBS = liburlencode.a # liburlencode.so 
 
@@ -11,11 +11,14 @@ xall:  $(LIBS) liburl++.a test-liburlencode
 clean: 
 	rm -f $(LIBS) *.o
 
+distclean:
+	rm -f Makefile *~
+
 install:
-	$(INSTALL) -D -m 644 liburlencode.a $(INSTALLDIR)/lib/liburlencode.a
+	$(INSTALL)  -m 644 liburlencode.a @libdir@/liburlencode.a
 
 uninstall:
-	rm -f $(INSTALLDIR)/lib/liburlencode.a
+	rm -f @libdir@/liburlencode.a
 
 tags:
 	etags -a -o ../TAGS *.c *.h
@@ -28,10 +31,10 @@ liburlencode.a: $(COBJS)
 	ar qcs $@ $(COBJS)
 
 liburlencode.so:
-	gcc -shared -o $@ $(COBJS)
+	$(CC) -shared -o $@ $(COBJS)
 
 test-liburlencode: liburlencode.a test-liburlencode.o
-	gcc -o $@ test-liburlencode.o -L. -lurlencode
+	$(CC) -o $@ test-liburlencode.o -L. -lurlencode
 
 urlencoded.o: urlencoded.c ../include/urlencode.h
 
@@ -43,5 +46,5 @@ liburl++.a: urlencoded++.o
 	ar qcs $@ urlencoded++.o
 
 urlencoded++.o: urlencoded.c
-	gcc -xc++ -c -g -o $@ urlencoded.c
+	$(CC) -xc++ -c -g -o $@ urlencoded.c
 

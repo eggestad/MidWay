@@ -1,6 +1,6 @@
 
-CC = gcc
- 
+CC = @CC@
+
 INCLUDES = -I../include 
 
 CFLAGS =  $(INCLUDES) -g
@@ -10,6 +10,9 @@ all: testsuiteserver.so testsuiteclient
 clean: 
 	rm -f testsuiteclient *.o *.so
 
+distclean: 
+	rm -f Makefile *~
+
 test: 
 	runtestsuite.pl
 
@@ -17,15 +20,19 @@ tags:
 	etags -a -o ../TAGS *.c *.h
 
 testsuiteserver.o: testsuiteserver.c ../include/MidWay.h testsuite.h
-	gcc -fPIC $(CFLAGS) -c $<
+	$(CC) -fPIC $(CFLAGS) -c $<
 
 testsuiteserver.so: testsuiteserver.o
-	gcc -shared -g -o $@ $<
+	$(CC) -shared -g -o $@ $<
 
 
 testsuitclient.o: testsuiteclient.c ../include/MidWay.h testsuite.h
-	gcc $(CFLAGS) -c $<
+	$(CC) $(CFLAGS) -c $<
 
 testsuiteclient: testsuiteclient.o
-	gcc -o $@ testsuiteclient.o -L../lib -lMidWay
+	$(CC) -o $@ testsuiteclient.o -L../lib -lMidWay
+
+install:
+
+
 

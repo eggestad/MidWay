@@ -1,15 +1,15 @@
 
-CC = gcc
-INSTALL = /usr/bin/install
- 
+CC = @CC@
+INSTALL = @INSTALL@
+
 INCLUDES = -I../include 
 
 INCPATH = ../include
 
 CFLAGS =  $(INCLUDES) -g
 
-LIBS =  -L../lib -lreadline -lncurses -lMidWay
-
+LIBS =  -L../lib @readlinelib@ -lMidWay
+LIB = @LIBS@
 LDFLAGS = $(LIBS) 
 
 OBJ = mwadm.o commands.o
@@ -19,7 +19,7 @@ EXE = mwadm
 all: $(EXE)
 
 mwadm: $(OBJ)
-	gcc -o $@ $(OBJ) $(LIBS)
+	$(CC) -o $@ $(OBJ) $(LIBS)
 
 depend:
 	makedepend -Y *.c
@@ -27,11 +27,14 @@ depend:
 clean:
 	rm -f mwadm $(OBJ) core 
 
+distclean:
+	rm -f Makefile *~
+
 install:
-	$(INSTALL) -D mwadm $(INSTALLDIR)/bin/mwadm
+	$(INSTALL)  mwadm @bindir@/mwadm
 
 uninstall:
-	rm -f $(INSTALLDIR)/bin/mwadm
+	rm -f @bindir@/mwadm
 
 tags:
 	etags -a -o ../TAGS *.c *.h

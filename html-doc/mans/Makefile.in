@@ -1,0 +1,14 @@
+
+
+
+
+all:	
+	mkhtml.pl
+
+clean:
+	rm -f *.html
+
+distclean:
+	rm -f Makefile *~
+
+install:

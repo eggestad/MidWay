@@ -1,0 +1,26 @@
+
+@SET_MAKE@
+
+SUBDIRS = man1 man3 man7
+
+
+all: 
+	@ for dir in $(SUBDIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;
+
+clean:
+	@ for dir in $(SUBDIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;
+
+distclean:: clean
+	@ for dir in $(SUBDIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;\
+	rm -f Makefile *~
+
+install::
+	@ for dir in $(SUBDIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;

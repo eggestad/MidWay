@@ -1,0 +1,16 @@
+
+all:
+
+sfupdate:
+	scp1 -r . eggestad@MidWay.sourceforge.net:/home/groups/MidWay/htdocs/doc/
+
+clean:
+	find . -name '*~' | xargs rm -f 
+	find . -name core | xargs rm -f
+
+distclean:
+	(cd mans; $(MAKE) $@)
+	rm -f Makefile *~
+
+install:
+	(cd mans; $(MAKE) $@)

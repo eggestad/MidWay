@@ -1,0 +1,49 @@
+
+CC = @CC@
+
+@SET_MAKE@
+
+
+DIRS = liburlencode lib mwd mwadm mwserver mwgwd mwcall test
+
+all: 
+	@ for dir in $(DIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;
+
+clean: 
+	@ for dir in $(DIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;
+
+distclean: 
+	@ for dir in $(DIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done; 
+	rm -f Makefile *~
+
+
+tags:
+	rm TAGS
+	@ for dir in $(DIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;
+	etags -a -o TAGS include/*.h
+
+test:
+	(cd $@; $(MAKE) $@)
+
+depend:
+	makedepend -Y *.c
+
+
+install:
+	@ for dir in $(DIRS); do\
+	(cd $$dir; $(MAKE)  $@)\
+	done;
+
+uninstall:
+	@ for dir in $(DIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;
+

@@ -1,0 +1,101 @@
+dnl
+dnl  MidWay 
+dnl  Copyright (C) 2000 Terje Eggestad
+dnl
+dnl  The MidWay API is free software; you can redistribute it and/or
+dnl  modify it under the terms of the GNU Library General Public License as
+dnl  published by the Free Software Foundation; either version 2 of the
+dnl  License, or (at your option) any later version.
+dnl  
+dnl  The MidWay API is distributed in the hope that it will be useful,
+dnl  but WITHOUT ANY WARRANTY; without even the implied warranty of
+dnl  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+dnl  Library General Public License for more details.
+dnl  
+dnl  You should have received a copy of the GNU Library General Public
+dnl  License along with the MidWay distribution; see the file COPYING. If not,
+dnl  write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+dnl  Boston, MA 02111-1307, USA. 
+dnl
+dnl $Id$
+
+AC_REVISION($Name$)dnl
+
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(src/mwd/mwd.c)
+AC_CONFIG_HEADER(config.h)
+AC_CONFIG_AUX_DIR(scripts)
+
+dnl Checks for host type
+AC_CANONICAL_HOST
+
+dnl Checks for programs.
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_PROG_MAKE_SET
+
+
+case "$host" in
+
+  *-linux*)
+    linux=true
+    ostype=Linux
+    ;;
+
+   *-*-*)
+    echo WARNING: MidWay is not ported to $host
+    ;;
+
+esac
+
+dnl Checks for header files.
+AC_CHECK_HEADERS(readline/readline.h)
+
+dnl Checks for library functions.
+AC_FUNC_MEMCMP
+AC_TYPE_SIGNAL
+AC_CHECK_FUNCS(gettimeofday select socket strerror)
+
+dnl check for libs
+
+dnl almost home here, all that's missing is -lreadline in LIBS
+dnl AC_CHECK_LIB(ncurses, initscr)
+dnl AC_CHECK_LIB(readline, readline)
+dnl AC_CHECK_LIB(readline, readline, , , -lncurses)
+
+AC_CHECK_LIB(m, log, , echo "missing required log function in math library (-lm)"; exit;)
+AC_CHECK_LIB(pthread, pthread_create, , echo "missing pthread library"; exit;)
+
+dnl Link options when we need readline.
+dnl -----------------------------------
+dnl We need to avoid a dynamic binding of libraries for readline since some versions 
+dnl of Linux has a statical readline while others have a dynamic one..
+dnl (gotta  be old!)
+
+staticpre="-Wl,-Bstatic"
+staticpost="-Wl,-Bdynamic"
+
+dnl AC_CHECK_LIB(termcap, main, tcaplib="-ltermcap"; AC_DEFINE(HAVE_LIBTERMCAP))
+
+if [[ x$linux = xtrue ]]; then
+  rlnlib="-lreadline -lncurses"
+else
+  rlnlib="-lreadline"
+fi
+
+dnl if test x$ostype = xLinux ; then
+dnl    readlinelib="$staticpre $rlnlib $tcaplib $staticpost"
+dnl else
+dnl    readlinelib="$staticpre $rlnlib $staticpost $tcaplib"
+dnl fi
+
+readlinelib="$rlnlib"
+AC_SUBST(readlinelib)
+
+dnl End link options for readline
+
+AC_OUTPUT(html-doc/mans/Makefile html-doc/Makefile src/Makefile\
+	src/lib/Makefile src/liburlencode/Makefile src/mwadm/Makefile 
+	src/mwcall/Makefile src/mwd/Makefile src/mwgwd/Makefile 
+	src/mwserver/Makefile src/test/Makefile Makefile\
+	man/Makefile man/man1/Makefile man/man3/Makefile man/man7/Makefile)

@@ -1,7 +1,7 @@
 
-CC = gcc
-INSTALL = /usr/bin/install
- 
+CC = @CC@
+INSTALL = @INSTALL@
+
 INCLUDES = -I../include 
 
 INCPATH = ../include
@@ -19,7 +19,7 @@ EXE = mwcall
 all: $(EXE)
 
 $(EXE): $(OBJ)
-	gcc -o $@ $(OBJ) $(LIBS)
+	$(CC) -o $@ $(OBJ) $(LIBS)
 
 depend:
 	makedepend -Y *.c
@@ -27,11 +27,14 @@ depend:
 clean:
 	rm -f mwcall $(OBJ) core 
 
+distclean:
+	rm -f Makefile *~
+
 install:
-	$(INSTALL) -D mwcall $(INSTALLDIR)/bin/mwcall
+	$(INSTALL)  mwcall @bindir@/mwcall
 
 uninstall:
-	rm -f $(INSTALLDIR)/bin/mwcall
+	rm -f @bindir@/mwcall
 
 tags:
 	etags -a -o ../TAGS *.c *.h

@@ -1,0 +1,28 @@
+
+@SET_MAKE@
+
+SUBDIRS = src html-doc man
+
+
+all: 
+	@ for dir in $(SUBDIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;
+
+clean::
+	@ for dir in $(SUBDIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;
+
+distclean:: clean
+	@ for dir in $(SUBDIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;\
+	rm -f Makefile config.cache config.h config.log config.status *~
+
+install::
+	@ for dir in $(SUBDIRS); do\
+	(cd $$dir; $(MAKE) $@)\
+	done;
+
+

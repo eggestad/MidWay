@@ -1,23 +1,26 @@
 
-CC = gcc
-INSTALL = /usr/bin/install
- 
+CC = @CC@
+INSTALL = @INSTALL@
+
 INCLUDES = -I../include 
 
 LIBS = -L../lib -lMidWay
 
-CFLAGS =  $(INCLUDES) -g 
+CFLAGS =  @CFLAGS@ $(INCLUDES)
 
 all: mwserver testservices.so
 
 clean: 
 	rm -f mwserver *.o *.so core
 
+distclean:
+	rm -f Makefile *~
+
 install:
-	$(INSTALL) -D mwserver $(INSTALLDIR)/bin/mwserver
+	$(INSTALL)  mwserver @bindir@/mwserver
 
 uninstall:
-	rm -f $(INSTALLDIR)/bin/mwserver
+	rm -f @bindir@/mwserver
 
 test: 
 	./mwserver -s test1:servicehandler1 -s servicehandler1 -s sleep1 testservices.so
@@ -26,16 +29,16 @@ tags:
 	etags -a -o ../TAGS *.c *.h
 
 testservices.o: testservices.c ../include/MidWay.h
-	gcc -fPIC $(CFLAGS) -c $<
+	$(CC) -fPIC $(CFLAGS) -c $<
 
 testservices.so: testservices.o
-	gcc -shared -g -o testservices.so testservices.o
+	$(CC) -shared -g -o testservices.so testservices.o
 
 mwserver.o: ../include/MidWay.h ./shared_lib_services.h
 
 shared_lib_services.o: ../include/MidWay.h ./shared_lib_services.h
 
 mwserver: mwserver.o shared_lib_services.o ../lib/libMidWay.so
-	gcc -o $@ mwserver.o shared_lib_services.o -rdynamic $(CFLAGS) $(LIBS) -ldl
+	$(CC) -o $@ mwserver.o shared_lib_services.o -rdynamic $(CFLAGS) $(LIBS) -ldl
 
 

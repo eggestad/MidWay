@@ -1,15 +1,14 @@
 
-MDHOME = ../..
+MDHOME = @top_srcdir@
 
-CC = gcc
-INSTALL = /usr/bin/install
+CC = @CC@
+INSTALL = @INSTALL@
 
 LIBS = -lMidWay -lm
 
-CFLAGS = -I../include -I../liburl -g  -Wstrict-prototypes -DINTERVAL=1200
+CFLAGS = @CFLAGS@ -I../include -I../liburl  -Wstrict-prototypes -DINTERVAL=1200
 
 OBJS = mwd.o shmallocfmt.o requestparse.o tables.o watchdog.o
-
 
 EXE = mwd
 
@@ -18,11 +17,14 @@ all: $(EXE)
 clean:
 	rm -f $(EXE) $(OBJS) core
 
+distclean:
+	rm -f Makefile *~
+
 install:
-	$(INSTALL) -D mwd $(INSTALLDIR)/bin/mwd
+	$(INSTALL) mwd @bindir@/mwd
 
 uninstall:
-	rm -f $(INSTALLDIR)/bin/mwd
+	rm -f @bindir@/mwd
 
 mwd: ../lib/libMidWay.a $(OBJS)
 	$(CC) -o $@ -g $(OBJS) -L../lib $(LIBS) 

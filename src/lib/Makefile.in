@@ -24,15 +24,15 @@ LIBS = libMidWay.a libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION)
 all: $(LIBS) testmidway
 
 clean: 
-	rm -f $(LIBS) $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) testmidway core 
+	rm -f $(LIBS) $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) testmidway testmidway.???????? core 
 
 distclean:
 	rm -f Makefile *~
 
 install:
-	$(INSTALL) libMidWay.so @libdir@/libMidWay.so.0.10
-	@LN_S@ -f @libdir@/libMidWay.so.0.10 @libdir@/libMidWay.so.0
-	@LN_S@ -f @libdir@/libMidWay.so.0.10 @libdir@/libMidWay.so
+	$(INSTALL) libMidWay.so @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION)
+	@LN_S@ -f @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION)
+	@LN_S@ -f @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) @libdir@/libMidWay.so
 	$(INSTALL) -m 644 libMidWay.a @libdir@/libMidWay.a
 
 uninstall:
@@ -48,12 +48,10 @@ depend:
 libMidWay.a: $(IPCOBJS) $(COMMONOBJS) $(NETOBJS)  
 	ar qcs $@ $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
 
-libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION): $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
+libMidWay.so: $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
 	$(CC) -shared -Wl,-soname,libMidWay.so.$(MAJOR_LIB_VERSION) -o $@ $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) ../liburlencode/liburlencode.a -lm 
-	@LN_S@ -f  libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) libMidWay.so.$(MAJOR_LIB_VERSION)
-	@LN_S@ -f  libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) libMidWay.so
-
-#	ld -Bshareable -g -o $@ $(IPCOBJS) $(COMMONOBJS)
+	@LN_S@ -f  libMidWay.so libMidWay.so.$(MAJOR_LIB_VERSION)
+	@LN_S@ -f  libMidWay.so libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) 
 
 testmidway: testmidway.c ../include/MidWay.h libMidWay.a
 	$(CC) -o $@ testmidway.c -I../include -L. -lMidWay 

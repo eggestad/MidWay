@@ -21,6 +21,10 @@
 
 /* 
  * $Log$
+ * Revision 1.11  2003/07/13 22:41:47  eggestad
+ * - added timepegs
+ * - removed some trailing newline in debug messages
+ *
  * Revision 1.10  2003/06/12 07:20:28  eggestad
  * - urlmapdecode now return NULL if decode of a value field is wrong
  * - replaced all old printf with debug1
@@ -64,6 +68,7 @@ urlmap * urlmapdecode(char * list)
   char * next, * key_end, * value_start, * value_end;
   urlmap * map;
 
+  URLTIMEPEGNOTE("mapdecode begin");
   debug1 ("list = %p", list);
 
   if (list == NULL) {
@@ -98,7 +103,7 @@ urlmap * urlmapdecode(char * list)
     value_end = strchr(next, '&');
     // if next = is past & then there are no value 
 
-    debug1("key_end=%p(next+%d) value_end=%p(next+%d) next=%s\n", 
+    debug1("key_end=%p(next+%d) value_end=%p(next+%d) next=%s", 
 	   key_end, key_end-next, value_end, value_end - next, next);
 
     if ((value_end != NULL) && (key_end > value_end)) key_end = NULL;
@@ -131,11 +136,13 @@ urlmap * urlmapdecode(char * list)
   map[idx].value = NULL;
   map[idx].valuelen = 0;
 
-  debug1("returns => %p\n", map);
+  debug1("returns => %p", map);
+  URLTIMEPEGNOTE("mapdecode end");
   return map;
 
  errout:
   urlmapfree(map);
+  URLTIMEPEGNOTE("mapdecode end NULL");
   return NULL;
 };
 
@@ -147,6 +154,7 @@ char * urlmapencode(urlmap * map)
   int keylen; 
   int valuelen;
 
+  URLTIMEPEGNOTE("mapencode begin");
   if (map == NULL) return NULL;
 
   maxlistlen = 64;
@@ -190,6 +198,7 @@ char * urlmapencode(urlmap * map)
     idx++;
   };
   list[listlen] = '\0';
+  URLTIMEPEGNOTE("mapencode end");
   return list;
 
 }
@@ -200,6 +209,7 @@ int urlmapnencode(char * list, int len, urlmap * map)
   int keylen; 
   int valuelen;
 
+  URLTIMEPEGNOTE("mapnencode begin");
   listlen = 0;
   idx = 0;
 
@@ -247,6 +257,7 @@ int urlmapnencode(char * list, int len, urlmap * map)
     idx++;
   };
   list[listlen] = '\0';
+  URLTIMEPEGNOTE("mapencode end");
   return listlen;
 };
 
@@ -256,20 +267,21 @@ urlmap * urlmapdup(urlmap * map)
   int idx, n;
   int l;
 
+  URLTIMEPEGNOTE("mapdup begin");
   if (map == NULL) return NULL;
 
-  debug1("beginning copy of map at %p\n", map);
+  debug1("beginning copy of map at %p", map);
 
   /* find the number of pairs in the map. */
   for (n = 0; map[n].key != NULL;  n++) ;
   
-  debug1("map to be copied has %d pairs\n", n);
+  debug1("map to be copied has %d pairs", n);
 
   newmap = malloc(sizeof(urlmap) * (n+1));
   
   for (idx = 0; idx < n; idx++) {
     
-     debug1("copying pair %d: key=%s :: value=%s(%d)\n",  idx,  
+     debug1("copying pair %d: key=%s :: value=%s(%d)",  idx,  
 	    map[idx].key, 
 	    map[idx].value!=NULL?map[idx].value:"(null)",
 	    map[idx].valuelen);
@@ -294,6 +306,7 @@ urlmap * urlmapdup(urlmap * map)
   newmap[idx].key = NULL;
   newmap[idx].value = NULL;
   newmap[idx].valuelen = 0;
+  URLTIMEPEGNOTE("mapdup end");
   return newmap;
 };
 
@@ -303,7 +316,7 @@ void urlmapfree(urlmap * map)
 
   if (map == NULL) return ;
   
-  debug1("urlmapfree(%p)\n", map);
+  debug1("urlmapfree(%p)", map);
 
   while(map[idx].key != NULL) {
     free(map[idx].key);
@@ -323,16 +336,21 @@ int urlmapget(urlmap * map, char * key)
 {
   int idx = 0;
 
+  URLTIMEPEGNOTE("begin");
   if ( (map == NULL) || (key == NULL) ) {
     errno = EINVAL;
     return -1;
   };
 
   while (map[idx].key != NULL) {
-    if (strcasecmp(key, map[idx].key ) == 0) return idx;
+    if (strcasecmp(key, map[idx].key ) == 0) {
+       URLTIMEPEGNOTE("end");
+       return idx;
+    };
     idx ++;
   };
   errno = ENOENT;
+  URLTIMEPEGNOTE("end NOENT");
   return -1;
 };
 
@@ -433,6 +451,7 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
   int l;
   urlmap * m;
 
+  URLTIMEPEGNOTE("begin");
   if (key == NULL) return map;
 
   if (len < 0) {
@@ -455,7 +474,7 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
     return NULL;
   };
 
-  debug1("realloced %p to %p\n", m, map);
+  debug1("realloced %p to %p", m, map);
 
   /* make a copy and insert key */
   l = strlen(key);
@@ -478,6 +497,7 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
   map[idx+1].value = NULL;
   map[idx+1].valuelen = 0;
 
+  URLTIMEPEGNOTE("end");
   return map;
 };
 

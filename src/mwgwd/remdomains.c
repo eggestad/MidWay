@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.3  2002/11/18 00:25:21  eggestad
+ * - CVS Name removed.
+ *
  * Revision 1.2  2002/09/26 22:36:19  eggestad
  * added missing include
  *
@@ -44,7 +47,6 @@
 
 
 static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$";
 
 struct Imports {
   char * localname;

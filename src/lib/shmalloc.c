@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.17  2004/04/12 22:56:50  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.16  2004/04/12 12:53:41  eggestad
  * _mw_putbuffer_to_call() failed if data is "", caused mwalloc(0), which returned -ENOMEM
  *
@@ -257,8 +260,7 @@ int _mw_putbuffer_to_call (Call * callmesg, char * data, int len)
        memcpy(dbuf, data, len);
        dataoffset = _mwshmcheck(dbuf);
     }
-  };
-  
+
     callmesg->data = dataoffset;
     callmesg->datalen = len;
   } else {

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.22  2004/11/03 02:07:15  eggestad
+ * fix for proper detection of eth devices
+ *
  * Revision 1.21  2004/10/13 18:41:13  eggestad
  * task API updates
  *
@@ -589,12 +592,16 @@ create_ipc(int mode)
   return 0;
 
 }
-// TODO: this is the wrong way to list all interfaces
+
+//
+// listing all the interfaces is a messy affair. The man page is obsolete. 
+//
 void set_instanceid(ipcmaininfo * ipcmain)
 {
   char * pt, buffer [256] = {0};
-  int s, rc, idx, n;
-  struct ifreq ifdat = {0};
+  int s, rc, idx, N, len;
+  struct ifconf ifc = {0};
+  struct ifreq * ifr, ifdat;
   struct sockaddr_in * sin;
   struct sockaddr hwaddr = { 0 };
   int hwaddrfound = 0;
@@ -603,34 +610,48 @@ void set_instanceid(ipcmaininfo * ipcmain)
 
   if (s == -1) goto nonet;
 
-  for (n = 0, idx=1; n == 0; idx++) {
-    
-    DEBUG("checking interface with index %d for unique address", idx);
+  N = 0;
+  do {
+    N += 1;
+    ifc.ifc_len = len = sizeof(struct ifreq)*N;
 
-    ifdat.ifr_ifindex = idx;
-    n = ioctl(s, SIOCGIFNAME, &ifdat);
-    if (n == -1) break;
+    DEBUG ("alloc len = %d", ifc.ifc_len);
 
-    DEBUG("ioctl(SIOCGIFNAME) returned %d errno %d ifname = %s", 
-	  n, errno, ifdat.ifr_name);
+    ifc.ifc_ifcu.ifcu_buf = realloc (ifc.ifc_ifcu.ifcu_buf, ifc.ifc_len);
+
+    /* I wonder exactly how portable this is, but ifconfig does this,
+       and Stevens says this is portable */
+    rc = ioctl(s, SIOCGIFCONF, &ifc);
+    if (rc == -1) {
+      goto out;
+    };
+
+  } while (ifc.ifc_len >= len);
+
+  
+  for (idx=0; idx < N; idx++) {
     
-    rc = ioctl(s, SIOCGIFADDR, &ifdat);
+    ifr = &ifc.ifc_ifcu.ifcu_req[idx];
+
+    DEBUG("checking interface %d %s for unique address", idx, ifr->ifr_name);
+
+    rc = ioctl(s, SIOCGIFADDR, ifr);
     DEBUG("ioctl(SIOCGIFADDR) returned %d errno %d af = %d", 
-	  rc, errno, ifdat.ifr_addr.sa_family);
+	  rc, errno, ifr->ifr_addr.sa_family);
     
-    if (ifdat.ifr_addr.sa_family == AF_INET) {
-      sin = (struct sockaddr_in*) &ifdat.ifr_addr;
+    if (ifr->ifr_addr.sa_family == AF_INET) {
+      sin = (struct sockaddr_in*) &ifr->ifr_addr;
 
       pt = (char *) inet_ntop(AF_INET, &(sin->sin_addr), buffer, 256);
       if (pt == NULL) {
-	Warning("failed to parse ip address in interface %s", ifdat.ifr_name);
+	Warning("failed to parse ip address in interface %s", ifr->ifr_name);
 	continue;
       };
       DEBUG("ip addr = %s", buffer);
       
     } else {
       rc = ioctl(s, SIOCGIFHWADDR , &ifdat);
-      DEBUG("ioctl returned %d errno %d hw_af = %d", 
+      DEBUG("ioctl (SIOCGIFHWADDR) returned %d errno %d hw_af = %d", 
 	     rc, errno, ifdat.ifr_addr.sa_family );
       
       /* is this a portable way to check for ethernet */
@@ -658,7 +679,7 @@ void set_instanceid(ipcmaininfo * ipcmain)
     
     sprintf(ipcmain->mw_instance_id, "%s/%d", buffer, masteripckey);
     DEBUG("instanceid = %s", ipcmain->mw_instance_id);
-    return;
+    goto out;
   };
   
   if (hwaddrfound) {
@@ -671,8 +692,14 @@ void set_instanceid(ipcmaininfo * ipcmain)
 	    hwaddr.sa_data[4], 
 	    hwaddr.sa_data[5], 
 	    masteripckey);    
-    return;
+    goto out;
   };
+
+ out:
+  free(ifc.ifc_ifcu.ifcu_buf);
+  close(s);
+  return;
+  
 
  nonet:
   Warning("No network connection found, assuming that host is standalone");

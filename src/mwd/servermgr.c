@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2003/06/05 21:56:04  eggestad
+ * environment var fixes
+ *
  * Revision 1.5  2003/04/25 13:03:10  eggestad
  * - fix for new task API
  * - new shutdown procedure, now using a task
@@ -658,7 +661,7 @@ int smgrExecServer(struct Server * S)
   
   if (AS->pid == 0) {
     int i;
-    char ** envp;
+    char ** envp, ** tmpenv;
     char tmp[1024];
     char * path;
 
@@ -680,6 +683,11 @@ int smgrExecServer(struct Server * S)
 
     sprintf(tmp, "%s/%s/run", mwhome, instancename);
     mySetEnv(&defaultEnv, "PWD", tmp);
+
+    DEBUG("Environment:");
+    for (tmpenv = envp; tmpenv[0] != NULL; tmpenv++) {
+       DEBUG("  %s", tmpenv[0]);
+    }
 
     execvpe(S->exec, S->args, envp);    
     Error("exec failed for \"%s\", reason %s", S->exec, strerror(errno));

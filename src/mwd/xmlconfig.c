@@ -224,6 +224,90 @@ xmlNodePtr mwConfigFindNode(xmlNodePtr start, ...)
  * Functions for parsing tags 
  ************************************************************************/
 
+static int ParseEnvTag(xmlNodePtr node, int servergroup)
+{
+  xmlNodePtr cur;
+  char * envs;
+  int envslength;
+  char * newline;
+  char * name;
+  char * value;
+  int i, rc;
+  int in, iv, inval;
+
+  for (cur = node->children; cur != NULL; cur = cur->next) {
+
+    if (cur->type == XML_COMMENT_NODE) {
+       DEBUG("skipping xml comment");
+       continue;
+    };
+    
+    if (cur->type == XML_ELEMENT_NODE) {
+       DEBUG("found unexpected xml element %d", cur->type);
+       continue;
+    };
+
+    
+    if (cur->type != XML_TEXT_NODE) {
+       Warning("ignoring unexpected tag \"%s\" under node \"%s\" in config %s", 
+	       cur->name, cur->parent->name, configfilename);
+    };
+
+    envs = XML_GET_CONTENT(cur);
+    DEBUG("envs are %s", envs);
+    
+    envslength = strlen(envs);
+    name = malloc(envslength);
+    value = malloc(envslength);
+    name[0] = '\0';
+    value[0] = '\0';
+    in = iv = inval = 0;
+    for (i = 0; i < envslength; i++) {
+       if (envs[i] == '\n') {
+	  if (in == 0) {
+	     continue;
+	  };
+	  name[in++] = '\0';
+	  value[iv++] = '\0';	  
+	  DEBUG("  env par \"%s\" = \"%s\"", name, value);
+	  if (servergroup) 
+	     rc = smgrSetGroupSetEnv(name, value);
+	  else 
+	     rc = smgrSetServerSetEnv(name, value);
+	  if (rc != 0) {
+	     Warning("setenv failed with errno %d", errno);
+	  };
+	  in = iv = inval = 0;
+	  name[0] = '\0';
+	  value[0] = '\0';    
+	  continue;
+       }
+       if ((envs[i] == '=') && (!inval)) {
+	  inval = 1;
+	  continue;
+       }
+       if (inval) 
+	  value[iv++] = envs[i];
+       else {
+	  if (isspace(envs[i])) continue;
+	  name[in++] = envs[i];
+       };
+    };
+
+    // in case there is no new line at the end.
+    if (in != 0) {
+       name[in++] = '\0';
+       value[iv++] = '\0';	  
+       DEBUG("  last env par \"%s\" = \"%s\"", name, value);
+       if (servergroup) 
+	  smgrSetGroupSetEnv(name, value);
+       else 
+	  smgrSetServerSetEnv(name, value);
+    };
+  };
+  return 1;
+};
+
 static int ParseExecTag(xmlNodePtr node)
 {
   xmlNodePtr cur;
@@ -335,6 +419,8 @@ static int ParseServerTag(xmlNodePtr node)
       ParseArgListTag(cur);
     } else if (strcasecmp(cur->name, "instances") == 0) {
       ParseServerInstancesTag(cur);
+    } else if (strcasecmp(cur->name, "env") == 0) {
+      ParseEnvTag(cur, 0);
     } else {
       Warning("ignoring unexpected tag \"%s\" under node \"%s\" in config %s", 
 	    cur->name, cur->parent->name, configfilename);
@@ -389,6 +475,8 @@ static int ParseGroupTag(xmlNodePtr node)
 
     if (strcasecmp(cur->name, "Server") == 0) {
       ParseServerTag(cur);
+    } else if (strcasecmp(cur->name, "env") == 0) {
+      ParseEnvTag(cur, 1);
     } else {
       Warning("ignoring unexpected tag \"%s\" under node \"%s\" in config %s", 
 	    cur->name, cur->parent->name, configfilename);
@@ -525,6 +613,7 @@ static int ParseGatewaysTag(xmlNodePtr node)
   xmlNodePtr cur;
   char name[128];
   char args[256];
+  char * extraopts;
 
   DEBUG("beginning %s tag", node->name);
   /* here in mwd we don't really parse the gateway part, only the domains
@@ -549,7 +638,12 @@ static int ParseGatewaysTag(xmlNodePtr node)
 
     DEBUG("found %s  tag %s", node->name, cur->name);
 
-    if (strcasecmp(cur->name, "clients") == 0) {
+    smgrBeginGroup("MWGATEWAYS");      
+
+    if (strcasecmp(cur->name, "env") == 0) {
+      ParseEnvTag(cur, 1);
+
+    } else if (strcasecmp(cur->name, "clients") == 0) {
       char * port;
       int p;
 
@@ -561,20 +655,27 @@ static int ParseGatewaysTag(xmlNodePtr node)
 	continue;
       }
 
-      smgrBeginGroup("MWGATEWAYS");      
+      extraopts = xmlGetProp(cur, "options");
+      if (extraopts) {
+	 strcat(args, extraopts);
+      } else {
+	 extraopts = "";
+      };
+
+
       sprintf(name, "mwgwd-clients-%d", p);
       smgrBeginServer(name);
 
       smgrSetServerExec("mwgwd");
       smgrSetServerAutoBoot(TRUE);
-      sprintf(args, "-p %d", p);
+      sprintf(args, "-p %d %s", p, extraopts);
+
       smgrSetServerArgs(args);
       smgrSetServerMinMax(1, 1);
 
       DEBUG("Added gateway  %s", name);
 
       smgrEndServer();
-      smgrEndGroup();
       
     } else if (strcasecmp(cur->name, "domain") == 0) {
       char * domain;
@@ -585,24 +686,35 @@ static int ParseGatewaysTag(xmlNodePtr node)
 	continue;
       }
 
-      smgrBeginGroup("MWGATEWAYS");      
+      extraopts = xmlGetProp(cur, "options");
+      if (extraopts) {
+	 strcat(args, extraopts);
+      } else {
+	 extraopts = "";
+      };
+
       sprintf(name, "mwgwd-domain-%s", domain);
       smgrBeginServer(name);
 
       smgrSetServerExec("mwgwd");
       smgrSetServerAutoBoot(TRUE);
-      sprintf(args, "%s", domain);
+      sprintf(args, "%s %s", extraopts, domain);
+
       smgrSetServerArgs(args);
       smgrSetServerMinMax(1, 1);
 
       DEBUG("Added gateway  %s", name);
 
       smgrEndServer();
-      smgrEndGroup();
+
     } else {
       Warning("ignoring unexpected tag \"%s\" under node \"%s\" in config %s", 
 	    cur->name, cur->parent->name, configfilename);
     };    
+
+    smgrEndGroup();
+
+
   };
   
   return 0;

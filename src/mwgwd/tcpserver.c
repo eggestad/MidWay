@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.13  2003/06/05 21:56:05  eggestad
+ * environment var fixes
+ *
  * Revision 1.12  2003/03/16 23:50:25  eggestad
  * Major fixups
  *
@@ -464,7 +467,7 @@ int tcp_do_read_condiion(Connection * conn)
 /************************************************************************
  * timer task, is called every time conn_select() times out */
 
-#define TASK_INTERVAL 60 /* secs */
+int  TASK_INTERVAL = 60 /* secs */;
 
 /* the timeout is the next time in unix time that we shall be
    called. initial value of 1 just ensure that it will be called first
@@ -508,7 +511,8 @@ void * tcpservermainloop(void * param)
 {
   int fd, cond, rc;
   Connection * conn;
-  
+  char * penv;
+
   globals.tcpserverpid = getpid();
   Info("tcpserver thread starting with pid=%d", globals.tcpserverpid);
 
@@ -523,6 +527,11 @@ void * tcpservermainloop(void * param)
   /* if we're in a domain, nad not in a standalone mode */
   if (globals.mydomain && globals.myinstance) {
     reconnect_broker = 1;
+  };
+
+  if (penv = getenv ("MWGWD_TASK_INTERVAL")) {
+     rc = atoi(penv);
+     if (rc > 0) TASK_INTERVAL = rc;
   };
 
   while(! globals.shutdownflag) {

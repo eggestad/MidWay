@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.15  2003/06/05 21:55:07  eggestad
+ * environment var fixes
+ *
  * Revision 1.14  2003/04/25 13:03:08  eggestad
  * - fix for new task API
  * - new shutdown procedure, now using a task
@@ -948,7 +951,9 @@ static void mainloop(void)
   serviceentry * svcent;
   int provided = 0;
   PTask srvmgrtask, eventtask;
- 
+  int srvmgrtaskinterval = 5000, eventtaskinterval = 5000;
+  char * penv;
+
   /* simplified mwprovide() since we're not going to send a provide
      req to our self. */
   serviceid_srvmgr = addlocalservice(_mw_get_my_serverid(),MWSRVMGR, MWCALLSVC);
@@ -961,8 +966,18 @@ static void mainloop(void)
   provided++;
   _mw_set_my_status("");
 
-  srvmgrtask = mwaddtask(smgrTask, 5000);
-  eventtask = mwaddtask(do_events, 5000);
+  if (penv = getenv ("MWD_SRVMGR_TASK_INTERVAL")) {
+     rc = atoi(penv);
+     if (rc > 0) srvmgrtaskinterval = rc * 1000;
+  };
+
+  if (penv = getenv ("MWD_EVENT_TASK_INTERVAL")) {
+     rc = atoi(penv);
+     if (rc > 0) eventtaskinterval = rc * 1000;
+  };
+
+  srvmgrtask = mwaddtask(smgrTask, srvmgrtaskinterval);
+  eventtask = mwaddtask(do_events, eventtaskinterval);
   shutdowntask = mwaddtask(do_shutdowntask, -1);
 
   mwwaketask(srvmgrtask);
@@ -1019,9 +1034,20 @@ int main(int argc, char ** argv)
   int opt_conversations = -1;
   int opt_numbuffers =       -1;
   int opt_bufferbasesize =   -1;
+  char * penv;
 
   /* obtaining info about who I am, must be fixed for suid, check masterd*/
   mepw = getpwuid(getuid());
+
+  loglevel = MWLOG_INFO;
+  penv = getenv ("MWD_LOGLEVEL");
+  if (penv != NULL) {
+     rc = _mwstr2loglevel(penv);
+     if (rc != -1) {
+	loglevel = rc;
+	mwsetloglevel(loglevel);
+     };
+  };
 
   if (mepw == NULL) {
     Fatal("Unable to get my own passwd entry, aborting");
@@ -1229,6 +1255,8 @@ int main(int argc, char ** argv)
   name = strrchr(argv[0], '/');
   if (name == NULL) name = argv[0];
   else name++;
+
+  Info("Logging to %s.YYYYMMDD", wd);
   mwopenlog(name, wd, loglevel);
   
   Info("Logging to %s.YYYYMMDD", wd);

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.19  2003/06/05 21:52:56  eggestad
+ * commonized handling of -l option
+ *
  * Revision 1.18  2003/03/16 23:50:24  eggestad
  * Major fixups
  *
@@ -1445,16 +1448,25 @@ int main(int argc, char ** argv)
   char * uri = NULL;
   char c, *name;
   mwaddress_t * mwaddress;
-  char logprefix[PATH_MAX] = "SYSTEM";
+  char logprefix[PATH_MAX] = "mwgwd";
   pthread_t tcp_thread;
   int tcp_thread_rc;
   int rc = 0, idx;
-  
-  
+  char * penv;
+
 #ifdef DEBUGGING
   mtrace();
   loglevel = MWLOG_DEBUG2;
 #endif
+
+  penv = getenv ("MWGWD_LOGLEVEL");
+  if (penv != NULL) {
+     rc = _mwstr2loglevel(penv);
+     if (rc != -1) {
+	loglevel = rc;
+     };
+  };
+  
 
   name = strrchr(argv[0], '/');
   if (name == NULL) name = argv[0];
@@ -1462,18 +1474,11 @@ int main(int argc, char ** argv)
 
   /* first of all do command line options */
   while((c = getopt(argc,argv, "A:l:cgp:L:")) != EOF ){
-    switch (c) {
+    switch (c) {       
     case 'l':
-      if      (strcmp(optarg, "fatal")   == 0) loglevel=MWLOG_FATAL;
-      else if (strcmp(optarg, "error")   == 0) loglevel=MWLOG_ERROR;
-      else if (strcmp(optarg, "warning") == 0) loglevel=MWLOG_WARNING;
-      else if (strcmp(optarg, "alert")   == 0) loglevel=MWLOG_ALERT;
-      else if (strcmp(optarg, "info")    == 0) loglevel=MWLOG_INFO;
-      else if (strcmp(optarg, "debug")   == 0) loglevel=MWLOG_DEBUG;
-      else if (strcmp(optarg, "debug1")  == 0) loglevel=MWLOG_DEBUG1;
-      else if (strcmp(optarg, "debug2")  == 0) loglevel=MWLOG_DEBUG2;
-      else if (strcmp(optarg, "debug3")  == 0) loglevel=MWLOG_DEBUG3;
-      else usage(argv[0]);
+       rc =  _mwstr2loglevel(optarg);
+       if (rc != -1) loglevel  = rc;
+       else usage(argv[0]);
       break;
 
     case 'L':

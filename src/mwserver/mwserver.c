@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2003/06/05 21:52:57  eggestad
+ * commonized handling of -l option
+ *
  * Revision 1.7  2002/12/11 17:03:46  eggestad
  * *** empty log message ***
  *
@@ -111,16 +114,12 @@ int main(int argc, char ** argv)
     switch (option) {
       
     case 'l':
-      if      (strcmp(optarg, "error")   == 0) loglevel = MWLOG_ERROR;
-      else if (strcmp(optarg, "warning") == 0) loglevel = MWLOG_WARNING;
-      else if (strcmp(optarg, "info")    == 0) loglevel = MWLOG_INFO;
-      else if (strcmp(optarg, "debug")   == 0) loglevel = MWLOG_DEBUG;
-      else if (strcmp(optarg, "debug1")  == 0) loglevel = MWLOG_DEBUG1;
-      else if (strcmp(optarg, "debug2")  == 0) loglevel = MWLOG_DEBUG2;
-      else usage();
-
-      DEBUG("mwserver client starting");
-      break;
+       i = _mwstr2loglevel(optarg);
+       if (i == -1) 
+	  usage();
+       loglevel = i;
+       DEBUG("mwserver client starting");
+       break;
 
     case 'A':
       uri = strdup(optarg);

@@ -202,6 +202,7 @@ void _mw_vlogf(int level, char * format, va_list ap); // in mwlog.c
 int * _mwgetloglevel(void);
 
 static int * debuglevel = NULL;
+int _mwstr2loglevel(char *);
 
 static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, ...)
 {

@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.18  2003/06/05 21:52:56  eggestad
+ * commonized handling of -l option
+ *
  * Revision 1.17  2003/03/16 23:53:53  eggestad
  * bug fixes
  *
@@ -306,9 +309,28 @@ _mw_vlogf(int level, char * format, va_list ap)
   return ;
 };
 
-  
-void 
-mwlog(int level, char * format, ...)
+int _mwstr2loglevel(char * arg) 
+{
+   int loglevel = -1, l;
+   if      (strcmp(arg, "fatal")   == 0) loglevel=MWLOG_FATAL;
+   else if (strcmp(arg, "error")   == 0) loglevel=MWLOG_ERROR;
+   else if (strcmp(arg, "warning") == 0) loglevel=MWLOG_WARNING;
+   else if (strcmp(arg, "alert")   == 0) loglevel=MWLOG_ALERT;
+   else if (strcmp(arg, "info")    == 0) loglevel=MWLOG_INFO;
+   else if (strcmp(arg, "debug")   == 0) loglevel=MWLOG_DEBUG;
+   else if (strcmp(arg, "debug1")  == 0) loglevel=MWLOG_DEBUG1;
+   else if (strcmp(arg, "debug2")  == 0) loglevel=MWLOG_DEBUG2;
+   else if (strcmp(arg, "debug3")  == 0) loglevel=MWLOG_DEBUG3;
+   else {
+      l = atoi(arg);
+      if ( (l >= MWLOG_FATAL) && (l <= MWLOG_DEBUG3)) {
+	 loglevel = l;
+      };
+   };
+   return loglevel;
+};
+
+void mwlog(int level, char * format, ...)
 {
   va_list ap;
 

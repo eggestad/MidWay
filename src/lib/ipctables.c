@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/02/17 14:09:58  eggestad
+ * clean compile fix
+ *
  * Revision 1.5  2001/09/15 23:59:05  eggestad
  * Proper includes and other clean compile fixes
  *
@@ -68,7 +71,7 @@ static serviceentry * svctbl  = NULL;
 static gatewayentry * gwtbl   = NULL;
 static conv_entry   * convtbl = NULL;
 
-static my_mqid = -1;
+static int my_mqid = -1;
 
 static SERVERID  myserverid  = UNASSIGNED;
 static CLIENTID  myclientid  = UNASSIGNED;
@@ -620,7 +623,7 @@ void _mw_set_my_status(char * status)
   myentry = _mw_get_server_byid (myserverid);
 
   if (myentry == NULL) {
-    mwlog(MWLOG_WARNING, "Failed to set my status = \"%s\", probaly not attached",
+    mwlog(MWLOG_WARNING, "Failed to set my status = \"%s\", probably not attached",
 	  status == NULL ? "(idle)": status);
     return;
   };

@@ -25,6 +25,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.4  2001/10/03 22:37:38  eggestad
+ * many bugfixes: memleak, gwid, propper shutdown
+ *
  * Revision 1.3  2001/09/15 23:49:38  eggestad
  * Updates for the broker daemon
  * better modulatization of the code
@@ -85,9 +88,6 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 ipcmaininfo * ipcmain = NULL;
 gatewayentry * gwtbl = NULL;
 
-pid_t my_gw_pid = 0;
-pid_t tcpserver_pid = 0;
-
 globaldata globals = { 0 };
 
 void usage(char * arg0)
@@ -121,7 +121,6 @@ int ipcmainloop(void)
   mwlog(MWLOG_INFO, "Ready.");
   
   errors = 0;
-
   while(!globals.shutdownflag) {
     len = MWMSGMAX;
     mwlog(MWLOG_DEBUG, "ipcmainloop: doing _mw_ipc_getmessage()");
@@ -189,6 +188,8 @@ int ipcmainloop(void)
       /* now assign the CLIENTID to the right connection. */
       conn_setinfo(fd, &amsg->cltid, NULL, NULL, NULL);
       _mw_srbsendinitreply(fd, &srbmsg, SRB_PROTO_OK, NULL);
+      urlmapfree(srbmsg.map);
+
       break;
 
     case DETACHRPL:
@@ -311,7 +312,7 @@ int gwattachclient(int connid, int fd, char * cname, char * username, char * pas
   mesg.client = TRUE;    
   mesg.server = FALSE;
   strncpy(mesg.cltname, cname, MWMAXNAMELEN);
-  mesg.pid = my_gw_pid;
+  mesg.pid = globals.ipcserverpid;
   mesg.flags = 0;
   mesg.ipcqid = _mw_my_mqid();
 
@@ -347,7 +348,7 @@ int gwdetachclient(int cltid)
   mesg.gwid = _mw_get_my_gatewayid(); 
   mesg.client = TRUE;    
   mesg.server = FALSE;
-  mesg.pid = my_gw_pid;
+  mesg.pid = globals.ipcserverpid;
   mesg.flags = MWFORCE;
   mesg.ipcqid = _mw_my_mqid();
 
@@ -431,9 +432,10 @@ void freegwid(GATEWAYID gwid)
 {
 
   if (gwid == UNASSIGNED) return;
-  if ( (gwid & ~MWINDEXMASK) != MWGATEWAYMASK) return;
 
   gwid &= MWINDEXMASK;
+
+  if ( (gwid < 0) || (gwid > ipcmain->gwtbl_length)) return;
 
   lockgwtbl(LOCK);
   gwtbl[gwid].srbrole = 0;
@@ -453,14 +455,18 @@ int main(int argc, char ** argv)
   char * uri;
   char c, *name;
   int key = -1;
-
+  
   char logprefix[PATH_MAX];
 
   pthread_t tcp_thread;
   int tcp_thread_rc;
-  int rc = 0, i;
+  int rc = 0, i, idx;
 
+#ifdef DEBUGGING
+  mtrace();
   loglevel = MWLOG_DEBUG2;
+#endif
+
   /* first of all do command line options */
   while((c = getopt(argc,argv, "A:l:cgp:")) != EOF ){
     switch (c) {
@@ -527,26 +533,35 @@ int main(int argc, char ** argv)
   mwopenlog(name, logprefix, loglevel);
 
   mwlog(MWLOG_INFO, "MidWay GateWay Daemon version %s starting", mwversion());
-  /* lock the gateway table and assign ourslef the first available entry */
+  /* lock the gateway table and assign ourself the first available entry */
   _mw_set_my_gatewayid(allocgwid(MWLOCAL,role));
-  if (_mw_get_my_gatewayid() == UNASSIGNED) {
+  idx = _mw_get_my_gatewayid() & MWINDEXMASK;
+  if (idx == UNASSIGNED) {
     mwlog(MWLOG_ERROR, "No entry was available in the gateway IPC table. Exiting...");
     _mw_detach_ipc();
     exit(-1);
   };
 
-  my_gw_pid = getpid();
+  globals.ipcserverpid = getpid();
 
   /*********************************************************************************
   /* we can now start in earnest 
    *********************************************************************************/
 
+  
   mwlog(MWLOG_INFO, "mwgwd starting gateway id %d domain=%s instance=%s", 
 	MWINDEXMASK&_mw_get_my_gatewayid(), 
 	globals.mydomain?globals.mydomain:"(none)", 
 	ipcmain->mw_instance_name?ipcmain->mw_instance_name:"(none)"
 	);
+
   globals.myinstance = ipcmain->mw_instance_name;
+
+  strncpy(gwtbl[idx].domainname, globals.mydomain, MWMAXNAMELEN);
+  strncpy(gwtbl[idx].instancename, globals.myinstance, MWMAXNAMELEN);
+  gwtbl[idx].status = MWREADY;
+
+
   /* now do the magic on the outside (TCP) */
   tcpserverinit ();
   rc = tcpstartlisten(port, role);
@@ -563,14 +578,10 @@ int main(int argc, char ** argv)
   globals.shutdownflag = 1;
 
   mwlog(MWLOG_INFO, "Executing normal shutdown");
-  /*  pthread_cancel(tcp_thread);*/
-  tcpcloseall();
-  kill(tcpserver_pid, SIGINT);
   pthread_join(tcp_thread, NULL);
- 
-  mwlog(MWLOG_INFO, "Connections closed");
-  i = _mw_get_my_gatewayid();
-  freegwid(i);
+  
+  mwlog(MWLOG_INFO, "Releasing gwtable slot %d", idx);
+  freegwid(idx);
 
   _mw_detach_ipc();
   mwlog(MWLOG_INFO, "Bye!");

@@ -142,20 +142,20 @@ Minor BUGS:
 
 REL: 0.10.0
 
-(FIXED) * servers fail to start when mwd is started with -D,
+(FIXED)  *  servers  fail  to  start  when mwd  is  started  with  -D,
   mwprovide() return ECONNABORTED: Cause wrong mwdpid in ipcmain.
 
 (FIXED) * mwcall fails if NULL as data.
 
-(FIXED) * mwcall return 0 on success, not MWSUCCESS (=1)
-	Actually, it shall return 0 on success, -1 on fail and 1 
-	if more replies are pending
+(FIXED) * mwcall return 0  on success, not MWSUCCESS (=1) Actually, it
+	shall return  0 on success, -1  on fail and 1  if more replies
+	are pending
 
 REL: 0.10.1
 
-* segfault in mwgwd on ^C without core dump...
+(fixed) * segfault in mwgwd on ^C without core dump...
 
-* memleak in mwbd
+(fixed) * memleak in mwbd
 
 * memleak in mwd
 
@@ -163,6 +163,9 @@ REL 0.11.0
 
 (FIXED) * multicast is sent to localhost only
 
+* in _mwGetServiceRequest()  there is  a possible explotable  DoS bug,
+  (stack  overrun)  Need  to  change  behavoir  and  find  all  places
+  _mwGetServiceRequest is called to handle a NULL return as nornal.
 
 -----------------------------------------------------------------------
 

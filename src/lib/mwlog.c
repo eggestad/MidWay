@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.24  2004/08/11 20:28:42  eggestad
+ * changed loglevel env var name
+ *
  * Revision 1.23  2004/03/21 19:23:31  eggestad
  * added envs to override code on logging
  *
@@ -214,9 +217,9 @@ sptime(char *b, int max)
   return rc;
 }
 
-  static char timesuffix[100] = ""; 
-  static char newsuffix[100];
-  static char filename[256];
+static char timesuffix[100] = ""; 
+static char newsuffix[100];
+static char filename[256];
 
 static void 
 switchlog (void)
@@ -370,7 +373,7 @@ int mwsetloglevel(int level)
   if (level == -1) return loglevel;
 
   // env overrides code
-  if (tmp = getenv("MWLOGLEVEL")) {
+  if (tmp = getenv("MWLOG_LEVEL")) {
      level = _mwstr2loglevel(tmp);
   };
 
@@ -418,7 +421,7 @@ void mwsetlogprefix(char * lfp)
   char * mwhome, * instancename, *tmp;
   ipcmaininfo * ipcmain;
 
-  if (tmp = getenv("MWLOGPREFIX")) lfp = tmp;
+  if (tmp = getenv("MWLOG_PREFIX")) lfp = tmp;
 
   _fprintf(stderr, "logprefix arg = %s at %s:%d\n", lfp, __FUNCTION__, __LINE__);
 

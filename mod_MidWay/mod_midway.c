@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2004/07/08 11:26:16  eggestad
+ * apache 2.0 conversion (incomplete)
+ *
  * Revision 1.2  2000/09/24 14:02:53  eggestad
  * Default URL fix
  *
@@ -32,20 +35,24 @@
  *
  *
  */
+#include <string.h>
 
 #include "httpd.h"
 #include "http_config.h"
 #include "http_core.h"
 #include "http_log.h"
-#include "http_protocol.h"
-#include "http_request.h"
-#include "http_main.h"
+//#include "http_protocol.h"
+//#include "http_request.h"
+//#include "http_main.h"
+
+#include <apr_tables.h>
+
 #include "util_script.h"
 #include "util_md5.h"
 
 #include <MidWay.h>
  
-module MODULE_VAR_EXPORT midway_module;
+module AP_MODULE_DECLARE_DATA midway_module;
 
 typedef struct {
   char *url;
@@ -68,7 +75,7 @@ static int attached = 0;
    
    Future problem.
 */   
-static void *midway_create_server_config(pool *p, server_rec *s)
+static void *midway_create_server_config(apr_pool_t *p, server_rec *s)
 {
   midway_server_config *cfg = 
     (midway_server_config *)ap_pcalloc(p, sizeof(midway_server_config));
@@ -83,7 +90,7 @@ static void *midway_create_server_config(pool *p, server_rec *s)
   return (void *)cfg;
 }
 
-static void *midway_merge_server_config (pool *p, void *basev, void *addv)
+static void *midway_merge_server_config (apr_pool_t *p, void *basev, void *addv)
 {
   midway_server_config *new = 
     (midway_server_config *)ap_pcalloc (p, sizeof(midway_server_config));
@@ -104,17 +111,17 @@ static void *midway_merge_server_config (pool *p, void *basev, void *addv)
 }
 
 static const char *midway_url(cmd_parms *parms, void *mconfig,
-			      char *url) 
+			      const char *url) 
 {
   midway_server_config *cfg = module_config;
 
   cfg->url = (char *)ap_pstrdup(parms->pool, url);
-  ap_log_error(APLOG_MARK, APLOG_INFO, NULL, "MidWay URL %s", cfg->url);
+  ap_log_error(APLOG_MARK, APLOG_INFO, 0, NULL, "MidWay URL %s", cfg->url);
   return NULL;
 }
 
 static const char *midway_user(cmd_parms *parms, void *mconfig,
-			       char *username, char * passwd) 
+			       const char *username, const char * passwd) 
 {
   midway_server_config *cfg = module_config;
 
@@ -122,33 +129,33 @@ static const char *midway_user(cmd_parms *parms, void *mconfig,
   if (passwd != NULL) 
     cfg->password = (char *)ap_pstrdup(parms->pool, passwd);
 
-  ap_log_error(APLOG_MARK, APLOG_DEBUG, NULL, "MidWay username is %s and password %s", 
+  ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, NULL, "MidWay username is %s and password %s", 
 	       cfg->username, cfg->password?cfg->password:"(NULL)");
   return NULL;
 }
 
-static command_rec midway_cmds[] =
-{
-  {
-    "MidWayURL",              /* directive name */
-    midway_url,            /* config action routine */
-    NULL,                   /* argument to include in call */
-    RSRC_CONF,             /* where available */
-    TAKE1,                /* arguments */
-    "The URL for the midway instance, like ipc:500"
-                                /* directive description */
-  },
-  {
-    "MidWayUserPass",              /* directive name */
-    midway_user,            /* config action routine */
-    NULL,                   /* argument to include in call */
-    RSRC_CONF,             /* where available */
-    TAKE12,                /* arguments */
-    "Username with optional passwd (username [password])"
-                                /* directive description */
-  },
-  {NULL}
+static command_rec midway_cmds[] = {
+   {
+      .name = "MidWayURL",              /* directive name */
+      .func.take1 = midway_url,            /* config action routine */
+      .cmd_data = NULL,                   /* argument to include in call */
+      .req_override = RSRC_CONF,             /* where available */
+      .args_how = TAKE1,                /* arguments */
+      .errmsg = "The URL for the midway instance, like ipc:500"
+                                       /* directive description */
+   },
+   {
+      .name = "MidWayUserPass",              /* directive name */
+      .func.take2 = midway_user,            /* config action routine */
+      .cmd_data = NULL,                   /* argument to include in call */
+      .req_override = RSRC_CONF,             /* where available */
+      .args_how = TAKE12,                /* arguments */
+      .errmsg = "Username with optional passwd (username [password])"
+                                       /* directive description */
+   },
+   {NULL}
 };
+
 /********************************************************
  * End of config fouction, now we have functions 
  * that deal with request handling
@@ -167,7 +174,7 @@ static int util_read(request_rec *r, const char **rbuf)
     char argsbuffer[HUGE_STRING_LEN];
     int rsize, len_read, rpos=0;
     long length = r->remaining;
-    *rbuf = ap_pcalloc(r->pool, length + 1); 
+    *rbuf = apr_pcalloc(r->pool, length + 1); 
       
     ap_hard_timeout("util_read", r);
       
@@ -223,15 +230,15 @@ static int midway_raw_handler(request_rec *r)
     break;
 
   case M_POST:
-    type = ap_table_get(r->headers_in, "Content-Type");
-    ap_log_error(APLOG_MARK, APLOG_ERR, r->server, 
+    type = apr_table_get(r->headers_in, "Content-Type");
+    ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, 
 		 "content type %s", type);
     
     if(strcasecmp(type, OCTET_ENCTYPE) != 0) {
       return DECLINED;
     }
     rc = util_read(r, (const char**) &data);
-    ap_log_error(APLOG_MARK, APLOG_ERR, r->server, 
+    ap_log_error(APLOG_MARK, APLOG_ERR, rc, r->server, 
 		 "read from post %s, rc = %d", data, rc);
 
     if (rc != OK) return rc;
@@ -244,7 +251,7 @@ static int midway_raw_handler(request_rec *r)
   svc = r->path_info;
   if (svc[0] =='/') svc = &svc[1];
   
-  ap_log_error(APLOG_MARK, APLOG_ERR, r->server, 
+  ap_log_error(APLOG_MARK, APLOG_ERR, 0, r->server, 
 	       "about to mwcall(%s, %s,...)", svc, data);
 
   rc = mwcall(svc, data, 0, &rbuffer , &rlen, &appcode, 0);
@@ -256,7 +263,7 @@ static int midway_raw_handler(request_rec *r)
     return HTTP_SERVICE_UNAVAILABLE;
 
   default:
-    ap_log_error(APLOG_MARK, APLOG_ERR, r->server, 
+    ap_log_error(APLOG_MARK, APLOG_ERR, rc, r->server, 
 		 "mwcall(%s, %s,...) failed with %d", svc, data, rc);
     return HTTP_INTERNAL_SERVER_ERROR;
 
@@ -295,7 +302,7 @@ static int midway_urlencoded_handler(request_rec *r)
     break;
 
   case M_POST:
-    type = ap_table_get(r->headers_in, "Content-Type");
+    type = apr_table_get(r->headers_in, "Content-Type");
     if(strcasecmp(type, URL_ENCTYPE) != 0) {
       return DECLINED;
     }
@@ -317,13 +324,13 @@ static int midway_urlencoded_handler(request_rec *r)
   case(0):
     break;
   case -2:
-    ap_log_error(APLOG_MARK, APLOG_ERR, r->server, 
+    ap_log_error(APLOG_MARK, APLOG_ERR, rc, r->server, 
 		 "MidWay service %s don't exist.", svc);
 
     return HTTP_SERVICE_UNAVAILABLE;
 
   default:
-    ap_log_error(APLOG_MARK, rc?APLOG_ERR:APLOG_DEBUG, r->server, 
+    ap_log_error(APLOG_MARK, rc?APLOG_ERR:APLOG_DEBUG, rc, r->server, 
 		 "mwcall(%s, %s,...) failed with %d", svc, r->args);
     return HTTP_INTERNAL_SERVER_ERROR;
 
@@ -360,7 +367,7 @@ static int midway_handler(request_rec *r)
   r->content_type = "text/html";
   ap_send_http_header(r);
   hostname = ap_get_remote_host(r->connection, 
-				r->per_dir_config, REMOTE_NAME);
+				r->per_dir_config, REMOTE_NAME, NULL);
  
   ap_rputs("<HTML>\n", r);
   ap_rputs("<HEADER>\n", r);
@@ -399,29 +406,29 @@ static int midway_handler(request_rec *r)
  * when a child starts we try to attach the midway instance.
  *************************************************************/
 
-void child_init(server_rec *s, pool *p)
+void child_init(server_rec *s, apr_pool_t *p)
 {
   midway_server_config *cfg = 
     ap_get_module_config(s->module_config, &midway_module);     
 
   int rc = 0;
 
-  ap_log_error(APLOG_MARK, rc?APLOG_ERR:APLOG_DEBUG, s, 
+  ap_log_error(APLOG_MARK, rc?APLOG_ERR:APLOG_DEBUG, 0, s, 
 	       "goint to mwattach(%s, %s, %s, %s,...)", 
 	       cfg->url, "Apache/mod_midway", cfg->username,  cfg->password);
 
-  rc = mwattach(cfg->url, "Apache/mod_midway", 
-		cfg->username, cfg->password, 0L);
+  // mwsetcred(cfg->username, MWAUTHPASSWORD, cfg->password);
+  rc = mwattach(cfg->url, "Apache/mod_midway", 0L);
 
   if (rc == 0) attached = 1;
 
-  ap_log_error(APLOG_MARK, rc?APLOG_ERR:APLOG_DEBUG, s, 
+  ap_log_error(APLOG_MARK, rc?APLOG_ERR:APLOG_DEBUG, rc, s, 
 	       "mwattach(%s, %s, %s, %s,...) returned %d", 
 	       cfg->url, "Apache/mod_midway", cfg->username, cfg->password,rc);
 }
 
 
-void child_exit(server_rec *s, pool *p)
+void child_exit(server_rec *s, apr_pool_t *p)
 {
   midway_server_config *cfg = 
     ap_get_module_config(s->module_config, &midway_module);     
@@ -429,7 +436,7 @@ void child_exit(server_rec *s, pool *p)
 
   rc = mwdetach();
 
-  ap_log_error(APLOG_MARK, APLOG_DEBUG, s, "mwdetach() returned %d", rc);
+  ap_log_error(APLOG_MARK, APLOG_DEBUG, rc, s, "mwdetach() returned %d", rc);
 };
 
 
@@ -468,7 +475,7 @@ static handler_rec midway_handlers[] =
 };
 
 /* Tell Apache what phases of the transaction we handle */
-module MODULE_VAR_EXPORT midway_module =
+module AP_MODULE_DECLARE_DATA midway_module =
 {
   STANDARD_MODULE_STUFF,
   NULL,               /* module initializer                 */

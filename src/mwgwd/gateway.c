@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.21  2003/06/12 07:35:50  eggestad
+ * fix for NULL data when forward to peer
+ *
  * Revision 1.20  2003/06/05 21:59:21  eggestad
  * sigsegv bug fix
  *
@@ -270,7 +273,7 @@ static void do_svccall(Call * cmsg, int len)
   SRBmessage srbmsg;
   Connection * conn;
   unsigned char marker;
-  void * data;
+  void * data = NULL;
   int rc, l;
 
   TIMEPEGNOTE("enter do_svccall");
@@ -281,6 +284,7 @@ static void do_svccall(Call * cmsg, int len)
 
   DEBUG2("%s", conn_print());
   DEBUG("got a call to service %s svcid %#x", cmsg->service, cmsg->svcid);
+  TIMEPEG();
   conn = impfindpeerconn(cmsg->service, cmsg->svcid);
 
   //  DEBUG2("%s", conn_print());
@@ -292,7 +296,7 @@ static void do_svccall(Call * cmsg, int len)
 	    cmsg->service, cmsg->svcid);
     cmsg->returncode = -ENOENT;
     if (cmsg->gwid != UNASSIGNED) {
-      // if we ourselves managed to send this, we shut cut the reply,
+      // if we ourselves managed to send this, we short cut the reply,
       // or else we get an infinite loop. We do actually send to
       // ourselves if we're the only one providing the service. It's
       // inefficient, but clean, and it's only _mwacallipc() theat do
@@ -337,7 +341,7 @@ static void do_svccall(Call * cmsg, int len)
 
     l = _mwshmcheck(data);
     if ( (l < 0) || (l < cmsg->datalen)) {
-      Error("got a corrpt svccall message, dataoffset = %d len = %d shmcheck() => %d", 
+      Error("got a corrupt svccall message, dataoffset = %d len = %d shmcheck() => %d", 
 	    cmsg->data, cmsg->datalen, l);
       return;
     };
@@ -374,7 +378,7 @@ static void do_svccall(Call * cmsg, int len)
   TIMEPEG();
   
   urlmapfree(srbmsg.map);
-  TIMEPEGNOTE("nornal leave do_svccall");
+  TIMEPEGNOTE("normal leave do_svccall");
   return;
   
 };

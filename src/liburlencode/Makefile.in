@@ -10,7 +10,7 @@ LIBS = liburlencode.a # liburlencode.so
 
 CFLAGS= -fpic @CFLAGS@ -I../include 
 
-COBJS=urlencoded.o urlfieldlist.o urlmap.o
+COBJS=urlencoded.o urlfieldlist.o urlmap.o weakmwlog.o timepegs.o
 
 all:  $(LIBS)  test-liburlencode
 

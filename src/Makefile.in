@@ -34,6 +34,7 @@ TAGS:
 	@ for dir in $(DIRS); do\
 	(cd $$dir; $(MAKE) $@)\
 	done;
+	etags -o TAGS ../include/*.h
 	etags -a -o TAGS include/*.h
 
 test:

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.15  2004/04/12 22:59:06  eggestad
+ * - unprovide was brken now fixed
+ * - also fiex missing servername in servertable
+ *
  * Revision 1.14  2003/04/25 13:03:09  eggestad
  * - fix for new task API
  * - new shutdown procedure, now using a task
@@ -313,7 +317,7 @@ static int do_provide(void * mp)
     } 
     rmqid = se->mqid;
     /* now we've decided that the request is OK, creating entries. */
-      pmesg->svcid = addlocalservice(pmesg->srvid,pmesg->svcname,type);
+    pmesg->svcid = addlocalservice(pmesg->srvid,pmesg->svcname,type);
     
   } else if (pmesg->gwid != -1) {
     DEBUG("2 srvid = %d gwid = %d", pmesg->srvid, pmesg->gwid);
@@ -379,19 +383,23 @@ static int do_unprovide(void * mp)
     Warning("in unprovide request server ids mismatch pmesg->srvid %#x != svcent->server %#x", 
 	    pmesg->srvid, svcent->server);
 
-  pmesg->returncode = delservice(pmesg->svcid);
-  if (pmesg->returncode == 0) {
-    Info("UNPROVIDE: Service \"%s\" on server %d or gateway %d", pmesg->svcname, pmesg->srvid, pmesg->gwid);
-    if (svcent->server != UNASSIGNED) {
-      srvent = _mw_getserverentry(svcent->server);
-      if (srvent) mqid = srvent->mqid;      
-    } else {
-      gwent = _mw_getgatewayentry(svcent->gateway);
-      if (gwent) mqid = gwent->mqid;
-    };
+  DEBUG("service entry: id=%x server=%x gw=%x", SVCID(pmesg->svcid), svcent->server, svcent->gateway);
+
+  Info("UNPROVIDE: Service \"%s\" on server %#x or gateway %#x", pmesg->svcname, pmesg->srvid, pmesg->gwid);
+  if (svcent->server != UNASSIGNED) {
+     srvent = _mw_getserverentry(svcent->server);
+     if (srvent) mqid = srvent->mqid;      
+     DEBUG("srv %p mqid = %d", srvent, mqid);
   } else {
-    Warning("Failed to unprovide service \"%s\" from server %#x reason %d", 
-	    pmesg->svcname, pmesg->srvid, pmesg->returncode); 
+     gwent = _mw_getgatewayentry(svcent->gateway);
+     if (gwent) mqid = gwent->mqid;
+     DEBUG("gw %p mqid = %d", gwent, mqid);
+  };
+
+  pmesg->returncode = delservice(pmesg->svcid);
+  if (pmesg->returncode != 0) {
+     Warning("Failed to unprovide service \"%s\" from server %#x reason %d", 
+	     pmesg->svcname, pmesg->srvid, pmesg->returncode); 
   }
 
   DEBUG("Replying to unprovide request for \"%s\" rcode = %d", 

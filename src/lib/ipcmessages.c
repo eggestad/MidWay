@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2000/11/15 21:23:38  eggestad
+ * fix for NULL as input data
+ *
  * Revision 1.5  2000/09/24 14:05:01  eggestad
  * fixed to warning messages
  *
@@ -633,15 +636,20 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags)
      since shmat on Linux do not always reurn tha same address for a given shm segment
      we must operate on offset into the segment (se shmalloc.c) */
 
-  dataoffset = _mwshmcheck(data);
-  if (dataoffset == -1) {
-    dbuf = _mwalloc(datalen);
-    if (dbuf == NULL) {
-      mwlog(MWLOG_ERROR, "mwalloc(%d) failed reason %d", datalen, (int) errno);
-      return -errno;
+  if (data != NULL) {
+    dataoffset = _mwshmcheck(data);
+    if (dataoffset == -1) {
+      dbuf = _mwalloc(datalen);
+      if (dbuf == NULL) {
+	mwlog(MWLOG_ERROR, "mwalloc(%d) failed reason %d", datalen, (int) errno);
+	return -errno;
+      };
+      memcpy(dbuf, data, datalen);
+      dataoffset = _mwshmcheck(dbuf);
     };
-    memcpy(dbuf, data, datalen);
-    dataoffset = _mwshmcheck(dbuf);
+  } else {
+    dataoffset = 0;
+    datalen = 0;
   };
   /* else 
      we really should check to see if datalen is longe that buffer 

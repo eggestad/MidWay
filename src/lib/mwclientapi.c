@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/11/15 21:23:38  eggestad
+ * fix for NULL as input data
+ *
  * Revision 1.2  2000/09/21 18:39:36  eggestad
  * - issue of handle now moved here
  * - deadline handling now placed here
@@ -244,8 +247,9 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
 {
   int handle;
   float timeleft;
+
   /* input sanyty checking, everywhere else we depend on params to be sane. */
-  if ( (data == NULL ) || (datalen < 0) || (svcname == NULL) ) 
+  if ( (datalen < 0) || (svcname == NULL) ) 
     return -EINVAL;
   
   mwlog(MWLOG_DEBUG1, "mwacall called for service %.32s", svcname);
@@ -261,7 +265,7 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
   };
 
   /* datalen may be zero if data is null terminated */
-  if (datalen == 0) datalen = strlen(data);
+  if ( (data != NULL ) && (datalen == 0) ) datalen = strlen(data);
 
   if (!_mwaddress) {
     mwlog(MWLOG_DEBUG1, "not attached");
@@ -293,7 +297,7 @@ int mwcall(char * svcname,
   float timeleft;
 
   /* input sanyty checking, everywhere else we depend on params to be sane. */
-  if ( (cdata == NULL ) || (clen < 0) || (svcname == NULL) ) 
+  if ( (clen < 0) || (svcname == NULL) ) 
     return -EINVAL;
   if  ( !(flags & MWNOREPLY) && ((rlen == NULL) || (rdata == NULL)))
     return -EINVAL; 
@@ -311,7 +315,7 @@ int mwcall(char * svcname,
   };
 
   /* clen may be zero if cdata is null terminated */
-  if (clen == 0) clen = strlen(cdata);
+  if ( (cdata != NULL) && (clen == 0) ) clen = strlen(cdata);
 
   if (!_mwaddress) {
     mwlog(MWLOG_DEBUG1, "not attached");

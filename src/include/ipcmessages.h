@@ -17,6 +17,18 @@
   write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
   Boston, MA 02111-1307, USA. 
 */
+
+
+/*
+ * $Log$
+ * Revision 1.5  2002/02/17 13:48:01  eggestad
+ * added prototypes for _mw_ipc_(un)provide()
+ *
+ */
+
+#ifndef IPCMESSAGES_H
+#define IPCMESSAGES_H
+
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -163,7 +175,7 @@ struct conversation
 typedef struct conversation  Converse;;
 
 /* somehow we should calculate  MWMSGMAX.
-   This could be done bye making a c programs that are used to 
+   This could be done by making a C programs that are used to 
    generate a stage 2 makefile. Right now we just set it to IPC MSGMAX
    Hm on RH5.2 MSGMAX is set in linux/msg.h. Include of linux/msg causes 
    conflict with sys/types ++  
@@ -203,6 +215,8 @@ int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force);
 
 SERVICEID _mw_ipcsend_provide(char * servicename, int flags);
 int _mw_ipcsend_unprovide(char * servicename);
+SERVICEID _mw_ipc_provide(char * servicename, int flags);
+int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid);
 
 int _mwacallipc (char * svcname, char * data, int datalen, int flags);
 int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int flags);
@@ -226,3 +240,5 @@ int _mw_shutdown_mwd(int delay);
 
 /* for debugging */
 void  _mw_dumpmesg(void * mesg);
+
+#endif /* IPCMESSAGES_H */

@@ -1,6 +1,6 @@
 /*
   MidWay
-  Copyright (C) 2000 Terje Eggestad
+  Copyright (C) 2000,2001,2002 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -18,11 +18,11 @@
   Boston, MA 02111-1307, USA. 
 */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 /*
  * $Log$
+ * Revision 1.6  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.5  2001/10/04 19:18:10  eggestad
  * CVS tags fixes
  *
@@ -41,6 +41,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
  * The SRB daemon
  *
  */
+
 #include <pthread.h>
 #include <errno.h>
 #include <unistd.h>
@@ -53,6 +54,16 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <limits.h>
 #include <signal.h>
 
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <fcntl.h>
+
+#ifdef DEBUGGING
+#include <mcheck.h>
+#endif
+
 #include <MidWay.h>
 #include <SRBprotocol.h>
 #include <ipctables.h>
@@ -60,30 +71,36 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <urlencode.h>
 #include <shmalloc.h>
 #include <version.h>
+#include <address.h>
 
 #define _GATEWAY_C
 #include "SRBprotocolServer.h"
 #include "gateway.h"
 #include "tcpserver.h"
 #include "store.h"
+#include "remdomains.h"
 #include "connections.h"
+#include "toolbox.h"
+
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$";
 
 /***********************************************************************
- * This modules differs a bit from every one else in that is
- * threaded. The reason for threading is that one thread need to be in
- * blocking wait in the select call in tcpserver.c:tcpservermainloop
- * and the other here in ipcmainloop(). Since we need to report our
- * pid to mwd, and we want to attach to mwd as a local gateway before
- * starting to listen, the inside doing IPC is not the new thread, but
- * the "program".
- *
- * In this rather preliminary version we only allow one listen port
- * per mwgwd, but there shall not be any limitations on how many port
- * a mwgwd can listen on.
- *
- * what needs to be determined if we need a gateway table for each
- * port, or just for each domainname, or if there shall be a 1 to 1
- * between the two. So far we only use 1.
+ This  modules  differs  a  bit   from  every  one  else  in  that  is
+ threaded. The reason  for threading is that one thread  need to be in
+ blocking wait in the select call in tcpserver.c:tcpservermainloop and
+ the other here  in ipcmainloop(). Since we need to  report our pid to
+ mwd, and we want to attach  to mwd as a local gateway before starting
+ to  listen, the  inside doing  IPC  is not  the new  thread, but  the
+ "program".
+
+ In this rather preliminary version  we only allow one listen port per
+ mwgwd, but  there shall  not be  any limitations on  how many  port a
+ mwgwd can listen on.
+
+ what needs to be determined if we need a gateway table for each port,
+ or just for  each domainname, or if  there shall be a 1  to 1 between
+ the two. So far we only use 1.
  ***********************************************************************/
 
 ipcmaininfo * ipcmain = NULL;
@@ -91,21 +108,48 @@ gatewayentry * gwtbl = NULL;
 
 globaldata globals = { 0 };
 
+static int gw_getknownpeer_bygwid(GATEWAYID gwid);
+
 void usage(char * arg0)
 {
   printf ("%s: [-A uri] [-l level] [-c clientport] [-g gatewayport] [-p commonport] [domainname]\n",
 	  arg0);
 };
 
+/* 
+   OK, here we provide a lock for dealing with peers. Both threads may
+   mess with import export lists,  as well as disconnecting peers. The
+   most important part is that while the tcp thread are in progress of
+   sending provides to  a just connected peer, the mwd  may send us an
+   new service  changed event, which  may result in  provide unprovide
+   SRB  messages from the  ipc thread.   In this  case the  tcp thread
+   shall complete, and when teh ipc thread get the lock, checks to see
+   if any peers need an update. */
+
+pthread_mutex_t peersmutex = PTHREAD_MUTEX_INITIALIZER;
+
+int  lock_peers(void)
+{
+  DEBUG2("locking peers mutex");
+  pthread_mutex_lock(&peersmutex);
+  DEBUG2("locked peers mutex");
+};
+
+int  unlock_peers(void)
+{
+  DEBUG2("unlocking peers mutex");
+  pthread_mutex_unlock(&peersmutex);
+};
 
 int ipcmainloop(void)
 {
-  int i, rc, errors, len, mqid;
+  int i, rc, errors, len;
   char message[MWMSGMAX];
   char * data;
   int fd, connid;
   SRBmessage srbmsg;
   cliententry * cltent;
+  Connection * conn;
 
   /* really a union with the message buffer*/
   long *           mtype  = (long *)           message;
@@ -119,14 +163,14 @@ int ipcmainloop(void)
   i = _mw_get_my_gatewayid();
   i &= MWINDEXMASK;
   gwtbl[i].status = MWREADY;
-  mwlog(MWLOG_INFO, "Ready.");
+  Info("Ready.");
   
   errors = 0;
   while(!globals.shutdownflag) {
     len = MWMSGMAX;
-    mwlog(MWLOG_DEBUG, "ipcmainloop: doing _mw_ipc_getmessage()");
+    DEBUG( "doing _mw_ipc_getmessage()");
     rc = _mw_ipc_getmessage(message, &len, 0, 0);
-    mwlog(MWLOG_DEBUG, "ipcmainloop: _mw_ipc_getmessage() returned %d", rc);
+    DEBUG( "_mw_ipc_getmessage() returned %d", rc);
 
     if (rc == -EIDRM) {
       globals.shutdownflag = TRUE;
@@ -137,37 +181,38 @@ int ipcmainloop(void)
     if (rc < 0) {
       errors++;
       if (errors > 10) {
-	mwlog(MWLOG_ERROR, "To many errors while trying to read message queue");
+	Error("To many errors while trying to read message queue");
 	return -rc; /* going down on error */
       };
     }
 
-    _mw_dumpmesg(message);
+    //    _mw_dumpmesg(message);
 
     switch (*mtype) {
     case ATTACHREQ:
     case DETACHREQ: 
-      /* it is consiveable that we may add the possibility to
-         disconnect spesific clients, but that may just as well be
-         done thru a ADMREQ. We have so fare no provition for
+      /*  it  is  consiveable  that  we may  add  the  possibility  to
+         disconnect  spesific clients, but  that may  just as  well be
+         done  thru  a  ADMREQ.  We  have so  fare  no  provition  for
          disconnecting clients other than mwd marking a client dead in
          shm tables. */
-      mwlog(MWLOG_WARNING, "Got a attach/detach req from pid=%d, ignoring", amsg->pid);
+      Warning("Got a attach/detach req from pid=%d, ignoring", amsg->pid);
       break;
 
     case ATTACHRPL:
-      /* now this is in response to an attach. mwd must reply in
-	 sequence, so this is the reply to my oldest pending request.
+      /*  now this  is in  response to  an attach.  mwd must  reply in
+	 sequence, so this is the  reply to my oldest pending request.
 	 (not that it matters)*/
       strcpy(srbmsg.command, SRB_INIT);
       srbmsg.marker = SRB_RESPONSEMARKER;
       rc = storePopAttach(amsg->cltname, &connid, &fd, &srbmsg.map);
+      cltent = _mw_get_client_byid(amsg->cltid);
+
       if (rc != 1) {
-	mwlog(MWLOG_WARNING, "Got a Attach reply that I was not expecting! clientname=%s gwid=%#x srvid=%#x", amsg->cltname, amsg->gwid, amsg->srvid); 
+	Warning("Got a Attach reply that I was not expecting! clientname=%s gwid=%#x srvid=%#x", amsg->cltname, amsg->gwid, amsg->srvid); 
 
 	/* we don't bother mwd with detaches, mwd will reuse if
            cltent->status == UNASSIGNED */
-	cltent = _mw_get_client_byid(amsg->cltid);
 	if (cltent != NULL) {
 	  cltent->location = UNASSIGNED;
 	  cltent->type = UNASSIGNED;
@@ -184,11 +229,16 @@ int ipcmainloop(void)
 	break;
       };
 
-      mwlog(MWLOG_DEBUG, "connection for clientname %s on fd=%d is assigned the clientid %#x", 
+      DEBUG( "connection for clientname %s on fd=%d is assigned the clientid %#x", 
 	    amsg->cltname, fd, &amsg->cltid);
       /* now assign the CLIENTID to the right connection. */
       conn_setinfo(fd, &amsg->cltid, NULL, NULL, NULL);
-      _mw_srbsendinitreply(fd, &srbmsg, SRB_PROTO_OK, NULL);
+      conn = conn_getentry(fd);
+
+      /* copy peer socket addr into the ICP table */ 
+      memcpy (&cltent->addr.sa, &conn->peeraddr.sa, sizeof(conn->peeraddr));
+
+      _mw_srbsendinitreply(conn, &srbmsg, SRB_PROTO_OK, NULL);
       urlmapfree(srbmsg.map);
 
       break;
@@ -203,8 +253,7 @@ int ipcmainloop(void)
       break;
 
     case SVCREPLY:
-      mwlog(MWLOG_DEBUG, 
-	    "Got a svcreply service %s from server %d for client %d, ipchandle=%#x", 
+      DEBUG("Got a svcreply service %s from server %d for client %d, ipchandle=%#x", 
 	    cmsg->service, cmsg->srvid&MWINDEXMASK, 
 	    cmsg->cltid&MWINDEXMASK, cmsg->handle);
 
@@ -214,27 +263,38 @@ int ipcmainloop(void)
       srbmsg.marker = SRB_RESPONSEMARKER;
 
       storeLockCall();
-      rc = storePopCall(cmsg->cltid, cmsg->handle, &fd, &srbmsg.map);
+      /* there are more replies, we get and not pop the map from the
+         pending call list */
+      if (cmsg->returncode == MWMORE) {
+	rc = storeGetCall(cmsg->cltid, cmsg->handle, &fd, &srbmsg.map);
+	DEBUG2("storeGetCall returned %d, address of old map is %#x", 
+	      rc, srbmsg.map);
+	srbmsg.map = urlmapdup(srbmsg.map);
+	DEBUG2("dup map: new map at %#x", srbmsg.map);
+      } else {
+	rc = storePopCall(cmsg->cltid, cmsg->handle, &fd, &srbmsg.map);
+	DEBUG2("storePopCall returned %d, address of old map is %#x", 
+	      rc, srbmsg.map);
+      };
       storeUnLockCall();
 
       if (!rc ) {
-	mwlog(MWLOG_DEBUG, 
-	      "Couldn't find a waiting call for this message, possible quite normal");
+	DEBUG("Couldn't find a waiting call for this message, possible quite normal");
 	break;
       };
-      mwlog(MWLOG_DEBUG2, "storePopCall returned %d, address of old map is %#x", 
-	    rc, &srbmsg.map);
+
       {
 	int idx = 0;
 
 	while(srbmsg.map[idx].key != NULL) {
-	  mwlog(MWLOG_DEBUG2, "  Field %s => %s", 
+	  DEBUG2("  Field %s => %s", 
 		srbmsg.map[idx].key, srbmsg.map[idx].value);
 	  idx++;
 	};
       };
+
       if (cmsg->flags & MWNOREPLY) {
-	mwlog(MWLOG_DEBUG, "Noreply flags set, ignoring");
+	DEBUG( "Noreply flags set, ignoring");
 	_mwfree(_mwoffset2adr(cmsg->data));
 	break;
       };
@@ -247,12 +307,29 @@ int ipcmainloop(void)
 	data = _mwoffset2adr(cmsg->data);
       };
       
-      mwlog(MWLOG_DEBUG, "sending reply on fd=%d", fd);
-      _mw_srbsendcallreply(fd, &srbmsg, data, len, 
-		       cmsg->appreturncode,  cmsg->returncode, 
-		       cmsg->flags); 
-      mwlog(MWLOG_DEBUG, "reply sendt");
+      DEBUG( "sending reply on fd=%d", fd);
+      conn = conn_getentry(fd);
+
+      switch (cmsg->returncode) {
+      case MWSUCCESS:
+      case MWFAIL:
+      case MWMORE:
+	rc = cmsg->returncode;
+	break;
+	
+      default:
+	rc = _mw_errno2srbrc(cmsg->returncode);
+      };
+      
+      _mw_srbsendcallreply(conn, &srbmsg, data, len, 
+			   cmsg->appreturncode,  rc, 
+			   cmsg->flags); 
+      DEBUG( "reply sendt");
+      
+      /* if there are no more replies to this call, we called
+	 storePopCall() above, and we must free the map. */
       urlmapfree(srbmsg.map);
+
       _mwfree(_mwoffset2adr(cmsg->data));
       /* may be either a client or gateway, if clientid is myself,
          then gateway. */
@@ -262,14 +339,14 @@ int ipcmainloop(void)
       /* the only adm request we accept right now is shutdown, we may
          later accept reconfig, and connect/disconnect gateways. */
       if (admmsg->opcode == ADMSHUTDOWN) {
-	mwlog(MWLOG_INFO, "Received a shutdown command from clientid=%d", 
+	Info("Received a shutdown command from clientid=%d", 
 	      admmsg->cltid&MWINDEXMASK);
 	return 2; /* going down on command */
       }; 
       break;
 
     case PROVIDEREQ:
-      mwlog(MWLOG_WARNING, "Got a providereq from serverid=%d, sending rc=EBADRQC", 
+      Warning("Got a providereq from serverid=%d, sending rc=EBADRQC", 
 	    pmsg->srvid&MWINDEXMASK);
       pmsg->returncode = -EBADRQC;
       _mw_ipc_putmessage(pmsg->srvid, message, len, IPC_NOWAIT);
@@ -280,33 +357,26 @@ int ipcmainloop(void)
       break;
 
     default:
-      mwlog(MWLOG_WARNING, "got a unknown message with message type = %#x", *mtype);
+      Warning("got a unknown message with message type = %#x", *mtype);
     } /* end switch */
   } /* end while */
   return 1; /* going down on signal */
   
 };
 
-int gwattachclient(int connid, int fd, char * cname, char * username, char * password, urlmap * map)
+int gwattachclient(Connection * conn, char * cname, char * username, char * password, urlmap * map)
 {
   Attach mesg;
-  int rc;
+  int rc, l;
 
-  /* first of all we should test authentication..... that means
-     checking config for authentication level required for this
-     gateway or client name, whatever, we need to code the config
+  /*  first  of all  we  should  test  authentication..... that  means
+     checking  config  for  authentication  level  required  for  this
+     gateway  or client  name, whatever,  we need  to code  the config
      first. */
   
-  if (connid <= 0) {
-    Connection * conn;
-    conn = conn_getentry(fd);
-    if (conn) 
-      connid = conn->connectionid;
-  };
-  storePushAttach(cname, connid, fd, map);
+  storePushAttach(cname, conn->connectionid, conn->fd, map);
 
-  mwlog(MWLOG_DEBUG,
-	"gwattachclient(fd=%d, cname=\"%s\", connid=%d)", fd, cname, connid);
+  DEBUG("gwattachclient(fd=%d, cname=\"%s\", connid=%d)", conn->fd, cname, conn->connectionid);
 
   mesg.mtype = ATTACHREQ;
   mesg.gwid = _mw_get_my_gatewayid(); 
@@ -320,8 +390,7 @@ int gwattachclient(int connid, int fd, char * cname, char * username, char * pas
   rc = _mw_ipc_putmessage(0, (void *) &mesg, sizeof(mesg) ,0);
 
   if (rc != 0) {
-    mwlog (MWLOG_ERROR, 
-	   "gwattachclient()=>%d failed with error %d(%s)", 
+    Error(	   "gwattachclient()=>%d failed with error %d(%s)", 
 	   rc, errno, strerror(errno));
     return -errno;
   };
@@ -333,14 +402,15 @@ int gwdetachclient(int cltid)
 {
   Attach mesg;
   int rc;
+  char buff[128];
 
-  /* first of all we should test authentication..... that means
-     checking config for authentication level required for this
-     gateway or client name, whatever, we need to code the config
+  /*  first  of all  we  should  test  authentication..... that  means
+     checking  config  for  authentication  level  required  for  this
+     gateway  or client  name, whatever,  we need  to code  the config
      first. */
-  
-  mwlog(MWLOG_DEBUG,
-	"gwdetachclient(clientid=%d) (%s)", MWINDEXMASK& cltid, conn_getclientpeername(cltid));
+    
+  conn_getclientpeername(cltid, buff, 128);
+  DEBUG("gwdetachclient(clientid=%d) (%s)", MWINDEXMASK& cltid, buff);
 
   memset (&mesg, '\0', sizeof(Attach));
 
@@ -356,8 +426,7 @@ int gwdetachclient(int cltid)
   rc = _mw_ipc_putmessage(0, (void *) &mesg, sizeof(mesg) ,0);
 
   if (rc != 0) {
-    mwlog (MWLOG_ERROR, 
-	   "gwdetachclient() putmessage =>%d failed with error %d(%s)", 
+    Error(	   "gwdetachclient() putmessage =>%d failed with error %d(%s)", 
 	   rc, errno, strerror(errno));
     return -errno;
   };
@@ -386,49 +455,66 @@ GATEWAYID allocgwid(int location, int role)
   int rc, i, idx;
   errno = 0;
   if ( (rc = lockgwtbl(LOCK)) < 0) {
-    mwlog(MWLOG_ERROR, "Failed to lock the gateway table, reason: %s. Exiting...", 
+    Error("Failed to lock the gateway table, reason: %s. Exiting...", 
 	  strerror(errno));
     return -1;
   };
-  mwlog(MWLOG_DEBUG, "start allocgwid(location=%d, role=%d) nextidx=%d max=%d", 
+  DEBUG( "start allocgwid(location=%d, role=%d) nextidx=%d max=%d", 
 	location, role, ipcmain->gwtbl_nextidx, ipcmain->gwtbl_length);
 
-  for (i = ipcmain->gwtbl_nextidx; i < ipcmain->gwtbl_length; i++) {
-    if (gwtbl[i].pid == UNASSIGNED) {
-      gwtbl[i].srbrole = role;
-      gwtbl[i].mqid = _mw_my_mqid();
-      gwtbl[i].pid = getpid();
-      gwtbl[i].status = MWBOOTING;
-      gwtbl[i].location = location;
-      gwtbl[i].connected = time(NULL);
+  /* we loop thru the table starting at the last assigned gwid + 1. */
+  for (i = 0; i < ipcmain->gwtbl_length; i++) {
+    idx = (ipcmain->gwtbl_nextidx+i) % ipcmain->gwtbl_length;
 
-      mwlog(MWLOG_DEBUG, "allocgwid() returns %d (>)", i);
-      ipcmain->gwtbl_nextidx = i+1;
+    if (gwtbl[idx].pid == UNASSIGNED) {
+      gwtbl[idx].srbrole = role;
+      gwtbl[idx].mqid = _mw_my_mqid();
+      gwtbl[idx].pid = globals.ipcserverpid;
+      gwtbl[idx].status = MWBOOTING;
+      gwtbl[idx].location = location;
+      gwtbl[idx].connected = time(NULL);
+
+      DEBUG( "allocgwid() returns %d (>)", idx);
+      ipcmain->gwtbl_nextidx = idx+1;
+
       lockgwtbl(UNLOCK);
-      return i|MWGATEWAYMASK;
+      return idx|MWGATEWAYMASK;
     }
   }; 
-  for (i = 0; i < ipcmain->gwtbl_nextidx; i++) {
-    if (gwtbl[i].pid == UNASSIGNED) {
-      gwtbl[i].srbrole = role;
-      gwtbl[i].mqid = _mw_my_mqid();
-      gwtbl[i].pid = getpid();
-      gwtbl[i].status = MWBOOTING;
-      gwtbl[i].location = location;
-      gwtbl[i].connected = time(NULL);
 
-      mwlog(MWLOG_DEBUG, "allocgwid() returns %d (<)", i);
-      ipcmain->gwtbl_nextidx = i+1;
-      lockgwtbl(UNLOCK);
-      return i|MWGATEWAYMASK;
-    }
-  };
-  /* what should we do if this fail? it really can't */
   rc = lockgwtbl(UNLOCK);
-  mwlog(MWLOG_DEBUG, "allocgwid() returns %d", i);
-  return -1;
+  Error("Gateway table is full!");
+  return UNASSIGNED;
 };
 
+void gw_setipc(struct gwpeerinfo * pi)
+{
+  gatewayentry * gwent;
+  
+  if (pi == NULL) return ;
+  gwent = _mw_get_gateway_byid(pi->gwid);
+
+  if (pi->conn == NULL) {
+    Fatal(__FUNCTION__ "Called with NULL argument");
+    abort(); 
+  };
+
+  if (pi->domainid == 0) {
+    gwent->location = GWPEER;
+    strncpy(gwent->domainname, globals.mydomain, MWMAXNAMELEN);
+  }  else {
+    DEBUG("Hmm remote domain with domainid == %d", pi->domainid);
+    gwent->location = GWREMOTE;
+    strcpy(gwent->domainname, "FOREIGN"); 
+    //* TODO: remote domainname     
+  }
+
+  gwent->status = MWREADY;
+  strncpy(gwent->instancename, pi->instance, MWMAXNAMELEN);
+  memcpy (&gwent->addr.sa, &pi->conn->peeraddr.sa, sizeof(gwent->addr));
+  return;
+};
+  
 void freegwid(GATEWAYID gwid)
 {
 
@@ -448,25 +534,542 @@ void freegwid(GATEWAYID gwid)
 };
 
 
+/************************************************************************
+ * Functions dealing with MW instances in my own domain
+ ************************************************************************/
+
+/* Known  peers are never  forgotten (well, we  need some clean  up at
+   some time, but that's not  critical. We keep track of peer gataways
+   in both our own and foreign/remote domains. */
+
+static struct gwpeerinfo * knownGWs = NULL;
+static char ** peerhostnames = NULL;
+static int GWcount = 0;
+
+
+/* provided for parsing the config, it's possible there to add a known
+   peer host.  We'll ask the peer  host for ALL instances on that host
+   later this should  be legal to do on the fly  by admins (thru mwd?,
+   event?)  And  we may eventually allow  other GW to  advise us about
+   peer costs .  (maybe, they should advise us on instances) */
+
+int gw_addknownpeerhost(char * hostname) 
+{
+  int i = 0;
+
+  if (peerhostnames != NULL) {
+    for (i = 0; peerhostnames[i] != NULL; i++) {
+      if (strcmp(hostname, peerhostnames[i]) == 0) {
+	DEBUG( "Adding known peer host # %d \"%s\"", i, hostname);
+	return 0;
+      };
+    };
+    peerhostnames = realloc(peerhostnames, sizeof(char *) * i+2);
+  } else {
+    peerhostnames = malloc(sizeof(char *) * i+2);
+  };
+
+  if (peerhostnames == NULL) {
+    Error("gw_addknownpeerhost failed to alloc memory reason %d", errno);
+    return -1;
+  };
+
+  DEBUG( "Adding known peer host # %d \"%s\"", i, hostname);
+  peerhostnames[i] = strdup(hostname);
+  peerhostnames[i+1] = NULL;
+  return 0;
+};
+
+/* we're called  either on a multicast reply or  if an unknown gateway
+   connect  us we  must have  the instance  and domain  name,  and the
+   sockaddr struct either  on the connection of the  sender of teh UDP
+   multicast reply packet.  If piptr is  non null it is set to pint to
+   the alloced knownGWs entry for this peer, or NULL on failure. */
+
+int gw_addknownpeer(char * instance, char * domain, 
+		    struct sockaddr * peeraddr, struct gwpeerinfo ** piptr) 
+{
+  int i, l;
+  const void * sz;
+  struct sockaddr_in * sain;
+  struct gwpeerinfo peer;
+
+  // if case of failure below
+  if (piptr) *piptr = NULL;
+
+  if ((instance == NULL) && (strlen(instance) > MWMAXNAMELEN)) {
+    return -EINVAL;
+  };
+
+  peer.password = NULL;
+
+  DEBUG( "(instance=%s)", instance);
+
+  switch (peeraddr->sa_family) {
+
+  case AF_INET:    
+    sain = (struct sockaddr_in * ) peeraddr;
+    l = MAXADDRLEN;
+    sz = inet_ntop(AF_INET, &sain->sin_addr, peer.hostname, l); 
+    if (sz <= 0) {
+      Error("got an address to peer that is not IPv4, ignoring family %d", 
+	     peeraddr->sa_family);    
+      return -EAFNOSUPPORT;
+    }; 
+    break;
+    
+  default:
+    Error("got an address to peer that is not IPv4, ignoring family %d", 
+	   peeraddr->sa_family);    
+    return -EAFNOSUPPORT;
+  };
+ 
+  if (strcmp(domain, globals.mydomain) == 0)
+    peer.domainid = 0;
+  else 
+    peer.domainid = remdom_getid(domain);
+
+  if (peer.domainid < 0) return -EPERM;
+
+  
+  strncpy(peer.instance, instance, MWMAXNAMELEN);
+  peer.conn = NULL;
+  peer.gwid = UNASSIGNED;
+
+  DEBUG( "Adding %s as a know peer in domain %s at address %s", 
+	peer.instance, domain, peer.hostname);
+  
+  if (knownGWs == NULL) {
+    knownGWs = malloc(sizeof(struct gwpeerinfo));
+    GWcount = 1;
+  } else {
+    // first we check to see if we know about it from before
+    for (i = 0; i < GWcount; i++) {    
+      if (strcmp(instance, knownGWs[i].instance) == 0) {
+	DEBUG( "Known peer on index %d", i);
+	if (piptr) *piptr = &knownGWs[GWcount-1] ;
+	return 0;
+      };
+    };    
+    knownGWs = realloc(knownGWs, sizeof(struct gwpeerinfo) * GWcount++);
+  };
+  
+  knownGWs[GWcount-1] = peer;
+  if (piptr) *piptr = &knownGWs[GWcount-1] ;
+
+  return 0;
+};
+
+  
+/* called when we get and SRB INIT request from a gateway */
+int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
+{
+  int i, domid = -1;
+  struct gwpeerinfo * pi = NULL;
+  GATEWAYID gwid;
+
+  if ( (instance == NULL) || (conn == NULL) ){
+    Error( "Internal error: " __FUNCTION__ 
+	  " Was called with invalid params instance=%#x conn=%#x", instance, conn);
+    return -1;
+  };
+
+  if (peerdomain == NULL) {
+    DEBUG( "peer %s connected us", instance);
+    domid = 0; // my domain
+  } else {
+    domid = remdom_getid(peerdomain);
+    if (domid < 0) {
+      Info("Rejected connection from %s unknown domain %s", 
+	    instance, peerdomain);
+      return -1;
+    };
+    DEBUG( "gateway %s connected us from domain %s", instance, peerdomain);
+  };
+
+
+  // first we check to see if we already have an active connection 
+  for (i = 0; i < GWcount; i++) {    
+    if (strcmp(instance, knownGWs[i].instance) == 0) {	  
+      if (knownGWs[i].conn != NULL) {
+	Warning("Got a connection from peer %s in domain %s, but is already conneced!", 
+		instance, peerdomain);
+	errno = EISCONN;
+	return -1;
+      } else {
+	DEBUG( "peer %d has index %d in knownGWs", instance, i);
+	pi = & knownGWs[i];
+	break;
+      };
+    };
+  };  
+
+  if (pi == NULL) {
+    struct sockaddr sa;
+    int l;
+    DEBUG( "got an connection fro man unknown peer, adding and retrying");
+    l = sizeof(struct sockaddr_in);
+    getpeername(conn->fd, &sa, &l);
+    gw_addknownpeer(instance, peerdomain, &sa, &pi);    
+  };
+
+  if (pi == NULL) {
+    Info("rejected  peer %s on domain %s", instance, peerdomain);      
+    return -1;
+  }
+  pi->domainid = domid;
+  if (pi->domainid == 0) 
+    gwid = allocgwid(GWPEER, SRB_ROLE_GATEWAY);
+  else 
+    gwid = allocgwid(GWREMOTE, SRB_ROLE_GATEWAY);
+
+  
+  conn->peerinfo = pi;
+  pi->conn = conn;
+  pi->gwid = conn->gwid = gwid;
+
+  DEBUG( "got a peer %s on domainid %d, gwid = %d", 
+	instance, pi->domainid, gwid&MWINDEXMASK);
+  gw_setipc(pi);
+
+  gw_provideservices_to_peer(gwid);
+  return 0;
+};
+
+void gw_provideservice_to_peers(char * service)
+{
+  struct gwpeerinfo * pi;
+  int i;
+
+  DEBUG( "exporting service %s to all peers");
+  
+  for (i = 0; i < GWcount; i++) {
+    if (knownGWs[i].conn == NULL) {
+      DEBUG(" peer %d is not connected");
+      continue;
+    };
+
+    if (knownGWs[i].conn->state != CONNECT_STATE_UP) {
+      DEBUG("peer %d is not yet in connected state, ignoring", i);
+      continue;
+    };
+
+    exportservicetopeer(service, &knownGWs[i]);
+  };
+};
+
+/* now this is called only every time a new peer is connected. At that
+   time we must go thru the full  svc ipc table, and get a list of the
+   uniue service names . */
+
+void gw_provideservices_to_peer(GATEWAYID gwid)
+{
+  struct gwpeerinfo * pi = NULL;
+  serviceentry * svctbl = _mw_getserviceentry(0);
+  int i, j, n, found;
+  char ** svcnamelist = NULL;
+  DEBUG( "Checking to see if we need to send provide or unprovide to GW %d", gwid&MWINDEXMASK);
+
+  for (i = 0; i < GWcount; i++) {
+    if (knownGWs[i].gwid == gwid) {
+      pi = &knownGWs[i];
+      break;
+    };
+  };
+
+  if (pi == NULL) {
+    Fatal("Internal error: could not find a gwpeerinfo entry for gwid %d", gwid&MWINDEXMASK);
+  };
+  
+  lock_peers();
+
+  /* get a list off all servcies with the lowest cost */
+  n = 0;
+  for (i = 0; i < ipcmain->svctbl_length; i++) {
+    if (svctbl[i].type == UNASSIGNED) {
+      DEBUG2("service table entry %d is empty", i);
+      continue;
+    };
+
+    DEBUG("new service %s, on idx %d", svctbl[i].servicename, i);
+
+    svcnamelist = charlistaddunique(svcnamelist, svctbl[i].servicename);
+  };
+
+  unlock_peers();
+
+  if (svcnamelist == NULL) return;
+
+  /* now, here we got the list of all services with their costs */
+  for (i = 0; svcnamelist[i] != NULL; i++) {
+    exportservicetopeer(svcnamelist[i], pi);
+  };
+  free(svcnamelist);
+  return;
+
+};
+
+/*  OK, this is  where the  ipc service  table become  intolerable, we
+   travers it way  to many times. THis coupled  with the client lookup
+   finction in the lib, require a faster and more sensible lookup. */
+int gw_getcostofservice(char * service)
+{
+  serviceentry * svctbl = _mw_getserviceentry(0);
+  int i, cost = 999999999;
+  for (i = 0; i < ipcmain->svctbl_length; i++) {
+    if ( (svctbl[i].type == UNASSIGNED) && 
+	 (strcmp(svctbl[i].servicename, service) == 0) ) {
+      DEBUG2("service table entry %d matches service, cost = %d, oldcost = %d", i, svctbl[i].cost, cost);
+      if ( (svctbl[i].cost < cost) || (cost == -1) ) cost = svctbl[i].cost;
+    };
+  };
+
+  DEBUG("cost of servoce %s is %d", service, cost);
+  
+  return cost;
+};
+
+/* TODO: I'm not happy about clean up, who are resp for sending TERM,
+   closing, etc, need a policy */
+void gw_closegateway(GATEWAYID gwid) 
+{
+  Connection * conn;
+  int i;
+  DEBUG( "cleaning up after gwid %d", gwid & MWINDEXMASK);
+
+  if (gwid == -1) {
+    Error("called to clean up after GWID == -1!");
+    return;
+  };
+
+  /* TODO: first of all we must unprovde all services importet from peer. */
+
+  // we get the konownpeer entry and clear it. 
+  i = gw_getknownpeer_bygwid(gwid);
+  DEBUG("gw_getknownpeer_bygwid(gwid=%#x) = %d", gwid, i);
+  if (i >= 0) {
+    knownGWs[i].gwid = UNASSIGNED;
+    conn = knownGWs[i].conn;
+    knownGWs[i].conn = NULL;
+  } else {
+    conn = conn_getgateway(gwid);
+  };
+  
+  freegwid(gwid);
+
+  // we clear the connetions entry.
+  if (conn != NULL) {
+    DEBUG( "gw has a connection entry fd=%d", conn->fd);
+    conn->gwid = UNASSIGNED;
+    conn->peerinfo = NULL;
+    conn_del(conn->fd);
+  };    
+
+};
+
+/*  here we  do  a non-blocking  connect  to a  known but  unconnected
+   gateway. The  SRV INIT are not send  until we get a  write ready on
+   poll() and we get a SRB READY message on the connection */
+void gw_connectpeer(struct gwpeerinfo * peerinfo)
+{
+  int s, n, fl, rc;
+  Connection * nc;
+  GATEWAYID gwid;
+  char * _addrlist[2];
+  struct hostent * he, _he;
+  struct sockaddr raddr;
+  struct sockaddr_in * raddr4 = (struct sockaddr_in *) & raddr;
+
+  if (peerinfo == NULL) {
+    Error("gw_connectpeer called with NULL argument");
+    return;
+  }
+
+  if (peerinfo->conn != NULL) {
+    DEBUG( "GW already connected");
+    return;
+  }
+
+  DEBUG( "doing nonblock connect to %s %s", 
+	peerinfo->hostname,  peerinfo->instance );
+
+  raddr4->sin_family = AF_INET;
+  raddr4->sin_port = htons(SRB_BROKER_PORT);
+
+  // we create the  socker and conn entry
+  s = socket(PF_INET, SOCK_STREAM, 0);
+  if (s == -1) abort();
+  nc = conn_add(s, SRB_ROLE_GATEWAY, CONN_TYPE_GATEWAY);
+  nc->state = CONNECT_STATE_CONNWAIT;
+  
+  /* now convert the hostname in dot format, or lookup the
+     hostname. If we've an address in dot format, we create a fake hostent struct */
+  rc = inet_pton(AF_INET, peerinfo->hostname,& raddr4->sin_addr.s_addr);
+  if (rc > 0) {
+    DEBUG( "%s is an IPv4 address, creating an hostent", peerinfo->hostname );
+    _he.h_name = peerinfo->hostname;
+    _he.h_aliases = NULL;
+    _he.h_addrtype = AF_INET;
+    _he.h_length = 4;
+    _he.h_addr_list = _addrlist;
+    _addrlist[0] = (char *) & raddr4->sin_addr.s_addr;
+    _addrlist[1] = NULL;;
+    he = & _he;
+  } else {
+    // test for IPv6
+    
+    /* hostname is canonical, we must lookup */
+    
+    he = gethostbyname(peerinfo->hostname);
+    if (he == NULL) {
+      Error("unable to resolve \"%s\", reason %s, will try again", 
+	    peerinfo->hostname, hstrerror(h_errno));
+      
+      conn_del(s);
+      close(s);
+      return;
+    }
+  };
+
+  
+  // OK we now have a legal hostent, now lets try to connect, but first we need to assign an GWID
+
+  gwid = allocgwid(GWPEER, SRB_ROLE_GATEWAY);
+  // if table full
+  if (gwid == UNASSIGNED) return;
+
+  nc->gwid = gwid;
+  peerinfo->gwid = gwid;
+
+  fl =  fcntl(s, F_GETFL);
+  fl |= O_NONBLOCK;
+  fcntl(s, F_SETFL, fl);
+
+  /* DNS may give us multiple addresses for a cononical name, we must
+     try them all */
+  for (n = 0; he->h_addr_list[n] != NULL; n++) {
+    // IPv6
+    memcpy(&raddr4->sin_addr.s_addr, he->h_addr_list[n], sizeof(struct sockaddr_in));
+    
+    rc = connect(s, (struct sockaddr *) raddr4, sizeof(struct sockaddr_in));
+    if (rc == 0) { /* according to docs this may happen if remote address is localhost */
+      peerinfo->conn = nc;
+      nc->state = CONNECT_STATE_READYWAIT;
+      DEBUG( "connected to peer on localhost");
+      break;
+    } else if (errno == EINPROGRESS) { // This is the good "normal end
+      char buff[64];
+
+      inet_ntop(AF_INET, he->h_addr_list[n], buff, 64);
+      DEBUG( "_he = %p he = %p he->h_name %p", &_he, he, he->h_name );
+      DEBUG( "connect to peer %s(%s) in progress", he->h_name, buff);
+      poll_write(s);
+      peerinfo->conn = nc;
+      nc->peerinfo = peerinfo; 
+      break;
+    } else {
+      gw_closegateway(gwid);
+      break;
+    };
+  };
+  return;
+};
+
+/* called from a tasklet, needed, teh same tasklet will send
+   multicasts, and we connect on their replies. */
+void gw_connectpeers(void)
+{
+  int i; 
+  
+  for (i = 0; i < GWcount; i++) {
+    if (knownGWs[i].conn == NULL) {
+      DEBUG( "Unconnected peer at host %s, instance %s", 
+	    knownGWs[i].hostname,  knownGWs[i].instance);      
+      gw_connectpeer( &knownGWs[i] );
+    } else {
+      DEBUG( "Already Connected peer at host %s, instance %s, fd=%d state = %d", 
+	    knownGWs[i].hostname,  knownGWs[i].instance, 
+	    knownGWs[i].conn->fd,  knownGWs[i].conn->state);
+    }
+  };
+};
+
+/* wrapper for sending a multicast on our domain and all defined
+   foreign domains */
+void gw_sendmcasts(void)
+{
+  int fd; 
+  fd = conn_getmcast()->fd;
+
+  DEBUG( "sending multicast query on fd=%d for my domain %s", 
+	fd, globals.mydomain);
+  _mw_sendmcastquery(fd, globals.mydomain, NULL);
+
+  remdom_sendmcasts();
+
+  return;
+};
+
+static int gw_getknownpeer_bygwid(GATEWAYID gwid)
+{
+  int i; 
+  
+  for (i = 0; i < GWcount; i++) {
+    if (knownGWs[i].gwid == gwid) 
+      return i;
+  }
+  return -1;
+};
+  
+/************************************************************************
+ * main
+ ************************************************************************/
+
+/* undocumented  in lib/mwlog.c */
+void _mw_copy_on_stderr(int flag);
 
 int main(int argc, char ** argv)
 {
-  int loglevel, gateway = 0, client = 0, port = 11000;
+  int loglevel = MWLOG_INFO, gateway = 0, client = 0, port = 11000;
   int role = 0;
-  char * uri;
+  char * uri = NULL;
   char c, *name;
-  int key = -1;
-  
+  mwaddress_t * mwaddress;
+  char * mwhome;
+  char * instancename;
   char logprefix[PATH_MAX];
-
+  
   pthread_t tcp_thread;
   int tcp_thread_rc;
-  int rc = 0, i, idx;
-
+  int rc = 0, idx;
+  
+  
 #ifdef DEBUGGING
   mtrace();
   loglevel = MWLOG_DEBUG2;
 #endif
+
+  name = strrchr(argv[0], '/');
+  if (name == NULL) name = argv[0];
+  else name++;
+
+  /* MWHOME and MWINSTANCE is set by mwd, if their not set we assume
+     start by commandline and log to stderr until we get the ipcmain
+     info */
+  mwhome = getenv ("MWHOME");
+  instancename = getenv ("MWINSTANCE");
+  
+  if (mwhome && instancename) {
+    sprintf(logprefix, "%s/%s/log/SYSTEM", mwhome, instancename);
+    mwopenlog(name, logprefix, loglevel);
+  } else {
+    logprefix[0] = '\0';
+    mwopenlog(name, name, loglevel);
+    _mw_copy_on_stderr(1);
+  };
+
+  Info("MidWay GateWay Daemon version %s starting", mwversion());
+
 
   /* first of all do command line options */
   while((c = getopt(argc,argv, "A:l:cgp:")) != EOF ){
@@ -500,10 +1103,11 @@ int main(int argc, char ** argv)
     }
   }
 
+
   if (argc == optind) {
-    mwlog(MWLOG_DEBUG, "no domain name given");
+    DEBUG( "no domain name given");
   } else if (argc == optind+1) {
-    mwlog(MWLOG_DEBUG, "domain name = %s", argv[optind]);
+    DEBUG( "domain name = %s", argv[optind]);
     globals.mydomain=argv[optind];
   } else {
     usage(argv[0]);
@@ -514,49 +1118,77 @@ int main(int argc, char ** argv)
   if (client) role |= SRB_ROLE_CLIENT;
   if (gateway) role |= SRB_ROLE_GATEWAY;
 
-  /* first we attach to the IPC tables of the running instance */
-  if (key == -1) key = getuid();
-  rc = _mw_attach_ipc(key, MWIPCSERVER);
-  if (rc != 0) {
-    mwlog(MWLOG_ERROR, "MidWay instance is not running");
-    exit(rc);
-  };
-  ipcmain = _mw_ipcmaininfo();
-  gwtbl = _mw_get_gateway_table();
+
+  /* the address of the mwd: uri is fetched above either from env, or
+     arg.  we fail if the address is not a ipc address. connection to
+     a srbp address don't make sence. */
+  mwaddress = _mwdecode_url(uri);
   
-  strncpy(logprefix, ipcmain->mw_homedir, 256);
-  strcat(logprefix, "/log/SYSTEM");
-  printf("logprefix = %s\n", logprefix);
-
-  name = strrchr(argv[0], '/');
-  if (name == NULL) name = argv[0];
-  else name++;
-  mwopenlog(name, logprefix, loglevel);
-
-  mwlog(MWLOG_INFO, "MidWay GateWay Daemon version %s starting", mwversion());
-  /* lock the gateway table and assign ourself the first available entry */
-  _mw_set_my_gatewayid(allocgwid(MWLOCAL,role));
-  idx = _mw_get_my_gatewayid() & MWINDEXMASK;
-  if (idx == UNASSIGNED) {
-    mwlog(MWLOG_ERROR, "No entry was available in the gateway IPC table. Exiting...");
-    _mw_detach_ipc();
+  if (mwaddress == NULL) {
+    Error("Unable to parse URI %s, expected ipc:12345 " 
+	  "where 12345 is a unique IPC key", uri);
     exit(-1);
   };
 
+ if ( (mwaddress != NULL) && (mwaddress->protocol != MWSYSVIPC) ) {
+    Error("url prefix must be ipc for %s, url=%s errno=%d", argv[0], uri, errno);
+    exit(-1);
+  };
+
+ /* now we attach to the mwd, if that fail, there are no mwd running
+    and we shall exit. */
+  rc = _mw_attach_ipc(mwaddress->sysvipckey, MWIPCSERVER);
+  if (rc != 0) {
+    Error("MidWay instance is not running");
+    exit(rc);
+  };
+
+  
+  /* now we attach the shm control segments. */
+  ipcmain = _mw_ipcmaininfo();
+  gwtbl = _mw_get_gateway_table();
+
+
+  /* the logfile revisited, of we used a default logfile above (we're
+     not started by mwd we now switch to the SYSTEM defualt
+     logfile. */
+  if (logprefix[0] == '\0') {
+    strncpy(logprefix, ipcmain->mw_homedir, 256);
+    strcat(logprefix, "/log/SYSTEM");
+    printf("logprefix = %s\n", logprefix);
+    mwopenlog(name, logprefix, loglevel);
+  };
+
+  if (loglevel <= MWLOG_INFO)
+    _mw_copy_on_stderr(0);
+
+  /* another start message since we may have changed logfile. */
+  Info("MidWay GateWay Daemon version %s comming up", mwversion());
   globals.ipcserverpid = getpid();
+
+
+  /* lock the gateway table and assign ourself the first available
+     entry, after this point we're really open for buisness. */
+  _mw_set_my_gatewayid(allocgwid(GWLOCAL,role));
+  idx = _mw_get_my_gatewayid() & MWINDEXMASK;
+  if (idx == UNASSIGNED) {
+    Error("No entry was available in the gateway IPC table. Exiting...");
+    _mw_detach_ipc();
+    exit(-1);
+  };
 
   /*********************************************************************************
   /* we can now start in earnest 
    *********************************************************************************/
 
   
-  mwlog(MWLOG_INFO, "mwgwd starting gateway id %d domain=%s instance=%s", 
+  Info("mwgwd starting gateway id %d domain=%s instance name=%s instance id=%s", 
 	MWINDEXMASK&_mw_get_my_gatewayid(), 
 	globals.mydomain?globals.mydomain:"(none)", 
-	ipcmain->mw_instance_name?ipcmain->mw_instance_name:"(none)"
-	);
+       ipcmain->mw_instance_name?ipcmain->mw_instance_name:"(none)",
+	ipcmain->mw_instance_id?ipcmain->mw_instance_id:"(none)");
 
-  globals.myinstance = ipcmain->mw_instance_name;
+  globals.myinstance = ipcmain->mw_instance_id;
 
   strncpy(gwtbl[idx].domainname, globals.mydomain, MWMAXNAMELEN);
   strncpy(gwtbl[idx].instancename, globals.myinstance, MWMAXNAMELEN);
@@ -567,24 +1199,28 @@ int main(int argc, char ** argv)
   tcpserverinit ();
   rc = tcpstartlisten(port, role);
   if (rc == -1) {
-    mwlog(MWLOG_ERROR, "Failed to init tcp server, reason %d", errno);
+    Error("Failed to init tcp server, reason %d", errno);
     exit(errno);
   };
   rc = pthread_create(&tcp_thread, NULL, tcpservermainloop, &tcp_thread_rc);
-  mwlog(MWLOG_DEBUG, "tcp_thread has id %d,", tcp_thread);
+  DEBUG( "tcp_thread has id %d,", tcp_thread);
+
+  Info("mwgwd startup complete");
 
   rc = ipcmainloop();
-  mwlog(MWLOG_INFO, "ipcmainloop() returned %d, going down", rc);
+  DEBUG("ipcmainloop() returned %d, going down", rc);
 
   globals.shutdownflag = 1;
 
-  mwlog(MWLOG_INFO, "Executing normal shutdown");
+  Info("Executing normal shutdown");
+
+  kill (globals.tcpserverpid, SIGQUIT);
   pthread_join(tcp_thread, NULL);
   
-  mwlog(MWLOG_INFO, "Releasing gwtable slot %d", idx);
+  Info("Releasing gwtable slot %d", idx);
   freegwid(idx);
 
   _mw_detach_ipc();
-  mwlog(MWLOG_INFO, "Bye!");
+  Info("Bye!");
   exit(rc);
 };

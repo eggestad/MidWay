@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.4  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.3  2002/02/17 13:50:25  eggestad
  * Added prototype for _mw_sendmcastquery
  *
@@ -47,7 +50,7 @@
 
 int _mw_setmcastaddr(void);
 int _mw_initmcast(int s);
-int _mw_sendmcast (int s, char * payload, int plen);
+int _mw_sendmcast (int s, char * payload);
 int _mw_getmcastreply(int s, instanceinfo * reply, float timeout);
 int _mw_sendmcastquery(int s, char * domain, char * instance);
 

@@ -13,11 +13,11 @@ mwlog mwloglevel, mwlogprefix \- MidWay logging facility
 .sp
 .BI "void mwlog(int level, char * fmt, ...);"
 .sp
-.BI "void mwloglevel(int level);"
+.BI "int mwloglevel(int level);"
 .br
-.BI "void mwlogprefix(char * fileprefix);"
+.BI "void mwopenlog(char * progname, chat * fileprefix, int level);"
 .br
-.BI "void mwlogprefix(char * progname, chat * fileprefix, int level);"
+.BI "void mwlogprefix(char * fileprefix); // depreciated"
 .SH DESCRIPTION
 These calls constitute the logging facility in MidWay. This facility
 are used in MidWay code and is provided here to give programmers a
@@ -76,8 +76,8 @@ programmers to see when execution swaps between their own code and
 MidWays.
 .TP
 .B MWLOG_DEBUG
-Reserved for programmers to have a debugging facility without any from
-MidWay code.
+Reserved for programmers to have a debugging facility without any
+debugging from MidWay code.
 .TP
 .B MWLOG_INFO
 The default log level, which is meant to give enough to be able to go

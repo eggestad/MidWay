@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.7  2001/10/03 22:56:12  eggestad
  * added multicast query
  * added view of gateway table
@@ -51,9 +54,6 @@
  */
 
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -62,8 +62,10 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <stdlib.h> 
 #include <sys/sem.h>
 #include <errno.h>
-
 #include <sys/types.h>
+#include <sys/wait.h>
+#include <ctype.h>
+
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <net/if.h>
@@ -72,10 +74,14 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <ipctables.h>
 #include <ipcmessages.h>
 #include <shmalloc.h>
+#include <address.h>
+
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /* globals from mwadm.c */
 extern struct ipcmaininfo * ipcmain;
-extern extended;
+extern int extended;
 
 /* We must provide a function for each entry in the 
    struct command  commands[]; in mwadm.c.
@@ -87,18 +93,27 @@ extern extended;
    At that time, the results shall be encoded in another format than tty "print".
 */
 
+char * location[5] = { 
+  [GWLOCAL]   "Local   ", 
+  [GWPEER]    "PeerDom ", 
+  [GWREMOTE]  "Foreign ", 
+  [GWCLIENT]  "Client  ", 
+  NULL};
+
+
 int info(int argc, char ** argv)
 {
-  char * token;
-
   if (ipcmain == NULL) {
     printf ("We are not connected to a MidWay system\n");
     return -1;
   };
 
-  printf ("MidWay system \"%s\" has version %d.%d.%d\n", 
-	  ipcmain->mw_instance_name==NULL?"(Anonymous)":ipcmain->mw_instance_name,
+  printf ("MidWay system has version %d.%d.%d\n", 
 	  ipcmain->vermajor, ipcmain->verminor, ipcmain->patchlevel);
+  printf ("  instance name \"%s\" id \"%s\"\n",
+	  ipcmain->mw_instance_name==NULL?"(Anonymous)":ipcmain->mw_instance_name,
+	  ipcmain->mw_instance_id==NULL?"(none)":ipcmain->mw_instance_id);
+
   printf ("  master Processid = %d status = %d boottime %s", 
 	  ipcmain->mwdpid, ipcmain->status, ctime(&ipcmain->boottime));
   printf ("  Home directory=%s\n", 
@@ -122,7 +137,6 @@ static const char * clienttypestring(int type)
 
 int clients(int argc, char ** argv)
 {
-  char * token;
   int i, count = 0;
   cliententry * cltent;
   char * loc = "N/A     ";
@@ -140,8 +154,8 @@ int clients(int argc, char ** argv)
   for (i = 0; i < ipcmain->clttbl_length; i++) {
     if (cltent[i].status != UNASSIGNED) {
       count ++;
-      if (cltent[i].location == MWLOCAL)  loc = "LocalIPC";
-      if (cltent[i].location == MWREMOTE) loc = "Remote  ";
+      if (cltent[i].location == GWLOCAL)  loc = "LocalIPC";
+      if (cltent[i].location == GWCLIENT) loc = "Network ";
       /*      if (extended) printf ("@ %#x ", &cltent[i]); */
       printf ("%8d %-6s %-8s %-6d %-6d %s\n", i,  clienttypestring(cltent[i].type), 
 	      loc, cltent[i].pid, cltent[i].mqid, cltent[i].clientname);
@@ -156,9 +170,7 @@ int servers(int argc, char ** argv)
 {
   serverentry * srvent;
   serviceentry * svcent;
-  char * token;
   int i, count = 0;
-  cliententry * cltent;
   
   if (ipcmain == NULL) {
     printf ("We are not connected to a MidWay system\n");
@@ -173,7 +185,6 @@ int servers(int argc, char ** argv)
       (long)srvent);*/
   printf ("ServerID    Pid msgqid block Status Service\n");
   for (i = 0; i < ipcmain->srvtbl_length; i++) {
-    char * servicename;
     if (srvent[i].status != UNASSIGNED) {
       count ++;
       /*if (extended) printf ("@ %#x ", &srvent[i]);*/
@@ -193,25 +204,24 @@ int services(int argc, char ** argv)
 {
   int i, count = 0;
   serviceentry * svcent;
-  char * token;
-  char * location[3] = { "Local   ", "Imported", NULL};
 
   printf ("Services table:\n");
   svcent = _mw_getserviceentry(0);
   /*  if (extended) printf ("table address %#x \n", 
       (long)svcent);*/
-  printf ("ServiceID type Location Srv/GWID Service\n");
+  printf ("ServiceID type Location cost Srv/GWID Service\n");
   for (i = 0; i < ipcmain->svctbl_length; i++) {
-    if (svcent[i].server != UNASSIGNED) {
+    if (svcent[i].type != UNASSIGNED) {
       count ++;
       /* if (extended) printf ("@ %#x ", &svcent[i]);*/
-      printf ("%9d %4d %-8s %8d %s\n", i, svcent[i].type, 
+      printf ("%9d %4d %-8s %4d %8d %s\n", i, svcent[i].type, 
 	      location[svcent[i].location], 
+	      svcent[i].cost, 
 	      svcent[i].location?
 	      MWINDEXMASK&svcent[i].gateway : MWINDEXMASK&svcent[i].server, 
 	      svcent[i].servicename);
     };
-    }
+  }
   printf ("\n %d/%d (%5.3f%%) entries used\n", count,i, 
 	  (float) count*100 / (float) i);
   return 0 ;
@@ -221,27 +231,26 @@ int gateways(int argc, char ** argv)
 {
   int i, count = 0;
   gatewayentry * gwent;
-  char * token;
-  char * location[3] = { "Local", "Remote", NULL};
   char * roles[5] = { "NONE", "Clients", "Gateways", "All", NULL};
 
   printf ("Gateways table:\n");
   gwent = _mw_getgatewayentry(0);
   /*  if (extended) printf ("table address %#x \n", 
       (long)svcent);*/
-  printf ("GWID Domain           location peer-roles pid   status instance \n");
+  printf ("GWID Domain           location peer-roles pid   status instance peeraddr\n");
   for (i = 0; i < ipcmain->gwtbl_length; i++) {
     if (gwent[i].pid != UNASSIGNED) {
       count ++;
       /* if (extended) printf ("@ %#x ", &svcent[i]);*/
-      printf ("%4d %-16.32s %8s %10s %5d %6d %-.32s\n", 
+      printf ("%4d %-16.32s %8s %10s %5d %5d %6d %-.32s %s\n", 
 	      i, 
 	      gwent[i].domainname, 
 	      location[gwent[i].location], 
 	      roles[gwent[i].srbrole], 
 	      gwent[i].pid, 
+	      gwent[i].mqid, 
 	      gwent[i].status,
-	      gwent[i].instancename);
+	      gwent[i].instancename, _mw_sprintsa(&gwent[i].addr.sa, NULL));
       
     };
   }
@@ -287,7 +296,7 @@ int heapinfo(int argc, char ** argv)
 
 int query(int argc, char ** argv) 
 {
-  int i, rc;
+  int i;
   char addr[INET_ADDRSTRLEN+1];
   struct sockaddr_in * inaddr;
   instanceinfo * replies;
@@ -446,11 +455,12 @@ int dumpipcmain(int argc, char ** argv)
 
 int call(int argc, char ** argv) 
 {
-  int i, j, len, apprc, rc;
+  int i, j, len, apprc = 0, rc;
   char * data, * rdata = NULL;
   struct timeval start, end;
+  long long llstart, llend;
+  double secs;
 
-  
   if ( (argc <= 1) || (argv[1] == NULL) ) {
     return -1;
   }
@@ -478,16 +488,15 @@ int call(int argc, char ** argv)
     data = NULL;
     j = 0;
   };
-  mwlog(MWLOG_DEBUG,"about to call(%s, %s, %d, ...)", argv[1], data, j);
+  DEBUG("about to call(%s, %s, %d, ...)", argv[1], data, j);
   gettimeofday(&start, NULL); 
   rc = mwcall(argv[1], data, j, &rdata, &len, &apprc, 0);
   gettimeofday(&end, NULL); 
 
-  
-  printf("call returned in %f\n", 
-	 (float)(end.tv_sec - start.tv_sec) 
-	 +(float)(end.tv_usec - start.tv_usec)/1000000); 
-  
+  secs = end.tv_usec - start.tv_usec;
+  secs /= 1000000;
+  secs += end.tv_sec - start.tv_sec;
+
   if ( (rdata != NULL) && (len > 0) ) {
     data = NULL;
     data = realloc(data,len*3);
@@ -504,16 +513,15 @@ int call(int argc, char ** argv)
     
     data[j] = '\0';
     printf ("Call to \"%s\" returned %d(%s), with data \"%.*s\" %d bytes\n",  
-	    argv[1], rc, rc?"failed":"succeded", j, data, len);
+	    argv[1], rc, rc==MWFAIL?"failed":rc==MWSUCCESS?"succeded":"mwmore", j, data, len);
   } else {
     printf ("Call to \"%s\" returned %d(%s), without data\n",  
 	    argv[1], rc, rc?"fail":"success");    
   };
-  printf ("  with application return code %d\n", apprc);
+  printf ("  with application return code %d in %12.6f secs \n", apprc, secs);
 
-
-  mwlog(MWLOG_DEBUG,"call to %s returned %s len %d bytes rc = %d apprc=%d)", 
-	argv[1], data, len, rc, apprc);
+  DEBUG("call to %s returned %s len %d bytes rc = %d apprc=%d in %12.6f secs\n", 
+	argv[1], data, len, rc, apprc, secs);
 
   mwfree(rdata);
 

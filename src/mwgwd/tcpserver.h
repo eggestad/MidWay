@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.4  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.3  2001/09/15 23:49:38  eggestad
  * Updates for the broker daemon
  * better modulatization of the code
@@ -33,24 +36,28 @@
  * The SRB daemon
  *
  */
+#ifndef _TCPSERVER_H
+#define _TCPSERVER_H
+
+#include <connection.h>
 
 /* the max number of connections. */
 #ifndef FD_SETSIZE
 #define FD_SETSIZE 1024
 #endif
 
-#define BROKER_RECONNECT_TIMER 15 /* secs */
-
 void tcpsetconninfo (int fd, int * id, int * role, int * rejects, int * reverse);
 int  tcpgetconninfo (int fd, int * id, int * role, int * rejects, int * reverse);
 int tcpgetconnid(int fd);
-char * tcpgetconnpeername (int fd);
+char * tcpgetconnpeername (Connection * conn);
 char * tcpgetclientpeername (CLIENTID);
 
-void tcpcloseconnection (int fd);
-int  sendmessage (int fd, char * message, int len);
+void tcpcloseconnection (Connection * conn);
+int  sendmessage (Connection * conn, char * message, int len);
 
 void tcpserverinit(void);
 void tcpcloseall(void);
 int tcpstartlisten(int port, int role);
 void * tcpservermainloop(void *);
+
+#endif

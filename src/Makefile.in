@@ -19,7 +19,6 @@ all:
 clean: 
 	@ for dir in $(DIRS); do\
 	(cd $$dir; $(MAKE) $@)\
-	rm -f include/version.h\
 	done;
 
 distclean: 
@@ -27,6 +26,7 @@ distclean:
 	(cd $$dir; $(MAKE) $@)\
 	done; 
 	rm -f Makefile *~ TAGS
+	rm -f include/version.h\
 
 
 TAGS:

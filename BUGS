@@ -69,6 +69,11 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 
 * mwbd fails with hang is another mwbd is already running
 
+* in servermgr.c we include /usr/local/bin in default path since it's
+  the default place for mwgwd that is started by
+  servermanager. However it really should be @exec_prefix@ from
+  autoconf.
+
 -----------------------------------------------------------------------
 
 Minor BUGS:

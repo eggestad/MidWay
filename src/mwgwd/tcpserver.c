@@ -19,11 +19,11 @@
 */
 
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 /*
  * $Log$
+ * Revision 1.6  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.5  2001/10/05 14:34:19  eggestad
  * fixes or RH6.2
  *
@@ -58,10 +58,13 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <MidWay.h>
 #include <SRBprotocol.h>
 #include "SRBprotocolServer.h"
+#include <multicast.h>
 #include "tcpserver.h"
 #include "gateway.h"
 #include "connections.h"
 #include "broker.h"
+
+static char * RCSId UNUSED = "$Id$";
 
 /* linux only???? seem to be a bug in /usr/include/bits/in.h 
    see /usr/include/bits/linux/in.h 
@@ -73,8 +76,6 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 static int tcpshutdown = 0;
 static int reconnect_broker = 0;
 
-extern globaldata globals;
-
 /* setup global data. */
 void tcpserverinit(void)
 {
@@ -85,17 +86,21 @@ void tcpserverinit(void)
      alloc'ed until we really know we need it. */
   if (_mw_srbmessagebuffer == NULL) _mw_srbmessagebuffer = malloc(SRBMESSAGEMAXLEN+1);
 
-  mwlog(MWLOG_DEBUG2, "tcpserverinit: completed");
+  DEBUG2( "tcpserverinit: completed");
   return;
 };
 
 /* begin listening on a gven port and set role of port. */
 int tcpstartlisten(int port, int role)
 {
-  int i, s, rc, len;
+  int s, rc, len;
   char buffer [1024];
   int blen = 1024;
   Connection  * conn;
+  union {
+    struct sockaddr sa;
+    struct sockaddr_in sa_in;
+  } addr;
 
   if ( (role < 1) || (role > 3) ) {
     errno = EINVAL;
@@ -111,22 +116,22 @@ int tcpstartlisten(int port, int role)
 
   /* set reuse adress for faster restarts. */
   rc = setsockopt(s, SOL_SOCKET, SO_REUSEADDR, buffer, blen);
-  mwlog(MWLOG_DEBUG, "setsockopt SO_REUSESDDR returned %d, errno = %d", 
+  DEBUG("setsockopt SO_REUSESDDR returned %d, errno = %d", 
 	rc, errno);
 
  
-  conn = conn_add(s, role, CONN_LISTEN);
+  conn = conn_add(s, role, CONN_TYPE_LISTEN);
 
   /* at some point we shall be able to specify which local interfaces
      we listen on but for now we use any. */
-  conn->addr.ip4.sin_addr.s_addr = INADDR_ANY ;
-  conn->addr.ip4.sin_port = htons(port);
-  conn->addr.ip4.sin_family = AF_INET;
+  addr.sa_in.sin_addr.s_addr = INADDR_ANY ;
+  addr.sa_in.sin_port = htons(port);
+  addr.sa_in.sin_family = AF_INET;
   len = sizeof(struct sockaddr_in);
 
-  rc = bind(s, (struct sockaddr *) &conn->addr.ip4, len);
+  rc = bind(s, &addr.sa, len);
   if (rc == -1) {
-    mwlog(MWLOG_ERROR, "Attempted to bind socket to port %d but failed, reason %s", 
+    Error("Attempted to bind socket to port %d but failed, reason %s", 
 	  port, strerror(errno));
     close (s);
     return -1;
@@ -136,83 +141,87 @@ int tcpstartlisten(int port, int role)
   * (int *) buffer = 1;
 
   if (role & SRB_ROLE_CLIENT) 
-    mwlog(MWLOG_INFO, "Listening on port %d for clients", port);
+    Info("Listening on port %d for clients", port);
       
   if (role & SRB_ROLE_GATEWAY) 
-    mwlog(MWLOG_INFO, "Listening on port %d for gateways", port);
+    Info("Listening on port %d for gateways", port);
 
   rc = listen (s, 10);
   if (rc == -1) {
-    mwlog(MWLOG_ERROR, "Attempted to start listening on port %d but failed, reason %s", 
+    Error("Attempted to start listening on port %d but failed, reason %s", 
 	  port, strerror(errno));
     close (s);
     return -1;
   };
 
-  mwlog(MWLOG_DEBUG, "Listening on socket with fd = %d", s);
+  DEBUG("Listening on socket with fd = %d", s);
   return s;
 };
 
 /* for every time we get a new connection we call here to accept ot
    and pace it into the list of sockets to do select on.*/
-static int newconnection(int listensocket)
+static Connection *  tcpnewconnection(Connection * listensocket)
 {
   int mtu=-1, rc, fd, len;
-  struct sockaddr_in sain;
+  union {
+    struct sockaddr_in sain;
+    struct sockaddr sa;
+  } addr;
+
   Connection * conn;
 
   /* fom gateway.c */
   
   errno = 0;
-  len = sizeof(struct sockaddr_in);
+  len = sizeof(addr);
 
-  fd = accept(listensocket, (struct sockaddr *) &sain, &len);
+  fd = accept(listensocket->fd,  &addr.sa, &len);
   if (fd == -1) {
-    return -1;
+    return NULL;
   };
 
   if (tcpshutdown) {
     close (fd);
-    return 0;
+    return NULL;
   };
 
-  conn = conn_add(fd,  conn_getentry(listensocket)->role, CONN_CLIENT);
-  conn->messagebuffer = (char *) malloc(SRBMESSAGEMAXLEN+1);
+  conn = conn_add(fd,  listensocket->role, CONN_TYPE_CLIENT);
   
-  if (sain.sin_family == AF_INET) {
-    memcpy(&conn->addr.ip4, (struct sockaddr *) &sain, len);
+  if (addr.sain.sin_family == AF_INET) {
+    memcpy(&conn->peeraddr.ip4, &addr.sa, len);
   };
 
-  _mw_srbsendready(fd, globals.mydomain);
+  _mw_srbsendready(conn, globals.mydomain);
   /* Now we get the MTU of the socket. if MTU is less than
      MWMAXMESSAGELEN, but over a size like 256 we limit messages to
      that size. to get some control over fragmetation. This is
      probably crap on TCP but very important should we do UDP. */
   len = sizeof(int);
   rc = getsockopt(fd, SOL_IP, IP_MTU, &mtu, &len);
-  mwlog(MWLOG_DEBUG, "Got new connection fd = %d, MTU=%d errno = %s from %s:%d",
-          fd, mtu, strerror(errno), inet_ntoa(sain.sin_addr),
-	  ntohs(sain.sin_port));
+  DEBUG("Got new connection fd = %d, MTU=%d errno = %s from %s:%d",
+          fd, mtu, strerror(errno), inet_ntoa(addr.sain.sin_addr),
+	  ntohs(addr.sain.sin_port));
 
-  return fd;
+  return conn;
 };
 
 /* close the socket, and remove it from the list of fd to do select on. */  
-void tcpcloseconnection(int fd)
+void tcpcloseconnection(Connection * conn)
 {
-  Connection * conn;
 
-  conn = conn_getentry(fd);
-
-  mwlog(MWLOG_DEBUG, "tcpcloseconnection on  fd=%d", fd);
-  if (conn->client != UNASSIGNED) 
-    gwdetachclient(conn->client);
-  else if (conn->broker) {
+  DEBUG("tcpcloseconnection on  fd=%d", conn->fd);
+  if (conn->cid != UNASSIGNED) 
+    gwdetachclient(conn->cid);
+  else if (conn->type & CONN_TYPE_BROKER) {
     reconnect_broker = 1;   
+  } else if (conn->type & CONN_TYPE_GATEWAY) {
+    gw_closegateway(conn->gwid);
+    return;
   };
+
   /* TODO: what if a listen socket closes, reall can only happen if
      the OS is going down (on way or another */
-  conn_del(fd);
+  conn_del(conn->fd);
 };
 
 /* called on shutdown, the shutdown flag will stop all new
@@ -220,27 +229,32 @@ void tcpcloseconnection(int fd)
    send a "TERM!" and call tcpcloseconnection(). */
 void tcpcloseall(void)
 {
-  int i;
   Connection * conn;
 
   tcpshutdown = 1; 
-  mwlog(MWLOG_DEBUG, "closing all connections");
+  DEBUG("closing all connections");
 
-  while ( conn = conn_getbroker()) {
-    mwlog(MWLOG_DEBUG, "closing broker");
-    _mw_srbsendterm(conn->fd, -1);
+  while ( (conn = conn_getbroker()) != NULL) {
+    DEBUG("closing broker");
+    _mw_srbsendterm(conn, -1);
     conn_del(conn->fd);
   };
 
-  while ( conn = conn_getfirstlisten()) {
-    mwlog(MWLOG_DEBUG, "closing listen");
+  while (  (conn = conn_getfirstlisten()) != NULL) {
+    DEBUG("closing listen");
     conn_del(conn->fd);
   };
   
-  while ( conn = conn_getfirstclient()) {
-    mwlog(MWLOG_DEBUG, "closing client fd=%d", conn->fd);
-    _mw_srbsendterm(conn->fd, -1);
+  while (  (conn = conn_getfirstclient()) != NULL) {
+    DEBUG("closing client fd=%d CLIENTID=%d", conn->fd, conn->cid&MWINDEXMASK);
+    _mw_srbsendterm(conn, -1);
     conn_del(conn->fd);
+  };
+
+  while (  (conn = conn_getfirstgateway()) != NULL) {
+    DEBUG("closing gateway fd=%d GATEWAYID=%d", conn->fd, conn->cid&MWINDEXMASK);
+    _mw_srbsendterm(conn, -1);
+    gw_closegateway(conn->gwid);
   };
 
   return;
@@ -253,25 +267,24 @@ void tcpcloseall(void)
    We also must handle multpile and partial messages.
 */
 
-static void readmessage(int fd)
+static void gwreadmessage(Connection * conn)
 {
   int i, n, end, start = 0;
-  Connection * conn;
 
-  conn = conn_getentry(fd);
+  if (conn == NULL) return;
 
-  n = read(fd, conn->messagebuffer+conn->leftover, 
-	       SRBMESSAGEMAXLEN-conn->leftover);
+  n = conn_read(conn);
+  DEBUG("read a message from fd=%d returned %d errno=%d", conn->fd, n, errno);
 
   /* read return 0 on end of file, and -1 on error. */
   if ((n == -1) || (n == 0)) {
-    tcpcloseconnection(fd);
+    tcpcloseconnection(conn);
     return ;
   };
 
   end = conn->leftover + n;
-  mwlog(MWLOG_DEBUG, "readmessage(fd=%d) read %d bytes + %d leftover buffer now:%.*s", 
-	fd, n, conn->leftover, end, conn->messagebuffer);
+  DEBUG("readmessage(fd=%d) read %d bytes + %d leftover buffer now:%.*s", 
+	conn->fd, n, conn->leftover, end, conn->messagebuffer);
 
   
   /* we start at leftover since there can't be a \r\n in what was
@@ -283,13 +296,13 @@ static void readmessage(int fd)
 	 (conn->messagebuffer[i+1] == '\n') ) {
       conn->messagebuffer[i] = '\0';
 
-      mwlog(MWLOG_DEBUG, "read a message from fd=%d, about to process with srbDomessage", fd);
+      DEBUG("read a message from fd=%d, about to process with srbDomessage", conn->fd);
 
-      _mw_srb_trace(SRB_TRACE_IN, fd, conn->messagebuffer, i);
+      _mw_srb_trace(SRB_TRACE_IN, conn, conn->messagebuffer, i);
 
       conn->lastrx = time(NULL);
-      srbDoMessage(fd, conn->messagebuffer+start);
-      mwlog(MWLOG_DEBUG, "srbDomessage completed");
+      srbDoMessage(conn, conn->messagebuffer+start);
+      DEBUG("srbDomessage completed");
 
       i += 2;
       start = i;
@@ -304,7 +317,8 @@ static void readmessage(int fd)
   
   /* test for message overflow */
   if ( (end - start) >= SRBMESSAGEMAXLEN) {
-    mwlog(MWLOG_WARNING, "readmessage(fd=%d) message buffer was exceeded, rejecting it, next message should be rejected", fd);
+    Warning("readmessage(fd=%d) message buffer was exceeded, "
+	  "rejecting it, next message should be rejected", conn->fd);
     conn->leftover = 0;
     return;
   };  
@@ -312,7 +326,7 @@ static void readmessage(int fd)
   /* now there must be left over, move it to the beginning of the
      message buffer */
   conn->leftover = end - start;
-  mwlog(MWLOG_DEBUG2, "memcpy %d leftover %p => %p", 
+  DEBUG2("memcpy %d leftover %p => %p", 
 	conn->leftover, conn->messagebuffer + start,conn->messagebuffer);
   memcpy(conn->messagebuffer, conn->messagebuffer + start, 
 	 conn->leftover);
@@ -337,16 +351,147 @@ void sig_dummy(int sig)
   ;
 };
 
+int tcp_do_error_condiion(Connection * conn)
+{
+  
+  DEBUG("error condition on fd=%d", conn->fd);
 
+  if (conn->type & CONN_TYPE_LISTEN) {
+    Error("a listen socket (fd=%d) has dissapeared, really can't happen.",
+	   conn->fd);
+    sig_initshutdown(0);
+  } else if (conn->type & CONN_TYPE_BROKER) {
+    tcpcloseconnection(conn);
+    conn_del(conn->fd);
+    reconnect_broker = 1;
+  } else { // client or peer
+    tcpcloseconnection(conn);
+  };
+  return 0;
+};
+   
+int tcp_do_write_condiion(Connection * conn)
+{
+  DEBUG("write condition on fd=%d", conn->fd);
+  if (conn->type & CONN_TYPE_GATEWAY) {
+    /* the other side shall send an SRB READY, we son't send an INIT
+       until that is received, thus the task of sending an INIT falls
+       on dosrbready() not here. We just set eth state and unpoll from write events.*/
+    if (conn->state == CONNECT_STATE_CONNWAIT) {	
+      conn->state = CONNECT_STATE_READYWAIT;
+      unpoll_write(conn->fd);
+    };
+    return 0;
+  };
+};
+
+int tcp_do_read_condiion(Connection * conn)
+{
+  int fd;
+  char * msg;
+  int len, c_fd;
+
+  fd = conn->fd;
+  DEBUG("read condition on fd=%d", conn->fd);
+  /* new connection from broker */
+  if (conn->type & CONN_TYPE_BROKER) {
+    msg = malloc(SRBMESSAGEMAXLEN+1);
+    len = read_with_fd(fd, msg, SRBMESSAGEMAXLEN, &c_fd);
+    
+    DEBUG("read %d bytes with new fd (%d) from broker", len, c_fd);
+    /* if message from broker */
+    if (c_fd == -1) {
+
+      /* the only legal message from the broker is TERM! so we don't
+         bother to decode it */
+      
+      conn_del(fd);
+      
+      /* if the broker is going down, there is no point in
+	 immediate reconnect, hence 2, not 1 */
+      reconnect_broker = 2; 
+      return 0;
+    };
+    fd = c_fd;
+    /* since the broker must send a complete SRB INIT?, and it's
+       illegal for the client/peer gateway to send anything until
+       a SRB INIT. is received we know that we shall have one and
+       only one message in msg */
+    
+    /* clear \r\n at end before we trace and decode */
+    msg[len-2] = '\0'; 
+    len -= 2;
+    
+    conn = conn_add(fd, SRB_ROLE_CLIENT|SRB_ROLE_GATEWAY, 0);
+    _mw_srb_trace(SRB_TRACE_IN, conn, msg, len);
+    conn->lastrx = time(NULL);
+    conn->messagebuffer = msg;	 
+    srbDoMessage(conn, conn->messagebuffer);
+    
+    DEBUG("srbDomessage completed");
+    return 0;
+  };
+      
+  if (conn->type & CONN_TYPE_LISTEN) {
+    DEBUG("new connection on listen socket");
+    conn = tcpnewconnection(conn);
+  };
+  
+  DEBUG("doing readmessage on fd %d", conn->fd);
+  gwreadmessage(conn);
+  return 0;
+}; 
+
+/************************************************************************
+ * timer task, is called every time conn_select() times out */
+
+#define TASK_INTERVAL 15 /* secs */
+
+/* the timeout is the next time in unix time that we shall be
+   called. initial value of 1 just ensure that it will be called first
+   time out */
+static time_t  timeout = 1; 
+
+void timer_task(void)
+{
+  char t[16];
+  int fd;
+
+  DEBUG("vvvvvvvvvv starting timer task %d secs after timeout", time(NULL) - timeout);
+  if (globals.mydomain && globals.myinstance) {
+    /* reconnect broker */
+    if (reconnect_broker) {
+      fd = connectbroker(globals.mydomain, globals.myinstance);
+      DEBUG("connectbroker returned %d %d", fd, errno);
+      if (fd != -1) {
+	reconnect_broker = 0;
+      } else {
+	Error("connectbroker failed errno %d", errno);
+      };
+    } 
+
+    gw_connectpeers();
+    
+    /* do mcasts */
+    gw_sendmcasts();
+
+  };
+
+  timeout = time(NULL) + TASK_INTERVAL;
+  strftime ( t, 16, "%T", localtime(&timeout));
+  DEBUG("^^^^^^^^^^ ending timer task, next at %s (%d now %d)", t, timeout, time(NULL));
+
+};
+
+  
 /* the main loop, here we select on all sockets and issue actions. */
 void * tcpservermainloop(void * param)
 {
-  int fd, cond, timeout = 0;
-  extern pid_t tcpserver_pid;
+  int fd, cond, rc;
   Connection * conn;
   
   globals.tcpserverpid = getpid();
-  mwlog(MWLOG_INFO, "tcpserver thread starting with pid=%d", globals.tcpserverpid);
+  Info("tcpserver thread starting with pid=%d", globals.tcpserverpid);
 
   /* TODO: what are these doing here, and not in gateway.c */
   signal(SIGINT, sig_initshutdown);
@@ -356,126 +501,51 @@ void * tcpservermainloop(void * param)
 
   signal(SIGPIPE, sig_dummy);
 
+  /* if we're in a domain, nad not in a standalone mode */
   if (globals.mydomain && globals.myinstance) {
     reconnect_broker = 1;
   };
 
   while(! globals.shutdownflag) {
- 
-    if (reconnect_broker == 0) {
-      timeout = -1;
-    } else if (reconnect_broker == 1) {
-	timeout = time(NULL);
-	reconnect_broker++;
-    } else {
-      timeout = time(NULL) + BROKER_RECONNECT_TIMER;
-    };
 
-    fd = do_select(&cond, timeout);
-    mwlog(MWLOG_DEBUG, "do_select returned %d errno=%d", fd, errno);
+    DEBUG("%s", conn_print());
+ 
+    fd = conn_select(&cond, timeout);
+    DEBUG("do_select returned %d errno=%d", fd, errno);
 
     if (fd < 0) {
-    
       if (errno == ETIME) {
-	/* reconnect broker */
-	if (reconnect_broker) {
-	  fd = connectbroker(globals.mydomain, globals.myinstance);
-	  mwlog(MWLOG_DEBUG, "connectbroker returned %d", fd);
-	  if (fd != -1) {
-	    conn_add(fd, SRB_ROLE_CLIENT|SRB_ROLE_GATEWAY, CONN_BROKER);
-	    reconnect_broker = 0;
-	  };
-	  continue;
-	} 
-	mwlog(MWLOG_ERROR, "This can't happen, do_select returned 0, " 
-	      "but we're not trying to reconnect the broker");
+	timer_task();
+	continue;
+      } else if (errno == EINTR) {
 	continue;
       };
-      mwlog(MWLOG_ERROR, "do_select returned error %d, shutingdown", errno);
+      
+      Error("do_select returned error %d, shutingdown", errno);
       globals.shutdownflag = 1;
       continue;
     }
 
     conn = conn_getentry(fd);
-    mwlog(MWLOG_DEBUG, "conn info listen=%d broker=%d", conn->listen, conn->broker);
+    DEBUG("conn info listen=%d broker=%d cond=%#x", 
+	  conn->type & CONN_TYPE_LISTEN, conn->type & CONN_TYPE_BROKER, cond);
 
-    if (cond == COND_ERROR) {
-      mwlog(MWLOG_DEBUG, "error condition on fd=%d", fd);
-      
-      if (conn->listen == FALSE) tcpcloseconnection(fd);
-      else if (conn->broker == TRUE) {
-	tcpcloseconnection(fd);
-	timeout = BROKER_RECONNECT_TIMER;
-	conn_del(fd);
-	reconnect_broker = 1;
-      } else {
-	mwlog (MWLOG_ERROR, 
-	       "a listen socket (fd=%d) %s:%d has dissapeared, really can't happen.",
-	       fd, inet_ntoa(conn->addr.ip4.sin_addr), 
-	       ntohs(conn->addr.ip4.sin_port));
-	* (int *) param = -1;
-	return param;
-      };
-      
+    if (cond & COND_ERROR) {
+      rc = tcp_do_error_condiion(conn);
+      continue;
     };
       
-    if (cond == COND_READ) {
-
-      mwlog(MWLOG_DEBUG, "read condition on fd=%d", fd);
-      /* new connection from broker */
-      if (conn->broker) {
-	char * msg;
-	int len, c_fd;
-
-	msg = malloc(SRBMESSAGEMAXLEN+1);
-	len = read_with_fd(fd, msg, SRBMESSAGEMAXLEN, &c_fd);
-
-	mwlog(MWLOG_DEBUG, "read %d bytes with new fd (%d) from broker", len, c_fd);
-	/* if message from broker */
-	if (c_fd == -1) {
-	  /* the only legal message from the broker is TERM! */
-
-	  conn_del(fd);
-
-	  /* if the broker is going down, there is no point in
-             immediate reconnect, hence 2, not 1 */
-	  reconnect_broker = 2; 
-	  continue;
-	};
-	fd = c_fd;
-	/* since the broker must send a complete SRB INIT?, and it's
-	   illegal for the client/peer gateway to send anything until
-	   a SRB INIT. is received we know that we shall have one and
-	   only one message in msg */
-
-	/* clear \r\n at end before we trace and decode */
-	msg[len-2] = '\0'; 
-	len -= 2;
-
-	_mw_srb_trace(SRB_TRACE_IN, fd, msg, len);
-	conn = conn_add(fd, SRB_ROLE_CLIENT|SRB_ROLE_GATEWAY, 0);
-	conn->lastrx = time(NULL);
-	conn->messagebuffer = msg;	 
-	srbDoMessage(fd, conn->messagebuffer);
-
-	mwlog(MWLOG_DEBUG, "srbDomessage completed");
-	continue;
-      };
-      
-      if (conn->listen) {
-	mwlog(MWLOG_DEBUG, "new connection on listen socket");
-	fd = newconnection(fd);
-      };
-      
-      mwlog(MWLOG_DEBUG, "doing readmessage on fd %d", fd);
-      readmessage(fd);
-      
+    if (cond & COND_WRITE) {
+      rc = tcp_do_write_condiion(conn);
     };
-
+    if (cond & COND_READ) {
+      rc = tcp_do_read_condiion(conn);
+    };
+    
   };
 
   tcpcloseall();
-  mwlog(MWLOG_INFO, "Connections closed");
+  Info("Connections closed");
 
   * (int *) param = 0;
   return param;

@@ -21,6 +21,7 @@
 #ifndef _SRBPROTOCOL_H
 #define _SRBPROTOCOL_H
 
+#include <connection.h>
 #include <stdio.h>
 #include <urlencode.h>
 
@@ -73,6 +74,7 @@
 #define SRB_CAUSEVALUE 		"CAUSEVALUE"
 #define SRB_CLIENTNAME 		"CLIENTNAME"
 #define SRB_CONVERSATIONAL	"CONVERSATIONAL"
+#define SRB_COST 		"COST"
 #define SRB_DATA 		"DATA"
 #define SRB_DATACHUNKS 		"DATACHUNKS"
 #define SRB_DOMAIN 		"DOMAIN"
@@ -92,6 +94,7 @@
 #define SRB_OFFSET 		"OFFSET"
 #define SRB_OS 			"OS"
 #define SRB_PASSWORD 		"PASSWORD"
+#define SRB_PEERDOMAIN 		"PEERDOMAIN"
 #define SRB_REASON 		"REASON"
 #define SRB_REASONCODE 		"REASONCODE"
 #define SRB_REJECTS 		"REJECTS"
@@ -114,7 +117,7 @@
 #define SRB_TYPE_GATEWAY		"GATEWAY"
 /* authentication schemes. */
 #define SRB_AUTH_NONE			"NONE"
-#define SRB_AUTH_UNIX			"unix"
+#define SRB_AUTH_PASS			"PASS"
 #define SRB_AUTH_X509			"x509"
 
 /* YES and NO, almost an overkill */
@@ -186,21 +189,24 @@ void _mw_srb_delfield   (SRBmessage * srbmsg, char * key);
 
 /* encode decode */
 SRBmessage * _mw_srbdecodemessage(char * message);
-int _mw_srbsendmessage(int fd, SRBmessage * srbmsg);
+
+int _mw_srbsendmessage(Connection * conn, SRBmessage * srbmsg);
 int _mw_srbencodemessage(SRBmessage * srbmsg, char * buffer, int buflen);
 
 
-int _mw_srbsendreject(int fd, SRBmessage * srbmsg, 
+int _mw_srbsendreject(Connection * conn, SRBmessage * srbmsg, 
 		       char * causefield, char * causevalue, 
 		       int rc);
-int _mw_srbsendreject_sz(int fd, char *message, int offset) ;
-int _mw_srbsendterm(int fd, int grace);
-int _mw_srbsendinit(int fd, char * user, char * password, 
+int _mw_srbsendreject_sz(Connection * conn, char *message, int offset) ;
+int _mw_srbsendterm(Connection * conn, int grace);
+int _mw_srbsendinit(Connection * conn, char * user, char * password, 
 		    char * name, char * domain);
 
+int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, int datalen, 
+		    int flags);
 
 int _mw_get_returncode(urlmap * map);
-int _mw_srb_checksrbcall(int fd, SRBmessage * srbmsg) ;
+int _mw_srb_checksrbcall(Connection * conn, SRBmessage * srbmsg) ;
 
 /* tracing API */
 int _mw_srb_traceonfile(FILE * fp);
@@ -210,7 +216,7 @@ int _mw_srb_traceoff(void );
 #define SRB_TRACE_IN 1
 #define SRB_TRACE_OUT 0
 
-void _mw_srb_trace(int dir_in, int fd, char * message, int messagelen);
+void _mw_srb_trace(int dir_in, Connection * conn, char * message, int messagelen);
 
 /* conversion func between SRBP error codes, and errno */
 char * _mw_srb_reason(int rc);

@@ -21,7 +21,7 @@ Request for Comments: nnnn                                          NONE
 
 
 .ce
-Service Request Broker Protocol Version 1.0
+Service Request Broker Protocol Version 0.9
 
 .ti 0
 Status of this Memo
@@ -73,10 +73,36 @@ MidWay - is an implementation of a Service Request Broker
 Instance - Really a consept from MidWay, a manager that manages a set
 of servers that provides services in a specific domain.
 
-broker - a daemon on a node that keep track of all the instances on a
-node, and can mediate the connection between clients and an instance.
+Domain - THe whole purpose of the SRB protocol is to access and share
+services among instances. Instead of configuring import/exports of
+services manually, instances can be made a part of one or more
+domains. All the interconnect and import/export of instances and their
+services happen automatically. This is in parallell to the domain
+concept in NIS(aka Yellowpages).
+
+Service - A service is semantically very similar to a function or
+procedure in programming languages. A service has a name, and is
+callable. It takes optionally an octet buffer as an argumnet and
+optionally return an octet buffer along with mandatory return code,
+signaling success or failure. 
+
+Import - The process of making a service in a remote instance
+available in the local instance. Thisis done thru gateways. 
+
+Export - The process of making a service in the local instance
+available in remote instances. This is done thru gateways. 
+
+Broker - a daemon on a node that keep track of all the instances on a
+node, and can mediate the connection between clients and a gateway..
 It is however not required for operation, if the instance is listening
 on it own TCP port, and the client know of the port.
+
+Gateway(GW) - a daemon running as a part of an instance, and provide
+an instance with the ability to accept network clients. The GW can
+also make an instance a member of a domain, and connects all other
+GW's in the domain, and provides it's instance services to all the
+other GW, thus making a service available in other instances.
+
 
 NIS - Network information system (RFC: ?)
 
@@ -90,10 +116,13 @@ srb message -
 Instances
 
 Each instance need to have an unique instance name of the form
-userid@host:port or userd@host/ipckey. This field is limited to 64
-octets, and is canonical name becomes to long, the numerical IP
-address shall be used. Considering the IPv6 address is max 42
-in [abcd:...] form this is unlikely to happen.
+ipaddr:port or ipaddr/ipckey. This field is limited to 64 octets, the
+numerical IP address shall be used. The IPv6 address shall be used in its
+[abcd:...] form, IPv4 in aaa.bbb.ccc.ddd. 
+
+NB: We assume that it's not possible for two hosts where one is using
+the IPv4 mapped IPv4 address and the other is using the same IPv4
+address. AN instance must pick either.
 
 The 64 octet limit may cause problem with POSIX ipc paths instead of
 syv ipc keys.
@@ -116,6 +145,30 @@ them in UDP packets is optional.
 
 The broker shall handle multicast packets on address 225.0.0.100.
 
+
+
+                                                                    x
+        +------+                                +------+            x
+        |client|                                |client|            x 
+        +------+                                +------+            x
+           |                                       |                x
+           |                                       |                x
+           |             +---------------------+   |                x
+           |             |                     |   |                x
+          +------+       |                   +------+            x
+          |broker|       |                   |broker|            x
+          +------+       |                   +------+            x
+           |             |                     |   |                x
+           |   +---------+                     |   |                x
+           |   |                               |   |                x
+         +-------+                           +-------+           x
+         |gateway|                           |gateway|           x
+         +-------+                           +-------+           x
+                                                                    x
+                                                                    x
+
+
+
 .ti 0 
 Error handling
 
@@ -130,6 +183,17 @@ shall be returned with a reject marker '~', and the field CAUSEFIELD
 and REASONCODE must be set.  If the value of the field was the source
 of the error a CAUSEVALUE must be set.  An optional field REASON may
 be set, containing a free text describing the cause.
+
+.ti 0
+Discovery 
+
+During the discovery using UDP multicast or unicasts, it is the src
+address in the reply that shall be used to contact the broker, NOT the
+address in the instancename. This will cause problems with multi-homed
+hosts with firewalling capability, or multi-homed hosts without
+forwarding/routing capability. The instance will normally pick the ip
+address from it's first interface.
+
 
 .ti 0
 Large Amount of Data
@@ -148,7 +212,7 @@ we don't want to get near that.
 Then the DATA to to big to send complete with the SVCCALL message, the
 DATACHUNKS filed shall be set, and its value shall be the number of
 SVCDATA messages that will follow. The SVCDATA must come in sequence,
-and ech will also have the DATACHUNKS field set, and the last one
+and eah will also have the DATACHUNKS field set, and the last one
 shall have it set to 0.
 
 Alert readers may realize that requiring to know the number of chunks
@@ -273,9 +337,24 @@ parameters not described here are sliently ignored.
 SRB INIT 
 Request/Response ?.
 
-Must be the first message, is either declined or accepted.
-Note that a decline is different than a reject. The cause field must not 
-be confused with the field used with rejects.
+Must be the first message from conneting side, is either declined or
+accepted.  Note that a decline is different than a reject. The cause
+field must not be confused with the field used with rejects.
+
+We're a bit different uses if this, depending on the connecting side
+is a client or gateway. When connection GW to GW the connceting side
+MUST set DOMAIN, PEERDOMAIN, and INSTANCE. GW to GW connections are
+also expected to go thru the broker. If there are more instances for
+the same domain on a host the INSTANCE field enable the broker to
+forward the connection to the right GW. If an instance is apart of
+more than one domain, they will still have the same instance name, and
+the broker need the DOMAIN field to forward the connection to the
+right GW.
+
+The PEERDOMAIN is the domain the connecting GW is apart of, and is
+needed by the connected gateway to correctly do authention, and
+import/exports.
+
 
 .TS
 box, tab(;);
@@ -285,6 +364,8 @@ l | l | l | l | l |.
 Parameter name;value ABNF;req;rpy;comment
 VERSION;1*DIGIT "%2E" 1*DIGIT;m;;"1%2E0" (1.0) 
 DOMAIN;1*64token;o;;
+PEERDOMAIN;1*64token;o;; In case of GW to GW only.
+INSTANCE;1*64token;o;;
 TYPE;"client"|"gateway";m; 
 NAME;1*64token;m;;Client name if 
 ;;;;type = client, 
@@ -295,7 +376,7 @@ REVERSE;"yes"|"NO";o;;Allow reverse
 REJECTS;"YES"|"no";o;;No error handling
 AUTHENTICATION;"NONE"|"unix"|"x509";o;;
 USER;1*token;;;if auth!=NONE
-PASSword;1*token;;;
+PASS;1*token;;;
 AGENT;1*token;oi;; e.g. "MidWay"
 AGENTVERSION;1*token;oi;;
 OS;1*token;oi;
@@ -306,10 +387,17 @@ CAUSE;1*token;n/a;oi;the cause RC!=0
 
 .ti 1
 SRB READY
-event !
+event !, Request/Response ?.
 
-Only used by a SRB server which SHALL write this message out at the
-time the TCP connection is established.
+Events are only used by a SRB server/broker, connected side, which
+SHALL write this message out at the time the TCP connection is
+established.
+
+The request/resonses are ONLY used by multicast discovery queries and,
+their responses. The MC request are listen for by the broker, and the
+broker SHALL send one UDP packet for each instance that matches the
+domain/instance fields in the request. Request MAY be send to unicast
+addresses, but must still be a UDP packet to the SRB port.
 
 .TS
 box, tab(;);
@@ -319,6 +407,7 @@ l | l | l | l | l |.
 Parameter name;value ABNF;req;rpy;comment
 VERSION;DIGIT "%2E" DIGIT;m;;"1.0" 
 DOMAIN;1*64token;o;;
+INSTANCE;1*64token;o;;
 AGENT;1*64token;oi;;e.g. "MidWay"         
 AGENTVERSION;1*64token;oi;;
 .TE
@@ -484,6 +573,8 @@ INSTANCE;1*64token;m;;See **
 EVENTID;8HEXDIG;m;;
 DATA;1*3000token;o;;
 DOMAIN;1*64token;o;;(??)
+GROUP;1*64token;o;;
+USER;1*64token;o;;
 .TE
 
 

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.6  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.5  2002/02/17 13:48:01  eggestad
  * added prototypes for _mw_ipc_(un)provide()
  *
@@ -91,6 +94,7 @@ struct provide
 
   char svcname[MWMAXSVCNAME];
 
+  int cost;
   int flags;
   int returncode;
 };
@@ -174,18 +178,11 @@ struct conversation
 
 typedef struct conversation  Converse;;
 
-/* somehow we should calculate  MWMSGMAX.
-   This could be done by making a C programs that are used to 
-   generate a stage 2 makefile. Right now we just set it to IPC MSGMAX
-   Hm on RH5.2 MSGMAX is set in linux/msg.h. Include of linux/msg causes 
-   conflict with sys/types ++  
-   So I'm hardcoding to a approx max, call is largest with ~200 octets*/
-#define MWMSGMAX 256
 
-/* administrative request/notifications from mwd to members and from mwadm to mwd.
-   Used to notify shutdown event, Should this be a special event instead
-   in the general event service planned....?
-*/
+/* administrative  request/notifications from mwd to  members and from
+   mwadm  to mwd.  Used  to notify  shutdown event,  Should this  be a
+   special event instead in the general event service planned....?  */
+
 #define ADMREQ 0x1000
 /* opcodes */
 #define ADMSHUTDOWN  0x10
@@ -200,6 +197,63 @@ typedef struct {
   int delay;
 } Administrative;
 
+
+/* the event  message. used to both subscribe  and unsubscribe as well
+   as the events them selves */
+
+#define EVENT                0x400
+#define EVENTACK             0x410
+#define EVENTSUBSCRIBE       0x420
+#define EVENTUNSUBSCRIBE     0x430
+
+/* in the "normal"  case of an event, the event can't  be "". THe data
+is  however  optional,   and  the  user  and  group   is  optional  as
+well.  (first byte is  \0 if  empty.  flag  is not  used. The  data if
+passed is now owned by mwd, and the event sender must not free it. THe
+mwd will  let it be and send  a event message to  all subscribers, all
+pointing to the  same date buffer. THrefore recipient  of event my ack
+then, while the mwd do not ack to the original sender. */
+
+/* In the case of subscribe  or unsubscribe, A string, glo,b or regexp
+is passed as the event that the mwd will use to match any event to any
+event.  if  the event is empty, the  mathc string must be  passed in e
+data buffer,  and data may not be  0. Since regexp may  be quite huge,
+the event field  may be too small. The flag  must be set appropriately
+if the match string is not a string but a glob or regexp. */
+
+#define EVENT_FLAG_GLOB            0x10
+#define EVENT_FLAG_REGEXP_BASIC    0x20
+#define EVENT_FLAG_REGEXP_EXTENDED 0x40
+
+struct event {
+  long mtype;
+  
+  char event[MWMAXSVCNAME];
+  
+  int data;
+  int datalen;
+  
+  char user[MWMAXSVCNAME];
+  char group[MWMAXSVCNAME];
+
+  int flag;
+};
+
+typedef struct event Event;
+  
+/* Here we  calculate  MWMSGMAX. */
+typedef union { 
+  Attach at;
+  Provide prov;
+  Call call;
+  Converse conv;
+  Administrative admin;
+  Event ev;
+} _union_ipc_messages;
+
+#define MWMSGMAX sizeof(_union_ipc_messages)
+
+
 /*
  *  lowlevel ipcmsg send & receive
  */
@@ -213,9 +267,9 @@ int _mw_ipcsend_attach(int att_type, char * name, int flags);
 int _mw_ipcsend_detach(int force);
 int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force);
 
-SERVICEID _mw_ipcsend_provide(char * servicename, int flags);
-int _mw_ipcsend_unprovide(char * servicename);
+int _mw_ipcsend_provide(char * servicename, int cost, int flags);
 SERVICEID _mw_ipc_provide(char * servicename, int flags);
+int _mw_ipcsend_unprovide(char * servicename, int flags);
 int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid);
 
 int _mwacallipc (char * svcname, char * data, int datalen, int flags);

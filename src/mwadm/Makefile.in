@@ -40,7 +40,7 @@ install:
 uninstall:
 	rm -f @bindir@/mwadm
 
-tags:
+TAGS:
 	etags -a -o ../TAGS *.c *.h
 
 # DO NOT DELETE

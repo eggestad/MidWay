@@ -80,13 +80,13 @@ void setrealtimer(long long usecs)
   itv.it_value.tv_sec = usecs / (long) 1e6;
   itv.it_value.tv_usec = usecs % (long) 1e6;
 
-  mwlog(MWLOG_DEBUG, "usecs = %lld tv = { %d . %d }", usecs, 
+  DEBUG("usecs = %lld tv = { %d . %d }", usecs, 
 	itv.it_value.tv_sec, itv.it_value.tv_usec);
 
   rc = setitimer(ITIMER_REAL,  &itv, NULL);
 
   if (rc != 0) {
-    mwlog(MWLOG_FATAL, "failed to set the real timer %lld usecs into the future, reason, %s", 
+    Fatal("failed to set the real timer %lld usecs into the future, reason, %s", 
 	  usecs, strerror(errno));
   };
 

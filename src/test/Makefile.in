@@ -20,7 +20,7 @@ distclean:
 test: 
 	runtestsuite.pl
 
-tags:
+TAGS:
 	etags -a -o ../TAGS *.c *.h
 
 depend:

@@ -18,11 +18,11 @@
   Boston, MA 02111-1307, USA. 
 */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 /*
  * $Log$
+ * Revision 1.5  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.4  2001/10/05 14:34:19  eggestad
  * fixes or RH6.2
  *
@@ -44,17 +44,117 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <stdlib.h>
 #include <unistd.h>
 #include <errno.h>
+#include <assert.h>
 
 #include <MidWay.h>
 #include <SRBprotocol.h>
 
 #include "connections.h"
 
-static Connection connections[FD_SETSIZE];
+/* we use select for now
+#ifdef HAS_POLL
+#  define USE_POLL
+#else 
+#  ifdef HAS_SELECT
+#  else
+#    error "We must have either poll() or select() but according to config.h we have neither!"
+# endif
+#endif
+*/
 
-static fd_set sockettable;
+static char * RCSId UNUSED = "$Id$";
 
+static Connection * connections = NULL;
+static int connectiontablesize = 0;
+
+/************************************************************************
+ * here we have the function that turn on and off read/write polling
+ * on a given filedesc. THis is in two versions depending on wither we
+ * use poll() or select()
+ */
 static int maxsocket = -1;
+
+#if USE_POLL
+
+#error "poll not implemeted!"
+
+#else
+
+static fd_set sockettable, sockettable_write;
+
+void poll_write(int fd)
+{
+  if (fd < 0) {
+    Error("poll write on fd %d", fd);
+    return;
+  };
+
+  if (!FD_ISSET(fd, &sockettable)) {
+    Error("Internal error, attempt to do write poll without doing read poll on fd=%d", fd);
+    return;
+  };
+  FD_SET(fd, &sockettable_write);
+
+};
+
+void unpoll_write(int fd)
+{
+  if (fd < 0) {
+    Error("unpoll write on fd %d", fd);
+    return;
+  };
+
+  FD_CLR(fd, &sockettable_write);
+};
+
+static void poll_on(int fd)
+{
+  if (fd < 0) {
+    Error("poll on fd %d", fd);
+    return;
+  };
+
+  if (fd >= (FD_SETSIZE-1)) {
+    Error("Polling on file descriptor %d with exceeds max %d, closing connection "
+	  "Either spread clients over more instances or recompile with poll() instead of select()", 
+	  fd, FD_SETSIZE);
+    conn_del(fd);
+    return;
+  } else if (fd > (FD_SETSIZE - FD_SETSIZE/10)) {    
+    Warning("Polling on file descriptor %d witch is close to the max %d, "
+	  "Either spread clients over more instances or recompile with poll() instead of select()", 
+	  fd, FD_SETSIZE);
+  } 
+  
+  FD_SET(fd, &sockettable);
+  if (maxsocket < fd) maxsocket = fd;
+};
+
+static void poll_off(int fd)
+{
+  if (fd < 0) {
+    Error("poll off fd %d", fd);
+    return;
+  };
+
+  unpoll_write(fd);
+  FD_CLR(fd, &sockettable);
+  
+  if (maxsocket <= fd) return;
+
+  /* if this is the highest filedescription used, find the next
+     highest and assign it to maxsocket. */
+  if (maxsocket == fd)
+    while (--fd > 0) {
+      if (FD_ISSET(fd, &sockettable)) {
+	maxsocket = fd;
+	return ;
+      };
+    };
+};
+#endif
+
+/************************************************************************/
 
 
 /* we have a connection id that is unique, this is to prevent
@@ -64,31 +164,18 @@ static int maxsocket = -1;
    also. */
 static int lastconnectionid ;
 
-
 void conn_init(void)
 {
-  
-  int i;
 
-  /* clean the connections table */
-  for (i = 0; i < FD_SETSIZE; i++){
-    connections[i].client = UNASSIGNED;
-    connections[i].gateway = UNASSIGNED;
-    connections[i].messagebuffer = NULL;
-    connections[i].leftover = 0;
-    connections[i].listen = 0;
-    connections[i].broker = 0;    
-    connections[i].connectionid = UNASSIGNED;    
-    connections[i].fd = UNASSIGNED;    
-    connections[i].role = UNASSIGNED;
-  };
  /* init random numbers */
   srand(time(NULL));
   lastconnectionid = rand();
   
-  mwlog(MWLOG_DEBUG, "size of conn table is %d bytes", FD_SETSIZE * sizeof(Connection));
-  /* init the select() table to say that no fd shell be selected. */
+#ifdef USE_POLL
+#else 
   FD_ZERO(&sockettable);
+  FD_ZERO(&sockettable_write);
+#endif
 
   return;
 };
@@ -99,37 +186,38 @@ void conn_setinfo(int fd, int * id, int * role, int * rejects, int * reverse)
 {
   
   if (id != NULL) {
-    mwlog(MWLOG_DEBUG2, "conn_setinfo fd=%d id=%#x", fd, *id);
+    DEBUG2("conn_setinfo fd=%d id=%#x", fd, *id);
     if ((*id & MWCLIENTMASK) != 0)
-      connections[fd].client = (*id & MWINDEXMASK) | MWCLIENTMASK;
+      connections[fd].cid = (*id & MWINDEXMASK) | MWCLIENTMASK;
     if ((*id & MWGATEWAYMASK) != 0)
-      connections[fd].gateway = (*id & MWINDEXMASK) | MWGATEWAYMASK;
+      connections[fd].gwid = (*id & MWINDEXMASK) | MWGATEWAYMASK;
   };
 
   if (role != NULL) {
-    mwlog(MWLOG_DEBUG2, "conn_setinfo fd=%d role=%d", fd, *role);
+    DEBUG2("conn_setinfo fd=%d role=%d", fd, *role);
     connections[fd].role = *role;
   }
   if (rejects != NULL) {
-    mwlog(MWLOG_DEBUG2, "conn_setinfo fd=%d rejects=%d", fd, *rejects);
+    DEBUG2("conn_setinfo fd=%d rejects=%d", fd, *rejects);
     connections[fd].rejects = *rejects;
   }
   if (reverse != NULL) {
-    mwlog(MWLOG_DEBUG2, "conn_setinfo fd=%d reverse=%d", fd, *reverse);
+    DEBUG2("conn_setinfo fd=%d reverse=%d", fd, *reverse);
     connections[fd].reverse = *reverse;
   }
 };
 
 int conn_getinfo(int fd, int * id, int * role, int * rejects, int * reverse)
 {
-  if (id != NULL)
-    if (connections[fd].client != UNASSIGNED) 
-      *id = connections[fd].client | MWCLIENTMASK;
-    else if (connections[fd].gateway != UNASSIGNED) 
-      *id = connections[fd].gateway | MWGATEWAYMASK;
+  if (id != NULL) {
+    if (connections[fd].cid != UNASSIGNED) 
+      *id = connections[fd].cid | MWCLIENTMASK;
+    else if (connections[fd].gwid != UNASSIGNED) 
+      *id = connections[fd].gwid | MWGATEWAYMASK;
     else {
       *id = UNASSIGNED;
     };
+  };
 
   if (role != NULL)
     *role = connections[fd].role;
@@ -148,65 +236,133 @@ Connection * conn_getentry(int fd)
   return &connections[fd];
 };
 
-Connection * conn_getbroker()
+Connection * conn_getbroker(void)
 {
-  int i, fd = -1;
+  int i;
   for (i = 0; i <= maxsocket; i++) {
     if (connections[i].fd == -1) continue;
-    if (connections[i].broker) return &connections[i];
+    if (connections[i].type == CONN_TYPE_BROKER) return &connections[i];
   }
   return NULL;
 };
 
-Connection * conn_getfirstlisten()
+Connection * conn_getgateway(GATEWAYID gwid)
 {
-  int i, fd = -1;
+  int i;
   for (i = 0; i <= maxsocket; i++) {
-    if (connections[i].fd == -1) continue;
-    if (connections[i].listen) return &connections[i];
+    if (connections[i].gwid == gwid) return &connections[i];
   }
   return NULL;
 };
 
-Connection * conn_getfirstclient()
+static Connection * init_mcast(void) 
 {
-  int i, fd = -1;
+  int s;
+  
+  s = socket(PF_INET, SOCK_DGRAM, 0);
+  if (s == -1) {
+    Fatal("Out of sockets?, reason %s aborting", strerror(errno) );
+  };
+  _mw_setmcastaddr();
+  DEBUG("created puedo multicast connection on fd=%d", s);
+  return conn_add(s, UNASSIGNED, CONN_TYPE_MCAST);
+};
+
+
+Connection * conn_getmcast(void)
+{  
+  Connection * connmcast = NULL;
+  int i;
+  for (i = 0; i < connectiontablesize; i++) {
+    if (connections[i].type == CONN_TYPE_MCAST) {
+      connmcast = &connections[i];
+      break;
+    };
+  };
+  /* we open the "connection" if it doesn't exist */
+  if (connmcast == NULL) return init_mcast();
+  return connmcast;
+};
+
+Connection * conn_getfirstlisten(void)
+{
+  int i;
   for (i = 0; i <= maxsocket; i++) {
     if (connections[i].fd == -1) continue;
-    if ( !((connections[i].listen) || 
-	   (connections[i].broker) ))
+    if (connections[i].type == CONN_TYPE_BROKER) return &connections[i];
+    if (connections[i].type == CONN_TYPE_LISTEN) return &connections[i];
+  }
+  return NULL;
+};
+
+Connection * conn_getfirstclient(void)
+{
+  int i;
+  for (i = 0; i <= maxsocket; i++) {
+    if (connections[i].fd == -1) continue;
+    if (connections[i].type & CONN_TYPE_CLIENT)
       return &connections[i];
   }
   return NULL;
 };
 
-char * conn_getpeername (int fd)
+Connection * conn_getfirstgateway(void)
 {
-  static char name[100];
+  int i;
+  for (i = 0; i <= maxsocket; i++) {
+    DEBUG(" looking at %d gwid = %#x  gateway=%d", 
+	  i, connections[i].gwid, connections[i].type & CONN_TYPE_GATEWAY);
+    if (connections[i].fd == -1) continue;
+    if (connections[i].gwid != UNASSIGNED)
+      return &connections[i];
+
+    if (connections[i].type & CONN_TYPE_GATEWAY)
+      return &connections[i];
+
+  }
+  return NULL;
+};
+
+void conn_getpeername (Connection * conn, char * name, int namelen)
+{
   char * ipadr, * ipname;
   struct hostent *hent ;
-  int len  = 0;
+  int len;
+  struct sockaddr_in addr;
+  
+  if (name == NULL) {
+    Error("internal error, conn_getpeername called with NULL buffer");
+    return;
+  };
 
-  ipadr = inet_ntoa(connections[fd].addr.ip4.sin_addr);
+  if (namelen < 100) {
+    Error("internal error, conn_getpeername called with to short buffer %d < 100", namelen);
+    name[0] = '\0';
+    return;
+  };
+
+  len = sizeof(addr);
+  getpeername(conn->fd, (struct sockaddr *) &addr, &len);
+  ipadr = inet_ntoa(addr.sin_addr);
   hent = gethostbyaddr(ipadr, strlen(ipadr), AF_INET);
   if (hent == NULL)
     ipname = ipadr;
   else 
     ipname = hent->h_name;
 
-  if (connections[fd].client != UNASSIGNED) {
-    len = sprintf(name, "client %d at ", connections[fd].client & MWINDEXMASK);
-  } else if (connections[fd].gateway != UNASSIGNED) {
-    len = sprintf(name, "gateway %d at ", connections[fd].gateway & MWINDEXMASK);
+  if (conn->cid != UNASSIGNED) {
+    len = sprintf(name, "client %d at ", conn->cid & MWINDEXMASK);
+  } else if (conn->gwid != UNASSIGNED) {
+    len = sprintf(name, "gateway %d at ", conn->cid & MWINDEXMASK);
   };
+
   sprintf(name+len, "%s (%s) port %d", ipname, ipadr,
-	  ntohs(connections[fd].addr.ip4.sin_port));
-  return name;
+	  ntohs(addr.sin_port));
+  return;
 };
 
-char * conn_getclientpeername (CLIENTID cid)
+void conn_getclientpeername (CLIENTID cid, char * name, int namelen)
 {
-  static char name[100];
   char * ipadr, * ipname;
   struct hostent *hent ;
   int i, fd = -1;
@@ -214,93 +370,157 @@ char * conn_getclientpeername (CLIENTID cid)
   cid |= MWCLIENTMASK;
 
   for (i = 0; i <= maxsocket; i++) {
-    mwlog(MWLOG_DEBUG2, "conn_getclientpeername: foreach fd=%d cid=%#x ?= %#x",
-	  i, cid, connections[i].client);
-    if (connections[i].client == cid) {
+    DEBUG2("conn_getclientpeername: foreach fd=%d cid=%#x ?= %#x",
+	  i, cid, connections[i].cid);
+    if (connections[i].cid == cid) {
       fd = i;
       break;
     }
   };
 
-  mwlog(MWLOG_DEBUG2, "conn_getclientpeername: cid=%#x fd = %d",cid, fd);
-  if (fd == -1) return NULL;
-  mwlog(MWLOG_DEBUG2, "conn_getclientpeername: cid=%#x fd = %d role: %d ?= %d",
+  DEBUG2("conn_getclientpeername: cid=%#x fd = %d",cid, fd);
+  if (fd == -1) return;
+  DEBUG2("conn_getclientpeername: cid=%#x fd = %d role: %d ?= %d",
 	cid, fd, connections[fd].role, SRB_ROLE_CLIENT);
-  if (connections[fd].role != SRB_ROLE_CLIENT) return NULL;
+  if (connections[fd].role != SRB_ROLE_CLIENT) return;
 
-  ipadr = inet_ntoa(connections[fd].addr.ip4.sin_addr);
-  hent = gethostbyaddr(ipadr, strlen(ipadr), AF_INET);
-  if (hent == NULL)
-    ipname = ipadr;
-  else 
-    ipname = hent->h_name;
-
-  sprintf(name, "client %d at %s (%s) port %d", 
-	  MWINDEXMASK & connections[fd].client, 
-	  ipname, ipadr,
-	  ntohs(connections[fd].addr.ip4.sin_port));
-  return name;
+  conn_getpeername(&connections[fd], name, namelen);
+  return;
 };
+
+/* the contructor for the connection table */
+static void conn_clear(Connection * conn)
+{
+  if (conn == NULL) return;
+
+  conn->cid = UNASSIGNED;
+  conn->gwid = UNASSIGNED;
   
+  if (conn->messagebuffer != NULL) {
+    free(conn->messagebuffer);
+    conn->messagebuffer = NULL;
+  };
+  conn->leftover = 0;
+  conn->type = 0;
+  conn->cost = 100;
+  conn->connectionid = UNASSIGNED;    
+  conn->fd = UNASSIGNED;    
+  conn->role = UNASSIGNED;
+  conn->peerinfo = NULL;
+  conn->connected = 0;
+  conn->lasttx = 0;
+  conn->lastrx = 0;
+  conn->peerinfo = NULL;
+};
+
+/* after a socket or SSL conbection (still a file descriptor) is
+   created we create a connection entry to match. role is the SRB
+   role, eithe GATEWAY ot CLIENT and may be -1, type is teh CONNECTION
+   type either LISTEN, MCAST, GATEWAY , BROKER or CLIENT.  (See
+   connecton.h) */
 Connection * conn_add(int fd, int role, int type)
 {
-  
   /* when inited, 0< <RAND_MAX, and RAND_MAX should be the INT_MAX, or
      2^31. Just need to make sure is stays positive */
+  if (fd < 0) {
+    Error("conn_add on fd %d", fd);
+    return;
+  };
+
+
   lastconnectionid++;
   if (lastconnectionid <= 0) lastconnectionid=100;
-  
-  connections[fd].connectionid = lastconnectionid;
-  connections[fd].fd = fd;
-  connections[fd].client = UNASSIGNED;
-  connections[fd].gateway = UNASSIGNED;
-  connections[fd].listen = type & CONN_LISTEN;
-  connections[fd].broker = type & CONN_BROKER;
-  connections[fd].connected = time(NULL);
-  connections[fd].messagebuffer = NULL;
-  
-  /* we mark the possible roles, it is cross checked by handling of
-     SRB INIT */
-  connections[fd].role = role;
+
+  DEBUG("conn add on %d", fd);
 
 
-  FD_SET(fd, &sockettable);
-  if (maxsocket < fd) maxsocket = fd;
+  if (connectiontablesize <= fd) {
+    int i, l;
+
+    l = fd+1;
+    connections = realloc(connections, sizeof(Connection) * l);
+    DEBUG("extending the connection table size from %d to %d", connectiontablesize, l);
+  
+    for (i = connectiontablesize; i < l; i++) {
+      DEBUG("init connection table entry %d", i);
+      conn_clear(&connections[i]);
+    };
+    connectiontablesize = l;
+  };
+
+  if (connections[fd].fd != UNASSIGNED) {
+    Error("Internal error: attempted to do conn_add on fd=%d while connection already assigned cid=%#x gwid%#x", 
+	  fd, connections[fd].cid, connections[fd].gwid);
+  } else {
+    connections[fd].connectionid = lastconnectionid;
+    connections[fd].fd = fd;
+    connections[fd].connected = time(NULL);
+    connections[fd].messagebuffer = (char *) malloc(SRBMESSAGEMAXLEN+1);
+  };
+  
+  poll_on(fd);
+  conn_set(& connections[fd], role, type);
   
   return & connections[fd];
 };
 
+void conn_set(Connection * conn, int role, int type)
+{
+  /* we mark the possible roles, it is cross checked by handling of
+     SRB INIT */
+  DEBUG("Connection on fd=%d has role=%#x type=%#x", conn->fd, role, type);
+  conn->role = role;
+  conn->type = type;
+};
+
 void conn_del(int fd)
 {
-  
-  FD_CLR(fd, &sockettable);
-  connections[fd].fd = UNASSIGNED;
-  connections[fd].broker = UNASSIGNED;
-  connections[fd].listen = UNASSIGNED;
-  connections[fd].client = UNASSIGNED;
-  connections[fd].gateway = UNASSIGNED;
-  connections[fd].role = UNASSIGNED;
-  if (connections[fd].messagebuffer != NULL) {
-    free(connections[fd].messagebuffer);
-    connections[fd].messagebuffer = NULL;
+  struct gwpeerinfo * peerinfo;
+
+  if (fd < 0) {
+    Error("conn_del on fd %d", fd);
+    return;
   };
 
+  /* if it's a gateway we call gw_closegateway() who call us later*/
+  if (connections[fd].gwid  != UNASSIGNED) {
+    DEBUG("a close on a gateway, calling gw_closegateway() fd = %d", fd);
+    gw_closegateway(connections[fd].gwid);
+    return;
+  };
+
+  poll_off(fd);
+  conn_clear(&connections[fd]);
   close (fd);
 
-  if (maxsocket <= fd) return;
-
-  /* if this is the highest filedescription used, find the next
-     highest and assign it to maxsocket. */
-  if (maxsocket == fd)
-    while (--fd > 0) {
-      if (FD_ISSET(fd, &sockettable)) {
-	maxsocket = fd;
-	return ;
-      };
-    };
   return;
 };
-  
+
+/* just for debugging purpose, print out all relevant data for all connections. */
+char * conn_print(void)
+{
+  static char * output = NULL;
+  int i, l;
+  /* MUTEX BEGIN */
+  output = realloc(output, maxsocket * 4096);
+  /* MUTEX END */
+  l = sprintf (output, "Printing connection table\n"
+	       "fd role version mtu cid gwid state type connected lasttx lastrx peerinfo");
+  for (i = 0; i<maxsocket+1; i++) {
+    if (connections[i].fd != -1) {
+      l += sprintf (output+l, "\n%2d %4d %7d %3d %3d %4d %5d %4d %9d %6d %6d %p", 
+		    connections[i].fd, connections[i].role, connections[i].version, 
+		    connections[i].mtu, 
+		    connections[i].cid != UNASSIGNED ? connections[i].cid & MWINDEXMASK : -1,
+		    connections[i].gwid != UNASSIGNED ? connections[i].gwid  & MWINDEXMASK : -1, 
+		    connections[i].state, connections[i].type, 
+		    connections[i].connected, connections[i].lasttx, connections[i].lastrx, 
+		    connections[i].peerinfo);
+    };
+  };
+  return output;
+};
+
 
 /* just to make it look better, we could do a little bit of
    optimization here by only copying the n entries. */
@@ -309,20 +529,56 @@ static void copy_fd_set(fd_set * copy, fd_set * orig, int n)
   memcpy(copy, orig, sizeof(fd_set));
 };
 
-int do_select(int * cause, int deadline)
+
+/* at some poing we're going to do OpenSSL. Then conn_read, and
+   conn_write will hide the SSL, and the rest of MidWay can treat it
+   as a stream connection. */
+int conn_read(Connection * conn)
 {
-  static fd_set rfds, errfds;
+  int rc, l;
+  char buffer[64];
+  /* if it is the mcast socket, this is a UDP socket and we use
+     recvfrom. The conn->peeraddr wil lthen always hold the address of
+     sender for the last recv'ed message, which is OK, with UDPO we
+     must either get the whole message or not at all. */
+  if (conn->type == CONN_TYPE_MCAST) {
+    DEBUG("UDP recv, leftover = %d, better be 0!", conn->leftover); 
+    assert ( conn->leftover == 0);
+    l = sizeof(conn->peeraddr);
+    rc = recvfrom(conn->fd, conn->messagebuffer+conn->leftover, 
+	      SRBMESSAGEMAXLEN-conn->leftover, 0, &conn->peeraddr.sa, &l);
+    
+    DEBUG("UDP: read %d bytes from %s:%d", rc, 
+	  inet_ntop(AF_INET, &conn->peeraddr.ip4.sin_addr, buffer, 64),
+	  ntohs(conn->peeraddr.ip4.sin_port)); 
+  } else {    
+    rc = read(conn->fd, conn->messagebuffer+conn->leftover, 
+	      SRBMESSAGEMAXLEN-conn->leftover);
+  };
+  return rc;
+};
+
+/* 
+  int conn_write(Connection * conn, char * buffer, int len);
+*/
+
+int conn_select(int * cause, time_t deadline)
+{
+  static fd_set rfds, wfds, errfds;
   static int lastret = 0;
   static int n = 0;
   static struct timeval tv, * tvp;
   int  i, fd;
   int now;
 
+  DEBUG("^^^^^^^^^^  Beginning conn_select() select version");    
+
   if (deadline >= 0) {
     now = time(NULL);
     
     /* if already expired */
     if (deadline <= now) {
+      DEBUG("deadline expired (%d <= %d)", deadline, now);    
       errno = ETIME;
       return -1;;
     };
@@ -340,18 +596,19 @@ int do_select(int * cause, int deadline)
     copy_fd_set(&rfds, &sockettable, maxsocket); 
     copy_fd_set(&errfds, &sockettable, maxsocket);
   
-    mwlog(MWLOG_DEBUG, "In do_select, about to select() timeout = %d", 
+    DEBUG("about to select() timeout = %d", 
 	  deadline==-1?deadline:tv.tv_sec);    
 
 #ifdef DEBUG
     for (i = 0; i <=maxsocket; i++) 
       if (FD_ISSET(i, &rfds)) printf("waiting on %d\n", i);
 #endif
- 
+    
+    errno = 0;
     n = select(maxsocket+1, &rfds, NULL, &errfds, tvp);
     
     if (n == -1) {
-      mwlog(MWLOG_DEBUG, "select returned with failure %s", 
+      DEBUG("select returned with failure %s", 
 	    strerror(errno));
       return n;
     };
@@ -363,30 +620,35 @@ int do_select(int * cause, int deadline)
     return -1;
   };
 
-  mwlog(MWLOG_DEBUG, "There are %d sockets that need attention", n);    
+  DEBUG("vvvvvvvvvv There are %d sockets that need attention", n);    
     
   /* we do a round robin and do a foreach on the connections from last
      to last-1 */
   for (i=0; i<maxsocket+1; i++) {
     fd = (lastret + i) % (maxsocket+1);
-    mwlog(MWLOG_DEBUG, "checking fd %d", fd);
+    DEBUG("checking fd %d", fd);
+
+    *cause = 0;
 
     if (FD_ISSET(fd, &errfds)) {
-      mwlog(MWLOG_DEBUG, "fd %d has an error condition", fd);
-      if (cause) *cause = COND_ERROR;
+      DEBUG("fd %d has an error condition", fd);
+      if (cause) *cause |= COND_ERROR;
       FD_CLR(fd, &errfds);
-      if (FD_ISSET(fd, &rfds)) 
-	mwlog(MWLOG_DEBUG, "fd %d has an error and read condition (can't happen)", fd);
-      FD_CLR(fd, &rfds); // can this ever happen???
-      lastret = fd;
-      n--;
-      return fd;
+    };
+
+    if (FD_ISSET(fd, &wfds)) {
+      DEBUG("fd %d has a write condition", fd);
+      if (cause) *cause |= COND_WRITE;
+      FD_CLR(fd, &wfds);
     };
 
     if (FD_ISSET(fd, &rfds)) {
-      mwlog(MWLOG_DEBUG, "fd %d has a read condition", fd);
-      if (cause) *cause = COND_READ;
+      DEBUG("fd %d has a read condition", fd);
+      if (cause) *cause |= COND_READ;
       FD_CLR(fd, &rfds);
+    };
+    
+    if (*cause != 0) {
       lastret = fd;
       n--;
       return fd;
@@ -395,8 +657,17 @@ int do_select(int * cause, int deadline)
 
   //* we should never get here!
   
-  mwlog(MWLOG_ERROR, "we have %d left after a select unaccounted for", n);
+  Error("we have %d left after a select unaccounted for", n);
   sleep(10);
   n = 0;
   return 0;
 };
+
+
+
+
+
+
+
+
+

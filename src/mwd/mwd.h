@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.3  2002/02/17 14:48:38  eggestad
  * - added missing includes
  * - added missing prototypes
@@ -56,6 +59,9 @@ typedef struct {
 #include <ipctables.h>
 extern Flags flags;
 extern ipcmaininfo * ipcmain;
+extern char * uri;
+extern char * mwhome;
+extern char * instancename;
 #endif
 
 void inst_sighandlers(void);

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.2  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.1  2002/02/17 13:40:26  eggestad
  * The server manager
  *
@@ -114,6 +117,9 @@ void smgrDumpTree(void);
 
 int smgrDoWaitPid(void);
 int smgrTask(void);
+
+void smgrInit(void);
+
 int smgrCall(mwsvcinfo * svcinfo);
 void smgrAutoBoot(void);
 

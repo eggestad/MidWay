@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.5  2002/02/17 16:16:18  eggestad
  * added missing include
  *
@@ -89,7 +92,7 @@ static int formatfreelist(int iStart, int basechunksize,
   int i, iCSize, iCHead;;
 
   iCSize = _mwHeapInfo->basechunksize * chunksize;
-  mwlog(MWLOG_DEBUG, "formating %d chunks of %d octets (%d * base) at 0x%x",
+  DEBUG("formating %d chunks of %d octets (%d * base) at 0x%x",
 	  chunks, iCSize, chunksize, iStart);
     
   for (i = 0; i < chunks; i++) {
@@ -104,7 +107,7 @@ static int formatfreelist(int iStart, int basechunksize,
     pCFoot->next = iCHead + (iCSize + CHUNKOVERHEAD);
     pCFoot->prev = iCHead - (iCSize + CHUNKOVERHEAD);
     
-    mwlog(MWLOG_DEBUG2, "chunk %d: %d octes at %#x footer at %#x next at %#x prev at %#x", 
+    DEBUG2("chunk %d: %d octes at %#x footer at %#x next at %#x prev at %#x", 
 	  i, pCHead->size * _mwHeapInfo->basechunksize,  pCHead, pCFoot, pCFoot->next, pCFoot->prev);
 
   }
@@ -112,13 +115,13 @@ static int formatfreelist(int iStart, int basechunksize,
   pCHead = _mwoffset2adr(iStart);
   pCFoot = _mwfooter(pCHead);
   pCFoot->prev = iStart + (chunks-1) * (iCSize + CHUNKOVERHEAD);
-  mwlog(MWLOG_DEBUG1, "correcting first chunk at 0x%x next at 0x%x prev at 0x%x", 
+  DEBUG1("correcting first chunk at 0x%x next at 0x%x prev at 0x%x", 
 	pCHead, pCFoot->next, pCFoot->prev);
       
   pCHead = _mwoffset2adr(pCFoot->prev);
   pCFoot = _mwfooter(pCHead);
   pCFoot->next = iStart;
-  mwlog(MWLOG_DEBUG1, "correcting last chunk at 0x%x next at 0x%x prev at 0x%x", 
+  DEBUG1("correcting last chunk at 0x%x next at 0x%x prev at 0x%x", 
 	pCHead, pCFoot->next, pCFoot->prev);
 
   return iStart + (chunks) * (iCSize + CHUNKOVERHEAD);;
@@ -139,14 +142,14 @@ int shmb_format(int mode, long chunksize, long chunkspersize)
    * segment size are the size of all chunks minus overheads and header.
    */
   
-  mwlog(MWLOG_DEBUG, "shmhead format with chunksize = %d, chunkspersize %d",
+  DEBUG("shmhead format with chunksize = %d, chunkspersize %d",
 	  chunksize, chunkspersize);
   
   segmentsize = sizeof(struct segmenthdr) 
     + 6*chunkspersize*CHUNKOVERHEAD
     + 32*chunksize*chunkspersize + 100000;
 
-  mwlog(MWLOG_DEBUG, "there are %d onesizes, %d chunks per size overhead is %d, total %d",
+  DEBUG("there are %d onesizes, %d chunks per size overhead is %d, total %d",
 	 32*chunkspersize,
 	 chunkspersize,
 	 6*chunkspersize*CHUNKOVERHEAD,
@@ -156,18 +159,18 @@ int shmb_format(int mode, long chunksize, long chunkspersize)
   segmentid = shmget(IPC_PRIVATE,segmentsize,IPC_CREAT|IPC_EXCL|mode); 
   
   if (segmentid == -1) {
-    mwlog(MWLOG_ERROR,"Failed to create shm seg errno=%d",errno);
+    Error("Failed to create shm seg errno=%d",errno);
     return -1;
   }
   
   pSegmentStart = shmat(segmentid,NULL,0);
   if (pSegmentStart == (void *) -1) {
     shmctl(segmentid,IPC_RMID,NULL);
-    mwlog(MWLOG_ERROR,"Failed to attach shm seg errno=%d",errno);
+    Error("Failed to attach shm seg errno=%d",errno);
     return -1;
   };
   
-  mwlog(MWLOG_DEBUG,"Shared memory seg %d attached at 0x%x size %d ends at 0x%x",
+  DEBUG("Shared memory seg %d attached at 0x%x size %d ends at 0x%x",
 	  segmentid,pSegmentStart, segmentsize, pSegmentStart+segmentsize);
 
   /* now we have a attached shm segment, formating... */
@@ -188,8 +191,7 @@ int shmb_format(int mode, long chunksize, long chunkspersize)
   _mwHeapInfo->semid = semget(IPC_PRIVATE, BINS, mode);
 
   if (_mwHeapInfo->semid == -1) {
-    mwlog(MWLOG_ERROR,
-	  "Failed to get semaphores for shm buffers errno=%d",errno);
+    Error(	  "Failed to get semaphores for shm buffers errno=%d",errno);
     return -1;
   };
 
@@ -285,7 +287,7 @@ int shm_cleanup(int shmid)
 
 int shm_destroy(void)  
 {
-  mwlog(MWLOG_DEBUG, "destroying heap");
+  DEBUG("destroying heap");
   if (_mwHeapInfo == NULL) return -ENOENT;
   semctl(_mwHeapInfo->semid, 0, IPC_RMID, 0);
   if (ipcmain != NULL) {

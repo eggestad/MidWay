@@ -43,6 +43,14 @@
 #ifndef _URLENCODE_H
 #define _URLENCODE_H
 
+/* gcc hack in order to avoid unused warnings (-Wunused) on cvstags */
+#ifdef __GNUC__
+#define UNUSED __attribute__ ((unused))
+#else
+#define UNUSED 
+#endif
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -92,6 +100,7 @@ urlmap * urlmapdecode(char * list);
 char * urlmapencode(urlmap * map);
 int urlmapnencode(char * list, int len, urlmap * map);
 
+urlmap * urlmapdup(urlmap * map);
 void urlmapfree(urlmap * map);
 
 int urlmapnset(urlmap * map, char * key, void * value, int len);

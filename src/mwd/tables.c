@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.5  2002/02/17 17:56:20  eggestad
  * *** empty log message ***
  *
@@ -79,7 +82,7 @@ init_tables()
   int i;
 
   if (ipcmain == NULL) {
-    mwlog(MWLOG_ERROR, "No ipcmain table available");
+    Error("No ipcmain table available");
     return ;
   };
   for (i=0; i < ipcmain->clttbl_length; i++) {
@@ -157,20 +160,19 @@ SERVERID addserver(char * name, int mqid, pid_t pid)
   int srvidx = UNASSIGNED, i;
   static int nextidx = 0;
 
-  mwlog(MWLOG_DEBUG, 
-	"addserver(name=\"%s\", mqid=%d, pid=%d",
+  DEBUG(	"addserver(name=\"%s\", mqid=%d, pid=%d",
 	name, mqid, pid);
 
   ipcmain = getipcmaintable();
   if (ipcmain == NULL) {
-    mwlog(MWLOG_ERROR, "No ipcmain table available");
+    Error("No ipcmain table available");
     return -EUCLEAN;
   };
   srvtbl = getserverentry(0);
-  mwlog(MWLOG_DEBUG, "address of server table is %#X %#x", srvtbl, srvtbl);
+  DEBUG("address of server table is %#X %#x", srvtbl, srvtbl);
 
   for (i = nextidx; i < ipcmain->srvtbl_length; i++) {
-    mwlog(MWLOG_DEBUG, "addserver: testing %d status=%d", 
+    DEBUG("addserver: testing %d status=%d", 
 	  i, srvtbl[i].status);
     
     if (srvtbl[i].status == UNASSIGNED) {
@@ -181,7 +183,7 @@ SERVERID addserver(char * name, int mqid, pid_t pid)
   };
   if (srvidx == UNASSIGNED) {
     for (i = 0; i < nextidx; i++) {
-      mwlog(MWLOG_DEBUG, "addserver: testing %d status=%d", 
+      DEBUG("addserver: testing %d status=%d", 
 	    i, srvtbl[i].status);
       
       if (srvtbl[i].status == UNASSIGNED) {
@@ -192,7 +194,7 @@ SERVERID addserver(char * name, int mqid, pid_t pid)
     };
   };
   if (srvidx == UNASSIGNED) {
-    mwlog(MWLOG_ERROR, "Server table full");
+    Error("Server table full");
     return -ENOSPC;
   };
   
@@ -220,8 +222,7 @@ SERVERID addserver(char * name, int mqid, pid_t pid)
   srvtbl[srvidx].avwait5 = 0;
   srvtbl[srvidx].avwait15 = 0;
   
-  mwlog(MWLOG_DEBUG, 
-	"addserver: added server %s id = %d adr %#x mqid = %d pid = %d", 
+  DEBUG(	"addserver: added server %s id = %d adr %#x mqid = %d pid = %d", 
 	name, srvidx, (long)&srvtbl[srvidx], mqid, pid);
   srvidx |= MWSERVERMASK;
   
@@ -236,7 +237,7 @@ int delserver(SERVERID sid)
 
   ipcmain = getipcmaintable();
   if (ipcmain == NULL) {
-    mwlog(MWLOG_ERROR, "No ipcmain table available");
+    Error("No ipcmain table available");
     return -EUCLEAN;
   };
   srvtbl = getserverentry(0);
@@ -264,24 +265,23 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
   int cltidx = UNASSIGNED, i;
   static int nextidx = 0;
 
-  mwlog(MWLOG_DEBUG, 
-	"addclient(type=%d, name=\"%s\", mqid=%d, pid=%d, gwid=%d",
+  DEBUG(	"addclient(type=%d, name=\"%s\", mqid=%d, pid=%d, gwid=%d",
 	type, name, mqid, pid, gwid);
   
   ipcmain = getipcmaintable();
   if (ipcmain == NULL) {
-    mwlog(MWLOG_ERROR, "No ipcmain table available");
+    Error("No ipcmain table available");
     return -EUCLEAN;
   };
   clttbl = getcliententry(0);    
-  mwlog(MWLOG_DEBUG, "address of client table is %#X %#x", clttbl, clttbl);
+  DEBUG("address of client table is %#X %#x", clttbl, clttbl);
 
   /* 
    * foreach entry in the client table, find the first available,
    * starting with the last id issued.  
    */
   for (i = nextidx; i < ipcmain->clttbl_length; i++) {
-    mwlog(MWLOG_DEBUG, "addclient: testing %d if status=%d==%d type=%d==%d", 
+    DEBUG("addclient: testing %d if status=%d==%d type=%d==%d", 
 	  i, clttbl[i].status, UNASSIGNED, clttbl[i].type, UNASSIGNED);
 
     if (clttbl[i].status == UNASSIGNED) {
@@ -292,7 +292,7 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
   };
   if (cltidx == UNASSIGNED) {
     for (i = 0; i < nextidx; i++) {
-      mwlog(MWLOG_DEBUG, "addclient: testing %d if status=%d==%d type=%d==%d", 
+      DEBUG("addclient: testing %d if status=%d==%d type=%d==%d", 
 	    i, clttbl[i].status, UNASSIGNED, clttbl[i].type, UNASSIGNED);
       
       if (clttbl[i].status == UNASSIGNED) {
@@ -304,7 +304,7 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
   }
   if (cltidx == UNASSIGNED) {  
     /* if for loop completed, we have a full table.*/
-    mwlog(MWLOG_ERROR, "Client table full");
+    Error("Client table full");
     return -ENOSPC;
   }
   
@@ -314,23 +314,21 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
   switch (type) {
   case MWIPCCLIENT:
   case MWIPCSERVER:
-    clttbl[cltidx].location = MWLOCAL ;
+    clttbl[cltidx].location = GWLOCAL ;
     clttbl[cltidx].gwid = UNASSIGNED ;
-    mwlog(MWLOG_DEBUG, 
-	  "addclient: added client %s to index %#x adr %#x mqid = %d pid = %d", 
+    DEBUG(	  "addclient: added client %s to index %#x adr %#x mqid = %d pid = %d", 
 	  name, cltidx, (long) &clttbl[cltidx], mqid, pid);
     
     break;
   case MWNETCLIENT:
-    clttbl[cltidx].location = MWREMOTE ;
+    clttbl[cltidx].location = GWCLIENT ;
     clttbl[cltidx].gwid = gwid ;
-    mwlog(MWLOG_DEBUG, 
-	  "addclient: added client %s to index %#x  gatewayid = %d pid = %d", 
+    DEBUG(	  "addclient: added client %s to index %#x  gatewayid = %d pid = %d", 
 	  name, cltidx, gwid, pid);
     
     break;
   default:
-    mwlog(MWLOG_WARNING, "Got a request to add a client of unknown type (%#x)", type);
+    Warning("Got a request to add a client of unknown type (%#x)", type);
     return -ENOSYS;
   }
   clttbl[cltidx].type     = type;      
@@ -362,7 +360,7 @@ static serviceentry * get_service_bysrv(SERVERID srvid)
 
   ipcmain = getipcmaintable();
   if (ipcmain == NULL) {
-    mwlog(MWLOG_ERROR, "No ipcmain table available");
+    Error("No ipcmain table available");
     return NULL;
   };
   svctbl = getserviceentry(0);
@@ -381,7 +379,7 @@ int delclient(CLIENTID cid)
   int cltidx;
 
   if (ipcmain == NULL) {
-    mwlog(MWLOG_ERROR, "No ipcmain table available");
+    Error("No ipcmain table available");
     return -EUCLEAN;
   };
   clttbl = getcliententry(0);
@@ -402,62 +400,90 @@ int delclient(CLIENTID cid)
  * Functions dealing with services.
  *
  **********************************************************************/
-
-SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
+static SERVICEID addservice(char * name, int type)
 {
-  int i, svcidx;
+  serviceentry * svctbl;
+  int i, idx, svcidx;
   static int nextidx = 0;
 
+  /* we go thru the service table starting with the nest after the
+     last one we returned to find the first available entry.*/
+  svctbl = getserviceentry(0);
+  for (i = 0; i < ipcmain->svctbl_length; i++) {
+    svcidx = (nextidx + i) % ipcmain->svctbl_length;
+    if (svctbl[svcidx].type == UNASSIGNED) {
+      nextidx = svcidx+1;
+      break;
+    };
+  };
+  
+  if (svctbl[svcidx].type != UNASSIGNED) {  
+    /* if for loop completed, we have a full table.*/
+    Error("Service table full");
+    return -ENOSPC;
+  };
+  strncpy(svctbl[svcidx].servicename, name, MWMAXSVCNAME);
+  svctbl[svcidx].type = type;
+  DEBUG("Added service %s as %d for nextid=%d", 
+	name, svcidx, nextidx);
+ 
+  return svcidx;
+};
+  
+SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
+{
+  int svcidx;
   serviceentry * svctbl;
   serverentry * srvent;
 
-  ipcmaininfo * ipcmain;
-  ipcmain = getipcmaintable();
   /* We skip test on ipcmain eq to NULL, that really can't happen */
 
   srvent = getserverentry(srvid & MWINDEXMASK);
   if (srvent->status == UNASSIGNED) {
-    mwlog(MWLOG_ERROR, "got a request to assign a service to server %#x which is nott attached", srvid);
+    Error("got a request to assign a service to server %#x which is nott attached", srvid);
+    return -EINVAL;
+  };
+
+  svctbl = getserviceentry(0);
+  svcidx = addservice(name, type);
+  if (svcidx < 0) return svcidx;
+
+  svctbl[svcidx].server = srvid;
+  svctbl[svcidx].location = GWLOCAL;
+
+  DEBUG2("service index = %d srvid = %x type = %d location = %d", 
+	svcidx,  svctbl[svcidx].server, svctbl[svcidx].type, svctbl[svcidx].location);
+
+  svcidx = svcidx | MWSERVICEMASK;
+  return svcidx;
+};
+
+SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type)
+{
+  int svcidx;
+  static int nextidx = 0;
+
+  serviceentry * svctbl;
+  gatewayentry * gwent;
+
+  /* We skip test on ipcmain eq to NULL, that really can't happen */
+
+  gwent = getgatewayentry(gwid & MWINDEXMASK);
+  if (gwent->status == UNASSIGNED) {
+    Error("got a request to assign a service to gateway %#x which is nott attached", gwid);
     return -EINVAL;
   };
   
-  /* we go thru the service table starting with the nest after the
-     last one we returned to find the first available entry.*/
   svctbl = getserviceentry(0);
-  for (i = nextidx; i < ipcmain->svctbl_length; i++) {
-    if (svctbl[i].server == UNASSIGNED) {
-      svcidx = i;
-      nextidx = i+1;
-      break;
-    };
-  }
-  if (svcidx == UNASSIGNED) {
-    for (i = 0; i < nextidx; i++) {
-      if (svctbl[i].server == UNASSIGNED) {
-	svcidx = i;
-	nextidx = i+1;
-	break;
-      };
-    }
-  };
+  svcidx = addservice(name, type);
+  if (svcidx < 0) return svcidx;
+
+  svctbl[svcidx].gateway = gwid;
+  svctbl[svcidx].location = GWREMOTE;
+
+  DEBUG2("service index = %d gwid = %x type = %d location = %d", 
+	svcidx,  svctbl[svcidx].gateway, svctbl[svcidx].type, svctbl[svcidx].location);
   
-  if (svcidx == UNASSIGNED) {  
-    /* if for loop completed, we have a full table.*/
-    mwlog(MWLOG_ERROR, "Service table full");
-    return -ENOSPC;
-  };
-  
-  svctbl[svcidx].server = srvid;
-  strncpy(svctbl[svcidx].servicename, name, MWMAXSVCNAME);
-  svctbl[svcidx].type = type;
-  svctbl[svcidx].location = MWLOCAL;
-
-  mwlog(MWLOG_DEBUG2, "service index = %d srvid = %x type = %d location = %d", 
-	svcidx,  svctbl[svcidx].server, svctbl[svcidx].type, svctbl[svcidx].location);
-
-  mwlog(MWLOG_DEBUG, "Added service %s as %d for server %#x, nextid=%d", 
-	name, svcidx, srvid, nextidx);
-
   svcidx = svcidx | MWSERVICEMASK;
   return svcidx;
 };
@@ -473,12 +499,12 @@ int delservice(SERVICEID svcid, SERVERID srvid)
   idx = svcid & MWINDEXMASK;
   
   if ((srvid != UNASSIGNED) && (srvid != svctbl[idx].server)) {
-    mwlog(MWLOG_DEBUG, "server %#x is not the owner of service %#x", 
+    DEBUG("server %#x is not the owner of service %#x", 
 	  srvid, svcid);
     return -EPERM;
   };
 
-  mwlog(MWLOG_DEBUG, "Deleting service %#x, name = %s, on server %#x",
+  DEBUG("Deleting service %#x, name = %s, on server %#x",
 	svcid, svctbl[idx].servicename, svctbl[idx].server);
   svctbl[idx].type = UNASSIGNED;
   svctbl[idx].server = UNASSIGNED;
@@ -571,7 +597,7 @@ int stop_server(SERVERID sid)
   if (srvtbl != NULL) {
     for (i = 0; i< ipcmain->srvtbl_length; i++) 
       if ( (srvtbl[i].mqid > 1) && ( all || (sid == i) )) {
-	mwlog(MWLOG_INFO, "Commanding server %d to stop.", i);
+	Info("Commanding server %d to stop.", i);
 	srvtbl[i].mwdblock = TRUE;
 	/* if not all, redistribute the remainding requests already in the queue.*/
 	msgctl(srvtbl[i].mqid, IPC_RMID, NULL);
@@ -606,7 +632,7 @@ int kill_all_servers(void)
   for (j = 0; j < 5; j++) {
     /* get the currect list of server to kill */
     rc = get_pids(&n, & pidlist);
-    mwlog(MWLOG_DEBUG, "There are %d servers to kill", n);
+    DEBUG("There are %d servers to kill", n);
 
     if (rc==0) break;
 
@@ -614,13 +640,13 @@ int kill_all_servers(void)
       if (pidlist[i]> 0)
 	rc = kill (pidlist[i], signallist[j]);
       else 
-	mwlog(MWLOG_ERROR, "Was about to do kill(%d, %d) illegal PID", pidlist[i], signallist[j]);
-      mwlog(MWLOG_INFO, "Did a kill(pid=%d, sig=%d)", pidlist[i], signallist[j]);
+	Error("Was about to do kill(%d, %d) illegal PID", pidlist[i], signallist[j]);
+      Info("Did a kill(pid=%d, sig=%d)", pidlist[i], signallist[j]);
       if (rc == 0) 
 	if (signallist[j] == 0)
-	  mwlog(MWLOG_INFO, "The process %d refused to die!!!", pidlist[i]);
+	  Info("The process %d refused to die!!!", pidlist[i]);
 	else
-	  mwlog(MWLOG_INFO, "Server pid=%d is slow to die, sending the signal %d", 
+	  Info("Server pid=%d is slow to die, sending the signal %d", 
 		pidlist[i], signallist[j]);
       else 
 	pidlist[i] = -1;
@@ -659,7 +685,7 @@ int check_tables()
       if (clttbl[i].pid > 1) {
 	rc = _mw_procowner (clttbl[i].pid, NULL);
 	if (rc == 0) {
-	  mwlog(MWLOG_INFO, "Client %d pid=%d has died, cleaning up", i, clttbl[i].pid);
+	  Info("Client %d pid=%d has died, cleaning up", i, clttbl[i].pid);
 	  msgctl(clttbl[i].mqid, IPC_RMID, NULL);
 	  rc = delclient(MWCLIENTMASK | i);
 	};
@@ -670,7 +696,7 @@ int check_tables()
       if (srvtbl[i].pid > 1) {
 	rc = kill (srvtbl[i].pid, 0);
 	if (rc == -1) {
-	  mwlog(MWLOG_INFO, "Server %d pid=%d has died, cleaning up", i, srvtbl[i].pid);
+	  Info("Server %d pid=%d has died, cleaning up", i, srvtbl[i].pid);
 	  msgctl(srvtbl[i].mqid, IPC_RMID, NULL);
 	  delserver(MWSERVERMASK | i); 
 	  delallservices(MWSERVERMASK | i);
@@ -683,7 +709,7 @@ int check_tables()
 	int si;
 	si = MWINDEXMASK&svctbl[i].server;
 	if (srvtbl[si].pid == UNASSIGNED) {
-	  mwlog(MWLOG_INFO, "Service %d without server, cleaned up", i);
+	  Info("Service %d without server, cleaned up", i);
 	  svctbl[i].type = UNASSIGNED;
 	  svctbl[i].location = UNASSIGNED;
 	  svctbl[i].server = UNASSIGNED;
@@ -697,7 +723,7 @@ int check_tables()
     for (i = 0; i< ipcmain->gwtbl_length; i++) 
       if (gwtbl[i].pid > 1) {
 	if (rc == -1) {
-	  mwlog(MWLOG_INFO, "gateway %d pid=%d has died, cleaning up", i, gwtbl[i].pid);
+	  Info("gateway %d pid=%d has died, cleaning up", i, gwtbl[i].pid);
 	  msgctl(srvtbl[i].mqid, IPC_RMID, NULL);
 	  /* clean up all the network clients handled by this gw */
 	  for (j = 0; j < ipcmain->clttbl_length; j++) {

@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.1  2000/07/20 18:49:59  eggestad
  * The SRB daemon
  *
@@ -30,6 +33,7 @@
 
 void storePushCall(CLIENTID, int handle, int fd, urlmap *);
 int  storePopCall(CLIENTID, int handle, int * fd,  urlmap **);
+int  storeGetCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map);
 int  storeSetIPCHandle(CLIENTID cid, int nethandle, int fd, int ipchandle);
 void storeLockCall(void);
 void storeUnLockCall(void);

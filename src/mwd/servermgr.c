@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.2  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.1  2002/02/17 13:40:26  eggestad
  * The server manager
  *
@@ -38,17 +41,25 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <libgen.h>
+#include <paths.h>
 
 
 #include <MidWay.h>
 
 #include <ipctables.h>
+#include <version.h>
 #include <urlencode.h>
 #include "mwd.h"
+#include "execvpe.h"
 #include "servermgr.h"
 
-static char * default_bindir = NULL;
+
+static char * RCSId UNUSED = "$Id$";
+
+
 static int default_autoboot = TRUE;
+static char ** defaultEnv = NULL;
+
 
 struct ServerGroup * grouproot = NULL, * currentgroup = NULL;
 struct Server * currentserver = NULL;
@@ -57,23 +68,22 @@ void smgrDumpTree(void)
 {
   struct ServerGroup * SG;
   struct Server * S;
-  char ** sz;
   int i;
 
-  mwlog (MWLOG_DEBUG, "Dumping Server tree");
+  DEBUG("Dumping Server tree");
   for (SG = grouproot; SG != NULL; SG = SG->next) {
-    mwlog (MWLOG_DEBUG, "  GROUP %s autoboot=%d", SG->name, SG->autoboot);
+    DEBUG("  GROUP %s autoboot=%d", SG->name, SG->autoboot);
 
     for(S = SG->serverlist; S != NULL; S = S->next) {
-      mwlog (MWLOG_DEBUG, "    SERVER %s autoboot=%d exec=%s", 
+      DEBUG("    SERVER %s autoboot=%d exec=%s", 
 	     S->name, S->autoboot, S->exec);
       
       for (i = 0; S->args[i] != NULL; i++) {
-	mwlog (MWLOG_DEBUG, "       argument %3d: \"%s\"", i, S->args[i]);
+	DEBUG("       argument %3d: \"%s\"", i, S->args[i]);
       }
     };
   };
-  mwlog (MWLOG_DEBUG, "Dump of Server tree ends");
+  DEBUG("Dump of Server tree ends");
 };
 
 /* pending sigchild count */
@@ -100,11 +110,12 @@ static int getuserenv(void);
 
 static int mySetEnv(char *** envpp, char * var, char * value)
 {
-  char ** envp,  * envarea;
+  char ** envp;
   int  varlen, vallen, i;
 
-  if (envp==NULL) return -1;
-  if (var==NULL) return -1;
+  if (var == NULL) return -1;
+
+  if (envpp == NULL) return -1;
 
   envp = *envpp;
   
@@ -155,6 +166,24 @@ static int myUnSetEnv(char *** envpp, char * var)
   return -1;
 };
 
+static char *  myGetEnv(char ** envp, char * var)
+{
+  int varlen, i, rc;
+
+  if ( (envp == NULL) || (var == NULL) ) return NULL;
+
+  varlen = strlen(var);
+  for (i = 0; envp[i] != NULL; i++) {
+    rc = strncmp(var, envp[i], varlen);
+    if (rc != 0) continue;
+    if (envp[i][varlen] == '=') {
+      /* ok we found the var */
+      return &envp[i][varlen+1];
+    };
+  };
+  return NULL;
+};
+
 static char ** dupEnv(char ** envp)
 {
   char ** new_envp;
@@ -179,7 +208,7 @@ static char ** dupEnv(char ** envp)
 
 void smgrBeginGroup(char * name)
 {
-  struct ServerGroup **top, * this, * prev, * next;
+  struct ServerGroup **top, * this;
 
   top = &grouproot;
   while(*top != NULL) {
@@ -202,11 +231,11 @@ void smgrBeginGroup(char * name)
     this->name = "";
 
   this->autoboot = UNASSIGNED;
-  this->env = NULL;
+  this->env = dupEnv(defaultEnv);
   this->bindir = NULL;
   this->serverlist = NULL;
   this->next = NULL;
-  mwlog(MWLOG_INFO, "Server Group %s created", name);
+  Info("Server Group %s created", name);
   currentgroup = this;
   return;
 }
@@ -253,14 +282,14 @@ int smgrSetGroupAutoBoot(int flag)
 void smgrEndGroup(void)
 {
   if (currentgroup != NULL)
-    mwlog(MWLOG_INFO, "Server Group %s ends", currentgroup->name);
+    Info("Server Group %s ends", currentgroup->name);
   currentgroup = NULL;
 };
 
 
 int smgrBeginServer(char * name)
 {
-  struct Server **top, * this, * prev, * next;
+  struct Server **top, * this;
 
   if (name == NULL) {
     errno = EINVAL;
@@ -302,7 +331,7 @@ int smgrBeginServer(char * name)
   this->booted = FALSE;
   this->next = NULL;
 
-  mwlog(MWLOG_INFO, "Server %s created in group %s", name, 
+  Info("Server %s created in group %s", name, 
 	this->group->name);
   currentserver = this;
   return 0;
@@ -339,8 +368,6 @@ int smgrSetServerAutoBoot(int boolean)
 
 int smgrSetServerExec(char * path)
 {
-  char *arg0c;
-  int l;
   
   if (currentserver == NULL) return -1;
   if (path == NULL) return -1;
@@ -473,7 +500,7 @@ static char ** parseargs(char * line, char * arg0)
 int smgrSetServerArgs(char * argline)
 {
   char *arg0c, *arg0;
-  int l, len, i;
+  int len, i;
 
   if (argline == NULL) return -1;
   len = strlen(argline);
@@ -495,10 +522,10 @@ int smgrSetServerArgs(char * argline)
     return -1;
   };
 
-  mwlog(MWLOG_DEBUG, "for server %s exec path is \"%s\" and arg0 is %s", 
+  DEBUG("for server %s exec path is \"%s\" and arg0 is %s", 
 	currentserver->name, currentserver->exec, currentserver->args[0] );  
   for (i = 0; currentserver->args[i] != NULL; i++) {
-    mwlog(MWLOG_DEBUG, "  arg %4d: \"%s\"", i, currentserver->args[i]);
+    DEBUG("  arg %4d: \"%s\"", i, currentserver->args[i]);
   };
 
   return 0;
@@ -508,7 +535,7 @@ int smgrSetServerMinMax(int min, int max)
 {
   if (currentserver == NULL) return -1;
 
-  mwlog(MWLOG_DEBUG, "smgrSetServerMinMax: start_min = %d,  start_max = %d", min, max);
+  DEBUG("smgrSetServerMinMax: start_min = %d,  start_max = %d", min, max);
     
   currentserver->start_min = min;
   currentserver->start_max = max;
@@ -518,7 +545,7 @@ int smgrSetServerMinMax(int min, int max)
 void smgrEndServer(void)
 {
   if (currentserver != NULL) 
-    mwlog(MWLOG_INFO, "Server %s in group %s ends", 
+    Info("Server %s in group %s ends", 
 	  currentserver->name, currentgroup->name);
   currentserver = NULL;
 };
@@ -534,6 +561,21 @@ void smgrSetDefaultAutoBoot(int ab)
   if (ab != 0) default_autoboot = 1;
   else  default_autoboot = 1;
 };
+
+void smgrInit(void)
+{
+  char tmp[1024];
+  
+  sprintf (tmp, "%s:%s/bin", _PATH_DEFPATH, MW_PREFIX);
+  mySetEnv(&defaultEnv, "PATH", tmp);
+  mySetEnv(&defaultEnv, "HOME", getenv("HOME"));
+  mySetEnv(&defaultEnv, "LOGNAME", getenv("LOGNAME"));
+  mySetEnv(&defaultEnv, "USER", getenv("USER"));
+  mySetEnv(&defaultEnv, "LANG", getenv("LANG"));
+  mySetEnv(&defaultEnv, "SHELL", getenv("SHELL"));
+  mySetEnv(&defaultEnv, "TERM", getenv("TERM"));
+};
+  
 
 /************************************************************************
  * here are the runtime command functions, also used at startup for
@@ -583,7 +625,7 @@ int smgrExecServer(struct Server * S)
   struct ActiveServer * AS;
   int size;
   
-  mwlog(MWLOG_DEBUG, "Executing Server %s in Group %s with %d active",
+  DEBUG("Executing Server %s in Group %s with %d active",
 	S->name, NONULL(S->group->name), S->active);
 
   size = sizeof(struct ActiveServer) * (S->active+2);
@@ -591,14 +633,14 @@ int smgrExecServer(struct Server * S)
   AS = &S->activelist[S->active];
   S->active++;
 
-  mwlog(MWLOG_DEBUG, " AS=%p S->activelist=%p size = %d", AS, S->activelist, size);
+  DEBUG(" AS=%p S->activelist=%p size = %d", AS, S->activelist, size);
   AS->status = BOOTING;
   AS->kills = 0;
   AS->pid = fork();
 
 
   if (AS->pid == -1) {
-    mwlog(MWLOG_ERROR, "fork failed for server %s group %s, reason %s", 
+    Error("fork failed for server %s group %s, reason %s", 
 	  S->name, NONULL(S->group->name), strerror(errno));
     S->active--;
     return -1;
@@ -606,15 +648,34 @@ int smgrExecServer(struct Server * S)
   
   if (AS->pid == 0) {
     int i;
-    mwlog(MWLOG_DEBUG, "execve \"%s\",", S->exec);
+    char ** envp;
+    char tmp[1024];
+    char * path;
+
+    DEBUG("execve \"%s\",", S->exec);
     for (i = 0; S->args[i] != NULL; i++) {
-      mwlog(MWLOG_DEBUG, " arg %d = \"%s\"", i, S->args[i]);
+      DEBUG(" arg %d = \"%s\"", i, S->args[i]);
     };
-    execve(S->exec, S->args, S->env);    
-    mwlog(MWLOG_ERROR, "exec failed for \"%s\", reason %s", S->exec, strerror(errno));
+
+    /* last ditch env settings, these can't be overridden in config */
+
+    envp = dupEnv(S->env);
+
+    path = myGetEnv(envp, "PATH");
+    sprintf(tmp, "%s/%s/bin:%s", mwhome, instancename, path);
+    mySetEnv(&envp, "PATH", tmp);
+    mySetEnv(&envp, "MWHOME", mwhome);
+    mySetEnv(&envp, "MWADDRESS", uri);
+    mySetEnv(&envp, "MWINSTANCE", instancename);
+
+    sprintf(tmp, "%s/%s/run", mwhome, instancename);
+    mySetEnv(&defaultEnv, "PWD", tmp);
+
+    execvpe(S->exec, S->args, envp);    
+    Error("exec failed for \"%s\", reason %s", S->exec, strerror(errno));
     exit(-1);
   };
-  mwlog(MWLOG_INFO, "Started Server %s in Group %s, pid = %d", 
+  Info("Started Server %s in Group %s, pid = %d", 
 	S->name, NONULL(S->group->name), AS->pid);
 
   AS->status = RUNNING;
@@ -645,7 +706,7 @@ int smgrStartServer(char * groupname, char * servername)
     return -1;
   };
 
-  mwlog(MWLOG_INFO, "Force Starting Server %s in Group %s", 
+  Info("Force Starting Server %s in Group %s", 
 	S->name, S->group->name);
 
   if (!S->booted) return -1;
@@ -673,7 +734,7 @@ int smgrStopServer(char * groupname, char * servername)
   AS = S->activelist;
   for(i = 0; i < S->active; i++) 
     if (AS[i].status == RUNNING) {
-      mwlog(MWLOG_INFO, "Force Stopping an instance of server %s, group %s, pid = %d", 
+      Info("Force Stopping an instance of server %s, group %s, pid = %d", 
 	    servername, groupname, AS[i].pid);
       AS[i].status = SHUTWAIT;
       AS[i].kills = 1;
@@ -699,7 +760,7 @@ int smgrBootServer(char * groupname, char * servername)
   /* already booted */
   if (S->booted == TRUE) return -1;
 
-  mwlog(MWLOG_INFO, "Booting Server %s in Group %s start_min = %d", 
+  Info("Booting Server %s in Group %s start_min = %d", 
 	S->name, S->group->name, S->start_min);
 
   S->booted  = TRUE;
@@ -728,7 +789,7 @@ int smgrShutdownServer(char * groupname, char * servername)
   if (S->booted == FALSE) return -1;
 
   S->booted  = FALSE;
-  mwlog(MWLOG_INFO, "Shutdown Server %s in Group %s", 
+  Info("Shutdown Server %s in Group %s", 
 	S->name, NONULL(S->group->name));
 
   AS = S->activelist;
@@ -736,7 +797,7 @@ int smgrShutdownServer(char * groupname, char * servername)
 
   for(i = 0; i < S->active; i++) 
     if (AS[i].status == RUNNING) {
-      mwlog(MWLOG_INFO, "Stopping an instance of server %s, group %s, pid = %d", 
+      Info("Stopping an instance of server %s, group %s, pid = %d", 
 	    servername, NONULL(groupname), AS[i].pid);
       AS[i].status = SHUTWAIT;
       AS[i].kills = 1;
@@ -757,11 +818,11 @@ struct Server *  smgrServerFuneral(pid_t pid)
   S = smgrfindServerByPid(pid);
   if (S == NULL) return NULL;
   
-  mwlog(MWLOG_DEBUG, "Funerakl start AS=%p", S->activelist);
+  DEBUG("Funeral start AS=%p", S->activelist);
 
   for(i = 0; i < S->active; i++) {
     if (S->activelist[i].pid == pid) {
-      mwlog(MWLOG_INFO, "An instance of server %s, group %s, pid = %d died", 
+      Info("An instance of server %s, group %s, pid = %d died", 
 	    S->name, S->group->name, S->activelist[i].pid);
       S->active--;
       if (S->active == 0) {
@@ -769,13 +830,13 @@ struct Server *  smgrServerFuneral(pid_t pid)
 	S->activelist = NULL;
       } else {
 	S->activelist[i] = S->activelist[S->active];
-	S->activelist[S->active].pid  == -1;
+	S->activelist[S->active].pid  = -1;
       };
-      mwlog(MWLOG_DEBUG, "Funerakl good end AS=%p", S->activelist);
+      DEBUG("Funeral good end AS=%p", S->activelist);
       return S;
     };
   }
-  mwlog(MWLOG_DEBUG, "Funerakl bad end AS=%p", S->activelist);
+  DEBUG("Funeral bad end AS=%p", S->activelist);
   return NULL;
 };
 
@@ -792,12 +853,11 @@ void smgrSigChildHandler(void)
 int smgrDoWaitPid(void)
 {
   struct Server * S;
-  int i;
   pid_t pid;
   int status;
 
   if (ipcmain == NULL) {
-    mwlog(MWLOG_FATAL, "aborting, processing wait on server processes without a ipcmaininfo");
+    Fatal("aborting, processing wait on server processes without a ipcmaininfo");
     abort();
   };
 
@@ -810,11 +870,11 @@ int smgrDoWaitPid(void)
 
     S = smgrServerFuneral(pid);
     if (S == NULL) {
-      mwlog(MWLOG_ERROR, "got a sigchld for pid %d which is not one of my servers", pid);
+      Error("got a sigchld for pid %d which is not one of my servers", pid);
       continue;
     };
 
-    mwlog(MWLOG_INFO, "Server %s in group %s exited with exitcode %d", 
+    Info("Server %s in group %s exited with exitcode %d", 
 	  S->name, S->group->name, WEXITSTATUS(status));
     
     /* don't restart if we're in a general shutdown */
@@ -836,7 +896,7 @@ int smgrDoWaitPid(void)
   } 
 
   if (pid == -1) {
-    mwlog(MWLOG_ERROR, "waidpid returned -1 errno = %d", errno);
+    Error("waidpid returned -1 errno = %d", errno);
     return -1;
   };
   
@@ -846,7 +906,7 @@ int smgrDoWaitPid(void)
   /* interrupted */
   if ( (pid == -1) && ( (errno == ERESTART) || (errno == EINTR) ) ) return 0;
   
-  mwlog(MWLOG_ERROR, "WE CAN'T GET HERE %s:%d", __FILE__, __LINE__);
+  Error("WE CAN'T GET HERE %s:%d", __FILE__, __LINE__);
   
   return -1;
 }
@@ -864,24 +924,24 @@ int smgrTask(void)
   struct ServerGroup * SG;
   struct Server * S;
 
-  mwlog(MWLOG_DEBUG, "smgrtask() beginning");
+  DEBUG("smgrtask() beginning");
 
 
   for (SG = grouproot; SG != NULL; SG = SG->next) {
-    mwlog (MWLOG_DEBUG, "  GROUP %s autoboot=%d", SG->name, SG->autoboot);
+    DEBUG("  GROUP %s autoboot=%d", SG->name, SG->autoboot);
     
     for(S = SG->serverlist; S != NULL; S = S->next) {
-      mwlog (MWLOG_DEBUG, "    SERVER %s autoboot=%d exec=%s ", 
+      DEBUG("    SERVER %s autoboot=%d exec=%s ", 
 	     S->name, S->autoboot, S->exec);
-      mwlog (MWLOG_DEBUG, "       started=%d active=%d booted=%d ", 
+      DEBUG("       started=%d active=%d booted=%d ", 
 	     S->started, S->active, S->booted);
-      mwlog (MWLOG_DEBUG, "       min=%d max=%d", 
+      DEBUG("       min=%d max=%d", 
 	     S->start_min, S->start_max);
 
       if (S->booted) {
 	if ((time(NULL) - S->lastdeath) > 5)
 	  for (i = 0; i < (S->started - S->active); i++) {
-	    mwlog(MWLOG_INFO, "    Task starting an instance of %s/%s", 
+	    Info("    Task starting an instance of %s/%s", 
 		  SG->name, S->name);
 	    smgrExecServer(S);    
 	  };
@@ -889,7 +949,7 @@ int smgrTask(void)
     };
   };
 
-  mwlog(MWLOG_DEBUG, "smgrtask() ending next task in %d msecs", mtime_to_next_task);
+  DEBUG("smgrtask() ending next task in %d msecs", mtime_to_next_task);
 
   return mtime_to_next_task;
 };
@@ -901,12 +961,12 @@ void smgrAutoBoot(void)
   struct ServerGroup * SG;
   struct Server * S;
   
-  mwlog (MWLOG_DEBUG, "Autoboot inprogress");
+  DEBUG("Autoboot inprogress");
   for (SG = grouproot; SG != NULL; SG = SG->next) {
-    mwlog (MWLOG_DEBUG, "  GROUP %s autoboot=%d", SG->name, SG->autoboot);
+    DEBUG("  GROUP %s autoboot=%d", SG->name, SG->autoboot);
     if (SG->autoboot != 0) {
       for(S = SG->serverlist; S != NULL; S = S->next) {
-	mwlog (MWLOG_DEBUG, "    SERVER %s autoboot=%d ", 
+	DEBUG("    SERVER %s autoboot=%d ", 
 	       S->name, S->autoboot);
 	if (S->autoboot != 0)
 	  smgrBootServer(SG->name, S->name);    
@@ -914,7 +974,7 @@ void smgrAutoBoot(void)
       };
     };
   };
-  mwlog (MWLOG_DEBUG, "Autoboot complete");
+  DEBUG("Autoboot complete");
   return;
 };
 
@@ -927,8 +987,6 @@ void smgrAutoBoot(void)
 static void oc_list(urlmap * reqmap)
 {
   char * group;
-  char * server;
-  char * pid;
   char * repbuf;
   urlmap * replymap = NULL;
   Server * S;
@@ -945,7 +1003,7 @@ static void oc_list(urlmap * reqmap)
   full = urlmapgetvalue(reqmap, "full");
   if ( (full != NULL) && (strcasecmp("no", full) != 0) ) fullflag = 1;
 
-  mwlog (MWLOG_DEBUG, "Got a list commend to " MWSRVMGR " service, group = %s",
+  DEBUG("Got a list commend to " MWSRVMGR " service, group = %s",
 	 NONULL(group));
   
   for (SG = grouproot; SG != NULL; SG = SG->next) {
@@ -971,11 +1029,11 @@ static void oc_list(urlmap * reqmap)
          and the next mwreply will be the last*/
 
       if ( (lastserver == 1) && ((fullflag == 0) || (S->active == 0)) ) moreflag = 0;
-      mwlog(MWLOG_DEBUG, "if ( (lastserver(%d) == 1) && ((fullflag(%d) == 0) || (S->active(%d) == 0)) ) " 
+      DEBUG("if ( (lastserver(%d) == 1) && ((fullflag(%d) == 0) || (S->active(%d) == 0)) ) " 
 	    "moreflag(%d) = 0;", lastserver, fullflag, S->active, moreflag);
 
       rc = mwreply(repbuf, 0, moreflag?MWMORE:MWSUCCESS, 0, 0);
-      mwlog(MWLOG_DEBUG, "reply: %s, %s rc=%d", repbuf, moreflag?"more...":"", rc);
+      DEBUG("reply: %s, %s rc=%d", repbuf, moreflag?"more...":"", rc);
       
       free(repbuf);
       urlmapfree(replymap);
@@ -1009,10 +1067,10 @@ static void oc_list(urlmap * reqmap)
 	  strcat(repbuf, "\r\n");
 
 	  if ( (lastserver == 1) && (S->active -1 == i) ) moreflag = 0;	  
-	  mwlog(MWLOG_DEBUG, "( (lastserver(%d) == 1) && (S->active(%d) -1 == i(%d)) ) moreflag = 0(%d)", 
+	  DEBUG("( (lastserver(%d) == 1) && (S->active(%d) -1 == i(%d)) ) moreflag = 0(%d)", 
 	       lastserver, S->active, i, moreflag);
 	  rc = mwreply(repbuf, 0, moreflag?MWMORE:MWSUCCESS, 0, 0);
-	  mwlog(MWLOG_DEBUG, "reply: %s, %s rc=%d", repbuf, moreflag?"more...":"", rc);
+	  DEBUG("reply: %s, %s rc=%d", repbuf, moreflag?"more...":"", rc);
 	  
 	  free(repbuf);
 	  urlmapfree(replymap);
@@ -1032,9 +1090,6 @@ static void oc_startstop(int start, urlmap * reqmap)
   char * server;
   char * repbuf;
   urlmap * replymap = NULL;
-  Server * S;
-  ServerGroup * SG;
-  int moreflag = 1, rc;
   int pid;
 
   group = urlmapgetvalue(reqmap, "group");
@@ -1042,14 +1097,14 @@ static void oc_startstop(int start, urlmap * reqmap)
 
   if (group == NULL) group = "";
   if (server == NULL) {
-    mwlog (MWLOG_WARNING, "Got a malformed start/stop request");
+    Warning("Got a malformed start/stop request");
     repbuf = urlmapencode(reqmap);
     strcat(repbuf, "\r\n");
     mwreply (repbuf, 0, MWFAIL, EINVAL, 0);
   };
 
 
-  mwlog (MWLOG_INFO, "Got a %s command to " MWSRVMGR " service, group = %s server = %s",
+  Info("Got a %s command to " MWSRVMGR " service, group = %s server = %s",
 	 start?"start":"stop", group, server);
 
   errno = 0;
@@ -1081,7 +1136,7 @@ static void oc_info(urlmap * reqmap)
   group = urlmapgetvalue(reqmap, "group");
   server = urlmapgetvalue(reqmap, "server");
 
-  mwlog (MWLOG_DEBUG, "Got an info command to " MWSRVMGR " service, group = %s server = %s",
+  DEBUG("Got an info command to " MWSRVMGR " service, group = %s server = %s",
 	 NONULL(group), server?server:"(NULL)");
 
   return;
@@ -1094,17 +1149,16 @@ static void oc_boot_shutdown(int boot, urlmap * reqmap)
 {
   char * group;
   char * server;
-  char * pid;
   char * repbuf;
   urlmap * replymap = NULL;
   Server * S;
   ServerGroup * SG;
-  int moreflag = 1, rc;
+  int rc;
 
   group = urlmapgetvalue(reqmap, "group");
   server = urlmapgetvalue(reqmap, "server");
 
-  mwlog (MWLOG_INFO, "Got a %s command to " MWSRVMGR " service, group = %s server = %s",
+  Info("Got a %s command to " MWSRVMGR " service, group = %s server = %s",
 	 boot?"boot":"shutdown", NONULL(group), NONULL(server));
   
 
@@ -1129,7 +1183,7 @@ static void oc_boot_shutdown(int boot, urlmap * reqmap)
   for (SG = grouproot; SG != NULL; SG = SG->next) {
     if (group == NULL) goto match;
     if (group && SG->name && (strcmp(group, SG->name) == 0)) goto match;   
-    mwlog (MWLOG_DEBUG, "boot/shut skipping group %s", NONULL(group));
+    DEBUG("boot/shut skipping group %s", NONULL(group));
 
     continue;
     
@@ -1155,7 +1209,7 @@ static void oc_boot_shutdown(int boot, urlmap * reqmap)
     }
 
   }
-  mwlog (MWLOG_DEBUG, "boot/shut completed");
+  DEBUG("boot/shut completed");
   repbuf = urlmapencode(reqmap);
   strcat(repbuf, "\r\n");
   mwreply(repbuf, 0, MWSUCCESS, 0, 0);
@@ -1169,7 +1223,6 @@ int  smgrCall(mwsvcinfo * svcinfo)
 {
   char * opcode;
   urlmap * reqmap = NULL;
-  int rc;
 
   if (svcinfo->datalen <= 0) {
     mwreturn(svcinfo->data, svcinfo->datalen, MWFAIL, ENOMSG);

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.7  2002/02/17 14:43:26  eggestad
  * - default ipc runtime params are now static
  * - added mwdSetIPCparam()/mwdGetIPCparam()
@@ -61,10 +64,6 @@
  *
  */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
-
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -101,6 +100,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include "requestparse.h"
 
 #include "utils.h"
+
+static char * RCSId UNUSED = "$Id$";
+
 
 /* undocumented func in lib/mwlog.c */
 void _mw_copy_on_stdout(int flag);
@@ -238,7 +240,7 @@ ipcmaininfo * ipcmain = NULL;
 
 ipcmaininfo * getipcmaintable()
 {
-  mwlog(MWLOG_DEBUG, "lookup of ipcmain address: 0x%x", ipcmain);
+  DEBUG("lookup of ipcmain address: 0x%x", ipcmain);
   return ipcmain;
 };
 cliententry * getcliententry(int i)
@@ -280,8 +282,6 @@ static int
 create_ipc(int mode)
 {
   int mainid;
-  int a;
-  void * adr;
   pid_t pid;
 
   /* 
@@ -322,7 +322,7 @@ create_ipc(int mode)
     mask |= S_IROTH | S_IWOTH;
   
   if (mode > 0777) {
-    mwlog(MWLOG_ERROR,"This can't happen, create_ipc was called with mode = 0%op",mode);
+    Error("This can't happen, create_ipc was called with mode = 0%op",mode);
     return -EINVAL;
   };
 
@@ -332,7 +332,7 @@ create_ipc(int mode)
   queuemode = queuemode & mask;
   printf("tablemode = %o heapmode = %o queuemode = %o mask = %o\n",tablemode, heapmode,queuemode,mask); 
 
-  mwlog(MWLOG_DEBUG,"shared memory for main info has ipckey = 0x%x mode=0%o",
+  DEBUG("shared memory for main info has ipckey = 0x%x mode=0%o",
 	masteripckey, tablemode|IPC_CREAT | IPC_EXCL);
 
 
@@ -350,7 +350,7 @@ create_ipc(int mode)
   if (maxservices < maxservers) maxservices = maxservers;
   if (maxservices < maxgateways) maxservices = maxgateways;
 
-  mwlog(MWLOG_INFO,"  max clients %d, servers %d, services %d, gateways %d, conversations %d\n",
+  Info("  max clients %d, servers %d, services %d, gateways %d, conversations %d\n",
 	maxclients, maxservers, maxservices, maxgateways, maxconversations);
 
   /* main table are always only writeable by owner of mwd. */
@@ -361,12 +361,12 @@ create_ipc(int mode)
       mainid = shmget(masteripckey, 0, 0);
       ipcmain = (ipcmaininfo *) shmat(mainid, (void *) 0, 0);
       if ((ipcmain == NULL) || (ipcmain == (void *) -1)) {
-	mwlog(MWLOG_ERROR,"A shared memory segment with key %#x exists, id=%d, but failet to attach it!",masteripckey, mainid);
+	Error("A shared memory segment with key %#x exists, id=%d, but failet to attach it!",masteripckey, mainid);
 	return -EEXIST;
       };
       pid = ipcmain->mwdpid;
       if ((pid > 1) && (kill(pid, 0) == 0)) {
-	mwlog(MWLOG_ERROR,"The instance is already running, mwd has pid %d",pid);
+	Error("The instance is already running, mwd has pid %d",pid);
 	shmdt(ipcmain);
 	return -EEXIST;
       }
@@ -374,20 +374,20 @@ create_ipc(int mode)
       return -EDEADLK;
     }
     /* unknown error */
-    mwlog(MWLOG_ERROR,"Failed to create shared memory for main info for ipckey = 0x%x reason: %s: flags 0%o",
+    Error("Failed to create shared memory for main info for ipckey = 0x%x reason: %s: flags 0%o",
 	  masteripckey, strerror(errno),mode );
     return -errno;
   };
-  mwlog(MWLOG_DEBUG,"main shm info table has id %d",mainid);
+  DEBUG("main shm info table has id %d",mainid);
 
   ipcmain = (ipcmaininfo *) shmat(mainid, (void *) 0, 0);
   if (ipcmain == (void *) -1) {
     ipcmain = NULL;
-    mwlog(MWLOG_ERROR,"Failed to attach shared memory with id = %d reason %s",
+    Error("Failed to attach shared memory with id = %d reason %s",
 	  mainid, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG,"main shm info table attached at 0x%x",ipcmain);
+  DEBUG("main shm info table attached at 0x%x",ipcmain);
 
   /* 
    * attaching all the other tables 
@@ -396,75 +396,75 @@ create_ipc(int mode)
   /*** CLIENT TABLE ***/
   ipcmain->clttbl_ipcid = shmget(IPC_PRIVATE, sizeof(struct cliententry) * maxclients,tablemode);
   if (ipcmain->clttbl_ipcid == -1) {
-    mwlog(MWLOG_ERROR,"Failed to attach client table with id = %d reason %s",
+    Error("Failed to attach client table with id = %d reason %s",
 	  clttbl, strerror(errno));
     return -errno;
   };
   clttbl = (cliententry *) shmat(ipcmain->clttbl_ipcid, NULL, 0);
-  mwlog(MWLOG_DEBUG,"client table id=%d attached at 0x%x", 
+  DEBUG("client table id=%d attached at 0x%x", 
 	ipcmain->clttbl_ipcid,clttbl);
   
   /*** SERVER TABLE ***/
   ipcmain->srvtbl_ipcid = shmget(IPC_PRIVATE, sizeof(struct serverentry) * maxservers,
 				 tablemode);
   if (ipcmain->srvtbl_ipcid == -1) {
-    mwlog(MWLOG_ERROR,"Failed to attach Server table with id = %d reason %s",
+    Error("Failed to attach Server table with id = %d reason %s",
 	  srvtbl, strerror(errno));
     return -errno;
   };
   srvtbl = (serverentry *) shmat(ipcmain->srvtbl_ipcid, (void *) 0, 0);
-  mwlog(MWLOG_DEBUG,"Server table id=%d attached at 0x%x",
+  DEBUG("Server table id=%d attached at 0x%x",
 	ipcmain->srvtbl_ipcid ,srvtbl);
 
   /*** SERVICE TABLE ***/
   ipcmain->svctbl_ipcid = shmget(IPC_PRIVATE, sizeof(struct serviceentry) * maxservices,
 				 tablemode);
   if (ipcmain->svctbl_ipcid == -1) {
-    mwlog(MWLOG_ERROR,"Failed to attach service table with id = %d reason %s",
+    Error("Failed to attach service table with id = %d reason %s",
 	  ipcmain->svctbl_ipcid, strerror(errno));
     return -errno;
   };
   svctbl = (serviceentry *) shmat(ipcmain->svctbl_ipcid, (void *) 0, 0);
-  mwlog(MWLOG_DEBUG,"service table id=%d attached at 0x%x",
+  DEBUG("service table id=%d attached at 0x%x",
 	ipcmain->svctbl_ipcid, svctbl);
 
   /*** GATEWAYS TABLE ***/
   ipcmain->gwtbl_ipcid = shmget(IPC_PRIVATE, sizeof(struct gatewayentry) * maxgateways,
 				tablemode);
   if (ipcmain->gwtbl_ipcid == -1) {
-    mwlog(MWLOG_ERROR,"Failed to attach gateway table with id = %d reason %s",
+    Error("Failed to attach gateway table with id = %d reason %s",
 	  ipcmain->gwtbl_ipcid, strerror(errno));
     return -errno;
   };
   gwtbl = (gatewayentry *) shmat(ipcmain->gwtbl_ipcid, (void *) 0, 0);
-  mwlog(MWLOG_DEBUG,"gateway table id=%d attached at 0x%x",
+  DEBUG("gateway table id=%d attached at 0x%x",
 	ipcmain->gwtbl_ipcid, gwtbl);
 
   /*** CONVERSATIONS TABLE ***/
   ipcmain->convtbl_ipcid = shmget(IPC_PRIVATE, sizeof(struct conv_entry) * maxconversations,
 				  tablemode);
   if (ipcmain->convtbl_ipcid == -1) {
-    mwlog(MWLOG_ERROR,"Failed to attach convserver table with id = %d reason %s",
+    Error("Failed to attach convserver table with id = %d reason %s",
 	  ipcmain->convtbl_ipcid, strerror(errno));
     return -errno;
   };
   convtbl = (conv_entry *) shmat(ipcmain->convtbl_ipcid, (void *) 0, 0);
-  mwlog(MWLOG_DEBUG,"convserver table attached at 0x%x",convtbl);
+  DEBUG("convserver table attached at 0x%x",convtbl);
 
   /*** SHARED MEMORY DATA BUFFERS ***/
   ipcmain->heap_ipcid = shmb_format(heapmode, bufferbasesize, numbuffers);
   if (ipcmain->heap_ipcid < 0) {
-    mwlog(MWLOG_ERROR,"Failed to creat heap reason %s",
+    Error("Failed to creat heap reason %s",
 	  strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG,"buffer heap id=%d attached ",
+  DEBUG("buffer heap id=%d attached ",
 	ipcmain->heap_ipcid);
   return 0;
 
 }
 
-void set_instancename(ipcmaininfo * ipcmain)
+void set_instanceid(ipcmaininfo * ipcmain)
 {
   char * pt, buffer [256] = {0};
   int s, rc, idx, n;
@@ -479,17 +479,17 @@ void set_instancename(ipcmaininfo * ipcmain)
 
   for (n = 0, idx=1; n == 0; idx++) {
     
-    mwlog(MWLOG_DEBUG, "checking interface with index %d for unique address", idx);
+    DEBUG("checking interface with index %d for unique address", idx);
 
     ifdat.ifr_ifindex = idx;
     n = ioctl(s, SIOCGIFNAME, &ifdat);
     if (n == -1) break;
 
-    mwlog(MWLOG_DEBUG, "ioctl(SIOCGIFNAME) returned %d errno %d ifname = %s", 
+    DEBUG("ioctl(SIOCGIFNAME) returned %d errno %d ifname = %s", 
 	  n, errno, ifdat.ifr_name);
     
     rc = ioctl(s, SIOCGIFADDR, &ifdat);
-    mwlog(MWLOG_DEBUG, "ioctl(SIOCGIFADDR) returned %d errno %d af = %d", 
+    DEBUG("ioctl(SIOCGIFADDR) returned %d errno %d af = %d", 
 	  rc, errno, ifdat.ifr_addr.sa_family);
     
     if (ifdat.ifr_addr.sa_family == AF_INET) {
@@ -497,19 +497,19 @@ void set_instancename(ipcmaininfo * ipcmain)
 
       pt = (char *) inet_ntop(AF_INET, &(sin->sin_addr), buffer, 256);
       if (pt == NULL) {
-	mwlog(MWLOG_WARNING, "failed to parse ip address in interface %s", ifdat.ifr_name);
+	Warning("failed to parse ip address in interface %s", ifdat.ifr_name);
 	continue;
       };
-      mwlog(MWLOG_DEBUG, "ip addr = %s", buffer);
+      DEBUG("ip addr = %s", buffer);
       
     } else {
       rc = ioctl(s, SIOCGIFHWADDR , &ifdat);
-      mwlog (MWLOG_DEBUG, "ioctl returned %d errno %d hw_af = %d", 
+      DEBUG("ioctl returned %d errno %d hw_af = %d", 
 	     rc, errno, ifdat.ifr_addr.sa_family );
       
       /* is this a portable way to check for ethernet */
       if ((ifdat.ifr_addr.sa_family == 1) || (ifdat.ifr_addr.sa_family == 2)){
-	mwlog (MWLOG_DEBUG, " MAC addr: %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+	DEBUG(" MAC addr: %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
 	       ifdat.ifr_addr.sa_data[0], 
 	       ifdat.ifr_addr.sa_data[1], 
 	       ifdat.ifr_addr.sa_data[2], 
@@ -523,19 +523,21 @@ void set_instancename(ipcmaininfo * ipcmain)
     }
 
     if (ntohl(sin->sin_addr.s_addr) == INADDR_LOOPBACK) {
-       mwlog (MWLOG_DEBUG, " this is the loopback device, ignoring");	
+       DEBUG(" this is the loopback device, ignoring");	
       continue;
     }
+
+  /* now we actually have a legal ip address as a string in
+     buffer,and it's not the loopback.*/
     
-    /* now we actually have a legal ip address as a string in
-       buffer,and it's not the loopback.*/
-    sprintf(ipcmain->mw_instance_name, "%s/%d", buffer, masteripckey);
+    sprintf(ipcmain->mw_instance_id, "%s/%d", buffer, masteripckey);
+    DEBUG("instanceid = %s", ipcmain->mw_instance_id);
     return;
   };
-
+  
   if (hwaddrfound) {
-    mwlog(MWLOG_WARNING, "using MAC address as instance net address");
-    sprintf(ipcmain->mw_instance_name, "[%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx]/%d",
+    Warning("using MAC address as instance net address");
+    sprintf(ipcmain->mw_instance_id, "[%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx]/%d",
 	    hwaddr.sa_data[0], 
 	    hwaddr.sa_data[1], 
 	    hwaddr.sa_data[2], 
@@ -547,8 +549,8 @@ void set_instancename(ipcmaininfo * ipcmain)
   };
 
  nonet:
-  mwlog(MWLOG_WARNING, "No network connection found, assuming that host is standalone");
-  sprintf(ipcmain->mw_instance_name, "localhost/%d", masteripckey);
+  Warning("No network connection found, assuming that host is standalone");
+  sprintf(ipcmain->mw_instance_id, "localhost/%d", masteripckey);
   return;
 }
 
@@ -560,12 +562,13 @@ init_maininfo(void)
 
   strcpy(ipcmain->magic,_mwgetmagic());
   _mwgetversion(&ipcmain->vermajor,&ipcmain->vermajor,&ipcmain->vermajor);
-  mwlog (MWLOG_DEBUG,"magic = %s version = %d.%d.%d", 
+  DEBUG("magic = %s version = %d.%d.%d", 
 	 ipcmain->magic,ipcmain->vermajor,ipcmain->vermajor,ipcmain->vermajor);
 
   ipcmain->mwdpid = getpid();
   ipcmain->mwwdpid = -1;
-  set_instancename(ipcmain);
+  strncpy(ipcmain->mw_instance_name, instancename, MWMAXNAMELEN - 1);
+  set_instanceid(ipcmain);
   ipcmain->status = MWBOOTING;
   ipcmain->clttbl_length  = maxclients;
   ipcmain->srvtbl_length  = maxservers;
@@ -574,7 +577,7 @@ init_maininfo(void)
   ipcmain->convtbl_length = maxconversations;
 
   ipcmain->mwd_mqid = msgget(masteripckey,IPC_CREAT|queuemode);
-  mwlog(MWLOG_DEBUG, " mwd mqid is %d", ipcmain->mwd_mqid);
+  DEBUG(" mwd mqid is %d", ipcmain->mwd_mqid);
 
   ipcmain->boottime = time(NULL);;
   ipcmain->lastactive = 0;
@@ -646,13 +649,12 @@ int cleanup_ipc(void)
     };
   };
   if (strcmp(ipcmain->magic,_mwgetmagic()) != 0) {
-    mwlog(MWLOG_WARNING, 
-	  "Shared memory segment with key %#x is in use by another application", 
+    Warning(	  "Shared memory segment with key %#x is in use by another application", 
 	  masteripckey);
     return -EBUSY;
   };
     
-  mwlog(MWLOG_INFO, "Beginning cleaning up after previous instance");
+  Info("Beginning cleaning up after previous instance");
   /* 2, marking ipcmain as deleted */
   shmctl(mainid, IPC_RMID, NULL); /* this will allow another mwd to start!*/
 
@@ -737,7 +739,7 @@ void inst_sighandlers()
   if (sigaction(SIGUSR2, &action, NULL)) failed++;
 
   if (failed != 0) {
-    mwlog(MWLOG_ERROR, "failed to install %d signals handlers\n", failed);
+    Error("failed to install %d signals handlers\n", failed);
     exit(-19);
   }
 };
@@ -768,21 +770,21 @@ static void checktab(char * instancename, char ** home, int * key)
     n = sscanf(line, "%64s %64s %64s %64s %64s", 
 	       &arg[0], &arg[1], &arg[2], &arg[3], &arg[4]);
 
-    mwlog(MWLOG_DEBUG2, "read %d items from %s", n, tabpath);
+    DEBUG2("read %d items from %s", n, tabpath);
     if (n == 0) continue;
      
-    mwlog(MWLOG_DEBUG2, "read %d items \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"", 
+    DEBUG2("read %d items \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"", 
 	  n, arg[0], arg[1], arg[2], arg[3], arg[4]);
     
     if (strcmp(arg[0], instancename) != 0) continue;
     
     for (i = 0; i < 5; i++) {
       if ( (home != NULL) && (strncmp("home=", arg[i], 5) == 0) ) {
-	mwlog(MWLOG_DEBUG2, "home = %s", &arg[i][5] );
+	DEBUG2("home = %s", &arg[i][5] );
 	*home = strdup(&arg[i][5]);
       };
       if ( (key != NULL) && (strncmp("ipc:", arg[i], 4) == 0) ) {
-	mwlog(MWLOG_DEBUG2, "ipckey = %s", &arg[i][4] );
+	DEBUG2("ipckey = %s", &arg[i][4] );
 	*key = (atoi(&arg[i][4]));
       };
     };
@@ -793,7 +795,7 @@ static void checktab(char * instancename, char ** home, int * key)
 
  errout:
       
-  mwlog(MWLOG_DEBUG2, "checktab fails");
+  DEBUG2("checktab fails");
   if  (home != NULL) *home = NULL;
   if  (key != NULL) *key = -1;
   if (fp != NULL) fclose (fp);
@@ -808,15 +810,15 @@ static int mkdir_asneeded(char * path)
 
   errno = 0;
 
-  mwlog(MWLOG_DEBUG2, "attempting to mkdir(%s)", path);
+  DEBUG2("attempting to mkdir(%s)", path);
   rc = stat(path, &st);
 
   if (rc == 0) {
     if (S_ISDIR(st.st_mode)) {
-      mwlog(MWLOG_DEBUG2, "%s is a dir", path);
+      DEBUG2("%s is a dir", path);
       return 0;
     } else {
-      mwlog(MWLOG_ERROR, "%s is not a dir", path);
+      Error("%s is not a dir", path);
       errno = ENOTDIR;
       return -1;
     };
@@ -825,7 +827,7 @@ static int mkdir_asneeded(char * path)
   /* stat failed := path don't exists, recursivly try the .. dir */
   tmp = strrchr(path, '/');
   if (tmp == NULL) {
-    mwlog(MWLOG_DEBUG2, "unable to find a .. dir in %s, this is the top", path);
+    DEBUG2("unable to find a .. dir in %s, this is the top", path);
   } else {    
     *tmp = '\0';
     
@@ -840,7 +842,7 @@ static int mkdir_asneeded(char * path)
     *tmp = '/';
   };
 
-  mwlog(MWLOG_INFO, "creating directory %s", path);
+  Info("creating directory %s", path);
   rc = mkdir(path, 0777);
   
   return rc;
@@ -867,7 +869,7 @@ static void mainloop(void)
   serviceid_srvmgr = addlocalservice(_mw_get_my_serverid(),MWSRVMGR, MWCALLSVC);
   if (serviceid_srvmgr < 0) abort();
   svcent = _mw_get_service_byid(serviceid_srvmgr);
-  mwlog(MWLOG_INFO, "providing service \"%s\" with serviceid = %x",  
+  Info("providing service \"%s\" with serviceid = %x",  
 	  MWSRVMGR, serviceid_srvmgr);
   svcent->svcfunc = 
     (struct ServiceFuncEntry  *) _mw_pushservice (serviceid_srvmgr, smgrCall);
@@ -875,28 +877,28 @@ static void mainloop(void)
   _mw_set_my_status("");
 
   /* finally the loop */
-  mwlog(MWLOG_DEBUG, "mainloop starts");
+  DEBUG("mainloop starts");
   while(1) {
     rc = parse_request();
     if (rc == -ESHUTDOWN) break;
     if (ipcmain->status == MWDEAD) exit(-1);
 
     if (flags.alarm > 0) {
-      mwlog(MWLOG_DEBUG, "%d timers expired:  running tasks", flags.alarm);
+      DEBUG("%d timers expired:  running tasks", flags.alarm);
       nextalarm_in_ms = smgrTask();
       setrealtimer(nextalarm_in_ms*1000);
       flags.alarm = 0;
     };
 
     if (flags.childdied > 0) {
-      mwlog(MWLOG_DEBUG, "%d children has died furneral", flags.childdied);
+      DEBUG("%d children has died furneral", flags.childdied);
       smgrDoWaitPid();
       flags.childdied = 0;
     };
 
 
     if (flags.terminate) {
-      mwlog(MWLOG_INFO, "MidWay daemon initiated shutdown on signal %d", 
+      Info("MidWay daemon initiated shutdown on signal %d", 
 	    flags.terminate);
       ipcmain->shutdowntime = time(NULL);
       kill(SIGTERM, ipcmain->mwwdpid);
@@ -927,7 +929,7 @@ int main(int argc, char ** argv)
   char * name, * tabhome = NULL;
   int tabkey = -1;
   
-  extern mwaddress_t * _mwaddress;
+  mwaddress_t * mwaddress;
 
   int opt_clients =       -1;
   int opt_servers =       -1;
@@ -941,14 +943,14 @@ int main(int argc, char ** argv)
   mepw = getpwuid(getuid());
 
   if (mepw == NULL) {
-    mwlog(MWLOG_FATAL, "Unable to get my own passwd entry, aborting");
+    Fatal("Unable to get my own passwd entry, aborting");
     exit(1);
   };
 
-  mwlog(MWLOG_INFO, "MidWay daemon starting with userid %s (uid=%d) proccessid=%d", 
+  Info("MidWay daemon starting with userid %s (uid=%d) proccessid=%d", 
 	mepw->pw_name, getuid(), getpid());
-  mwlog(MWLOG_INFO, "Version $Name$");
-  mwlog(MWLOG_INFO, "Version %s", mwversion());
+  Info("Version $Name$");
+  Info("Version %s", mwversion());
 
   /* doing options */
   while((c = getopt(argc,argv, "A:DH:l:c:C:s:S:b:B:g:")) != EOF ){
@@ -1022,7 +1024,7 @@ int main(int argc, char ** argv)
   */
 
   
-  mwlog(MWLOG_DEBUG, "optind = %d", optind);
+  DEBUG("optind = %d", optind);
   /* the only argument allowed is the instance name (or a config). */
   if (optind +1  == argc) {
     instancename = argv[optind];
@@ -1032,7 +1034,7 @@ int main(int argc, char ** argv)
     usage();
   };
   
-  mwlog(MWLOG_INFO, "MidWay instance is %s", instancename); 
+  Info("MidWay instance name is %s", instancename); 
 
   /* lets check the ~/.midwaytab and see if there is a home or ipc set. */
   checktab(instancename, &tabhome, &tabkey);
@@ -1057,60 +1059,65 @@ int main(int argc, char ** argv)
 
   /* We apply PATH_MAX == 255 here, just to make life easy. */
   if (strlen(mwhome) > 250) {
-    mwlog(MWLOG_ERROR, "Path to MidWayHome is to long. %d is longer than max 250", strlen(mwhome));
+    Error("Path to MidWayHome is to long. %d is longer than max 250", strlen(mwhome));
     exit(-1);
   };
 
   /* now do chdir to mwhome, if fail, go thru and create directories as needed.
      If we fail to create them, abort. */
-  mwlog(MWLOG_INFO, "MWHOME = %s", mwhome);
+  Info("MWHOME = %s", mwhome);
 
   rc = mkdir_asneeded(mwhome);
   if (rc != 0) {
-    mwlog(MWLOG_ERROR, "Failed to create the directory %s reason %s",
+    Error("Failed to create the directory %s reason %s",
 	  mwhome, strerror(errno));
     exit(-1);
   };
 
   rc = chdir(mwhome);
   if (rc != 0) {
-    mwlog(MWLOG_ERROR, "failed to chdir to MWHOME=%s reason %s", 
+    Error("failed to chdir to MWHOME=%s reason %s", 
 	  mwhome, strerror(errno));
     exit(-1);
   };
   
   rc = mkdir_asneeded(instancename);
   if (rc != 0) {
-    mwlog(MWLOG_ERROR, "Failed to create the instance directory MWHOME/%s reason %s",
+    Error("Failed to create the instance directory MWHOME/%s reason %s",
 	  instancename, strerror(errno));
     exit(-1);
   };
 
   rc = chdir(instancename);
   if (rc != 0) {
-    mwlog(MWLOG_ERROR, "failed to chdir to MWHOME/%s reason %s", 
+    Error("failed to chdir to MWHOME/%s reason %s", 
 	  instancename, strerror(errno));
     exit(-1);
   };
 
   /* when we get here, CWD is mwhome/instancename and it exists.*/
+
+
+  /* init smgr, it sets default path which must be set before all
+     setenvs in config but after mwhome is set. */
+  smgrInit();
        
   /* now if the config exists load it */
   getcwd(wd,PATH_MAX);
   strcat(wd,"/config");
 
-  mwlog(MWLOG_INFO, "loading config %s", wd);
+  Info("loading config %s", wd);
   rc = xmlConfigLoadFile(wd);
   if (rc == 0) {
-    mwlog(MWLOG_INFO, "config loaded");    
+    Info("config loaded");    
     rc = xmlConfigParseTree();
-    mwlog(MWLOG_INFO, "config parses with rc = %d errno %d", rc, errno);
+    Info("config parses with rc = %d errno %d", rc, errno);
     smgrDumpTree();
   } else {
     if (errno == ENOENT) 
-      mwlog(MWLOG_INFO, "no config using defaults");
+      Info("no config using defaults");
     else {
-      mwlog(MWLOG_ERROR, "while loading config reason %s", strerror(errno));
+      Error("while loading config reason %s", strerror(errno));
       exit(-1);
     };
   };
@@ -1125,7 +1132,7 @@ int main(int argc, char ** argv)
   /* TODO: the log dir may be set in the config */
   rc = mkdir_asneeded("log");
   if (rc != 0) {
-    mwlog(MWLOG_ERROR, "Failed to create the instance directory MWHOME/%s reason %s",
+    Error("Failed to create the instance directory MWHOME/%s reason %s",
 	  "log", strerror(errno));
     exit(-1);
   };
@@ -1143,7 +1150,7 @@ int main(int argc, char ** argv)
   else name++;
   mwopenlog(name, wd, loglevel);
   
-  mwlog(MWLOG_INFO, "Logging to %s.YYYYMMDD", wd);
+  Info("Logging to %s.YYYYMMDD", wd);
 
   /* more subdirs to follow. */
   mkdir_asneeded("bin");
@@ -1174,7 +1181,8 @@ int main(int argc, char ** argv)
   /* figring out ipckey , it may already be set by -A or config, we
      overturn the config but honor -A */
 
-  /* if -A was set uri is not NULL */
+  /* if -A was set uri is not NULL, else it came form config, and
+     we're going to create it now. */
   if (uri == NULL) {
     uri = malloc(16);
 
@@ -1192,22 +1200,22 @@ int main(int argc, char ** argv)
     }
   };
   
-  mwlog(MWLOG_INFO, "MidWay instance URI is %s", uri); 
+  Info("MidWay instance URI is %s", uri); 
   errno = 0;
-  _mwaddress = _mwdecode_url(uri);
+  mwaddress = _mwdecode_url(uri);
   
-  if (_mwaddress == NULL) {
-    mwlog(MWLOG_ERROR, "Unable to parse URI %s, expected ipc:12345 " 
+  if (mwaddress == NULL) {
+    Error("Unable to parse URI %s, expected ipc:12345 " 
 	  "where 12345 is a unique IPC key", uri);
     exit(-1);
   };
 
-  if ( (_mwaddress != NULL) && (_mwaddress->protocol != MWSYSVIPC) ) {
-    mwlog(MWLOG_ERROR, "url prefix must be ipc for mwd, url=%s errno=%d", uri, errno);
+  if ( (mwaddress != NULL) && (mwaddress->protocol != MWSYSVIPC) ) {
+    Error("url prefix must be ipc for mwd, url=%s errno=%d", uri, errno);
     exit(-1);
   };
   
-  mwdSetIPCparam(MASTERIPCKEY, _mwaddress->sysvipckey);
+  mwdSetIPCparam(MASTERIPCKEY, mwaddress->sysvipckey);
 
 
   /* We have a protection mode = 0 here. We should use umask.
@@ -1217,7 +1225,7 @@ int main(int argc, char ** argv)
   n = 0;
   while (rc < 0) {
     if (n > 5) {
-      mwlog(MWLOG_ERROR, "This can't happen clean up of old ipc fails in %s line %d", 
+      Error("This can't happen clean up of old ipc fails in %s line %d", 
 	    __FILE__, __LINE__);
       exit (-6);
     };
@@ -1236,12 +1244,12 @@ int main(int argc, char ** argv)
     n++;
     rc = create_ipc(0);
   };
-  mwlog(MWLOG_DEBUG,"Shm data segments created.");
+  DEBUG("Shm data segments created.");
 
   if (daemon) {
     rc = fork();
     if (rc == -1) {
-      mwlog(MWLOG_ERROR, "fork failed reason: %s", strerror(errno));
+      Error("fork failed reason: %s", strerror(errno));
       shm_destroy();
       term_tables();
       term_maininfo();
@@ -1256,7 +1264,7 @@ int main(int argc, char ** argv)
 
   init_maininfo();
   init_tables();
-  
+
   /* place MWHOME in ipcmain */
   strncpy(ipcmain->mw_homedir, mwhome, 256);
 
@@ -1276,14 +1284,14 @@ int main(int argc, char ** argv)
    */
   rc = start_watchdog();
   if (rc <= 0) {
-    mwlog(MWLOG_ERROR, "MidWay WatchDog daemon failed to start. reason %d", rc);
+    Error("MidWay WatchDog daemon failed to start. reason %d", rc);
     shm_destroy();
     term_tables();
     term_maininfo();
     exit(-1);
   };
-  mwlog(MWLOG_INFO, "MidWay WatchDog daemon started pid=%d", rc); 
-  mwlog(MWLOG_INFO, "MidWay daemon boot complete instancename is %s", 
+  Info("MidWay WatchDog daemon started pid=%d", rc); 
+  Info("MidWay daemon boot complete instancename is %s", 
 	ipcmain->mw_instance_name); 
 
   /* we copy all log messages to stdout iff in debugmode. */
@@ -1304,5 +1312,5 @@ int main(int argc, char ** argv)
 
   cleanup_ipc();
 
-  mwlog(MWLOG_INFO, "MidWay daemon shutdown complete", rc);
+  Info("MidWay daemon shutdown complete", rc);
 };

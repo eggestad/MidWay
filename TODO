@@ -38,6 +38,8 @@
 
  * trace facility
 
+ * SRB trace need better peer info. (_mw_srb_trace)
+
  * Data buffers are not arbitrary length
 
  * fast path missing

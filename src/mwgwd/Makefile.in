@@ -6,9 +6,9 @@ exec_prefix = @exec_prefix@
 CC = @CC@
 INSTALL = @INSTALL@
 
-LIBS = -lMidWay -lurlencode -lpthread
+LIBS = -lMidWay -lurlencode -lpthread -lxml2
 
-INCLUDES = -I../include 
+INCLUDES = -I../include  -I/usr/include/libxml2 
 
 CFLAGS = @CFLAGS@ $(INCLUDES)
 
@@ -16,7 +16,8 @@ LDFLAGS = -L../lib -L../liburlencode
 
 EXE = mwgwd
 
-OBJS = SRBprotocolServer.o connections.o tcpserver.o gateway.o store.o broker.o
+OBJS = SRBprotocolServer.o connections.o tcpserver.o gateway.o store.o broker.o \
+       acl.o pattern.o xmlconfig.o remdomains.o toolbox.o impexp.o
 
 all: $(EXE) 
 
@@ -32,7 +33,7 @@ install:
 uninstall:
 	rm -f @bindir@/mwgwd
 
-tags:
+TAGS:
 	etags -a -o ../TAGS *.c *.h
 
 depend:

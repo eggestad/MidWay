@@ -1,4 +1,6 @@
 #!/bin/sh
 
-export CFLAGS='-g -DDEBUGGING -Wstrict-prototypes -Wmissing-declarations -Wimplicit -Wuninitialized'
+export CFLAGS='-g -DDEBUGGING -Wstrict-prototypes -Wmissing-declarations -Wimplicit -Wunused'
+export CFLAGS='-g -DDEBUGGING -Wstrict-prototypes  -Wimplicit -Wunused'
+#export CFLAGS='-g -DDEBUGGING -Wstrict-prototypes  -Wimplicit'
 ./configure

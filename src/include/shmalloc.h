@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.2  2002/02/17 13:53:14  eggestad
  * added prototypes for _mw_putbuffer_to_call(), _mw_getbuffer_from_call()
  *
@@ -170,6 +173,8 @@ int _mwfree(void * adr);
 
 int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg);
 int _mw_putbuffer_to_call (Call * callmesg, char * data, int len);
+
+int _mw_fastpath_enabled(void) ;
 
 #endif /* _SHMALLOC_H */
 

@@ -10,10 +10,10 @@ INSTALL = @INSTALL@
 
 LIBS = -lMidWay -lm -lxml2
 
-CFLAGS = @CFLAGS@ -I../include -I../liburl 
+CFLAGS = @CFLAGS@ -I../include -I../liburl  -I/usr/include/libxml2 
 
 OBJS = mwd.o shmallocfmt.o requestparse.o tables.o watchdog.o \
-	servermgr.o xmlconfig.o utils.o
+	servermgr.o xmlconfig.o utils.o execvpe.o
 
 EXE = mwd
 
@@ -34,7 +34,7 @@ uninstall:
 mwd: ../lib/libMidWay.a $(OBJS)
 	$(CC) -o $@ -g $(OBJS) -L../lib $(LIBS) 
 
-tags:
+TAGS:
 	etags -a -o ../TAGS *.c *.h
 
 depend:

@@ -18,11 +18,11 @@
   Boston, MA 02111-1307, USA. 
 */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 /* 
  * $Log$
+ * Revision 1.3  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.2  2001/10/03 22:35:46  eggestad
  * bugfixes
  *
@@ -43,17 +43,18 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <SRBprotocol.h>
 
 #include "../mwbd/mwbd.h"
+#include "connections.h"
 
-static int ipckey = 501;
+static char * RCSId UNUSED = "$Id$";
 
 int connectbroker(char * domain, char * instance)
 {
-  int rc, iOpt, optlen;
+  int rc;
   int unix_socket = -1;
   SRBmessage srbmsg, * srbmsg_ready;
-  char _instance[MWMAXNAMELEN]; 
   char buffer[SRBMESSAGEMAXLEN];
   struct sockaddr_un unixsockaddr;  
+  Connection * brokerconn = NULL;
 
   if ((instance == NULL) || (domain == NULL)) {
     errno = EINVAL;
@@ -66,48 +67,51 @@ int connectbroker(char * domain, char * instance)
 
   unix_socket = socket(PF_UNIX, SOCK_STREAM, 0);
   if (unix_socket == -1) {
-    mwlog(MWLOG_ERROR, "socket for unix failed errno=%d\n", errno);
+    Error("socket for unix failed errno=%d\n", errno);
     return -1;
   };
+  DEBUG("connecting broker on Unix socket %s", unixsockaddr.sun_path);
   rc = connect (unix_socket, (struct sockaddr *)&unixsockaddr, sizeof(struct sockaddr_un));
   if (rc == -1) {
-    mwlog(MWLOG_WARNING, "broker is not running");
+    Warning("broker is not running");
     return -1;
   };
-  mwlog(MWLOG_DEBUG1, "connected to broker on fd=%d", unix_socket);
+  DEBUG("connected to broker on fd=%d", unix_socket);
  
-  mwlog(MWLOG_INFO, "connected to broker at %s \n",unixsockaddr.sun_path);
+  Info( "connected to broker at %s \n",unixsockaddr.sun_path);
+
+  brokerconn = conn_add(unix_socket, SRB_ROLE_CLIENT|SRB_ROLE_GATEWAY, CONN_TYPE_BROKER);
 
   /* first we wait for broker et send SRB READY */
   /* TODO add timeout */
   rc = read(unix_socket, buffer, SRBMESSAGEMAXLEN);
   
   if (rc == -1) return -1;
-  _mw_srb_trace(SRB_TRACE_IN, unix_socket, buffer, rc);
+  _mw_srb_trace(SRB_TRACE_IN, brokerconn, buffer, rc);
   srbmsg_ready = _mw_srbdecodemessage(buffer);
   if (srbmsg_ready == NULL) {
-    mwlog(MWLOG_DEBUG1, "failed to decode message from broker");
+    DEBUG("failed to decode message from broker");
     errno = EBADMSG;
     close(unix_socket);
     return -1;
   };
   if ( (strcmp(srbmsg_ready->command, SRB_READY) != 0) || 
        (srbmsg_ready->marker != SRB_NOTIFICATIONMARKER)) {
-    mwlog(MWLOG_DEBUG1, "unexpected message from broker");
+    DEBUG("unexpected message from broker");
     errno = EBADMSG;
     close(unix_socket);
     _mw_srb_destroy(srbmsg_ready);
     return -1;
   };
   
-  mwlog(MWLOG_DEBUG1, "got greeting from broker");
+  DEBUG("got greeting from broker");
   _mw_srb_destroy(srbmsg_ready);
 
   _mw_srb_init(&srbmsg, SRB_READY, SRB_NOTIFICATIONMARKER, 
 	       SRB_VERSION, SRBPROTOCOLVERSION, 
 	       SRB_DOMAIN, domain, SRB_INSTANCE, instance, 
 	       NULL);
-  rc = _mw_srbsendmessage(unix_socket, &srbmsg);
+  rc = _mw_srbsendmessage(brokerconn, &srbmsg);
 
   urlmapfree(srbmsg.map);
 
@@ -115,7 +119,7 @@ int connectbroker(char * domain, char * instance)
     errno = -rc;
     return -1;
   };
-  mwlog(MWLOG_DEBUG1, "broker connected on fd %d", unix_socket);
+  DEBUG("broker connected on fd %d", unix_socket);
   return unix_socket;
 }
 
@@ -148,13 +152,13 @@ int read_with_fd(int s, char * message, int len, int * newfd)
 
   rc = 0;
   rc = recvmsg(s, &msg, 0);
-  mwlog(MWLOG_DEBUG1, "received from broker rc=%d errno=%d", rc, errno);
+  DEBUG("received from broker rc=%d errno=%d", rc, errno);
   if (rc == -1) return rc;
 
   
   cmsg = CMSG_FIRSTHDR(&msg);
   if ( (cmsg == NULL) || cmsg->cmsg_len < CMSG_LEN(sizeof(int)) ) {
-    mwlog(MWLOG_DEBUG1,  "can't find cmsg");
+    DEBUG(  "can't find cmsg");
     
     return rc;
   };
@@ -163,11 +167,11 @@ int read_with_fd(int s, char * message, int len, int * newfd)
   /* if caller din't want a a newfd, close it */
   if (newfd != NULL) {
     *newfd = * (int *) CMSG_DATA(cmsg);
-    mwlog(MWLOG_DEBUG1, "received from broker \"%s\" fd=%d rc=%d errno=%d\n", 
+    DEBUG("received from broker \"%s\" fd=%d rc=%d errno=%d\n", 
 	  message, *newfd, rc, errno);
   } else {
     close( * (int *) CMSG_DATA(cmsg));
-    mwlog(MWLOG_DEBUG1, "received from broker \"%s\" rc=%d errno=%d\n", 
+    DEBUG("received from broker \"%s\" rc=%d errno=%d\n", 
 	  message,  rc, errno);
     
   };

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.4  2002/02/17 14:26:56  eggestad
  * added handling of MWMORE return code.
  *
@@ -46,10 +49,6 @@
  *
  */
 
-
-static char * RCSId = "$Id";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -64,6 +63,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <MidWay.h>
 
+static char * RCSId UNUSED = "$Id";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
+
 static char * url = NULL;
 
 static char * inputfile = NULL;
@@ -72,9 +74,13 @@ static char * logfile = NULL;
 static int noreply = 0;
 static char * prog; 
 
+/* undocumented func in lib/mwlog.c */
+void _mw_copy_on_stdout(int flag);
+void _mw_copy_on_stderr(int flag);
+
 int call(int argc, char ** argv) 
 {
-  int i, j, len = 0, apprc, rc;
+  int len = 0, apprc = 0, rc = 0; 
   int rlen = 0;
   char * data = NULL, * rdata = NULL;
   struct timeval start, end;
@@ -86,10 +92,10 @@ int call(int argc, char ** argv)
   /* if data on commandline */
   if (argv[1] != NULL) {
     if (strcmp(argv[1], "-") == 0) {
-      mwlog(MWLOG_DEBUG,"about to read input data from stdin");
+      DEBUG("about to read input data from stdin");
       exit(9);
     } else {
-      mwlog(MWLOG_DEBUG,"about to read input data from commandline");
+      DEBUG("about to read input data from commandline");
       len = strlen(argv[1]);
       data = (char *) malloc(len+1);
       strcpy(data, argv[1]);
@@ -101,7 +107,7 @@ int call(int argc, char ** argv)
     int toread, readed = 0;
     int fd;
 
-    mwlog(MWLOG_DEBUG,"about to read input data from %s", inputfile);
+    DEBUG("about to read input data from %s", inputfile);
 
     rc = stat(inputfile, &if_stat);
     if (rc != 0) {
@@ -127,45 +133,26 @@ int call(int argc, char ** argv)
   };
 
 
-  mwlog(MWLOG_DEBUG,"about to call(%s, %s, %d, ...)", argv[0], data, len);
+  DEBUG("about to call(%s, %s, %d, ...)", argv[0], data, len);
   gettimeofday(&start, NULL); 
 
-#ifdef TESTASYNC
-  {
-    int hdl1 , hdl2, hdl3;
-    hdl1 = mwacall(argv[0], data, len, 0);
-    hdl2 = mwacall(argv[0], data, len, 0);
-    hdl3 = mwacall(argv[0], data, len, 0);
-    rc = mwfetch(0, &rdata, &rlen, &apprc, 0);
-    rc = mwfetch(0, &rdata, &rlen, &apprc, 0);
-    rc = mwfetch(0, &rdata, &rlen, &apprc, 0);
-    hdl1 = mwacall(argv[0], data, len, 0);
-    hdl2 = mwacall(argv[0], data, len, 0);
-    hdl3 = mwacall(argv[0], data, len, 0);
-    rc = mwfetch(hdl1, &rdata, &rlen, &apprc, 0);
-    rc = mwfetch(hdl3, &rdata, &rlen, &apprc, 0);
-    rc = mwfetch(hdl2, &rdata, &rlen, &apprc, 0);
-  }
-#else 
   rc = mwcall(argv[0], data, len, &rdata, &rlen, &apprc, 0);
-#endif
 
   gettimeofday(&end, NULL); 
 
-  mwlog(MWLOG_INFO,"call returned in %f", 
+  Info("call returned in %f", 
 	 (float)(end.tv_sec - start.tv_sec) 
 	 +(float)(end.tv_usec - start.tv_usec)/1000000); 
   
 
   if (rc != MWSUCCESS) {
-    mwlog(MWLOG_ERROR,"Call failed with reason %d apprc %d", rc, apprc);
+    Error("Call failed with reason %d apprc %d", rc, apprc);
     return rc;
   };
 
   if (rdata != NULL) {
     FILE * OF;
-    mwlog(MWLOG_INFO,
-	  "Call to \"%s\" succeded, returned %d bytes of data with application return code %d",  
+    Info(	  "Call to \"%s\" succeded, returned %d bytes of data with application return code %d",  
 	    argv[0], rlen, apprc);
 
     if (outputfile) {
@@ -176,8 +163,7 @@ int call(int argc, char ** argv)
     fwrite (rdata, rlen, 1, OF);
     /* implisitt close on exit */
   } else {
-    mwlog(MWLOG_INFO,
-	  "Call to \"%s\" succeded, returned no data with application return code %d",  
+    Info(	  "Call to \"%s\" succeded, returned no data with application return code %d",  
 	    argv[0], data, len, apprc);
   };
 
@@ -206,7 +192,7 @@ void usage(int rc)
   
 int main(int argc, char ** argv)
 {
-  int option, rc, i;
+  int option, rc;
   int loglevel = MWLOG_DEBUG;
   extern char *optarg;
   extern int optind, opterr, optopt;
@@ -228,7 +214,7 @@ int main(int argc, char ** argv)
       else if (strcmp(optarg, "debug4")  == 0) loglevel=MWLOG_DEBUG4;
       else usage(-1);
       mwsetloglevel(loglevel);
-      mwlog (MWLOG_DEBUG, "mwcall loglevel set to %s", optarg);
+      DEBUG("mwcall loglevel set to %s", optarg);
       break;
     case 'R':
       noreply = 1;
@@ -260,20 +246,20 @@ int main(int argc, char ** argv)
       usage(-1);
     }
   }
-  mwlog (MWLOG_DEBUG, "mwcall client starting");
+  DEBUG("mwcall client starting");
 
   if (optind >= argc) usage (-2);
 
   rc = mwattach(url, "mwcall", NULL, NULL, 0 );
   if (rc != 0) {
-    mwlog(MWLOG_ERROR, "mwattach on url %s returned %d", url, rc);
+    Error("mwattach on url %s returned %d", url, rc);
     exit(rc);
   };
 
   rc = call(argc - optind, argv+optind) ;
 
-  mwlog(MWLOG_DEBUG, "call returned %d", rc);   
-  mwlog(MWLOG_DEBUG, "detaching");  
+  DEBUG("call returned %d", rc);   
+  DEBUG("detaching");  
 
   mwdetach();
   exit(rc);

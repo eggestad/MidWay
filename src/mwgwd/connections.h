@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.3  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.2  2001/10/05 14:34:19  eggestad
  * fixes or RH6.2
  *
@@ -31,67 +34,40 @@
  */
 
 
-#include <sys/socket.h>
-/* ip */
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <netdb.h>
-/* unix */
-#include <sys/un.h>
-
 #include <MidWay.h>
 
-/* information on every connection. Most importantly it keeps
-   the message buffer, and if this is a client or gateway,
-*/
-typedef struct {
-  int fd;
-  int connectionid;
-  CLIENTID  client;
-  GATEWAYID gateway;
-  int    role;
-  int    listen;
-  int    broker;
-  char * messagebuffer;
-  int    leftover;  
-  int    protocol;
-  union  {
-    struct sockaddr_in  ip4;
-    struct sockaddr_in6 ip6;
-    struct sockaddr_un un;
-  } addr;
-  int    mtu;
-  time_t connected;
-  time_t lasttx;
-  time_t lastrx;
-  int 	 rejects;
-  int    reverse;
-} Connection;
+#include <connection.h>
 
-/* type parm to conn_add, all possible types of sockets (peers) */
-#define CONN_BROKER 20 
-#define CONN_LISTEN 10
-#define CONN_CLIENT 0
-#define CONN_GATWEAY 1
-
-/* causes from dp_select() */
+/* causes from do_select() */
 #define COND_READ  1
-#define COND_ERROR 3
+#define COND_WRITE 2
+#define COND_ERROR 4
 
 void conn_init(void);
 
 void conn_setinfo(int fd, int * id, int * role, int * rejects, int * reverse);
-int conn_getinfo(int fd, int * id, int * role, int * rejects, int * reverse);
-char * conn_getclientpeername (CLIENTID cid);
-char * conn_getpeername (int fd);
+int  conn_getinfo(int fd, int * id, int * role, int * rejects, int * reverse);
+void conn_getclientpeername (CLIENTID cid, char * buff, int bufflen);
+void conn_getpeername (Connection * conn, char * buff, int bufflen);
 
 Connection * conn_add(int fd, int role, int type);
 void conn_del(int fd);
+void conn_set(Connection * conn, int role, int type);
 
 Connection * conn_getentry(int fd);
 Connection * conn_getfirstclient(void);
 Connection * conn_getfirstlisten(void);
+Connection * conn_getfirstgateway(void);
 Connection * conn_getbroker(void);
+Connection * conn_getmcast(void);
+Connection * conn_getgateway(GATEWAYID gwid);
 
-int do_select(int * cause, int timeout);
+int conn_read(Connection * conn);
+int conn_write(Connection * conn, char * buffer, int len);
 
+int conn_select(int * cause, time_t timeout);
+
+char * conn_print(void);
+
+void unpoll_write(int fd);
+void poll_write(int fd);

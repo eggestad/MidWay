@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.3  2000/08/31 19:49:16  eggestad
  * - added domain to the address struct
  * - corrected som defs for protocol types.
@@ -41,6 +44,8 @@
  *
  */
 
+#ifndef _ADDRESS_H
+
 #include <netinet/in.h>
 
 /* protocol types */
@@ -58,13 +63,9 @@ typedef struct {
   struct sockaddr_in6 * ipaddress_v6;  
 } mwaddress_t;
 
-/*
-#ifdef _ADDRESS_H
-mwaddress_t _mwaddress = {0, -1, NULL, NULL, NULL, NULL};
-#else 
-extern mwaddress_t _mwaddress;
-#endif
-*/
 mwaddress_t * _mwdecode_url(char * url);
+const char * _mw_sprintsa(struct sockaddr * sa, char * buffer);
+
+#endif
 
 

@@ -25,8 +25,11 @@
 #include <netinet/in.h>
 #include <MidWay.h>
 
-#define MWLOCAL    0
-#define MWREMOTE   1
+// loctaion
+#define GWLOCAL    0
+#define GWPEER     1
+#define GWREMOTE   2
+#define GWCLIENT   3
 
 #define MWAUTHNONE   0
 #define MWAUTHUNIX   1
@@ -63,9 +66,12 @@ struct cliententry
 
   char clientname[MWMAXNAMELEN];
   char username[MWMAXNAMELEN];
-
-  struct sockaddr_in  addr_ip4;
-  struct sockaddr_in6 addr_ip6;
+  
+  union {
+    struct sockaddr_in  ip4;
+    struct sockaddr_in6 ip6;
+    struct sockaddr sa;
+  } addr;
 
   int authtype; /* MWAUTHNONE, MWAUTHPASSWD */;
   long authref;
@@ -116,8 +122,7 @@ struct serviceentry
   SERVERID server;
   GATEWAYID gateway;
   char mwname[MWMAXNAMELEN];
-  int hops;
-  int distance;
+  int cost;
   /* the address for the functions does not really belong here But it
      spares us having a separate table in private memory of the
      server. Of counse it is only valid for location = LOCAL;*/
@@ -147,10 +152,14 @@ struct gatewayentry
 
   int imported_svc;
   int exported_svc;
-  struct sockaddr_in  addr_ip4;
-  struct sockaddr_in6 addr_ip6;
 
+  union {
+    struct sockaddr_in  ip4;
+    struct sockaddr_in6 ip6;
+    struct sockaddr sa;
+  } addr;
 };
+
 typedef struct gatewayentry gatewayentry;
 
 struct conv_entry
@@ -176,6 +185,7 @@ struct ipcmaininfo
   pid_t mwdpid, mwwdpid;
   int mwd_mqid;
   char mw_instance_name[MWMAXNAMELEN];
+  char mw_instance_id[MWMAXNAMELEN];
   char mw_homedir[256];
 
   int status; /* BOOTING, RUNNING, SHUTDOWN*/

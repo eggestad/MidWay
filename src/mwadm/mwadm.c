@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.5  2001/10/03 22:56:12  eggestad
  * added multicast query
  * added view of gateway table
@@ -180,7 +183,7 @@ char ** command_completion(char * text, int start, int end)
   return matches;
 };
 
-void init_readline()
+void init_readline(void)
 {
   /*  rl_completion_entry_function = command_completion;*/
   rl_attempted_completion_function = command_completion;
@@ -329,22 +332,35 @@ int parse_commandline(char *arglist)
   return exec_command(argc, argv);
 };
 
-  
-main(int argc, char ** argv)
+static void _usage(char * prog)
+{
+   fprintf (stderr, "usage: %s [-l loglevel] [-R] [-A URL] [command [args ..]]\n", prog);
+   exit(-1);
+};
+
+int main(int argc, char ** argv)
 {
   char * thiscommand, * lastcommand = NULL, * token;
   int option, rc, i;
-
+  int loglevel;
   extern char *optarg;
   extern int optind, opterr, optopt;
 
-  while ((option = getopt(argc, argv, "dRA:")) != EOF) {
+  while ((option = getopt(argc, argv, "l:RA:")) != EOF) {
     
     switch (option) {
       
-    case 'd':
-      mwsetloglevel(MWLOG_DEBUG);
-      mwlog (MWLOG_DEBUG, "mwadm client starting");
+    case 'l':
+     if      (strcmp(optarg, "error")   == 0) loglevel=MWLOG_ERROR;
+      else if (strcmp(optarg, "warning") == 0) loglevel=MWLOG_WARNING;
+      else if (strcmp(optarg, "info")    == 0) loglevel=MWLOG_INFO;
+      else if (strcmp(optarg, "debug")   == 0) loglevel=MWLOG_DEBUG;
+      else if (strcmp(optarg, "debug1")  == 0) loglevel=MWLOG_DEBUG1;
+      else if (strcmp(optarg, "debug2")  == 0) loglevel=MWLOG_DEBUG2;
+      else if (strcmp(optarg, "debug3")  == 0) loglevel=MWLOG_DEBUG3;
+      else if (strcmp(optarg, "debug4")  == 0) loglevel=MWLOG_DEBUG4;
+      else _usage(argv[0]);
+
       break;
 
     case 'R':
@@ -356,8 +372,7 @@ main(int argc, char ** argv)
       break;
 
     case '?':
-      fprintf (stderr, "usage: %s [-d] [-R] [-A URL] [command [args ..]]\n", argv[0]);
-      exit(-1);
+      _usage(argv[0]);
     }
   }
 
@@ -365,7 +380,9 @@ main(int argc, char ** argv)
   signal(SIGTERM, sig_handler);
   signal(SIGINT, sig_handler);
 
-  mwsetlogprefix("./mwlog");
+  mwopenlog(argv[0], "mwlog", loglevel);
+  DEBUG("mwadm client starting");
+
   attach(0, NULL);
   
   printf ("optind = %d argc = %d\n", optind, argc);

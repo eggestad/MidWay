@@ -19,6 +19,14 @@ dnl  Boston, MA 02111-1307, USA.
 dnl
 dnl $Id$
 
+
+dnl ****************************** TODO ******************************
+dnl
+dnl need to figure out libxml version and location of inlclude
+dnl
+dnl ******************************      ******************************
+
+
 dnl version information
 AC_REVISION($Name$)
 MAJOR_VERSION="0"
@@ -75,7 +83,7 @@ AC_TYPE_SIGNAL
 AC_PROG_GCC_TRADITIONAL
 AC_FUNC_STRFTIME
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS(getcwd gettimeofday mkdir regcomp select socket strdup strerror strstr)
+AC_CHECK_FUNCS(getcwd gettimeofday mkdir regcomp select poll socket strdup strerror strstr)
 
 dnl check for libs
 
@@ -121,4 +129,5 @@ AC_OUTPUT(html-doc/mans/Makefile html-doc/Makefile src/Makefile
 	src/mwserver/Makefile src/test/Makefile Makefile
 	man/Makefile man/man1/Makefile man/man3/Makefile 
 	man/man7/Makefile man/man8/Makefile 
+	src/include/version.h
 	scripts/MidWay.spec scripts/midway.rc)

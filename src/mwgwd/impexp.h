@@ -1,6 +1,6 @@
 /*
   The MidWay API
-  Copyright (C) 2000 Terje Eggestad
+  Copyright (C) 2002 Terje Eggestad
 
   The MidWay API is free software; you can redistribute it and/or
   modify it under the terms of the GNU Library General Public License as
@@ -13,7 +13,7 @@
   Library General Public License for more details.
   
   You should have received a copy of the GNU Library General Public
-  License along with the MidWay distribution; see the file COPYING. If not,
+  License along with the MidWay distribution; see the file COPYING.  If not,
   write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
   Boston, MA 02111-1307, USA. 
 */
@@ -23,26 +23,42 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.2  2002/07/07 22:45:48  eggestad
+ * Revision 1.1  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
  *
  */
 
-#ifndef _VERSION_H
-#define _VERSION_H
+struct _peerlink {
+  struct gwpeerinfo * peer;
+  struct _peerlink * next;
+};
 
-#define MW_PREFIX "@prefix@"
+typedef struct _peerlink peerlink;
 
-#endif
+struct _Import {
+  char servicename[MWMAXSVCNAME];
+  SERVICEID svcid;
+  int cost;
+  peerlink * peerlist;
+  struct _Import * next;
+};
 
-const char * mwversion(void);
- 
-int _mwgetversion(int * vmaj, int * vmin, int * ptcl);
+typedef struct _Import Import;
 
-const char * _mwgetmagic(void);
+struct _Export {
+  char servicename[MWMAXSVCNAME];
+  peerlink * peerlist;
+  int cost;
+  struct _Export * next;
+};
+
+typedef struct _Export Export;
 
 
 
-
-
+int importservice(char *, int, struct gwpeerinfo *);
+int unimportservice(char *, char *);
+int exportservicetopeer(char *, struct gwpeerinfo * );
+//int exportservice(char *);
+int unexportservice(char *);

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.5  2002/02/17 14:52:32  eggestad
  * - added missing includes
  * - added do_call() that handle all SVCCALL/FORWARD, we can't use the normal _mwGetServiceRequest
@@ -75,8 +78,7 @@ static int send_reply(void * data, int len, int mqid)
 {
   int rc;
   if (data != mesgbuffer) {
-    mwlog(MWLOG_ERROR, 
-	  "Internal error, returning message not at beginning at buffer");
+    Error(	  "Internal error, returning message not at beginning at buffer");
     return -ENOSYS;
   };
   /* we do not block mwd because som buggey server/client code,
@@ -84,8 +86,7 @@ static int send_reply(void * data, int len, int mqid)
      */
   rc = msgsnd(mqid, data, len, IPC_NOWAIT); 
   if (rc == -1) {
-    mwlog(MWLOG_WARNING, 
-	  "ipc msgsnd on mqid %d returned %d, errno=%d", mqid, rc, errno);
+    Warning(	  "ipc msgsnd on mqid %d returned %d, errno=%d", mqid, rc, errno);
   };
   
   return 0;
@@ -101,8 +102,7 @@ static int do_attach(void * mp)
 
   /* what the hell did we need the flag for?? */
 
-  mwlog(MWLOG_DEBUG,
-	"Got an attach message from pid=%d, on qid=%d client=%s server=%s gatewayid=%d",
+  DEBUG(	"Got an attach message from pid=%d, on qid=%d client=%s server=%s gatewayid=%d",
 	areq->pid, areq->ipcqid, 
 	areq->client?"TRUE":"FALSE", 
 	areq->server?"TRUE":"FALSE", 
@@ -112,7 +112,7 @@ static int do_attach(void * mp)
   areq->srvid = UNASSIGNED;
   areq->cltid = UNASSIGNED;
   
-  /* ipcmain == MWDEAD really is impossible, advise and exit */
+  /* ipcmain->status == MWDEAD really is impossible, advise and exit */
   if (ipcmain->status == MWDEAD) {
     areq->returncode = -ESHUTDOWN;
     send_reply(areq, sizeof(Attach) -sizeof(long),areq->ipcqid);
@@ -138,18 +138,17 @@ static int do_attach(void * mp)
   /* Request is now deemed OK */
   if (areq->server) {
     areq->srvid = addserver(areq->srvname,areq->ipcqid, areq->pid);
-    mwlog(MWLOG_DEBUG,"pid=%d, on queue id=%d attached as server %#x",
+    DEBUG("pid=%d, on queue id=%d attached as server %#x",
 	  areq->pid, areq->ipcqid, areq->srvid);
 
     if (areq->srvid < 0) {
       areq->returncode = areq->srvid;
       areq->srvid = UNASSIGNED;
-      mwlog(MWLOG_WARNING,
-	    "Failed to register server pid=%d, on queue id=%d reason=%d",
+      Warning(	    "Failed to register server pid=%d, on queue id=%d reason=%d",
 	    areq->pid, areq->ipcqid, areq->returncode);
       return send_reply(areq, sizeof(Attach) -sizeof(long),areq->ipcqid);
     } 
-    mwlog(MWLOG_INFO,"SERVER ATTACHED: pid %d as server %#x",
+    Info("SERVER ATTACHED: pid %d as server %#x",
 	  areq->pid, areq->srvid);
   };
 
@@ -159,21 +158,20 @@ static int do_attach(void * mp)
       id = (int) areq->srvid;
     };
     areq->cltid = addclient(type, areq->cltname,areq->ipcqid, areq->pid, id);
-    mwlog(MWLOG_DEBUG,"pid=%d, on queue id=%d attached as client %#x, type=%d",
+    DEBUG("pid=%d, on queue id=%d attached as client %#x, type=%d",
 	  areq->pid, areq->ipcqid, areq->cltid, type);
     if (areq->cltid < 0) {
       areq->returncode = areq->cltid;
       areq->cltid = UNASSIGNED;
-      mwlog(MWLOG_WARNING,
-	    "Failed to register client pid=%d, on queue id=%d reason=%d",
+      Warning(	    "Failed to register client pid=%d, on queue id=%d reason=%d",
 	    areq->pid, areq->ipcqid, areq->returncode);
     }
   };
   if (type == MWIPCCLIENT) 
-    mwlog(MWLOG_INFO, "CLIENT ATTACHED: pid %d clientid %d",
+    Info("CLIENT ATTACHED: pid %d clientid %d",
 	  areq->pid, areq->cltid & MWINDEXMASK);
   else
-    mwlog(MWLOG_INFO, "CLIENT ATTACHED: on gateway %d clientid %d",
+    Info("CLIENT ATTACHED: on gateway %d clientid %d",
 	  areq->gwid & MWINDEXMASK, areq->cltid & MWINDEXMASK);
     
   return send_reply(areq, sizeof(Attach) -sizeof(long),areq->ipcqid);
@@ -187,12 +185,12 @@ static int do_detach(void * mp)
 
   dm = mp;
   if (dm->mtype != DETACHREQ) {
-    mwlog (MWLOG_ERROR, "Expected a detach request but got 0x%x", dm->mtype);
+    Error("Expected a detach request but got 0x%x", dm->mtype);
     return -EUCLEAN;
   };
 
 
-  mwlog (MWLOG_DEBUG, "got a detach request from pid=%d on mqid %d, force=%s", 
+  DEBUG("got a detach request from pid=%d on mqid %d, force=%s", 
 	 dm->pid, dm->ipcqid, (dm->flags & MWFORCE)?"Yes":"No");
   dm->mtype = DETACHRPL;
 
@@ -205,11 +203,10 @@ static int do_detach(void * mp)
     rc = delserver(dm->srvid);
     
     if (rc == 0) {
-      mwlog (MWLOG_INFO, "DETACHED SERVER pid %d serverid %#x", 
+      Info("DETACHED SERVER pid %d serverid %#x", 
 	     dm->pid, dm->srvid);
     } else {
-      mwlog (MWLOG_WARNING, 
-	     "FAILED TO DETACHED SERVER pid %d  serverid %#x, rc=%d", 
+      Warning(	     "FAILED TO DETACHED SERVER pid %d  serverid %#x, rc=%d", 
 	     dm->pid, dm->srvid, rc);
     }
     /* remove all service entries belonging to this server */
@@ -224,10 +221,10 @@ static int do_detach(void * mp)
   if (dm->client) {
     rc = delclient(dm->cltid);
     if (rc == 0) {
-      mwlog (MWLOG_INFO, "CLIENT DETACHED pid %d clientid %d", 
+      Info("CLIENT DETACHED pid %d clientid %d", 
 	     dm->pid, dm->cltid&MWINDEXMASK);
     } else {
-      mwlog (MWLOG_WARNING, "FAILED TO DETACHED CLIENT pid=%d clientid %d, rc=%d", 
+      Warning("FAILED TO DETACHED CLIENT pid=%d clientid %d, rc=%d", 
 	     dm->pid, dm->cltid&MWINDEXMASK, rc);
     }
   };
@@ -243,19 +240,25 @@ static int do_detach(void * mp)
   
 static int do_provide(void * mp)
 {
-  int type;
+  int type, rmqid;
   Provide * pmesg;
-  serverentry * se;
+  serverentry * se = NULL;
+  gatewayentry * ge = NULL;
 
   pmesg = (Provide * ) mp;
-  mwlog(MWLOG_DEBUG, 
-	"Got an provide request from server %#x for service \"%s\"", 
+  DEBUG("Got an provide request from server %#x for service \"%s\"", 
 	pmesg->srvid, pmesg->svcname);
 
   pmesg->mtype = PROVIDERPL;
 
   /* Gateways don't used this message, but goes directly to the table
-   * since they are a mwd child.
+   * since they are a mwd child. */
+
+  if (ipcmain->status == MWSHUTDOWN) {
+    pmesg->returncode = -ESHUTDOWN;
+    return send_reply(pmesg,  sizeof(Provide) -sizeof(long), se->mqid);
+  };
+  pmesg->returncode = 0;
 
   /* We should do duplicate test here and 
      we should do uniqueness tests here */
@@ -265,38 +268,57 @@ static int do_provide(void * mp)
   else
     type = MWCALLSVC;
 
-  se = _mw_get_server_byid(pmesg->srvid);
-  if (se == NULL) {
-    pmesg->returncode = -ENOENT;
+  DEBUG("srvid = %d gwid = %d", pmesg->srvid, pmesg->gwid);
+  if (pmesg->srvid != -1) {
+    DEBUG("1 srvid = %d gwid = %d", pmesg->srvid, pmesg->gwid);
+    se = _mw_get_server_byid(pmesg->srvid);
+    if (se == NULL) {
+      pmesg->returncode = -ENOENT;
+      pmesg->svcid = UNASSIGNED;
+      Warning("Rejected a provide of service \"%s\" from server %#x which is not attached, "
+	      "no where to send reply!", pmesg->svcname, pmesg->srvid);
+      return -ENOENT;
+    } 
+    rmqid = se->mqid;
+    /* now we've decided that the request is OK, creating entries. */
+      pmesg->svcid = addlocalservice(pmesg->srvid,pmesg->svcname,type);
+    
+  } else if (pmesg->gwid != -1) {
+    DEBUG("2 srvid = %d gwid = %d", pmesg->srvid, pmesg->gwid);
+    ge = _mw_get_gateway_byid(pmesg->gwid);
+    if (ge == NULL) {
+      pmesg->returncode = -ENOENT;
+      pmesg->svcid = UNASSIGNED;
+      Warning("Rejected a provide of service \"%s\" from gateway %#x which is not attached, "
+	      "no where to send reply!", pmesg->svcname, pmesg->gwid);
+      return -ENOENT;
+    } 
+    rmqid = ge->mqid;
+    /* now we've decided that the request is OK, creating entries. */
+    pmesg->svcid = addremoteservice(pmesg->gwid,pmesg->svcname,type);
+  } else {
+    Warning("Got a provide with both srvid and gwid == -1, rejecting");
+    pmesg->returncode = -EINVAL;
     pmesg->svcid = UNASSIGNED;
-    mwlog(MWLOG_WARNING, "Rejected a provide of service \"%s\" from server %#x which is not attached, no where to send reply!", pmesg->svcname, pmesg->srvid);
-    return -ENOENT;
-  } 
-
-  if (ipcmain->status == MWSHUTDOWN) {
-    pmesg->returncode = -ESHUTDOWN;
-    return send_reply(pmesg,  sizeof(Provide) -sizeof(long), se->mqid);
+    goto errout;
   };
-  pmesg->returncode = 0;
 
-  /* now we've decided that the request is OK, creating entries. */
-  pmesg->svcid = addlocalservice(pmesg->srvid,pmesg->svcname,type);
   if (pmesg->svcid < 0) {
-    mwlog(MWLOG_WARNING, "Rejected a provide of service \"%s\" from server %#x reason %d", pmesg->svcname, pmesg->srvid, pmesg->svcid);
+    Warning("Rejected a provide of service \"%s\" from server %#x reason %d", pmesg->svcname, pmesg->srvid, pmesg->svcid);
     pmesg->returncode = pmesg->svcid;
     pmesg->svcid = UNASSIGNED;
   } else {
-    mwlog(MWLOG_INFO, "PROVIDE: Server %#x provided service \"%s\"",  
-	  pmesg->srvid, pmesg->svcname);
+    Info("PROVIDE: Server %#x gateway %#x provided service \"%s\"",  
+	  pmesg->srvid,  pmesg->gwid, pmesg->svcname);
   };
   
-  mwlog(MWLOG_DEBUG, 
-	"Replying to provide request from server %#x on mqid %d: service \"%s\" got id %#x rcode = %d", 
-	pmesg->srvid, se->mqid, 
+ errout:
+  DEBUG(	"Replying to provide request from server %#x gateway %#x on mqid %d: service \"%s\" got id %#x rcode = %d", 
+	pmesg->srvid, pmesg->gwid, rmqid, 
 	pmesg->svcname, pmesg->svcid, 
 	pmesg->returncode );
   
-  return send_reply(pmesg,  sizeof(Provide) -sizeof(long), se->mqid);
+  return send_reply(pmesg,  sizeof(Provide) -sizeof(long), rmqid);
 };
 
 static int do_unprovide(void * mp)
@@ -306,23 +328,22 @@ static int do_unprovide(void * mp)
   serverentry * se;
 
   pmesg = (Provide * ) mp;
-  mwlog(MWLOG_DEBUG, 
-	"Got an unprovide request from server %#x for service \"%s\" (%#x)", 
+  DEBUG("Got an unprovide request from server %#x for service \"%s\" (%#x)", 
 	pmesg->srvid, pmesg->svcname, pmesg->svcid);
   se = _mw_get_server_byid(pmesg->srvid);
 
   if (se == NULL) {
     pmesg->returncode = -ENOENT;
-    mwlog(MWLOG_WARNING, "Got an unprovide request for \"%s\" from a none attached server %#x",pmesg->svcname, pmesg->srvid);
+    Warning("Got an unprovide request for \"%s\" from a none attached server %#x",pmesg->svcname, pmesg->srvid);
   } else {
     pmesg->returncode = delservice(pmesg->svcid, pmesg->srvid);
     if (pmesg->returncode == 0) {
-      mwlog(MWLOG_INFO, "UNPROVIDE: Service \"%s\" on server %d", pmesg->svcname, pmesg->srvid);
+      Info("UNPROVIDE: Service \"%s\" on server %d", pmesg->svcname, pmesg->srvid);
     } else {
-      mwlog(MWLOG_WARNING, "Failed to unprovide service \"%s\" from server %#x reason ",pmesg->svcname, pmesg->srvid, pmesg->returncode);
+      Warning("Failed to unprovide service \"%s\" from server %#x reason ",pmesg->svcname, pmesg->srvid, pmesg->returncode);
     }
   }
-  mwlog(MWLOG_DEBUG, "Replying to unprovide request for \"%s\" rcode = %d", 
+  DEBUG("Replying to unprovide request for \"%s\" rcode = %d", 
 	pmesg->svcname,pmesg->returncode );
   pmesg->mtype = UNPROVIDERPL;
   return send_reply(pmesg,  sizeof(Provide) -sizeof(long), se->mqid);
@@ -340,17 +361,16 @@ static int do_admin(void * mp)
   switch(admmsg->opcode) {
   case ADMSHUTDOWN:
     ipcmain->shutdowntime = time(NULL) + admmsg->delay;
-    mwlog(MWLOG_INFO, "Received a shutdown request from client %d, shutdown in %d seconds", admmsg->cltid & MWINDEXMASK, admmsg->delay);
+    Info("Received a shutdown request from client %d, shutdown in %d seconds", admmsg->cltid & MWINDEXMASK, admmsg->delay);
 
     rc = kill(ipcmain->mwwdpid, SIGALRM);
     if (rc != 0) {
-      mwlog(MWLOG_WARNING, "Failed to send the watchdog a SIGALRM, reason: %s", strerror(errno));
+      Warning("Failed to send the watchdog a SIGALRM, reason: %s", strerror(errno));
     };
 
     return 0;
   }
-  mwlog(MWLOG_WARNING, 
-	"Got an unknown request code %d on an administrative request from client %d" , 
+  Warning(	"Got an unknown request code %d on an administrative request from client %d" , 
 	admmsg->opcode, admmsg->cltid & MWINDEXMASK);
   return -EBADRQC;
 };
@@ -368,11 +388,11 @@ static int do_call(void * mp)
   callmsg = mp;
   _mw_server_set_callbuffer(callmsg);
 
-  mwlog(MWLOG_DEBUG, "do_call starts");
+  DEBUG("do_call starts");
 
   rc = _mw_set_deadline(callmsg, &svcinfo);
   if (rc < 0) {
-    mwlog (MWLOG_WARNING, "Got a service request that had already expired by "
+    Warning("Got a service request that had already expired by "
 	   "%d milliseconds, replying ETIME", 
 	   -rc);
     _mw_ipc_putmessage(callmsg->cltid, (char *) callmsg, sizeof(Call), 0);
@@ -397,7 +417,7 @@ static int do_call(void * mp)
   if (!(callmsg->flags & MWNOREPLY) )
     _mw_requestpending = 1;
 
-  mwlog(MWLOG_DEBUG, "calling mwCallCServiceFunction");
+  DEBUG("calling mwCallCServiceFunction");
   return _mwCallCServiceFunction(&svcinfo);
 
 };
@@ -430,7 +450,7 @@ int parse_request(void)
       return -errno;
     }
     
-    mwlog(MWLOG_ERROR, "msgrcv() returned no message, reason=%d", errno);
+    Error("msgrcv() returned no message, reason=%d", errno);
     if (errno == E2BIG) {
       hex[0] = '\0';
       rc = msgrcv(mymqid(), (void *) mesgbuffer, MWMSGMAX, 0,MSG_NOERROR); 
@@ -439,7 +459,7 @@ int parse_request(void)
 	sprintf(shex,"%2.2x ", (unsigned char) mesgbuffer[i]);
 	strcat(hex, shex);
       };
-      mwlog(MWLOG_ERROR, "Got a too big message, first %d octets are: %s", rc, hex);
+      Error("Got a too big message, first %d octets are: %s", rc, hex);
     };
     /* posible the message queue has been deleted. We call init_ipcmain 
        to recreate it.*/

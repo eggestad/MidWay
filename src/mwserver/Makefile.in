@@ -30,7 +30,7 @@ uninstall:
 test: 
 	./mwserver -s test1:servicehandler1 -s servicehandler1 -s sleep1 testservices.so
 
-tags:
+TAGS:
 	etags -a -o ../TAGS *.c *.h
 
 depend:

@@ -19,11 +19,11 @@
 */
 
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 /*
  * $Log$
+ * Revision 1.7  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.6  2001/10/03 22:34:18  eggestad
  * - plugged mem leaks, no detected mem leak in mwgwd now
  * - switched to using _mw_srb_*field() instead of direct use of urlmap*()
@@ -78,14 +78,18 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include "connections.h"
 #include "store.h"
 
+extern globaldata globals;
+
+static char * RCSId UNUSED = "$Id$";
+
 
 /*static int srbrole = SRBNOTCONNECTED;*/
 
-static void srbhello(int, SRBmessage * );
-static void srbterm(int, SRBmessage * );
-static void srbinit(int, SRBmessage * );
-static void srbsvccall(int, SRBmessage * );
-static void srbsvcdata(int, SRBmessage * );
+static void srbhello(Connection *, SRBmessage * );
+static void srbterm(Connection *, SRBmessage * );
+static void srbinit(Connection *, SRBmessage * );
+static void srbcall(Connection *, SRBmessage * );
+static void srbsvcdata(Connection *, SRBmessage * );
 
 /* is it even used anymore ??? */
 char * srbmessageencode(SRBmessage * srbmsg)
@@ -99,24 +103,24 @@ char * srbmessageencode(SRBmessage * srbmsg)
 };
 
 /* help functions to retrive fields in messages. */
-static char * szGetReqField(int fd, SRBmessage * srbmsg, char * fieldname)
+static char * szGetReqField(Connection * conn, SRBmessage * srbmsg, char * fieldname)
 {
   int idx;
   idx = urlmapget(srbmsg->map, fieldname);
-  mwlog(MWLOG_DEBUG2, "szGetReqField: index of %s is %d, errno=%d", 
+  DEBUG2("szGetReqField: index of %s is %d, errno=%d", 
 	fieldname, idx, errno);
   if (idx != -1) {
     return srbmsg->map[idx].value;
   } 
-  _mw_srbsendreject(fd, srbmsg, fieldname, NULL, SRB_PROTO_FIELDMISSING);
+  _mw_srbsendreject(conn, srbmsg, fieldname, NULL, SRB_PROTO_FIELDMISSING);
   return NULL;
 }
 
-static char * szGetOptField(int fd, SRBmessage * srbmsg, char * fieldname)
+static char * szGetOptField(Connection * conn, SRBmessage * srbmsg, char * fieldname)
 {
   int idx;
   idx = urlmapget(srbmsg->map, fieldname);
-  mwlog(MWLOG_DEBUG2, "szGetOptField: index of %s is %d errno=%d", 
+  DEBUG2("szGetOptField: index of %s is %d errno=%d", 
 	fieldname, idx, errno);
   if (idx != -1) {
     return srbmsg->map[idx].value;
@@ -124,7 +128,7 @@ static char * szGetOptField(int fd, SRBmessage * srbmsg, char * fieldname)
   return NULL;
 }
 
-static int iGetOptBinField(int fd, SRBmessage * srbmsg, 
+static int iGetOptBinField(Connection * conn, SRBmessage * srbmsg, 
 			   char * fieldname, char ** value, int * valuelen)
 {
   int idx;
@@ -139,7 +143,7 @@ static int iGetOptBinField(int fd, SRBmessage * srbmsg,
   return 0;
 }
 
-static int iGetReqField(int fd, SRBmessage * srbmsg, 
+static int iGetReqField(Connection * conn, SRBmessage * srbmsg, 
 			char * fieldname, int *  value)
 {
   int idx, rc;
@@ -147,18 +151,18 @@ static int iGetReqField(int fd, SRBmessage * srbmsg,
   if (idx != -1) {
     rc = sscanf (srbmsg->map[idx].value, "%d", value);
     if (rc != 1) {
-      _mw_srbsendreject(fd, srbmsg, srbmsg->map[idx].key, srbmsg->map[idx].value, 
+      _mw_srbsendreject(conn, srbmsg, srbmsg->map[idx].key, srbmsg->map[idx].value, 
 			SRB_PROTO_ILLEGALVALUE);
       return 0;
     };
     return 1;
     
   }
-  _mw_srbsendreject(fd, srbmsg, fieldname, NULL, SRB_PROTO_FIELDMISSING);
+  _mw_srbsendreject(conn, srbmsg, fieldname, NULL, SRB_PROTO_FIELDMISSING);
   return 0;
 };
 
-static int iGetOptField(int fd, SRBmessage * srbmsg,
+static int iGetOptField(Connection * conn, SRBmessage * srbmsg,
 			char * fieldname, int *  value)
 {
   int idx, rc;
@@ -166,7 +170,7 @@ static int iGetOptField(int fd, SRBmessage * srbmsg,
   if (idx != -1) {
     rc = sscanf (srbmsg->map[idx].value, "%d", value);
     if (rc != 1) {
-      _mw_srbsendreject(fd, srbmsg, 
+      _mw_srbsendreject(conn, srbmsg, 
 			srbmsg->map[idx].key, srbmsg->map[idx].value, 
 			SRB_PROTO_ILLEGALVALUE);
       return 0;
@@ -180,15 +184,14 @@ static int iGetOptField(int fd, SRBmessage * srbmsg,
  * Callbacks for receiving messages
  **********************************************************************/
 
-static void srbhello(int fd, SRBmessage * srbmsg)
+static void srbhello(Connection * conn, SRBmessage * srbmsg)
 {
-  int len, idx = 0;
   struct timeval now;
   char buffer[50];
 
   gettimeofday(&now, NULL);
    
-  printf("Got a hello message\n");
+  DEBUG("Got a hello message");
   switch (srbmsg->marker) {
     
   case SRB_REQUESTMARKER:
@@ -196,7 +199,7 @@ static void srbhello(int fd, SRBmessage * srbmsg)
     _mw_srb_setfield(srbmsg, SRB_REMOTETIME, buffer);
 
     srbmsg->marker = SRB_RESPONSEMARKER;
-    _mw_srbsendmessage(fd, srbmsg);
+    _mw_srbsendmessage(conn, srbmsg);
     break;
 
   case SRB_RESPONSEMARKER:
@@ -204,56 +207,157 @@ static void srbhello(int fd, SRBmessage * srbmsg)
 
   case SRB_NOTIFICATIONMARKER:  
   default:
-    _mw_srbsendreject(fd, srbmsg, NULL, NULL, SRB_PROTO_NOTREQUEST);
+    _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_NOTREQUEST);
   }
   return;
 };
 
-static void srbreject(int fd, SRBmessage * srbmsg)
+static void srbreject(Connection * conn, SRBmessage * srbmsg)
 {
-
-  mwlog(MWLOG_ERROR, "Got a reject message from %s \"%s\"", 
-	conn_getpeername(fd), srbmessageencode(srbmsg));
+  char buff[128];
+  conn_getpeername(conn, buff, 128);
+  Error("Got a reject message from %s \"%s\"", 
+	buff, srbmessageencode(srbmsg));
   return;
 };
 
-static void srbterm(int fd, SRBmessage * srbmsg)
+static void srbready(Connection * conn, SRBmessage * srbmsg)
 {
-  int idxGrace, i = 0;
-  int grace = -1;
-  int rc, idx;
-  char * tmp;
-  int id;
+  char buff[128];
+  char * domain;
+  char * instance;
+  int rc;
+  struct gwpeerinfo * peerinfo;
+  // if multicast reply, this must actually be a reply
+  if (conn->type & CONN_TYPE_MCAST) {
+    DEBUG("Got a ready message on the multicast socket");
+
+    if (srbmsg->marker != SRB_RESPONSEMARKER) return;
+    if (!(domain = szGetReqField(conn, srbmsg, SRB_DOMAIN))) return;
+    if (!(instance = szGetReqField(conn, srbmsg, SRB_INSTANCE))) return;
+
+    DEBUG("srb_ready with domain = %s insance = %s", domain, instance);
+
+    /* if the ready reply is not the reply from your own broker about us */
+    if (strcmp(globals.myinstance, instance) ==  0) {
+      DEBUG("srb_ready was about myself ignoring");
+      return;
+    };
+    
+    // here addknownpeer must succeed, unless sonmeone is
+    // deliberating thowing us junk
+    rc = gw_addknownpeer(instance, domain, &conn->peeraddr.sa, &peerinfo);
+    if (rc != 0)
+      Warning("gw_addknownpeer failed with mcastreply");
+    else 
+      gw_connectpeer(peerinfo);
+
+    return;
+  };
   
+  /* this the welcome from a just connected GW */
+  if (conn->type & CONN_TYPE_GATEWAY) {
+    int l;
+    if (srbmsg->marker != SRB_NOTIFICATIONMARKER) {
+      goto error;
+    };       
+    DEBUG("Got a srb_ready message from a gateway");    
+    l = sizeof( conn->peeraddr);
+    getpeername(conn->fd, &conn->peeraddr.sa, &l);
+    gw_setipc(conn->peerinfo);
+    _mw_srbsendgwinit(conn);
+    return;  
+  };
+
+ error:  
+  conn_getpeername(conn, buff, 128);
+  Error("Got an unintelligible ready message from %s \"%s\"", 
+	buff, srbmessageencode(srbmsg));
+  return;
+
+  
+};
+
+static void srbterm(Connection * conn, SRBmessage * srbmsg)
+{
+  int grace;
+  char buff[128];
+
   switch (srbmsg->marker) {
     
   case SRB_REQUESTMARKER:
-    iGetOptField(fd, srbmsg, SRB_GRACE, &grace);
+    iGetOptField(conn, srbmsg, SRB_GRACE, &grace);
 
-    mwlog(MWLOG_INFO, "Got a TERM request GRACE = %d from %s", 
-	  grace, conn_getpeername(fd));
-    _mw_srbsendterm(fd, -1);
+    conn_getpeername(conn, buff, 128);
+    Info("Got a TERM request GRACE = %d from %s", 
+	  grace, buff);
+    _mw_srbsendterm(conn, -1);
     break;
     
   case SRB_RESPONSEMARKER:
     
   case SRB_NOTIFICATIONMARKER:
-    mwlog(MWLOG_INFO, "Got a TERM notification from %s, closing", 
-	  conn_getpeername(fd));
+    conn_getpeername(conn, buff, 128);
+    Info("Got a TERM notification from %s, closing", 
+	  buff);
     
-    tcpcloseconnection(fd);
+    tcpcloseconnection(conn);
   };
 
 };
 
-static void srbcall(int fd, SRBmessage * srbmsg)
+static void srbprovide(Connection * conn, SRBmessage * srbmsg)
 {
-  int i = 0, fail = 0;
-  int rc, idx;
+  int cost, rc;
+  char * svcname;
+  char buff[128];
+
+  conn_getpeername(conn, buff, 128);
+
+  switch (srbmsg->marker) {
+    
+  case SRB_REQUESTMARKER:
+    Error("got a SRB PROVIDE request from %s rejecting", buff);
+    _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_NOTNOTIFICATION);
+    break;
+    
+  case SRB_RESPONSEMARKER:
+    Error("got a SRB PROVIDE reply from %s  but we never sent a request: rejecting", buff);
+    _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_UNEXPECTED);
+    break;
+    
+  case SRB_NOTIFICATIONMARKER:
+    DEBUG("Got a provide notification from %s", buff);
+    
+    if (!(iGetReqField(conn, srbmsg,  SRB_COST, &cost))) {
+      return;
+    };
+    
+    if (!(svcname =     szGetReqField(conn, srbmsg, SRB_SVCNAME))) {
+      return;
+    };
+
+    /* this is the only place the cost is increased */
+    cost += conn->cost;
+
+    DEBUG("importing service %s with cost %d", svcname, cost);
+    rc = importservice(svcname, cost, conn->peerinfo);
+    
+    if (rc == 0) Info ("imported service %s with cost %d", svcname, cost);
+    else Error("while importijng service  %s with cost %d, errno=%d", svcname, cost, errno);
+  };
+
+};
+
+static void srbcall(Connection * conn, SRBmessage * srbmsg)
+{
+  int rc;
   char * tmp;
   
   CLIENTID cltid = UNASSIGNED;
- 
+  
+  char buff[128];
+
   char * svcname;
   char * data = NULL;
   int datachunks = -1;
@@ -269,42 +373,42 @@ static void srbcall(int fd, SRBmessage * srbmsg)
   int hops = 0;
   int maxhops = 30;
   int sectolive = -1;
-  int returncode = 0;
-  int appreturncode = 0;
 
   /* I don't like having to hardcode the offset into the fields in the
      message like this, but is quite simple... */
-  conn_getinfo(fd, &cltid, NULL, NULL, NULL);
+  conn_getinfo(conn->fd, &cltid, NULL, NULL, NULL);
   if (cltid == UNASSIGNED) {
-    mwlog(MWLOG_WARNING, "Got a SVCCALL before SRB INIT cltid=%d", cltid&MWINDEXMASK);
-    _mw_srbsendcallreply(fd, srbmsg, NULL, 0, 0, SRB_PROTO_NOINIT, 0);
+    Warning("Got a SVCCALL before SRB INIT cltid=%d", cltid&MWINDEXMASK);
+    _mw_srbsendcallreply(conn, srbmsg, NULL, 0, 0, SRB_PROTO_NOINIT, 0);
     return;
   };
 
-  mwlog(MWLOG_DEBUG, "srbcall: beginning SVCCALL from cltid=%d", cltid&MWINDEXMASK);
+  DEBUG("srbcall: beginning SVCCALL from cltid=%d", cltid&MWINDEXMASK);
 
   /* first we get the field that are identical on requests as well as
      replies. */
-  if (!(svcname =     szGetReqField(fd, srbmsg, SRB_SVCNAME))) {
+  if (!(svcname =     szGetReqField(conn, srbmsg, SRB_SVCNAME))) {
     return;
   };
   if ( strlen(svcname) > MWMAXSVCNAME) {
-    _mw_srbsendreject(fd, srbmsg, SRB_SVCNAME, tmp, SRB_PROTO_ILLEGALVALUE);
+    _mw_srbsendreject(conn, srbmsg, SRB_SVCNAME, tmp, SRB_PROTO_ILLEGALVALUE);
     return;
   };
 
   
-  if (!(iGetReqField(fd, srbmsg,  SRB_HOPS, &hops))) {
+  if (!(iGetReqField(conn, srbmsg,  SRB_HOPS, &hops))) {
     return;
   };
 
 
-  iGetOptBinField(fd, srbmsg, SRB_DATA, &data, &datalen);
+  iGetOptBinField(conn, srbmsg, SRB_DATA, &data, &datalen);
   if (data == NULL) datalen = 0;
   
-  iGetOptField(fd, srbmsg, SRB_DATACHUNKS, &datachunks);
-  instance =    szGetOptField(fd, srbmsg, SRB_INSTANCE);
-  iGetOptField(fd, srbmsg,  SRB_SECTOLIVE, &sectolive);
+  iGetOptField(conn, srbmsg, SRB_DATACHUNKS, &datachunks);
+  instance =    szGetOptField(conn, srbmsg, SRB_INSTANCE);
+  iGetOptField(conn, srbmsg,  SRB_SECTOLIVE, &sectolive);
+
+  conn_getpeername(conn, buff, 128);
 
   switch (srbmsg->marker) {
     
@@ -313,40 +417,40 @@ static void srbcall(int fd, SRBmessage * srbmsg)
     
     if (srbmsg->marker == SRB_NOTIFICATIONMARKER) {
       /* noreply  */
-      mwlog(MWLOG_DEBUG, "Got a SVCCALL notification from %s, NOREPLY", 
-	    conn_getpeername(fd));
+      DEBUG("Got a SVCCALL notification from %s, NOREPLY", 
+	    buff);
       flags |= MWNOREPLY;
       noreply = 1;
     }
     
     if (srbmsg->marker == SRB_REQUESTMARKER) {
-      mwlog(MWLOG_DEBUG, "Got a SVCCALL service=%s from %s", 
-	    svcname, conn_getpeername(fd));
+      DEBUG("Got a SVCCALL service=%s from %s", 
+	    svcname, buff);
 
       /* handle is optional iff noreply */
-      if (!(tmp =         szGetReqField(fd, srbmsg, SRB_HANDLE))) {
+      if (!(tmp =         szGetReqField(conn, srbmsg, SRB_HANDLE))) {
 	return;
       };
       if ( (tmp == NULL) || (sscanf(tmp,"%x", &handle) != 1) ) {
-	_mw_srbsendreject(fd, srbmsg, SRB_HANDLE, tmp, SRB_PROTO_ILLEGALVALUE);
+	_mw_srbsendreject(conn, srbmsg, SRB_HANDLE, tmp, SRB_PROTO_ILLEGALVALUE);
 	return;
       };
     };
 
-    domain =      szGetOptField(fd, srbmsg, SRB_DOMAIN);
-    clientname =  szGetOptField(fd, srbmsg, SRB_CLIENTNAME);
+    domain =      szGetOptField(conn, srbmsg, SRB_DOMAIN);
+    clientname =  szGetOptField(conn, srbmsg, SRB_CLIENTNAME);
 
-    tmp =         szGetOptField(fd, srbmsg, SRB_MULTIPLE);
+    tmp =         szGetOptField(conn, srbmsg, SRB_MULTIPLE);
     if (tmp)
       if (strcasecmp(tmp, SRB_YES) == 0) multiple = 1;
       else if (strcasecmp(tmp, SRB_NO) == 0) multiple = 0;
       else {
-	_mw_srbsendreject(fd, srbmsg,
+	_mw_srbsendreject(conn, srbmsg,
 		      SRB_MULTIPLE, tmp, SRB_PROTO_ILLEGALVALUE);
 	break;
       };
 
-    iGetOptField(fd, srbmsg,  SRB_MAXHOPS, &maxhops);
+    iGetOptField(conn, srbmsg,  SRB_MAXHOPS, &maxhops);
 
     /* 
        This is the special case where we don't have any chunks.
@@ -354,7 +458,7 @@ static void srbcall(int fd, SRBmessage * srbmsg)
     */
     if ((datachunks == -1) ) {
 
-      mwlog(MWLOG_DEBUG, "SVCCALL was complete doing _mwacallipc");      
+      DEBUG("SVCCALL was complete doing _mwacallipc");      
       _mw_set_my_clientid(cltid);
 
       /* we must lock since it happens that the server replies before
@@ -366,145 +470,146 @@ static void srbcall(int fd, SRBmessage * srbmsg)
       _mw_set_my_clientid(UNASSIGNED);
       
       if (rc > 0) {
-	storePushCall(cltid, handle, fd, srbmsg->map);
+	storePushCall(cltid, handle, conn->fd, srbmsg->map);
 	srbmsg->map = NULL;
-	mwlog(MWLOG_DEBUG, "_mwacallipc succeeded");  
+	DEBUG("_mwacallipc succeeded");  
 	if ( ! noreply) {
-	  mwlog(MWLOG_DEBUG, 
+	  DEBUG(
 		"Storing call fd=%d nethandle=%u clientid=%d ipchandle=%d",
-		fd, handle, cltid&MWINDEXMASK, rc);
+		conn->fd, handle, cltid&MWINDEXMASK, rc);
 	  
-	  rc = storeSetIPCHandle(cltid, handle, fd, rc);
+	  rc = storeSetIPCHandle(cltid, handle, conn->fd, rc);
 	  storeUnLockCall();
 	  
-	  mwlog(MWLOG_DEBUG, "storeSetIPCHandle returned %d", rc);
+	  DEBUG("storeSetIPCHandle returned %d", rc);
 
-	  mwlog(MWLOG_DEBUG, "srbsvccall returns good");  
+	  DEBUG("srbsvccall returns good");  
 	  return ; /* NB PREVENT urlmapfree() */
 	};
       } else {
-	mwlog(MWLOG_DEBUG, "_mwacallipc failed with %d ", rc);   
-	_mw_srbsendcallreply(fd, srbmsg, NULL, 0, 0, _mw_errno2srbrc(rc), 0);
+	DEBUG("_mwacallipc failed with %d ", rc);   
+	_mw_srbsendcallreply(conn, srbmsg, NULL, 0, 0, _mw_errno2srbrc(rc), 0);
       };
       storeUnLockCall();
     };
     break;
     
   case SRB_RESPONSEMARKER:
-    if (!(tmp =         szGetOptField(fd, srbmsg, SRB_MORE))) break;
+    if (!(tmp =         szGetOptField(conn, srbmsg, SRB_MORE))) break;
     if (strcasecmp(tmp, SRB_YES) == 0) more = 1;
     else if (strcasecmp(tmp, SRB_NO) == 0) more = 0;
     else {
-      _mw_srbsendreject(fd, srbmsg, SRB_MORE, tmp, SRB_PROTO_ILLEGALVALUE);
+      _mw_srbsendreject(conn, srbmsg, SRB_MORE, tmp, SRB_PROTO_ILLEGALVALUE);
       break;
     };
 
-    mwlog(MWLOG_DEBUG, "Got a SVCCALL reply from %s, ignoring", 
-	  conn_getpeername(fd));
-    
+    DEBUG("Got a SVCCALL reply from %s, ignoring", buff);    
   };
 
   
 };
 
-static void srbinit(int fd, SRBmessage * srbmsg)
+static void srbinit(Connection * conn, SRBmessage * srbmsg)
 {
-  int reverse = 0, rejects = 1, auth = 0, role;
+  int reverse = 0, rejects = 1, auth = 0, role; 
   char * type = NULL, * version= NULL, * tmp = NULL;
   char * domain = NULL, * name = NULL, * user = NULL, * passwd = NULL; 
   char * agent = NULL, * agentver = NULL, * os = NULL;
-  int idx, rc, connrole, id;
-  char * szptr, * peername; 
-  CLIENTID cid;
+  int  rc, l;
+  char * szptr, peername[128]; 
+  char * peerdomain = NULL, * instance = NULL;
 
   if (srbmsg->map == NULL) {
-    _mw_srbsendreject (fd, srbmsg, NULL, NULL, SRB_PROTO_FORMAT);
+    _mw_srbsendreject (conn, srbmsg, NULL, NULL, SRB_PROTO_FORMAT);
     return;
   };
-  conn_getinfo(fd, &cid, &connrole, NULL, NULL);    
 
-  if (cid != UNASSIGNED) {
-    _mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_ISCONNECTED, NULL);
-    return;
-  };
   switch (srbmsg->marker) {
     
   case SRB_REQUESTMARKER:
-  /* VERSION - REQ */  
+    
+    /* se set this in the first message, either here on an INIT req or
+       above on e READY notification. */
+    l = sizeof( conn->peeraddr);
+    getpeername(conn->fd, &conn->peeraddr.sa, &l);
 
-    if (!(version = szGetReqField(fd, srbmsg, SRB_VERSION))) break;
+
+    /* VERSION - REQ */  
+    
+    if (!(version = szGetReqField(conn, srbmsg, SRB_VERSION))) break;
     if ( strcasecmp(SRBPROTOCOLVERSION, version) != 0) {
-      _mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_VERNOTSUPP, SRB_VERSION);
+      _mw_srbsendinitreply(conn, srbmsg, SRB_PROTO_VERNOTSUPP, SRB_VERSION);
       break;
     };
     
     /* TYPE - REQ */
-    if (!(type = szGetReqField(fd, srbmsg, SRB_TYPE))) break;
-
+    if (!(type = szGetReqField(conn, srbmsg, SRB_TYPE))) break;
+    
     if (strcasecmp(type, SRB_TYPE_CLIENT) == 0) role = SRB_ROLE_CLIENT;
     else if (strcasecmp(type, SRB_TYPE_GATEWAY) == 0) role = SRB_ROLE_GATEWAY;
     else {
-      _mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_TYPE);
+      _mw_srbsendinitreply(conn, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_TYPE);
       break;
     };
 
     /* if requested type is not expected, decline */
-    if (!(role & connrole)) {
+    if (!(role & conn->role)) {
       if (role == SRB_ROLE_CLIENT)
-	_mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_NOCLIENTS, SRB_TYPE);
+	_mw_srbsendinitreply(conn, srbmsg, SRB_PROTO_NOCLIENTS, SRB_TYPE);
       else 
-	_mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_NOGATEWAYS, SRB_TYPE);
+	_mw_srbsendinitreply(conn, srbmsg, SRB_PROTO_NOGATEWAYS, SRB_TYPE);
       break;;
     };
     
     /* NAME - REQ */
-    if (!(name = szGetReqField(fd, srbmsg, SRB_NAME))) break; 
+    if (!(name = szGetReqField(conn, srbmsg, SRB_NAME))) break; 
 
     /* DOMAIN - OPT */
-    domain = szGetOptField(fd, srbmsg, SRB_DOMAIN);
+    domain = szGetOptField(conn, srbmsg, SRB_DOMAIN);
     
     /* REVERSE - OPT */
-    tmp = szGetOptField(fd, srbmsg, SRB_REVERSE);
+    tmp = szGetOptField(conn, srbmsg, SRB_REVERSE);
     if (tmp != NULL) {
       if (strcasecmp(tmp, SRB_YES) == 0) reverse = 1;
       else if (strcasecmp(tmp, SRB_NO) == 0) reverse = 0;
       else {
-	_mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_REVERSE);
+	_mw_srbsendinitreply(conn, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_REVERSE);
 	break;
       };
     };
     /* REJECT - OPT */
-    tmp = szGetOptField(fd, srbmsg, SRB_REJECTS);
+    tmp = szGetOptField(conn, srbmsg, SRB_REJECTS);
     if (tmp != NULL) {
       if (strcasecmp(tmp, SRB_YES) == 0) rejects = 1;
       else if (strcasecmp(tmp, SRB_NO) == 0) rejects = 0;
       else {
-	_mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_REJECTS);
+	_mw_srbsendinitreply(conn, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_REJECTS);
 	break;
       };
     }
     /* AUTHENTICATION - OPT */
-    tmp = szGetOptField(fd, srbmsg, SRB_AUTHENTICATION);
+    tmp = szGetOptField(conn, srbmsg, SRB_AUTHENTICATION);
     if (tmp != NULL) {
       if (strcasecmp(tmp, SRB_AUTH_NONE) == 0) ;
-      else if (strcasecmp(tmp, SRB_AUTH_UNIX) == 0) ;
+      else if (strcasecmp(tmp, SRB_AUTH_PASS) == 0) ;
       else if (strcasecmp(tmp, SRB_AUTH_X509) == 0) ;
       else {
-	_mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_AUTHENTICATION);
+	_mw_srbsendinitreply(conn, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_AUTHENTICATION);
 	break;
       };
     };
     /* USER, PASSWORD, AGENT, AGENTVERSION, OS - OPT */
-    user     = szGetOptField(fd, srbmsg, SRB_USER);
-    passwd   = szGetOptField(fd, srbmsg, SRB_PASSWORD);
-    agent    = szGetOptField(fd, srbmsg, SRB_AGENT);
-    agentver = szGetOptField(fd, srbmsg, SRB_AGENTVERSION);
-    os       = szGetOptField(fd, srbmsg, SRB_OS);
+    user     = szGetOptField(conn, srbmsg, SRB_USER);
+    passwd   = szGetOptField(conn, srbmsg, SRB_PASSWORD);
+    agent    = szGetOptField(conn, srbmsg, SRB_AGENT);
+    agentver = szGetOptField(conn, srbmsg, SRB_AGENTVERSION);
+    os       = szGetOptField(conn, srbmsg, SRB_OS);
     
     /* Now we we have a valid request, all thats left if to attache
        the client or register the gateway */
-    mwlog(MWLOG_DEBUG, "SRB INIT correctly formated role=%d ", role); 
-    peername = conn_getpeername(fd);
+    DEBUG("SRB INIT correctly formated role=%d ", role); 
+
+    conn_getpeername(conn, peername, 128);
 
     /* we use user and name after gwattach() but anytime after that
        the other thread may have gotten back from mwd and done
@@ -515,44 +620,88 @@ static void srbinit(int fd, SRBmessage * srbmsg)
     if (name)
       name = strdup(name);
 
+
+    l = sizeof( conn->peeraddr);
+    getpeername(conn->fd, &conn->peeraddr.sa, &l);
+
+
     /* if client */
     if (role == SRB_ROLE_CLIENT) {
-      rc = gwattachclient(-1, fd, name, user, passwd, srbmsg->map);
+      
+      if (conn->cid != UNASSIGNED) {
+	_mw_srbsendinitreply(conn, srbmsg, SRB_PROTO_ISCONNECTED, NULL);
+	break;
+      };
+
+      rc = gwattachclient(conn, name, user, passwd, srbmsg->map);
       if (rc >= 0) {
  	srbmsg->map = NULL;
-	mwlog(MWLOG_INFO, "Client %s %s%s ID=%#u connected from %s", 
+	Info("Client %s %s%s ID=%#u connected from %s", 
 	      name, user?"Username=":"", user?user:"",
 	      rc , peername);
 	rc = rc | MWCLIENTMASK;
-	conn_setinfo(fd, NULL, &role, NULL, NULL);
+	conn->role = role;
+	conn_set(conn, SRB_ROLE_CLIENT, CONN_TYPE_CLIENT);
       } else {
 	rc = _mw_errno2srbrc(-rc);
 	szptr = _mw_srb_reason(rc);
- 	mwlog(MWLOG_INFO, "Client %s %s%s from %s was rejected: ", 
+ 	Info("Client %s %s%s from %s was rejected: ", 
 	      name, user?"Username=":"", user?user:"",
 	      peername);
 	rc = _mw_errno2srbrc(-rc);
-	_mw_srbsendinitreply(fd, srbmsg, rc, NULL);
+	_mw_srbsendinitreply(conn, srbmsg, rc, NULL);
       }
-      free(user);
-      free(name);
+    } else if (role == SRB_ROLE_GATEWAY) {
+      if (!(instance     = szGetReqField(conn, srbmsg, SRB_INSTANCE))) break;
+      if (!(peerdomain   = szGetReqField(conn, srbmsg, SRB_PEERDOMAIN))) break;
+      
+      if (strcmp(instance, globals.myinstance)  != 0) {
+	Error("Hmm got an INIT from another gateway but it tried to " 
+	      "connect to instance %s and I'm %s, looks like a broker problem", 
+	      instance, globals.myinstance);
+	_mw_srbsendinitreply(conn, srbmsg, SRB_PROTO_GATEWAY_ERROR, NULL);
+	conn_del(conn->fd);
+	break;
+      };
+	
+      rc = gw_peerconnected(name, peerdomain, conn);
+      if (rc == -1 ) {
+	_mw_srbsendterm(conn, 0);
+	gw_closegateway(conn->gwid);
+	break;
+      };
+
+      // here is OK
+      conn_set(conn, SRB_ROLE_GATEWAY, CONN_TYPE_GATEWAY);
+      conn->state = CONNECT_STATE_UP;
+      _mw_srbsendinitreply(conn, srbmsg, 0, NULL);      
+      gw_provideservices_to_peer(conn->gwid);     
+      break;
+
     } else {
-      /* if (type == SRB_ROLE_GATEWAY) */
-      _mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_NOGATEWAYS, NULL);
-      free(user);
-      free(name);
+      _mw_srbsendreject (conn, srbmsg, SRB_TYPE, type, SRB_PROTO_FORMAT);
       break;
     };
     
   case SRB_RESPONSEMARKER:
-    /* just in case of initiating gateway. NYI */
+    if ( ! iGetReqField(conn, srbmsg, SRB_RETURNCODE, &rc)) break;
+    
+    if (rc == 0) {
+      conn->state = CONNECT_STATE_UP;
+      gw_provideservices_to_peer(conn->gwid);
+    } else 
+      gw_closegateway(conn->gwid);
+    
     break;
       
   case SRB_NOTIFICATIONMARKER:  
   default:
-    _mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_NOTREQUEST, NULL);
+    _mw_srbsendinitreply(conn, srbmsg, SRB_PROTO_NOTREQUEST, NULL);
   };
   
+  if (user) free(user);
+  if (name) free(name);
+
   return;
 };
 
@@ -563,10 +712,9 @@ static void srbinit(int fd, SRBmessage * srbmsg)
  **********************************************************************/
 
   
-int srbDoMessage(int fd, char * message)
+int srbDoMessage(Connection * conn, char * message)
 {
   int commandlen;
-  int messagetype;
   char * ptr;
   SRBmessage srbmsg;
   
@@ -576,13 +724,13 @@ int srbDoMessage(int fd, char * message)
 	if ( (ptr = strchr(message, SRB_REJECTMARKER)) != NULL) {
 	  return 0;
 	} else { 
-	  _mw_srbsendreject_sz(fd, message, -1);
+	  _mw_srbsendreject_sz(conn, message, -1);
 	  return -1;
 	}
       }
   commandlen = ptr - message;
   if (commandlen > 32) {
-    _mw_srbsendreject_sz(fd, message, commandlen);
+    _mw_srbsendreject_sz(conn, message, commandlen);
     return -1;
   };
   strncpy(srbmsg.command, message, commandlen);
@@ -590,44 +738,60 @@ int srbDoMessage(int fd, char * message)
   srbmsg.marker = *ptr;
   srbmsg.map = urlmapdecode(message+commandlen+1);
   
-  mwlog(MWLOG_DEBUG2, "srbDoMessage: command=%*.*s marker=%c on fd=%d", 
-	commandlen, commandlen, message, *ptr, fd);
+  DEBUG2("srbDoMessage: command=%*.*s marker=%c on fd=%d", 
+	commandlen, commandlen, message, *ptr, conn->fd);
 
-  /* switch on command length in order to speed up (avoiding
+  /* switch on command length in order to speed up (avoiding excessive
      strcmp()'s */
   switch(commandlen) {
   case 4:
     if ( strcasecmp(srbmsg.command, SRB_TERM) == 0) {
-      srbterm(fd, &srbmsg);
+      srbterm(conn, &srbmsg);
       break ;
     };
     break;
+
   case 5:
     if ( strcasecmp(srbmsg.command, SRB_HELLO) == 0) {
-      srbhello(fd, &srbmsg);
+      srbhello(conn, &srbmsg);
       break;
     }
     break;
+
   case 6:
     if ( strcasecmp(srbmsg.command, SRB_REJECT) == 0) {
-      srbreject(fd, &srbmsg);
+      srbreject(conn, &srbmsg);
       break;
     }
     break;
+
   case 7:
     if ( strcasecmp(srbmsg.command, SRB_SVCCALL) == 0) {
-      srbcall(fd, &srbmsg);
+      srbcall(conn, &srbmsg);
       break;
     }
+    if ( strcasecmp(srbmsg.command, SRB_PROVIDE) == 0) {
+      srbprovide(conn, &srbmsg);
+      break;
+    }
+    break;
+
   case 8:
     if ( strcasecmp(srbmsg.command, SRB_INIT) == 0) {
-      srbinit(fd, &srbmsg);
+      srbinit(conn, &srbmsg);
       break;
     }
+    break;
+
   case 9:
-    
+    if ( strcasecmp(srbmsg.command, SRB_READY) == 0) {
+      srbready(conn, &srbmsg);
+      break;
+    }
+    break;
+
   default:
-    _mw_srbsendreject_sz(fd, message, 0);
+    _mw_srbsendreject_sz(conn, message, 0);
   };
   
   if (srbmsg.map != NULL)
@@ -640,7 +804,7 @@ int srbDoMessage(int fd, char * message)
  * API for sending messages only servers shall send
  **********************************************************************/
 
-int _mw_srbsendinitreply(int fd, SRBmessage * srbmsg, int rcode, char * field)
+int _mw_srbsendinitreply(Connection * conn, SRBmessage * srbmsg, int rcode, char * field)
 {
   int  rc;
 
@@ -656,17 +820,22 @@ int _mw_srbsendinitreply(int fd, SRBmessage * srbmsg, int rcode, char * field)
       _mw_srb_setfield(srbmsg, SRB_CAUSEFIELD, field);
   };
   
-  rc = _mw_srbsendmessage (fd, srbmsg);
+  rc = _mw_srbsendmessage (conn, srbmsg);
+
+  /* if an error we donæt send provides */
+  if (!( (rc <= 0) || (rcode != 0) ))   
+    gw_provideservices_to_peer(conn->gwid);
+  
   return rc;;
 };
 
-int _mw_srbsendcallreply(int fd, SRBmessage * srbmsg, char * data, int len, 
+int _mw_srbsendcallreply(Connection * conn, SRBmessage * srbmsg, char * data, int len, 
 			     int apprcode, int rcode, int flags)
 {
   int rc;
 
-  mwlog(MWLOG_DEBUG2, "_mw_srbsendcallreply: begins fd=%d appcode=%d, rcode=%d", 
-	fd, apprcode, rcode);
+  DEBUG2("_mw_srbsendcallreply: begins fd=%d appcode=%d, rcode=%d", 
+	conn->fd, apprcode, rcode);
   if (srbmsg == NULL) return -EINVAL;
   if (srbmsg->map == NULL) return -EBADMSG;
 
@@ -687,24 +856,18 @@ int _mw_srbsendcallreply(int fd, SRBmessage * srbmsg, char * data, int len,
   _mw_srb_setfieldi(srbmsg, SRB_APPLICATIONRC, apprcode);
   _mw_srb_setfieldi(srbmsg, SRB_RETURNCODE, rcode);
 
-  _mw_srb_delfield(srbmsg, SRB_MORE);
-  if (flags & MWMORE) 
-    _mw_srb_setfield(srbmsg, SRB_MORE, SRB_YES);
-  else
-    _mw_srb_setfield(srbmsg, SRB_MORE, SRB_NO);
-
   _mw_srb_delfield(srbmsg, SRB_INSTANCE);
   _mw_srb_delfield(srbmsg, SRB_CLIENTNAME);
   _mw_srb_delfield(srbmsg, SRB_NOREPLY);
   _mw_srb_delfield(srbmsg, SRB_MULTIPLE);
   _mw_srb_delfield(srbmsg, SRB_MAXHOPS);
 
-  mwlog(MWLOG_DEBUG2, "_mw_srbsendcallreply: sends message");
-  rc = _mw_srbsendmessage(fd, srbmsg);
+  DEBUG2("_mw_srbsendcallreply: sends message");
+  rc = _mw_srbsendmessage(conn, srbmsg);
   return rc;
 };
 
-int _mw_srbsendready(int fd, char * domain)
+int _mw_srbsendready(Connection * conn, char * domain)
 {
   int rc;
   SRBmessage srbmsg;
@@ -719,7 +882,90 @@ int _mw_srbsendready(int fd, char * domain)
   if (domain != NULL)
     _mw_srb_setfield(&srbmsg, SRB_DOMAIN, domain);
 
-  rc = _mw_srbsendmessage(fd, &srbmsg);
+  rc = _mw_srbsendmessage(conn, &srbmsg);
+  urlmapfree(srbmsg.map);
+  return rc;
+};
+
+int _mw_srbsendprovide(Connection * conn, char * service, int cost)
+{
+  int rc;
+  SRBmessage srbmsg;
+  char _cost[16];
+
+  DEBUG2("begin");
+  if (cost < 0) cost = gw_getcostofservice(service);
+  if (cost < 0) {
+    Error("cost of service %s is %d, which is illegal, maybe the mwd() is updateing the IPC tables", 
+	  service, cost);    
+    return -1;
+  };
+
+  if (cost > 999999) cost = 999999;
+
+  sprintf (_cost, "%d", cost);
+  _mw_srb_init(&srbmsg, SRB_PROVIDE, SRB_NOTIFICATIONMARKER, 
+	       SRB_SVCNAME, service,
+	       SRB_COST, _cost,
+	       NULL);
+
+  rc = _mw_srbsendmessage(conn, &srbmsg);
+  urlmapfree(srbmsg.map);
+    DEBUG2("send returned %d", rc);
+  return rc;
+};
+
+/* this is a GW to >GW init message, NOT to be confsed with client INIT messages. */
+int _mw_srbsendgwinit(Connection * conn)
+{
+  int  rc, domainid;
+  char * auth = SRB_AUTH_NONE;
+  char * user, * password;
+  char * domain, * peerdomain;
+  SRBmessage srbmsg;
+  struct gwpeerinfo * peerinfo;
+  if (conn == NULL) return -EINVAL;
+
+  peerinfo = (struct gwpeerinfo * ) conn->peerinfo;
+
+  if (peerinfo == NULL) {
+    Fatal( "Inetrnal error, in " __FUNCTION__ " conn->peerinfo is NULL");
+  };
+  
+  if (peerinfo->domainid == 0) {
+    DEBUG("_mw_srbsendgwinit() to GW in my own domain");
+    domain = globals.mydomain;
+  } else if (peerinfo->domainid < 0) {
+    Fatal("Attemped to connect to a peer with domainid = %d < 0", 
+	  peerinfo->domainid);
+  } else {
+    DEBUG("_mw_srbsendgwinit() to foreign domain");
+    Fatal("foreign domains NYI");
+  };
+
+  _mw_srb_init(&srbmsg, SRB_INIT, SRB_REQUESTMARKER, 
+	       SRB_VERSION, SRBPROTOCOLVERSION, 
+	       SRB_TYPE, SRB_TYPE_GATEWAY, 
+	       SRB_NAME, globals.myinstance, 
+	       SRB_PEERDOMAIN, globals.mydomain, 
+	       SRB_INSTANCE, peerinfo->instance, 
+	       SRB_DOMAIN, domain, 
+	       NULL);
+
+  
+  /* optional */
+  if (peerinfo->password != NULL) {
+    DEBUG("connecting with password = \"%s\"", peerinfo->password);
+    _mw_srb_setfield (&srbmsg, SRB_AUTHENTICATION, SRB_AUTH_PASS);
+    _mw_srb_setfield(&srbmsg, SRB_PASSWORD, peerinfo->password);
+  } else {
+    DEBUG("connecting with no authentication", peerinfo->password);
+    _mw_srb_setfield (&srbmsg, SRB_AUTHENTICATION, SRB_AUTH_NONE);
+  };
+
+  conn->state = CONNECT_STATE_INITWAIT;
+  rc = _mw_srbsendmessage(conn, &srbmsg);
+  
   urlmapfree(srbmsg.map);
   return rc;
 };

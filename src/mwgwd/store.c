@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.4  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.3  2001/10/03 22:38:32  eggestad
  * plugged mem leaks
  *
@@ -80,7 +83,7 @@ static struct PendingCall * freePendingCall(void)
 
   if (CallsFreeList == NULL) {
     PCtmp = (struct PendingCall *) malloc(sizeof(struct PendingCall));
-    mwlog(MWLOG_DEBUG2, "Alloced new PendingCall struct");
+    DEBUG2("Alloced new PendingCall struct");
   } else {
     PCtmp = CallsFreeList;
     CallsFreeList = PCtmp->next;
@@ -102,7 +105,7 @@ void storePushCall(CLIENTID cid, int nethandle, int fd, urlmap *map)
 {
   struct PendingCall * PCtmp;
 
-  mwlog(MWLOG_DEBUG2, "Pushing PendingCall id=%d, handle=%u fd=%d, map @ %#x", 
+  DEBUG2("Pushing PendingCall id=%d, handle=%u fd=%d, map @ %#x", 
 	cid&MWINDEXMASK, nethandle, fd, map);
   PCtmp = freePendingCall();
   PCtmp->fd = fd;
@@ -114,7 +117,49 @@ void storePushCall(CLIENTID cid, int nethandle, int fd, urlmap *map)
   return;
 };
 
-int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map )
+/* the Pop and Get call look the same, but in the case of Get, the map
+   points to the struct in the list, and MUST NOT be free'ed. In the
+   case of Pop we remove the entry in the list, and the map MUST be
+   free'ed.  Get is used in teh case the service reply has RC =
+   MWMORE, while Pop is used if RC = {MWSUCESS|MWFAIL}
+*/
+int storeGetCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map)
+{
+  struct PendingCall * PCthis = NULL;
+
+  if (CallsInProgress == NULL) {
+    if (fd != NULL)
+      *fd = -1;
+    if (map != NULL)
+      *map = NULL;
+    DEBUG2("Failed to Get PendingCall id=%d, ipchandle=%u empty list", 
+	  cid&MWINDEXMASK, ipchandle);
+    return 0;
+  }
+
+  PCthis = CallsInProgress;
+  while(PCthis != NULL) {
+    if ( (PCthis->ipchandle == ipchandle) && (PCthis->cltid == cid) ) {
+      if (fd != NULL)*fd = PCthis->fd;
+      if (map != NULL)*map = PCthis->mappedmsg;
+
+      DEBUG2("Getting PendingCall id=%d, ipchandle=%u", 
+	    cid&MWINDEXMASK, ipchandle);
+      return 1;
+    }
+    PCthis = PCthis->next;
+  };
+  DEBUG2("Failed to Get PendingCall id=%d, ipchandle=%u", 
+	cid&MWINDEXMASK, ipchandle);
+  if (fd != NULL)
+    *fd = -1;
+  if (map != NULL)
+    *map = NULL;
+  return 0;
+};
+
+
+int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map)
 {
   struct PendingCall * PCthis = NULL, * PCprev = NULL;
 
@@ -123,7 +168,7 @@ int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map )
       *fd = -1;
     if (map != NULL)
       *map = NULL;
-    mwlog(MWLOG_DEBUG2, "Failed to Pop PendingCall id=%d, ipchandle=%u empty list", 
+    DEBUG2("Failed to Pop PendingCall id=%d, ipchandle=%u empty list", 
 	  cid&MWINDEXMASK, ipchandle);
     return 0;
   }
@@ -141,7 +186,7 @@ int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map )
     PCthis->next = CallsFreeList;
     CallsFreeList = PCthis;
 
-    mwlog(MWLOG_DEBUG2, "Poping PendingCall id=%d, ipchandle=%u (top)", 
+    DEBUG2("Poping PendingCall id=%d, ipchandle=%u (top)", 
 	  cid&MWINDEXMASK, ipchandle);  
     return 1;
   };
@@ -158,14 +203,14 @@ int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map )
       PCthis->next = CallsFreeList;
       CallsFreeList = PCthis;
 
-      mwlog(MWLOG_DEBUG2, "Poping PendingCall id=%d, ipchandle=%u", 
+      DEBUG2("Poping PendingCall id=%d, ipchandle=%u", 
 	    cid&MWINDEXMASK, ipchandle);
       return 1;
     }
     PCprev = PCthis;
     PCthis = PCthis->next;
   };
-  mwlog(MWLOG_DEBUG2, "Failed to Pop PendingCall id=%d, ipchandle=%u", 
+  DEBUG2("Failed to Pop PendingCall id=%d, ipchandle=%u", 
 	cid&MWINDEXMASK, ipchandle);
   if (fd != NULL)
     *fd = -1;
@@ -186,13 +231,13 @@ int storeSetIPCHandle(CLIENTID cid, int nethandle, int fd, int ipchandle)
 	 (PCthis->nethandle == nethandle) &&
 	 (PCthis->fd == fd) ) {
       PCthis->ipchandle = ipchandle;
-      mwlog(MWLOG_DEBUG2, "Set ipc handle %#x pending call client=%d handle=%#x",
+      DEBUG2("Set ipc handle %#x pending call client=%d handle=%#x",
 	    ipchandle, cid, nethandle);
       return 0;
     };
     PCthis = PCthis->next;
   };
-  mwlog(MWLOG_DEBUG2, "Set ipc handle %#x pending call client=%d handle=%#x FAILED",
+  DEBUG2("Set ipc handle %#x pending call client=%d handle=%#x FAILED",
 	ipchandle, cid, nethandle);
   return -1;
 };
@@ -201,13 +246,13 @@ pthread_mutex_t callmutex = PTHREAD_MUTEX_INITIALIZER;
 
 int  storeLockCall(void)
 {
-  mwlog(MWLOG_DEBUG2, "locking callmutex");
+  DEBUG2("locking callmutex");
   pthread_mutex_lock(&callmutex);
 };
 
 int  storeUnLockCall(void)
 {
-  mwlog(MWLOG_DEBUG2, "unlocking callmutex");
+  DEBUG2("unlocking callmutex");
   pthread_mutex_unlock(&callmutex);
 };
 
@@ -230,7 +275,7 @@ struct DataBuffer
 
 
 static struct DataBuffer * DataBuffersIncomming = NULL;
-static struct DataBuffer * DataBuffersOutgoing = NULL;
+//static struct DataBuffer * DataBuffersOutgoing = NULL;
 static struct DataBuffer * DataBuffersFreeList = NULL;
 
 
@@ -240,7 +285,7 @@ static struct DataBuffer * freeDataBuffer(void)
 
   if (CallsFreeList == NULL) {
     DBtmp = (struct DataBuffer *) malloc(sizeof(struct DataBuffer));
-    mwlog(MWLOG_DEBUG2, "Alloced new DataBuffer struct");
+    DEBUG2("Alloced new DataBuffer struct");
   } else {
     DBtmp = DataBuffersFreeList;
     DataBuffersFreeList = DBtmp->next;
@@ -264,14 +309,14 @@ void storePushDataBuffer(unsigned int nethandle, int fd, char * data, int datale
   struct DataBuffer * DBtmp;
 
   
-  mwlog(MWLOG_DEBUG2, "Pushing DataBuffer for nethandle=%u fd=%d, %d bytes", 
+  DEBUG2("Pushing DataBuffer for nethandle=%u fd=%d, %d bytes", 
 	nethandle, fd, datalen);
 
   DBtmp = freeDataBuffer();
   DBtmp->fd = fd;
   DBtmp->nethandle = nethandle;
   DBtmp->data = malloc(datalen+1);
-  mwlog(MWLOG_DEBUG2, "memcpy %d bytes %p => %p", datalen, data, DBtmp->data);
+  DEBUG2("memcpy %d bytes %p => %p", datalen, data, DBtmp->data);
   memcpy(DBtmp->data, data, datalen);
   DBtmp->datalen = datalen;
   DBtmp->next = DataBuffersIncomming;
@@ -308,7 +353,7 @@ int storePopDataBuffer(unsigned int nethandle, int fd, char ** data, int *datale
       DBthis->next = DataBuffersFreeList;
       DataBuffersFreeList = DBthis;
 
-      mwlog(MWLOG_DEBUG2, "Poping DataBuffer fd=%d, nethandle=%u", 
+      DEBUG2("Poping DataBuffer fd=%d, nethandle=%u", 
 	    fd, nethandle);
 
       return 1;
@@ -316,7 +361,7 @@ int storePopDataBuffer(unsigned int nethandle, int fd, char ** data, int *datale
     DBprev = DBthis;
     DBthis = DBthis->next;
   };
-  mwlog(MWLOG_DEBUG2, "Failed to Pop DataBuffer fd=%d, nethandle=%u", 
+  DEBUG2("Failed to Pop DataBuffer fd=%d, nethandle=%u", 
 	fd, nethandle);
   *data = NULL;
   *datalen = -1;
@@ -333,15 +378,15 @@ int storeAddDataBufferChunk(unsigned int nethandle, int fd, char * data, int len
     if ( (DBtmp->fd == fd) || (DBtmp->nethandle == nethandle) ) {
       DBtmp->datalen += len;
       DBtmp->data = realloc(DBtmp->data, DBtmp->datalen);  
-      mwlog(MWLOG_DEBUG2, "memcpy add %d bytes %p => %p", len, data, DBtmp->data);
+      DEBUG2("memcpy add %d bytes %p => %p", len, data, DBtmp->data);
       memcpy(DBtmp->data, data, len);
-      mwlog(MWLOG_DEBUG2, "Adding %d data to DataBuffer fd=%d, nethandle=%u", 
+      DEBUG2("Adding %d data to DataBuffer fd=%d, nethandle=%u", 
 	    len, fd, nethandle);
       return DBtmp->chunk;
     }
     DBtmp = DBtmp->next;
   };
-  mwlog(MWLOG_WARNING, "Failed to add data to DataBuffer fd=%d, nethandle=%u", 
+  Warning("Failed to add data to DataBuffer fd=%d, nethandle=%u", 
 	fd, nethandle);
   return -1;
 };
@@ -422,7 +467,7 @@ static struct PendingAttach * freePendingAttach(void)
 
   if (AttachFreeList == NULL) {
     PAtmp = (struct PendingAttach *) malloc(sizeof(struct PendingAttach));
-    mwlog(MWLOG_DEBUG2, "Alloced new PendingAttach struct");
+    DEBUG2("Alloced new PendingAttach struct");
   } else {
     PAtmp = AttachFreeList;
     AttachFreeList = PAtmp->next;
@@ -444,7 +489,7 @@ void storePushAttach(char * cname, int connid, int fd, urlmap * map)
 {
   struct PendingAttach * PAtmp;
 
-  mwlog(MWLOG_DEBUG2, "Pushing PendingAttach cname=%s connid=%d, fd=%d", 
+  DEBUG2("Pushing PendingAttach cname=%s connid=%d, fd=%d", 
 	cname, connid, fd);
   PAtmp = freePendingAttach();
   PAtmp->fd = fd;
@@ -487,7 +532,7 @@ int  storePopAttach(char * cname, int *connid, int * fd, urlmap ** map)
     AttachInProgress = PAthis->next;
     PAthis->next = AttachFreeList;
     AttachFreeList = PAthis;
-    mwlog(MWLOG_DEBUG2, "Poping PendingAttach cname=%s (top)", 
+    DEBUG2("Poping PendingAttach cname=%s (top)", 
 	  cname);  
     return 1;
   };
@@ -511,14 +556,14 @@ int  storePopAttach(char * cname, int *connid, int * fd, urlmap ** map)
       clearPendingAttach(PAthis);
       PAthis->next = AttachFreeList;
       AttachFreeList = PAthis;
-      mwlog(MWLOG_DEBUG2, "Poping PendingAttach cname=%s", 
+      DEBUG2("Poping PendingAttach cname=%s", 
 	    cname);  
       return 1;
     }
     PAprev = PAthis;
     PAthis = PAthis->next;
   };
-  mwlog(MWLOG_DEBUG2, "Failed to Pop PendingAttach cname=%s", 
+  DEBUG2("Failed to Pop PendingAttach cname=%s", 
 	cname);
   
   if (fd != NULL)

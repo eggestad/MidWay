@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/07/07 22:45:48  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.3  2002/02/17 18:02:14  eggestad
  * - added missing includes
  *
@@ -67,13 +70,13 @@ static int go_on_patrol(void)
   gettimeofday(&tm, NULL);
 
   /* check to see if some members have disappeared without letting us know.*/
-  mwlog(MWLOG_DEBUG, "Watchdog: checking tables");
+  DEBUG("Watchdog: checking tables");
   check_tables();
   /* check for buffer leaks */
   /*  check_heap(); */
 
   ipcmain->lastactive = tm.tv_sec;
-  mwlog(MWLOG_DEBUG, "Watchdog: all checks complete");
+  DEBUG("Watchdog: all checks complete");
   return 0;
 };
 
@@ -103,24 +106,24 @@ static int run_watchdog(void)
     remaining = sleep(sleeping);     
     now = time(NULL);
 
-    mwlog(MWLOG_DEBUG, "watchdog awoke after going to sleep for %d, with %d remaining", 
+    DEBUG("watchdog awoke after going to sleep for %d, with %d remaining", 
 	  sleeping, remaining);
 
     /* id shutdown time has arrived.  */
     if ( ((ipcmain->shutdowntime > ipcmain->boottime) && (now >= ipcmain->shutdowntime) ) ||
 	 (flags.terminate > 0) ) {
-      mwlog(MWLOG_INFO, "Watchdog: termination, kill all servers and connecting members.");
+      Info("Watchdog: termination, kill all servers and connecting members.");
       ipcmain->status = MWSHUTDOWN;
       rc = kill_all_servers();
-      mwlog(MWLOG_DEBUG, "kill_all_servers() returned %d", rc);
+      DEBUG("kill_all_servers() returned %d", rc);
       ipcmain->status = MWDEAD;
       break;
     };
 
     /* basic sanity checks */
     if (ipcmain->mwdpid != getppid()) {
-      mwlog(MWLOG_ERROR, "Watchdog: mwd who was my parent died unexpectantly, This Can't happen. %d != %d", ipcmain->mwdpid, getppid());
-      mwlog(MWLOG_ERROR, "Watchdog: attempting to clean up everything.");
+      Error("Watchdog: mwd who was my parent died unexpectantly, This Can't happen. %d != %d", ipcmain->mwdpid, getppid());
+      Error("Watchdog: attempting to clean up everything.");
       kill_all_servers();
 
       cleanup_ipc();
@@ -134,10 +137,10 @@ static int run_watchdog(void)
      * of course shutdown(8) will give it too.
      */
     if (remaining > 0) {
-      mwlog(MWLOG_DEBUG, "sleep(%d) ended prematurely with %d second to go", 
+      DEBUG("sleep(%d) ended prematurely with %d second to go", 
 	    sleeping, remaining);
       if (ipcmain->status == MWSHUTDOWN) {
-	mwlog(MWLOG_INFO, "MWD Watchdog: ordered to take everything down");
+	Info("MWD Watchdog: ordered to take everything down");
 	kill_all_servers();
 	ipcmain->status = MWDEAD;
       };
@@ -187,8 +190,8 @@ int start_watchdog(void)
   nice(10);
   ipcmain->lastactive = time(NULL);
   inst_sighandlers();
-  mwlog(MWLOG_INFO, "MidWay WatchDog daemon startup  complete", rc);
+  Info("MidWay WatchDog daemon startup  complete", rc);
   rc = run_watchdog();
-  mwlog(MWLOG_INFO, "MidWay WatchDog daemon shutdown complete", rc);
+  Info("MidWay WatchDog daemon shutdown complete", rc);
   exit(0);
 };

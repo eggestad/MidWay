@@ -6,7 +6,7 @@
 
 #include "testsuite.h"
 
-int init()
+int init(void)
 {
   printf ("******************************testsuite server booting\n");
   fflush(stdout);

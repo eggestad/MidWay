@@ -37,7 +37,7 @@ install:
 uninstall:
 	rm -f @bindir@/mwcall
 
-tags:
+TAGS:
 	etags -a -o ../TAGS *.c *.h
 
 depend:

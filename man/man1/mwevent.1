@@ -1,0 +1,117 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 2004 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MWEVENT 1 "DATE" Linux "MidWay Users Manual"
+.SH NAME
+mwevent \- The MidWay event poster and watcher
+.SH SYNOPSIS
+.B mwevent [-A \fIurl\fP] [-U \fIusername\fP] [-P \fIpassword\fP] 
+[-l \fIdebuglevel\fP] [-L \fIlogfile\fP] 
+[-i \fIinputfile\fP]  [-u \fIuser\fP] [-c \fIclient\fP] event  [data|-] 
+.sp
+.B mwevent -S [-A \fIurl\fP] [-U \fIusername\fP] [-P \fIpassword\fP] 
+[-l \fIdebuglevel\fP] [-L \fIlogfile\fP] 
+[-o \fIoutputfile\fP] [-r|-E|-g] [-c \fIclient\fP] eventpattern [eventpattern]...
+
+.SH DESCRIPTION
+This is a command line client that will attach a given instance/domain
+and either sends an event, or with the -S subscribes to a set of
+patterns and then forever waits for events and prints them.
+
+  This client is provided for shell scripts and for non-performance
+critical task.
+
+If sending an event and 
+.B data 
+is absent and no - in its place, the data passed to the service may be
+the contents of a file gived with the
+.B "-i"
+option. The - indicate read data from stdin.
+
+The event name and data in received events is normally sent to stdout, but may be
+reirected to a file with the 
+.B -o
+option. 
+
+.SH OPTIONS
+
+.TP
+.B -S
+This option put mwevent into a subscribe mode, and subscribes to the
+patterns given as arguments (minimum one). The received events are
+either printed to stdout, or to a file specified with the -o option. 
+
+.TP 
+.BI "-A " url
+The url needed for clients and servers to find the primary shared
+memory segment.  If absent we use
+.BR ipc:// uid
+.
+.TP 
+.BI "-U " username
+The username to login to midway with. 
+.TP 
+.BI "-P " password
+The password for the username to login to midway with. 
+
+.TP 
+.B "-r "
+Pattern is a regular expression (only legal with -S). 
+.TP 
+.B "-E "
+Pattern is an extended  regular expression (only legal with -S). 
+.TP 
+.B "-g "
+Pattern is a glob (only legal with -S). 
+.TP 
+.B "-u " user
+The username to send events to (not legal with -S).
+
+.TP 
+.B "-c " client
+The clientname to send events to, or with -S the client name mwevent
+will register itself as (default 
+.I mwevent
+).
+
+.TP 
+.B "-i " inputfile
+The data to send with an event. (Not legal with -S). 
+.TP 
+.B "-o " outputfile
+File to log all received events event. (Only legal with -S). 
+.TP
+.BI "-l " debuglevel
+Indicate the verbosity we shall log into the log file. Possible
+values are 
+.BR "error warning info debug debug1 debug2 debug3 debug4" .
+Default is info.
+.TP
+.BI "-L " Logfileprefix 
+Without leading path this is just the prefix for the filename in the
+logging directory. With a path it either absolute or relative to the
+current directory. When using a path the latter part of the prefix
+must be the filename. The logging API will append the date, and
+autorotate the logs.
+
+.SH ENVIRONMENT
+.TP
+.B MWURL
+see 
+.BR mwd (1). 
+.TP
+.B MWDIR
+see 
+.BR mwd (1). 
+
+.SH SEE ALSO
+.BR MidWay "(7), " mwd "(1), " readline "(3), " glob (7)
+
+.SH WARNINGS
+
+.SH BUGS
+No timeout options.

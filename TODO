@@ -7,9 +7,14 @@
 
  * Conversations - statefull clients server communicaion.
 
- * TCP/IP clients and gateways between MW instances.
+ PARTIAL * SRBP (TCP/IP) clients and gateways between MW instances.
+	 * missing large data
+	 * and of course all event handling
+	 * interinstance gw missing (need config file)
+	 * broker daemons missing.
 
  * Perl module
+   * A SRBP module partial ready
 
  * Python module
 
@@ -35,7 +40,7 @@
 
  * fast path missing
 
- * server mangament, Tuxedo style
+ * server mangement, Tuxedo style
 
  * config file (XML)
 
@@ -45,3 +50,5 @@
    problem, and simple to implement.
 
  * in doc, add refernce to pthreads programming ch3. THread pools p98
+
+ * protocol version negotiation

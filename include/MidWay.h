@@ -57,7 +57,7 @@ typedef struct {
   time_t deadline; /* deadline here is pretty much a timeval struct. */
   int   udeadline; /* see gettimeofday(); */
 
-   int autentication;
+   int authentication;
    char username[MWMAXNAMELEN];
    char clientname[MWMAXNAMELEN];
 } mwsvcinfo;  
@@ -94,7 +94,7 @@ should begin with . ) */
 #define MWEVREGEXP   0x00200000 // POSIX regular expression (see regex(7))
 #define MWEVEREGEXP  0x00400000 // extended regular express ----- || -----
 
-/* flags for mwattch() */
+/* flags for mwattach() */
 #define MWCLIENT     0x00000000
 #define MWNOTCLIENT  0x01000000 /* for internal use, not legal */
 #define MWSERVER     0x02000000
@@ -112,6 +112,13 @@ should begin with . ) */
 #define MWLOG_DEBUG2    7
 #define MWLOG_DEBUG3    8
 #define MWLOG_DEBUG4    9
+
+/* authentication methods */
+#define MWAUTH_NONE     0
+#define MWAUTH_PASSWORD 1   // plain old password
+#define MWAUTH_X509     2   // x509 certificate (ssl/tls level auth
+#define MWAUTH_KRB5     3   // kerberos
+
 
 /* API prototypes */
 
@@ -146,9 +153,16 @@ extern "C" {
      if only name is set we look for 
      ~/midway/name/key
   */
-  int mwattach(char * adr, char * name, 
-	       char * username, char * password, int flags);
+
+  int mwsetcred(int authtype, char * username, ...);
+   /*
+  int mwchkauth(void);
+  int (*getcredCB)(int authtype, ...);
+  int mwregistergetcredCB(int (*getcredCB)(int authtype, ...));
+   */
+  int mwattach(char * adr, char * name, int flags);
   int mwdetach(void);
+  char * mwgeturl(void);
 
   /* Client call API. (mwfetch has additional functoniality in servers. */
   int mwcall(char * svcname, 
@@ -186,6 +200,7 @@ extern "C" {
   int mwfree(void *);
 
   /* task API */
+#define PTASKMAGIC 0x00effe00
   typedef long PTask;
   typedef int (*taskproto_t)(PTask);
 
@@ -259,6 +274,30 @@ extern "C" {
 #define MWFAIL    0
 #define MWSUCCESS 1
 #define MWMORE    2
+
+
+
+// the following is internal API's only meant used for modules/plugins
+// implementing the MidWay API in another language. See the Perl and
+// Python modules, and the C implementations that is within MidWay itself.
+
+int _mw_isattached(void);
+int _mwsystemstate(void);
+
+void _mw_incprovided(void);
+void _mw_decprovided(void);
+
+int _mwsubscribe(char * pattern, int subid, int flags);
+int _mwunsubscribe(int subid);
+
+int _mw_tasksignalled(void);
+
+SERVICEID _mw_ipc_provide(char * servicename, int flags);
+int _mw_ipcsend_unprovide(char * servicename,  SERVICEID svcid);
+
+mwsvcinfo * _mwGetServiceRequest(int);
+typedef void (*mw_do_event_handler_t) (int subid, char * event, char * data, int datalen);
+
 
 #endif /* _MIDWAY */
 

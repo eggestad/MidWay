@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.10  2002/09/29 17:41:06  eggestad
+ * added srbunprovide() handler
+ *
  * Revision 1.9  2002/09/22 22:51:50  eggestad
  * added srbsendunprovide()
  *
@@ -349,6 +352,42 @@ static void srbprovide(Connection * conn, SRBmessage * srbmsg)
 
     DEBUG("importing service %s with cost %d", svcname, cost);
     rc = importservice(svcname, cost, conn->peerinfo);
+    
+    if (rc == 0) Info ("imported service %s with cost %d", svcname, cost);
+    else Error("while importijng service  %s with cost %d, errno=%d", svcname, cost, errno);
+  };
+
+};
+
+static void srbunprovide(Connection * conn, SRBmessage * srbmsg)
+{
+  int cost, rc;
+  char * svcname;
+  char buff[128];
+
+  conn_getpeername(conn, buff, 128);
+
+  switch (srbmsg->marker) {
+    
+  case SRB_REQUESTMARKER:
+    Error("got a SRB PROVIDE request from %s rejecting", buff);
+    _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_NOTNOTIFICATION);
+    break;
+    
+  case SRB_RESPONSEMARKER:
+    Error("got a SRB PROVIDE reply from %s  but we never sent a request: rejecting", buff);
+    _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_UNEXPECTED);
+    break;
+    
+  case SRB_NOTIFICATIONMARKER:
+    DEBUG("Got a provide notification from %s", buff);
+    
+    if (!(svcname =     szGetReqField(conn, srbmsg, SRB_SVCNAME))) {
+      return;
+    };
+
+    DEBUG("unimporting service %s", svcname);
+    rc = unimportservice(svcname, conn->peerinfo);
     
     if (rc == 0) Info ("imported service %s with cost %d", svcname, cost);
     else Error("while importijng service  %s with cost %d, errno=%d", svcname, cost, errno);
@@ -795,6 +834,10 @@ int srbDoMessage(Connection * conn, char * message)
       srbready(conn, &srbmsg);
       break;
     }
+    if ( strcasecmp(srbmsg.command, SRB_UNPROVIDE) == 0) {
+      srbunprovide(conn, &srbmsg);
+      break;
+    }
     break;
 
   default:
@@ -928,7 +971,7 @@ int _mw_srbsendunprovide(Connection * conn, char * service)
   SRBmessage srbmsg;
   
   DEBUG2("begin");
-  _mw_srb_init(&srbmsg, SRB_PROVIDE, SRB_NOTIFICATIONMARKER, 
+  _mw_srb_init(&srbmsg, SRB_UNPROVIDE, SRB_NOTIFICATIONMARKER, 
 	       SRB_SVCNAME, service,
 	       NULL);
 

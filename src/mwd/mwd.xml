@@ -1,0 +1,83 @@
+<?xml version="1.0"?>
+<MidWay>
+part one bread text (ignored)
+<!-- comment -->
+<!--
+      <server name="testserver" autoboot="no">
+        <exec>path</exec>
+        <lib>path</lib>
+        <stdout>path</stdout>
+        <stderr>path</stderr>
+        <stdin inline="yes">path|data</stdin>
+        <arglist>arg0 arg1 arg2</arglist>
+        <autorestart min="0" max="0" delay="5"/>
+        <instances min="0" max="88"/>
+      </server>
+-->
+  <mwd  ipckey="100" servers="50" clients="188">
+   <log syslog="yes" level="debug">logdirpath</log>
+
+  <Servers autoboot="yes|no">
+    <bindir>path</bindir>
+    <workdir>path</workdir>
+    <env cache="no"> 
+     <set>login=yes</set>
+     <set name="test" value="yes"/>
+     <unset name="varname"/>
+     <unset> varname </unset>
+     <source shell="sh|csh" shellmode="normal|login|clean" filename="path"> shell script</source>
+    </env>
+
+    <group name="grp1" autoboot="yes">
+
+
+      <server name="testserver" autoboot="no">
+        <exec>path</exec>
+        <lib> path </lib>
+        <stdout>path</stdout>
+        <stderr>path</stderr>
+        <stdin inline="yes">path|data</stdin>
+        <arglist>arg0 arg1 arg2</arglist>
+        <autorestart min="0" max="0" delay="5"/>
+        <instances min="0" max="88"/>
+      </server>
+
+    </group>
+
+  </Servers>
+
+  </mwd>
+part two breadtext (ignored)
+  <mwgd>
+    beginings 
+   <clients port="8989"> 
+    <nobroker/>
+    <broker/>
+    <auth type="none|pass|ldap|xxxx"/>
+    <allow regexp="no|yes|basic|extended|ext"> . </allow>
+    <deny regexp="no|yes|basic|extended|ext"> . </deny>
+   </clients>
+
+   <domain name="test">
+    <auth type="none|pass|ldap|xxxx" file="x"/>
+    <auth type="none|pass|ldap|xxxx">authdata</auth>
+    <address>  </address>
+    <nobroker/>
+    <broker/>
+
+    <export regexp="no|yes|basic|extended|ext"> 
+    <service name="x " as="x "/>
+    <event name=" x" as="x "/>
+    </export>   
+
+    <import regexp="no|yes|basic|extended|ext">
+    <service name="x " as=" "/>
+    <event name="x " as="x "/>
+    </import>   
+
+   </domain>
+    endings 
+  </mwgd>
+part three breadtext (ignored)
+
+</MidWay>

@@ -24,6 +24,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2002/10/03 21:09:08  eggestad
+ * - _mw_get_service_providers() never worked, eternal loop
+ * - _mw_get_services_byname() had rand() on the wrong spot,
+ *   table was randomly traversed
+ *
  * Revision 1.11  2002/09/29 17:37:54  eggestad
  * improved the _mw_get[client|server|service|gateway]entry functions and removed duplicates in mwd.c
  *
@@ -467,7 +472,7 @@ MWID * _mw_get_service_providers(char * svcname, int convflag)
   for (index = 0; index < ipcmain->svctbl_length+1; index++) 
     rlist[index] = UNASSIGNED;
 
-  while(slist[index] != UNASSIGNED) {
+  for(index = 0; slist[index] != UNASSIGNED; index++) {
     
     if (svctbl[index].location == GWLOCAL) {
       rlist[n] = IDX2SRVID(svctbl[index].server);
@@ -495,6 +500,8 @@ SERVICEID * _mw_get_services_byname (char * svcname, int convflag)
   SERVICEID * slist;
   int type, i, index, n = 0, x;
 
+  DEBUG3("getting the list of services that provide %s conv=%d", svcname, convflag);
+
   if (ipcmain == NULL) { 
     return NULL;
   };
@@ -506,22 +513,28 @@ SERVICEID * _mw_get_services_byname (char * svcname, int convflag)
   else 
     type = MWCALLSVC;
 
+  DEBUG3("clearing the slist");
   for (index = 0; index < ipcmain->svctbl_length+1; index++) 
     slist[index] = UNASSIGNED;
-  
+
+  x = 1+(rand() % ipcmain->svctbl_length);
+  DEBUG3("we start at the random entry in the svctbl %d", x);
+
   for (i = 0; i < ipcmain->svctbl_length; i++) {
 
     /* we begin in  a random place in the table, in  order not to give
        the first service first in the list every time */
-    x = 1+(rand() % ipcmain->svctbl_length);
     index = (x + i) % ipcmain->svctbl_length;
 
     if (svctbl[index].type == UNASSIGNED) continue;
     if (svctbl[index].type != type) continue;
 
-    if (strncmp(svctbl[index].servicename, svcname, MWMAXSVCNAME) 
-	== 0) {
-      slist[n++] = index;
+    DEBUG3("checking index %d service %s type = %d", 
+	   index, svctbl[index].servicename, svctbl[index].type);
+
+    if (strncmp(svctbl[index].servicename, svcname, MWMAXSVCNAME) == 0) {
+      DEBUG3("adding svcentry with index %d n = %d", index, n);
+      slist[n++] = IDX2SVCID(index);
     };
   };
     

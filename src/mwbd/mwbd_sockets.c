@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.8  2003/06/12 07:24:00  eggestad
+ * comment fixup
+ *
  * Revision 1.7  2002/11/19 12:43:54  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -467,8 +470,9 @@ void initmcast(void)
   _mw_initmcast(udp_socket);
 };
 
-/* clean client is called regurarly by waitdata() to clena up connections
-   that idle. This is a DoS defence. */
+/* clean client is called regurarly by waitdata() to clean up
+   connections that idle, Thus that connect but never send a SRB
+   message. This is a DoS defence. */
 void client_clean(void)
 {
   struct fd_info * cfi = NULL;

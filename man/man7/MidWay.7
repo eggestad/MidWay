@@ -12,11 +12,13 @@ MidWay - A Service Request Broker
 .SH INTRODUCTION 
 A service request broker (SRB) basic principle of operation is 
 .IR "function passing" . 
+
+.SH Services
 We have a
 .I service
 that execute a set of work (function or operation), such as a database
 search or update. Semantically it is a function in that it must have a
-name, it is most usually given an argument. and returns data, and a
+name, it is most usually given an argument. It returns data, and a
 return code.  Services are provided by processes we call
 .IR servers .
 A server may provide one or many 
@@ -35,14 +37,45 @@ A server may also issue a service request.
 
 Requests are queued and allow us to have many more clients than servers.
 
-
 A SRB differs most sigificantly from an Object Request Broker in that
 the services are 
 .IR stateless . 
 
+.SH Events
+Services allow only for client initiated communicaton. To do the other
+way around we have a different mechanism called
+.I events
+. 
+Events are subscribed to by any client or server. Unlike service call
+that must be exact names, event subscriptions may be regular
+expressions or globs, allowing for subscribing to whole classes of
+events. Posting of events is done similarly to a mwacall, by a name
+and optionally attached data. In addition an event may be targeted
+specific users or clients. A users here is the MidWay username a
+client attached with, and client is the client name assioated with an
+attach. (See
+.BR mwattach (3c)). 
+
+Like with services, events that begins with . are distributed only to
+the the ipc attached clients and servers, and all events that begin
+with mw or .mw are reserved for MidWay use. However event taht not
+begin with . are distributed to peer instances within a domain.
+
+One note on perfromance. Servcie call take precedens, and events are
+routed via the mwd, and mwd will do event coalescing. That mean that
+mwd will tend to queue up events and issue them in batches. This will
+have the effect that events may take a coulpe of seconds to
+distrbute. Since there may be a
+.I lot
+of subscribers and that the regular epression matching on all the
+subscriptions may be CPU intensive, event processing is deliberatly
+down prioritized to avoid DoS by doing an event storm. Developers
+should not attempt to use events as a low latency communication
+medium. 
+
 .SH RUNTIME ENVIRONMENT - INSTANCE
-In order to tie all of these processes together we have a runtime daemon
-the MidWay Daemon 
+In order to tie all of these processes together we have a runtime
+daemon the MidWay Daemon
 .BR mwd (1).
 The MidWay daemon creates the need IPC resouces to maintain
 information on all the parsepitating processes, and the buffer heap.

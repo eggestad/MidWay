@@ -31,7 +31,7 @@ provided a service with name
 is a pointer to the request buffer passed to the service routine. 
 The number of bytes of data is given by
 .IR len . 
-Id data is a NULL terminated string len may be 0. Similarly 
+If data is a NULL terminated string len may be 0. Similarly 
 .I rdata
 and 
 .I rlen

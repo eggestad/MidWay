@@ -1,3 +1,29 @@
+2003-07-21    <terje@3gnmy6.cm.chello.no>
+
+	* fixed major ipc buffers corruption bug when all buffers exausted
+	* also make mwacall and mwreply retry for a while if no buffers are immediatly available
+	* better exit from mwacall
+
+2003-07-13  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* TIMEPEGS in liburl and more
+	* mwfetch(,,,MWMULTPILE) returned queued replies in the wrong order
+	* critcal stack corruption error in _mwfetchipc()
+	* increased the maximum log message length from LINE_MAX to 64k, timepegs got way longer than LINE_MAX.
+	* added bufferspersize property to mwd tag in config
+	* took out reverse ip lookups, it caused timeout on mwgwd start if no dns server is available
+
+2003-06-07  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* mutex (un)lock in now in debug3
+	* added funcs for seting and geting ownerid of chunks
+	* introduced a table api for commands.c to return data in
+	
+2003-06-26  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* reworked the call request queue to FIFO
+	* added data contents in message dump
+
 2003-06-12    <terje@dpc-28.office.scali.no>
 
 	* fixes in mwgwd: NULL data in got garbage out, MWIPCONLY on inbound calls from peers

@@ -24,6 +24,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2002/10/07 00:04:40  eggestad
+ * - _mw_get_server_by_serviceid() named _mw_get_provider_by_serviceid() that also retun gateways.
+ * - _mw_get_service_providers() obsoleted
+ * - _mw_get_services_byname() now can return the number(n) in the returned list,
+ *
  * Revision 1.12  2002/10/03 21:09:08  eggestad
  * - _mw_get_service_providers() never worked, eternal loop
  * - _mw_get_services_byname() had rand() on the wrong spot,
@@ -433,33 +438,38 @@ serviceentry * _mw_get_service_byid (SERVICEID svcid)
   return svcent;
 };
 
-SERVERID _mw_get_server_by_serviceid (SERVICEID svcid)
+MWID _mw_get_provider_by_serviceid (SERVICEID svcid)
 {
   int index;
 
   if (ipcmain == NULL) { 
     return UNASSIGNED;
   };
-  if (svcid & MWSERVICEMASK != MWSERVICEMASK) {
+  if (SVCID(svcid) == UNASSIGNED) {
     return UNASSIGNED;
   };
-  index = svcid & MWINDEXMASK;
+  index = SVCID2IDX(svcid);
   if (index >= ipcmain->svctbl_length) 
     return UNASSIGNED;
   
   if (svctbl[index].server >= 0) return svctbl[index].server;
   if (svctbl[index].gateway >= 0) return svctbl[index].gateway;
-  return 0;
+  return UNASSIGNED;
 };
 
 /* return a list of all MWID's (only gateways and servers that provide
    the given service */
+
+#ifdef OBSOLETE
 MWID * _mw_get_service_providers(char * svcname, int convflag)
 {
   SERVICEID * slist;
   int index = 0, n;
-  MWID * rlist;
-  
+  MWID  llist[ipcmain->svctbl_length+1];
+  MWID  plist[ipcmain->svctbl_length+1]; 
+  MWID  flist[ipcmain->svctbl_length+1];
+  MWID * rlist, * rins; 
+
   if (ipcmain == NULL) { 
     return NULL;
   };
@@ -467,40 +477,72 @@ MWID * _mw_get_service_providers(char * svcname, int convflag)
   slist = _mw_get_services_byname(svcname, convflag);
   if (slist == NULL) return NULL;
 
-  rlist = malloc(sizeof(MWID) * (ipcmain->svctbl_length+1)); 
-
+  list = malloc(sizeof(MWID) * (ipcmain->svctbl_length+1)); 
+  list = malloc(sizeof(MWID) * (ipcmain->svctbl_length+1)); 
+  list = malloc(sizeof(MWID) * (ipcmain->svctbl_length+1)); 
+ 
   for (index = 0; index < ipcmain->svctbl_length+1; index++) 
     rlist[index] = UNASSIGNED;
 
   for(index = 0; slist[index] != UNASSIGNED; index++) {
     
-    if (svctbl[index].location == GWLOCAL) {
-      rlist[n] = IDX2SRVID(svctbl[index].server);
-      n++;
-    } else if (svctbl[index].location == GWPEER) {
-      rlist[n] = IDX2GWID(svctbl[index].gateway);
-      n++;
-    } else if (svctbl[index].location == GWREMOTE) {
-      rlist[n] = IDX2GWID(svctbl[index].gateway);
-      n++;
+    switch(svctbl[index].location) {
+
+    case GWLOCAL:
+      llist[nl] = svctbl[index].server;
+      nl++;
+      break;
+
+      // we should sort these on cost, but... 
+    case GWPEER:
+      plist[np] = svctbl[index].gateway;
+      np++;
+      break;
+
+    case GWREMOTE:
+      flist[nf] = svctbl[index].gateway;
+      nf++;
+      break;
     };
   };
-  
-  if (n != 0) return rlist;
-  
-  Error("we got a list of %d serviceids but no server or gateway that provide any of these services!", index);
 
-  free(rlist);
-  return NULL;  
+  free(slist);
+
+  if (nl + np + nf == 0) return NULL;
+  
+  rlist = malloc(sizeof(MWID) * (nl + np + nf+1)); 
+  rins = rlist;
+
+  DEBUG1("service %s is provided by %d local servers %d peers, %d foreign", 
+	svcname, nl, np, nf);
+
+  for (i = 0; i < nl; i++) {
+    DEBUG1(" server %d", SRVID2IDX(llist[i]));
+    *(rins++) = llist[i];
+  };
+  for (i = 0; i < np; i++) {
+    DEBUG1(" peer %d", GWID2IDX(plist[i]));
+    *(rins++) = plist[i];
+  };
+  for (i = 0; i < nf; i++) {
+    DEBUG1(" foreign %d", GWID2IDX(plist[i]));
+    *(rins++) = flist[i];
+  };
+
+  *rins = UNASSIGNED;
+  
+  return rlist;
 };
+#endif
 
 /* return the list of sericeid's of the given service */
-SERVICEID * _mw_get_services_byname (char * svcname, int convflag)
+SERVICEID * _mw_get_services_byname (char * svcname, int * N, int convflag)
 {
   SERVICEID * slist;
   int type, i, index, n = 0, x;
 
   DEBUG3("getting the list of services that provide %s conv=%d", svcname, convflag);
+  if (N != NULL) *N = 0;
 
   if (ipcmain == NULL) { 
     return NULL;
@@ -538,6 +580,8 @@ SERVICEID * _mw_get_services_byname (char * svcname, int convflag)
     };
   };
     
+  if (N != NULL) *N = n;
+
   if (n != 0) return slist;
   
   free(slist);

@@ -1,6 +1,6 @@
 /*
   MidWay
-  Copyright (C) 2000 Terje Eggestad
+  Copyright (C) 2000-2004 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU  General Public License as
@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2004/11/17 20:52:08  eggestad
+ * expanded the buffers command in mwadm to show buffers in use,and optionally the data in the buffer
+ *
  * Revision 1.11  2004/05/31 19:48:33  eggestad
  * main API changes
  *
@@ -77,6 +80,7 @@
 #include <MidWay.h>
 #include <ipctables.h>
 
+#include "mwadm.h"
 #include "dtbl.h"
 #include "commands.h"
 
@@ -96,6 +100,7 @@ static int sigflag = 0;
 
 static char * url = NULL;
 
+int dbgflag = 0;
 int usage(char *);
 
 struct command {
@@ -460,10 +465,14 @@ int main(int argc, char ** argv)
   extern char *optarg;
   extern int optind, opterr, optopt;
 
-  while ((option = getopt(argc, argv, "l:RA:")) != EOF) {
+  while ((option = getopt(argc, argv, "dl:RA:")) != EOF) {
     
     switch (option) {
       
+    case 'd':
+       dbgflag = 1;
+       break;
+
     case 'l':
        loglevel = _mwstr2loglevel(optarg);
        if (loglevel == -1) _usage(argv[0]);

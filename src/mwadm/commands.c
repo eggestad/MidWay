@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.18  2004/11/17 20:51:59  eggestad
+ * expanded the buffers command in mwadm to show buffers in use,and optionally the data in the buffer
+ *
  * Revision 1.17  2004/08/11 20:41:21  eggestad
  * large buffer alloc
  *
@@ -107,6 +110,7 @@
 #include <address.h>
 #include <multicast.h>
 
+#include "mwadm.h"
 #include "dtbl.h"
 #include "commands.h"
 
@@ -430,32 +434,121 @@ int heapinfo(int argc, char ** argv)
    extern struct segmenthdr * _mwHeapInfo;
    unsigned short semarray[BINS];
    int i, rc;
+   int c;
+   int listall = 0, listinuse = 0;
+   int l;
+   int fmt = 0, dumpdata = 0;
+   int writetofile = 0;
+   FILE * fp = stdout;
+   int offset = 0, s;
+   chunkhead * pChead;
+   chunkfoot * pCFoot;
 
    if (_mwHeapInfo == NULL) {
       printf("shm head not attached\n");
       return -1;
    };
-   printf ("magic %x segnment size %ld semid %ld\n", 
+   debug("parsing args");
+   optind = 0;
+   while( (c = getopt(argc, argv, "uao:xd")) != -1) {
+      debug("got the option %c", (char)c);
+      switch(c) {
+      case 'u':
+	 listinuse = 1;
+	 break;
+	 
+      case 'a':
+	 listall = 1;
+	 break;
+      
+      case 'o':
+	 fp = fopen(optarg, "w");
+	 writetofile = 1;
+	 break;
+
+      case 'x':
+	 fmt = 1;
+	 break;
+
+      case 'd':
+	 dumpdata = 1;
+	 break;
+      };
+   };
+
+   if (listall) listinuse = 1;
+
+   fprintf (fp,"magic %x segnment size %lld semid %lld\n", 
 	   _mwHeapInfo->magic, _mwHeapInfo->segmentsize, _mwHeapInfo->semid);
-   printf (" Basechunksize %ld chunkspersize %d Bins %d\n", 
+   fprintf (fp," Basechunksize %d chunkspersize %d Bins %d\n", 
 	   _mwHeapInfo->basechunksize, _mwHeapInfo->chunkspersize, BINS);
-   printf (" Chunks inuse=%d highwater=%d average=%d avgcount=%d\n", 
+   fprintf (fp," Chunks inuse=%d highwater=%d average=%d avgcount=%d\n", 
 	   _mwHeapInfo->inusecount, _mwHeapInfo->inusehighwater, 
 	   _mwHeapInfo->inuseaverage, _mwHeapInfo->inuseavgcount );
 
+   fprintf (fp," top=%lld bottom=%lld \n", _mwHeapInfo->top, _mwHeapInfo->bottom);
 
    rc = semctl(_mwHeapInfo->semid,BINS, GETALL, semarray);
    if (rc != 0) {
       printf ("semctl() failed, rc = %d reason %d\n",rc, errno);
       return -errno;
    };
-   printf ("Chunksize freecount locked\n");
-   for (i = 0; i < BINS; i++) {
-      printf(" %8ld  %8d   %s\n", 
-	     (1<<i) * _mwHeapInfo->basechunksize, 
-	     _mwHeapInfo->freecount[i], 
-	     semarray[i] ? "no " : "yes");
+   
+   if  (listall || listinuse) {
+      fprintf (fp,"  %16s: header=(%16s: %10s %8s) footer=(%16s: %16s %16s %16s\n",
+	      "Buffer offset", "Header offset", "Ownerid", "Size", 
+	      "Footer offset", "Above offset", "Previous", "Next");      
+   } else {
+      fprintf (fp,"Chunksize freecount locked\n");
    };
+   
+   for (i = 0; i < BINS-1; i++) {
+
+      if (listall || listinuse) {
+	 long long  h,f;
+	 offset =  _mw_gettopofbin(_mwHeapInfo, i);
+	 s = (1 << i) *_mwHeapInfo ->basechunksize;
+	 debug("listing chunks start %p end %p", _mwHeapInfo, ((void *)_mwHeapInfo) + _mwHeapInfo->segmentsize );
+	 for (l = 0; l < _mwHeapInfo->chunkspersize; l++) {
+	    c = (s + CHUNKOVERHEAD) * l;
+	    
+	    h =  offset + c;
+	    f = h + sizeof(chunkhead) + s;
+	    pChead = ((void*) _mwHeapInfo) + h;
+	    pCFoot = ((void*) _mwHeapInfo) + f; 
+	    
+	    debug ("header %p(%lld) owner %x, size %llx", pChead, h, pChead->ownerid,  pChead->size);
+	    debug("footer %p(%lld) %lld %lld %lld", pCFoot, f, pCFoot->above, pCFoot->next, pCFoot->prev);
+	    if (listall || (listinuse && pChead->ownerid != UNASSIGNED)) {
+	       fprintf (fp,"  %16lld: header=(%16lld: %10s %8lld) footer=(%16lld: %16lld %16lld %16lld)",
+		       h+sizeof(chunkhead), 
+		       h, _mwid2str(pChead->ownerid, NULL),  pChead->size * _mwHeapInfo->basechunksize,
+		       f, pCFoot->above, pCFoot->next, pCFoot->prev);
+	       if (dumpdata) {
+		  char * buf;
+		  buf = (char *) ( ((void*) _mwHeapInfo) + h + sizeof(chunkhead));
+		  fprintf(fp, " data=(");;
+		  if(fmt) {
+		     int n; 
+		     for (n = 0; n < pChead->size * _mwHeapInfo->basechunksize; n++) {
+			fprintf(fp, "%hhx ", buf[n]);
+		     };
+		  } else {
+		     fprintf(fp, "%.*s ", (int) (pChead->size * _mwHeapInfo->basechunksize), buf);
+		  };
+	       }
+	       fprintf(fp, "\n");	       
+	    }
+	 }
+	 
+      } else {
+	 fprintf(fp," %8d  %8d   %s\n", 
+		 (1<<i) * _mwHeapInfo->basechunksize, 
+		 _mwHeapInfo->freecount[i],
+		 semarray[i] ? "no " : "yes");
+      };
+   }
+   if (writetofile) fclose(fp);
    return 0;
 };
 
@@ -840,4 +933,9 @@ int call(int argc, char ** argv)
    return rc;
 };
 
+/* Emacs C indention
+Local variables:
+c-basic-offset: 3
+End:
+*/
 

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2001/09/15 23:44:13  eggestad
+ * fix for changing ipcmain systemname to instance name
+ * added func for instancename generation
+ *
  * Revision 1.4  2000/11/15 21:20:42  eggestad
  * Failed to boot with -D, wrong pid in shm
  *
@@ -53,10 +57,18 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <errno.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
+#include <sys/msg.h>
 #include <string.h>
 #include <pwd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+
+/* needed by set_instancename to get ip address of first eth device */
+#include <sys/ioctl.h> 
+#include <net/if.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+
 /* NB: see below */
 #include <signal.h>
 
@@ -391,6 +403,98 @@ int cleanup_ipc(void)
   term_maininfo();
 };
 
+/* we're now going to make an instance name of netaddr/ipckey we go
+   thru the network devices and look for our primary ip address.  if
+   that fail, we use teh MAC addr, if the fail, we don't have a
+   network connected,and we use the hostname. */
+void set_instancename(ipcmaininfo * ipcmain)
+{
+  char * pt, buffer [256] = {0};
+  int s, rc, idx, n;
+  struct ifreq ifdat = {0};
+  struct sockaddr_in * sin;
+  struct sockaddr hwaddr = { 0 };
+  int hwaddrfound = 0;
+  
+  s = socket (AF_INET, SOCK_DGRAM, 0);
+
+  if (s == -1) goto nonet;
+
+  for (n = 0, idx=1; n == 0; idx++) {
+    
+    mwlog(MWLOG_DEBUG, "checking interface with index %d for unique address", idx);
+
+    ifdat.ifr_ifindex = idx;
+    n = ioctl(s, SIOCGIFNAME, &ifdat);
+    if (n == -1) break;
+
+    mwlog(MWLOG_DEBUG, "ioctl(SIOCGIFNAME) returned %d errno %d ifname = %s", 
+	  n, errno, ifdat.ifr_name);
+    
+    rc = ioctl(s, SIOCGIFADDR, &ifdat);
+    mwlog(MWLOG_DEBUG, "ioctl(SIOCGIFADDR) returned %d errno %d af = %d", 
+	  rc, errno, ifdat.ifr_addr.sa_family);
+    
+    if (ifdat.ifr_addr.sa_family == AF_INET) {
+      sin = (struct sockaddr_in*) &ifdat.ifr_addr;
+
+      pt = (char *) inet_ntop(AF_INET, &(sin->sin_addr), buffer, 256);
+      if (pt == NULL) {
+	mwlog(MWLOG_WARNING, "failed to parse ip address in interface %s", ifdat.ifr_name);
+	continue;
+      };
+      mwlog(MWLOG_DEBUG, "ip addr = %s", buffer);
+      
+    } else {
+      rc = ioctl(s, SIOCGIFHWADDR , &ifdat);
+      mwlog (MWLOG_DEBUG, "ioctl returned %d errno %d hw_af = %d", 
+	     rc, errno, ifdat.ifr_addr.sa_family );
+      
+      /* is this a portable way to check for ethernet */
+      if ((ifdat.ifr_addr.sa_family == 1) || (ifdat.ifr_addr.sa_family == 2)){
+	mwlog (MWLOG_DEBUG, " MAC addr: %02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+	       ifdat.ifr_addr.sa_data[0], 
+	       ifdat.ifr_addr.sa_data[1], 
+	       ifdat.ifr_addr.sa_data[2], 
+	       ifdat.ifr_addr.sa_data[3], 
+	       ifdat.ifr_addr.sa_data[4], 
+	       ifdat.ifr_addr.sa_data[5]);
+
+	memcpy (&hwaddr, &ifdat.ifr_addr, sizeof(struct sockaddr));
+	hwaddrfound = 1;
+      };
+    }
+
+    if (ntohl(sin->sin_addr.s_addr) == INADDR_LOOPBACK) {
+       mwlog (MWLOG_DEBUG, " this is the loopback device, ignoring");	
+      continue;
+    }
+    
+    /* now we actually have a legal ip address as a string in
+       buffer,and it's not the loopback.*/
+    sprintf(ipcmain->mw_instance_name, "%s/%d", buffer, masteripckey);
+    return;
+  };
+
+  if (hwaddrfound) {
+    mwlog(MWLOG_WARNING, "using MAC address as instance net address");
+    sprintf(ipcmain->mw_instance_name, "[%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx]/%d",
+	    hwaddr.sa_data[0], 
+	    hwaddr.sa_data[1], 
+	    hwaddr.sa_data[2], 
+	    hwaddr.sa_data[3], 
+	    hwaddr.sa_data[4], 
+	    hwaddr.sa_data[5], 
+	    masteripckey);    
+    return;
+  };
+
+ nonet:
+  mwlog(MWLOG_WARNING, "No network connection found, assuming that host is standalone");
+  sprintf(ipcmain->mw_instance_name, "localhost/%d", masteripckey);
+  return;
+}
+  
 /* after creation, fill in initial data in the tables. */
 void
 init_maininfo(void)
@@ -399,12 +503,12 @@ init_maininfo(void)
 
   strcpy(ipcmain->magic,_mwgetmagic());
   _mwgetversion(&ipcmain->vermajor,&ipcmain->vermajor,&ipcmain->vermajor);
-  mwlog (MWLOG_DEBUG,"magc = %s version = %d.%d.%d\n", 
+  mwlog (MWLOG_DEBUG,"magic = %s version = %d.%d.%d", 
 	 ipcmain->magic,ipcmain->vermajor,ipcmain->vermajor,ipcmain->vermajor);
 
   ipcmain->mwdpid = getpid();
   ipcmain->mwwdpid = -1;
-  strcpy(ipcmain->mw_system_name,"Standalone MidWay");
+  set_instancename(ipcmain);
   ipcmain->status = MWBOOTING;
   ipcmain->clttbl_length  = maxclients;
   ipcmain->srvtbl_length  = maxservers;
@@ -507,7 +611,7 @@ void inst_sighandlers()
   }
 };
 
-main(int argc, char ** argv)
+int main(int argc, char ** argv)
 {
   char c;
   int rc, loglevel, daemon = 0, n;
@@ -776,7 +880,7 @@ main(int argc, char ** argv)
     exit(-1);
   };
   mwlog(MWLOG_INFO, "MidWay WatchDog daemon started pid=%d", rc); 
-  mwlog(MWLOG_INFO, "MidWay daemon boot complete systemname is %s", ipcmain->mw_system_name); 
+  mwlog(MWLOG_INFO, "MidWay daemon boot complete instancename is %s", ipcmain->mw_instance_name); 
 
   /* we copy all log messages to stdout iff in debugmode. */
   if (loglevel < MWLOG_DEBUG) {

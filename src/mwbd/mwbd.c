@@ -23,6 +23,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /* 
  * $Log$
+ * Revision 1.3  2001/10/16 16:18:09  eggestad
+ * Fixed for ia64, and 64 bit in general
+ *
  * Revision 1.2  2001/10/03 22:55:22  eggestad
  * plugged file desc leak
  *
@@ -437,7 +440,7 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
     info ("Instance %s provides domain %s, version %d.%d", 
 	  gwinfo->instance, gwinfo->domain, 
 	  gwinfo->majorversion, gwinfo->minorversion);
-    len -= (int) msgend - (int) msg +2;
+    len -= (long) (msgend -  msg) +2;
     msg = msgend + 2;
   };
 

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2001/10/16 16:18:09  eggestad
+ * Fixed for ia64, and 64 bit in general
+ *
  * Revision 1.3  2000/09/21 18:55:18  eggestad
  * Corrected loglevel on a debugmessage
  *
@@ -38,6 +41,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <errno.h>
 #include <sys/shm.h>
 #include <sys/sem.h>
@@ -185,7 +189,7 @@ int shmb_format(int mode, long chunksize, long chunkspersize)
     return -1;
   };
 
-  semarray = (ushort *) malloc(sizeof(unsigned short) * BINS);
+  semarray = (unsigned short *) malloc(sizeof(unsigned short) * BINS);
   for (i = 0; i < BINS; i++) {
     semarray [i] = 1; /* unlock */
   };

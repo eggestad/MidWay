@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2001/10/16 16:18:09  eggestad
+ * Fixed for ia64, and 64 bit in general
+ *
  * Revision 1.4  2000/09/21 18:45:10  eggestad
  * bug fix: core dump if SRB since _mwHeap was not tested for NULL
  *
@@ -74,11 +77,11 @@ struct segmenthdr * _mwHeapInfo = NULL;
 /* this operate on absolute adresses */
 chunkfoot * _mwfooter(chunkhead * head)
 {
-  int fadr;
+  void * fadr;
 
-  fadr = (int)head + sizeof(chunkhead) + 
+  fadr = (void *)head + sizeof(chunkhead) + 
     head->size * _mwHeapInfo->basechunksize;
-  mwlog(MWLOG_DEBUG3, "footer for %#x is at %#x + %#x + %#x * %#x = %#x",
+  mwlog(MWLOG_DEBUG3, "footer for %p is at %p + %p + %p * %p = %p",
 	head, head, sizeof(chunkhead),  head->size,  _mwHeapInfo->basechunksize,
 	fadr) ;
   return (chunkfoot *) fadr;
@@ -88,7 +91,7 @@ chunkfoot * _mwfooter(chunkhead * head)
 int _mwadr2offset(void * adr)
 {
   if (_mwHeapInfo == NULL) return -1;
-  return (int) adr - (int) _mwHeapInfo;
+  return (long) adr - (long) _mwHeapInfo;
 };
 
 void * _mwoffset2adr(int offset)
@@ -166,8 +169,8 @@ int _mwshmcheck(void * adr)
   if (_mwHeapInfo == NULL) return -1;
 
   /* first we make sure that adr is within the heap*/
-  if (adr < (void *) ((int)_mwHeapInfo + sizeof(struct segmenthdr))) return -1;
-  if (adr > (void *) ((int)_mwHeapInfo + _mwHeapInfo->segmentsize)) return -1;
+  if (adr < ((void *)_mwHeapInfo + sizeof(struct segmenthdr))) return -1;
+  if (adr > ((void *)_mwHeapInfo + _mwHeapInfo->segmentsize)) return -1;
       
   /* now we do sanity check on the chunk */
   size = getchunksizebyadr(adr - sizeof(chunkhead));

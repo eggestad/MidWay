@@ -96,20 +96,20 @@ int testfl(int flag)
   printf ("\n** Testing urlfldel() list is \"%s\" len=%d\n", list, len);
   X = "trusted";
   len = urlfldel(&list, X);
-  printf (" deleting \"%s\"\n  list is \"%s\"@%#x len=%d\n", 
-	  X, list, (unsigned int)list, len);
+  printf (" deleting \"%s\"\n  list is \"%s\"@%p len=%d\n", 
+	  X, list, list, len);
   X = "name";
   len = urlfldel(&list, X);
-  printf (" deleting \"%s\"\n  list is \"%s\"@%#x len=%d\n", 
-	  X, list, (unsigned int)list, len);
+  printf (" deleting \"%s\"\n  list is \"%s\"@%p len=%d\n", 
+	  X, list, list, len);
   X = "sex";
   len = urlfldel(&list, X);
-  printf (" deleting \"%s\"\n  list is \"%s\"@%#x len=%d\n", 
-	  X, list, (unsigned int)list, len);
+  printf (" deleting \"%s\"\n  list is \"%s\"@%p len=%d\n", 
+	  X, list, list, len);
   X = "age";
   len = urlfldel(&list, X);
-  printf (" deleting \"%s\"\n  list is \"%s\"@%#x len=%d\n", 
-	  X, list, (unsigned int)list, len);
+  printf (" deleting \"%s\"\n  list is \"%s\"@%p len=%d\n", 
+	  X, list, list, len);
 
   /* rollback to saved copy */
   free (list);

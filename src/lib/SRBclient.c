@@ -24,6 +24,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.5  2001/10/16 16:18:09  eggestad
+ * Fixed for ia64, and 64 bit in general
+ *
  * Revision 1.4  2001/09/16 00:05:56  eggestad
  * Wrong Licence header
  *
@@ -291,8 +294,8 @@ static SRBmessage * readmessage(int blocking)
 
     /* count all *new* message terminators */
     while( (szTmp = strstr(szTmp, "\r\n")) != 0) {
-      mwlog(MWLOG_DEBUG3, "found a message terminator at %d", 
-	    (int)szTmp - (int)(recvbuffer)); 
+      mwlog(MWLOG_DEBUG3, "found a message terminator at %ld", 
+	    (long) ((void*)szTmp - (void*)(recvbuffer))); 
       szTmp += 2;
       count++;
     };
@@ -344,9 +347,9 @@ static SRBmessage * readmessage(int blocking)
     _mw_srb_trace(1, connectionstate.fd, recvbuffer + recvbufferoffset, 0);
     srbmsg = _mw_srbdecodemessage(recvbuffer + recvbufferoffset);
     count--;
-    mwlog(MWLOG_DEBUG3, "client readmessage: recvbufferoffset = szTmp - recvbuffer + 2: %d = %d - %d +2 (=%d)", 
-	  recvbufferoffset, szTmp, recvbuffer, (int)szTmp - (int)recvbuffer + 2);
-    recvbufferoffset = (int)szTmp - (int)recvbuffer + 2;
+    mwlog(MWLOG_DEBUG3, "client readmessage: recvbufferoffset = szTmp - recvbuffer + 2: %d = %p - %p +2 (=%ld)", 
+	  recvbufferoffset, szTmp, recvbuffer, (long)((void*)szTmp - (void*)recvbuffer + 2));
+    recvbufferoffset = (long) ((void*)szTmp - (void*)recvbuffer + 2);
     if (recvbufferoffset == recvbufferend) {
       recvbufferoffset = recvbufferend = 0;
       recvbuffer[0] = '\0';

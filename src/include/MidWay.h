@@ -25,6 +25,7 @@
 
 #include <assert.h>
 
+
 #include "../../include/MidWay.h"
 
 #include "../../config.h"
@@ -43,21 +44,21 @@
 typedef int MWID;
 
 /*
- * I tried for a  while to keep the SERVICE/SERVER/CLIENT/GATEWAYID to
- * be the index, without the  flags set, and introduce a MWID where we
- *  checked the mask  to see  what it  was.  (typically  to distiguius
- * between  server and gateway.   I've however abandoned  that though,
- * and for all *ID the type mask shall ALWAYS be set. We intruduce the
- * index  "type" (int)  that are the  unmasked number.  The  safety of
- * first of all mostly seperate  variables foir the ID, and then check
- * to verify  that it's the correct type just apeal  to me. THus these
- * macros are now obsiolete.
+ * I tried for a while to keep the SERVICE/SERVER/CLIENT/GATEWAYID to
+ * be the index, without the flags set, and introduce a MWID where we
+ * checked the mask to see what it was.  (typically to distinguish
+ * between server and gateway.  I've however abandoned that though,
+ * and for all *ID the type mask shall ALWAYS be set. We introducer
+ * the index "type" (int) that are the unmasked number.  The safety of
+ * first of all mostly separate variables for the ID, and then check
+ * to verify that it's the correct type just appeal to me. Thus these
+ * macros are now obsolete.
 
 /* get the index or unassigned if wrong mask set */
-#define CLTID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWCLIENTMASK)  >= 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
-#define SRVID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWSERVERMASK)  >= 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
-#define SVCID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWSERVICEMASK) >= 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
-#define  GWID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWGATEWAYMASK) >= 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+#define CLTID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWCLIENTMASK)  > 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+#define SRVID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWSERVERMASK)  > 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+#define SVCID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWSERVICEMASK) > 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+#define  GWID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWGATEWAYMASK) > 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
 
 /* filters */
 #define CLTID(id)  ((id & MWCLIENTMASK)  != 0 ? id : UNASSIGNED)
@@ -70,6 +71,10 @@ typedef int MWID;
 #define IDX2SRVID(id)  ((id & MWINDEXMASK) | MWSERVERMASK)  
 #define IDX2SVCID(id)  ((id & MWINDEXMASK) | MWSERVICEMASK) 
 #define  IDX2GWID(id)  ((id & MWINDEXMASK) | MWGATEWAYMASK) 
+
+char * _mwid2str(MWID id, char * buffer);
+
+
 
 #ifdef __GNUC__
 /* gcc hack in order to avoid unused warnings (-Wunused) on cvstags */
@@ -137,11 +142,19 @@ static inline void debug_free(char * file, int line, void *ptr)
   free(ptr);
 };
 
+static inline char * debug_strdup(char * file, int line, char * ptr)
+{
+   ptr = strdup(ptr);
+   mwlog(MWLOG_DEBUG2, "@@@@@@@@@ %s:%d @@@@@@@@@    strdup => %p\n", file, line, ptr);  
+   return ptr;
+};
+
 
 
 #define malloc(s) debug_malloc(__FILE__, __LINE__, s)
 #define realloc(p,s) debug_realloc(__FILE__, __LINE__, p, s)
 #define free(p) debug_free(__FILE__, __LINE__, p)
+#define strdup(p) debug_strdup(__FILE__, __LINE__, p)
 
 #else 
 
@@ -260,11 +273,12 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
 #define DECLAREMUTEX(name) static pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
 #define DECLAREGLOBALMUTEX(name)  pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
 #define DECLAREEXTERNMUTEX(name)  extern pthread_mutex_t name
+
 #define _LOCKMUTEX(name)   do {pthread_mutex_lock(&name); }   while(0)
 #define _UNLOCKMUTEX(name) do {pthread_mutex_unlock(&name); } while(0)
 #define LOCKMUTEX(name)    do { DEBUG3("locking mutex " #name " ..." );  \
 pthread_mutex_lock(&name); DEBUG1("locked mutex " #name);  } while(0)
-#define UNLOCKMUTEX(name)  do { DEBUG3("unlocking mutex " #name); pthread_mutex_unlock(&name); } while(0)
+#define UNLOCKMUTEX(name)  do { DEBUG1("unlocking mutex " #name); pthread_mutex_unlock(&name); } while(0)
 #else 
 #error "PTHREADS are currently required"
 #endif

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.16  2004/08/11 19:02:40  eggestad
+ * added large buffer alloc
+ *
  * Revision 1.15  2004/04/12 22:59:06  eggestad
  * - unprovide was brken now fixed
  * - also fiex missing servername in servertable
@@ -81,6 +84,10 @@
 #include <signal.h>
 #include <string.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include <MidWay.h> 
 #include <ipcmessages.h>
@@ -436,6 +443,126 @@ static int do_admin(void * mp)
   return -EBADRQC;
 };
 
+/*************************************************************************/
+
+
+static int lastallocedid = LOW_LARGE_BUFFER_NUMBER;
+
+static int getnextallocid(void)
+{
+   int i, rc = 0, n = 0;
+   char path[256];
+   i = lastallocedid;
+   do {
+      i++;
+      n++;
+      if(i < 0) { i = LOW_LARGE_BUFFER_NUMBER +1;};
+      if (n < 0) { return -ENOMEM;};
+
+      snprintf(path, 256, "%s/%d", ipcmain->mw_bufferdir, i);
+      rc = access(path, F_OK);
+   } while (rc == 0);
+   lastallocedid = i;
+   return i;
+};
+
+static int do_alloc(void * mp)
+{
+   Alloc * allocmesg;
+   char path[256];
+   int rc, fd, id;
+   long s, ps;
+   off_t n;
+   mode_t mode, mask;
+
+   chunkhead ch;
+
+   if (mp == NULL) return -EINVAL;
+   allocmesg = (Alloc *) mp;
+   
+   allocmesg->mtype = ALLOCRPL;
+
+   id = getnextallocid();
+   DEBUG("alloc buffer id %d", id);
+
+   if (id < LOW_LARGE_BUFFER_NUMBER) {
+      Error ("no free file slot for buffer");
+      allocmesg->bufferid = -1;
+
+      _mw_ipc_putmessage(allocmesg->mwid, (char *) allocmesg, sizeof(Alloc), 0);	
+      return -EINVAL;
+   };
+   
+   if (allocmesg->size > LONG_MAX) {
+      return -ENOMEM;
+   };
+   s = allocmesg->size + sizeof(chunkhead);
+   ps =  s / get_pagesize() + ((s % get_pagesize())?0:1);
+   DEBUG("size=%ld needed pages = %ld", s, ps);
+
+   snprintf(path, 256, "%s/%d", ipcmain->mw_bufferdir, id);  
+   
+   mask = umask(0);
+   mode = mwdheapmode() & ~mask;
+ 
+   if (mode&S_IRGRP)
+      mode |= S_IWGRP;
+   /* and for other access */
+   if (mode&S_IROTH)     
+      mode |= S_IWOTH;
+   DEBUG("mask is %o opening with mode %o", mask, mode);
+
+   fd = open(path, O_WRONLY|O_CREAT|O_EXCL, mode);  
+   umask(mask);
+   if (fd < 0) {
+      Error("failed to open buffer file %s reason %s", path,  strerror(errno));
+      return -ENOMEM;
+   };
+
+
+   ch.ownerid = allocmesg->mwid;
+   ch.size = allocmesg->size;
+   rc = write(fd, &ch, sizeof(chunkhead));
+   Assert(rc == sizeof(chunkhead));
+
+   s = (ps * get_pagesize())-1;
+   DEBUG("buffer %d has %ld pages seeking to %ld", id, ps, s);
+   n = lseek(fd, s, SEEK_SET); 
+   DEBUG("seek to %#lx resulted in %#lx", s, n);
+   Assert(n == s);
+
+   rc = write(fd, "", 1);
+   Assert(rc == 1);
+   close(fd);
+
+   allocmesg->bufferid = id;
+   allocmesg->mtype = ALLOCRPL;
+   allocmesg->pages = ps;
+
+   _mw_ipc_putmessage(allocmesg->mwid, (char *) allocmesg, sizeof(Alloc), 0);	
+   return 0;  
+};
+
+static int do_free(void * mp)
+{
+  Alloc * allocmsg;
+  char path[256];
+
+  if (mp == NULL) return -EINVAL;
+  allocmsg = mp;
+     
+  
+  DEBUG("freeing file for bufferid %d", allocmsg->bufferid);
+  snprintf(path, 256, "%s/%d", ipcmain->mw_bufferdir, allocmsg->bufferid);
+  
+  unlink(path);
+  
+  return 0;
+  
+};
+
+/*************************************************************************/
+
 static int do_event(void * mp)
 {
   Event * evmsg;
@@ -632,6 +759,17 @@ int parse_request(int nonblock)
     if (rc < (sizeof(Call) -sizeof(long))) return -EMSGSIZE;
     return do_call(mesgbuffer);
 
+  case ALLOCREQ:
+     if (rc < (sizeof(Alloc) -sizeof(long))) return -EMSGSIZE;
+     return do_alloc(mesgbuffer);
+     
+  case FREEREQ:
+     if (rc < (sizeof(Alloc) -sizeof(long))) return -EMSGSIZE;
+     return do_free(mesgbuffer);
+
   };  
+
+
+     
   return -EBADMSG;  
 };

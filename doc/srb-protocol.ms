@@ -237,7 +237,8 @@ the message is not just to big and causes the TCP stack to chop it
 into a large and a very small packet. This is only a performance
 issue.
 
-.ti Handles
+.ti 1
+Handles
 A handle is a reference number used in order to link messages
 together, such as with SVCCALL and SVCDATA. In the case of gateways,
 where a SVCCALL is received from one gateway and retransmitted to
@@ -374,7 +375,8 @@ NAME;1*64token;m;;Client name if
 REVERSE;"yes"|"NO";o;;Allow reverse 
 ;;;;calls
 REJECTS;"YES"|"no";o;;No error handling
-AUTHENTICATION;"NONE"|"unix"|"x509";o;;
+AUTHENTICATION;"NONE"|"PASSWORD"|"X509";o;;
+ENCRYPTION;"NONE"|"SSLv3"|"TLSv1";o;;
 USER;1*token;;;if auth!=NONE
 PASS;1*token;;;
 AGENT;1*token;oi;; e.g. "MidWay"
@@ -384,6 +386,31 @@ RETURNCODE;1*3digit;n/a;m
 CAUSE;1*token;n/a;oi;the cause RC!=0  
 .TE
 
+.ti 2
+Authentication
+
+If AUTH is set to PASSWORD a normal user/password must be set in their
+respective fields. The exeception being is ENCRYPTION is set also, se
+below. 
+
+.ti 2
+Encryption
+
+If the ENCRYPTION field is set by the initiating side, the server side
+may reject it by replying ENCRYPT-PROTOCOL-NOT-SUPPORTED, at which the
+client may try again with another encryption protocol or try without
+encryption. X509 authentication is only supported with encryption.
+
+NOTE: if AUTHENTICATION is set to PASSWORD and ENCRYPTION is set on,
+the PASSWORD shall NOT be set! For the very simple reason that the
+password would be in plain text. The SRB INIT reply will have
+RETURNCODE=RETRY, and the SRB INIT shall be resent with the PASSWORD
+set AFTER SSL/TLS handshakes so that the session is encrypted.
+
+Immediately after the SRB INIT reply the SSL, or TLS handshakes take
+place, and the normal SRB protocol resumes after SSL/TLS success.
+
+If the SSL/TLS handshakes fail, the connection is broken.
 
 .ti 1
 SRB READY
@@ -432,7 +459,14 @@ GRACE;1*DIGIT;m;;
 .ti 1
 PROVIDE
 event !
-Shall not be sent to clients.
+
+Shall not be sent to clients. This is sent from one gateway to another
+to notify peer about a service available in the gateway. After the
+peer may send service requests to this service. SERVICE and INSTANCE
+form an unique touple. Repeat is legal and shall be ignored. A PROVIDE
+is revoked with UNPROVIDE. Gateways shall distribute service names
+imported from other gateways but only the shortest path to that
+service.
 
 .TS
 box, tab(;);
@@ -442,6 +476,7 @@ l | l | l | l | l |.
 Parameter name;value ABNF;req;rpy;comment
 SVCNAME;1*32token;m;;
 INSTANCE;1*64token;m;;See **
+HOPS;1*9DIGIT;m;;
 CONVERSATIONAL;"yes""NO";o;;Reserved Future use
 DOMAIN;1*64token;o;;(??)
 UNIQUE;"yes"|"NO";o;;
@@ -478,9 +513,9 @@ REMOTETIME;1*DIGIT "." 6DIGIT;o;r;
 SVCCALL
 Request/Response/event ?.! 
 
-If the Event maker is used, it is a flag that signal that the client
+If the Event marker is used, it is a flag that signal that the client
 don't want a reply, not even an acknowledge that the call was even
-processed. Inthis case the handle field is ignored and may be ommited.
+processed. In this case the handle field is ignored and may be ommited.
 
 .TS
 box, tab(;);

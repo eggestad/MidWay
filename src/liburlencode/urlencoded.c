@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2003/07/13 20:34:49  eggestad
+ * - unhex debugging from level 1 to 3
+ * - added timepegs
+ *
  * Revision 1.6  2003/06/12 07:18:39  eggestad
  * unhex() failed for %ff (returned -1)
  *
@@ -80,15 +84,15 @@ static int unhex(char high, char low)
    if (isdigit(high)) high = (0xf & high);
    else if (isxdigit(high)) high = (0xf & high) + 9;
    else return -1;
-   debug1("highnibble %x", high);
+   debug3("highnibble %x", (int) high);
    if (isdigit(low)) low = (0xf & low);
    else if (isxdigit(low)) low = (0xf & low) + 9;
    else return -1;
-   debug1("low nibble %x", low);
+   debug3("low nibble %x", (unsigned int) low);
    res = high & 0xf;
    res <<= 4;
    res += low & 0xf;
-   debug1("char value is %d", res);
+   debug3("char value is %d", res);
    return res;
 };
 
@@ -133,6 +137,8 @@ int urlnencode(char * encode, char * uncoded, int len)
   int i;
 
   int j;
+
+  TIMEPEGNOTE("begin");
   /* Input control */  
   if ( (encode == NULL) || (uncoded == NULL) || (len < 0) ) {
     errno = EINVAL;
@@ -159,6 +165,7 @@ int urlnencode(char * encode, char * uncoded, int len)
     };
   };
   encode[j] = '\0';
+  TIMEPEGNOTE("end");
   return j;
 };
 
@@ -208,6 +215,8 @@ int urldecode(char * plain, char * encoded)
   int c, i, len;
   int j = 0;
 
+  TIMEPEGNOTE("begin");
+
   if ( (plain == NULL) || (encoded == NULL) ) {
     errno = EINVAL;
     return -1;
@@ -233,6 +242,7 @@ int urldecode(char * plain, char * encoded)
 	 debug1("Failed to get hex value of %c(%d)%c(%d)", 
 		encoded[i], encoded[i], encoded[i+1], encoded[i+1]);
 	errno = EINVAL;
+	TIMEPEGNOTE("end format error");
 	return -1;
       };
       i++;
@@ -245,7 +255,7 @@ int urldecode(char * plain, char * encoded)
     };
   };
   plain[j] = '\0';
-
+  TIMEPEGNOTE("end good decode");
   return j;
 };
 

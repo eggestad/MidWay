@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.20  2003/06/05 21:59:21  eggestad
+ * sigsegv bug fix
+ *
  * Revision 1.19  2003/06/05 21:52:56  eggestad
  * commonized handling of -l option
  *
@@ -726,9 +729,11 @@ Connection * gwlocalclient(CLIENTID cid)
      conn_clients is actually enough. */ 
 
   ce = _mw_get_client_byid(cid);
+  if (ce == NULL) return NULL;
+
   if (ce->gwid == UNASSIGNED) {
     DEBUG2(" client %d is IPC", CLTID2IDX(cid));
-    return 0; // IPC client
+    return NULL; // IPC client
   };
 
   if (ce->gwid !=  _mw_get_my_gatewayid()) {

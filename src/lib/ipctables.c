@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.21  2004/06/06 16:08:54  eggestad
+ * better test on system state
+ *
  * Revision 1.20  2004/04/12 23:05:24  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -631,9 +634,8 @@ int _mw_list_services_byglob (char * glob, char *** plist, int inflags)
    int i, index, n = 0, l, x, rc;
    int flags = FNM_PERIOD;
   
-   if (ipcmain == NULL) { 
-      return -EFAULT;
-   };
+   rc = _mwsystemstate();
+   if (rc) return rc;  
 
    if (plist == NULL) return -EINVAL;
    if (glob == NULL) glob = "*";

@@ -18,14 +18,14 @@
   Boston, MA 02111-1307, USA. 
 */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
 
 /* 
  * $Log$
+ * Revision 1.7  2002/07/07 22:34:46  eggestad
+ * added urlmapdup
+ *
  * Revision 1.6  2001/10/03 22:49:31  eggestad
- * added urlmapseti()
- * mem corruption fixes
+ * added urlmapseti()mem corruption fixes
  *
  * Revision 1.5  2001/09/15 23:55:34  eggestad
  * Fixes for parameter sanity checking
@@ -44,6 +44,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <stdio.h>
 
 #include "urlencode.h"
+
+static char * RCSId UNUSED = "$Id$";
+
 
 urlmap * urlmapdecode(char * list)
 {
@@ -230,6 +233,50 @@ int urlmapnencode(char * list, int len, urlmap * map)
   return listlen;
 };
 
+urlmap * urlmapdup(urlmap * map)
+{
+  urlmap * newmap = NULL;
+  int idx, n;
+  int l;
+
+  if (map == NULL) return NULL;
+  fprintf (stderr, "beginning copy of map at %p\n", map);
+
+  /* find the number of pairs in the map. */
+  for (n = 0; map[n].key != NULL;  n++) ;
+  
+  fprintf (stderr, "map to be copied has %d pairs\n", n);
+  newmap = malloc(sizeof(urlmap) * (n+1));
+  
+  for (idx = 0; idx < n; idx++) {
+    
+    fprintf (stderr, "copying pair %d: key=%s :: value=%s(%d)\n",  idx,  
+	     map[idx].key, 
+	     map[idx].value!=NULL?map[idx].value:"(null)",
+	     map[idx].valuelen);
+
+    /* copy key */
+    l = strlen(map[idx].key);
+    newmap[idx].key = malloc(l+1);
+    memcpy(newmap[idx].key, map[idx].key, l);
+    newmap[idx].key[l] = '\0';
+    
+    /* copy value */
+    if (map[idx].value == NULL) {
+      newmap[idx].value = NULL;
+      newmap[idx].valuelen = 0;
+    } else {
+      newmap[idx].valuelen = map[idx].valuelen;
+      newmap[idx].value = malloc(newmap[idx].valuelen+1);
+      memcpy(newmap[idx].value, map[idx].value, newmap[idx].valuelen);
+      newmap[idx].value[newmap[idx].valuelen] = '\0'; // just to be on the safe side.
+    };
+  };
+  newmap[idx].key = NULL;
+  newmap[idx].value = NULL;
+  newmap[idx].valuelen = 0;
+  return newmap;
+};
 
 void urlmapfree(urlmap * map)
 {

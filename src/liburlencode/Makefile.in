@@ -26,7 +26,7 @@ install:
 uninstall:
 	rm -f @libdir@/liburlencode.a
 
-tags:
+TAGS:
 	etags -a -o ../TAGS *.c *.h
 
 depend:

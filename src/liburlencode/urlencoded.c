@@ -23,14 +23,14 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/07/07 22:34:46  eggestad
+ * added urlmapdup
+ *
  * Revision 1.4  2001/10/04 19:18:10  eggestad
  * CVS tags fixes
  *
  *
  */
-
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <errno.h>
 #include <stdio.h>
@@ -39,6 +39,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <ctype.h>
 
 #include "urlencode.h"
+
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 
 /******************************************************

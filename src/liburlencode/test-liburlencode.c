@@ -182,7 +182,7 @@ int testmap(int flag)
 }; 
 
 
-int main()
+int main(int argc, char ** argv)
 {
   testencode(0);
   testfl(0);

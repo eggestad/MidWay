@@ -21,6 +21,11 @@
 
 /*
  * $Log$
+ * Revision 1.18  2003/06/12 07:45:01  eggestad
+ * - added MWIPCONLY flag to _mwipcacall, to force local service
+ * - added check for error in message decode
+ * + bug fixes
+ *
  * Revision 1.17  2003/03/16 23:50:23  eggestad
  * Major fixups
  *
@@ -178,7 +183,7 @@ static int vGetOptBinField(Connection * conn, SRBmessage * srbmsg,
     return 1;
   } 
   *value = NULL;
-  *valuelen = -1;
+  *valuelen = 0;
   DEBUG2("no opt bin field %s found", fieldname);
   return 0;
 }
@@ -756,8 +761,14 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
     // only _mwacallipc() theat do the _mw_get_services_byname() call
     // which is heavy.
 
+    if (conn->type == CONN_TYPE_GATEWAY) {
+       DEBUG("got call from a gateway, setting ipc only flag for mwacallipc");
+       flags |= MWIPCONLY;
+    };
+
+    TIMEPEGNOTE("doing _mwacallipc");
     rc = _mwacallipc (svcname, data, datalen, flags, mwid, instance, domain, callerid, hops);
-    TIMEPEG();
+    TIMEPEGNOTE("done _mwacallipc");
     if (rc > 0) {
       DEBUG("_mwacallipc succeeded");  
 
@@ -944,7 +955,7 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
       if (rc == -1 ) {
 	 _mw_srbsendterm(conn, 0);
 	 if (conn->gwid != UNASSIGNED)
-	     gw_closegateway(conn->gwid);
+	     gw_closegateway(conn);
 
 	 conn_del(conn->fd);
 	 break;
@@ -974,7 +985,7 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
       if (conn->type == CONN_TYPE_GATEWAY)
 	gw_provideservices_to_peer(conn->gwid);     
     } else 
-      gw_closegateway(conn->gwid);
+      gw_closegateway(conn);
     
     break;
       
@@ -1027,6 +1038,12 @@ int srbDoMessage(Connection * conn, char * message)
 
   DEBUG2("srbDoMessage: command=%*.*s marker=%c on fd=%d", 
 	commandlen, commandlen, message, *ptr, conn->fd);
+
+  if (srbmsg.map == NULL) {
+     Warning ("rejected message due to error in decode: message \"%s\"", message);
+     _mw_srbsendreject_sz(conn, message, -1);
+     goto out;
+  };
 
   dbg_srbprintmap(srbmsg); 
   TIMEPEG();

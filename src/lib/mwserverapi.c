@@ -23,6 +23,15 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/02/17 14:20:03  eggestad
+ * - added _mw_server_get_callbuffer()/_mw_server_set_callbuffer()
+ * - removed  struct ServiceFuncEntry
+ * - _mw_popservice and _mw_pushservice now global funcs
+ * - _mw_requestpending now a global var
+ * - MWMORE now a return code, not a flag
+ * - added _mw_set_deadline()
+ * - timeout handling fixup
+ *
  * Revision 1.8  2001/09/15 23:59:05  eggestad
  * Proper includes and other clean compile fixes
  *
@@ -62,11 +71,14 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <signal.h>
 
 #include <MidWay.h>
 #include <ipcmessages.h>
 #include <ipctables.h>
 #include <shmalloc.h>
+#include <mwclientapi.h>
+#include <mwserverapi.h>
 
 /**********************************************************************
  *
@@ -84,6 +96,19 @@ static Call * callmesg = (Call *) buffer;
 
 static int provided = 0;
 
+Call * _mw_server_get_callbuffer(void)
+{
+  return callmesg;
+};
+
+void _mw_server_set_callbuffer(Call * cb)
+{
+  if (cb == NULL) 
+    callmesg = (Call *) buffer;
+  else 
+    callmesg = cb;
+};
+
 void _mw_incprovided(void)
 {
   provided++;
@@ -97,18 +122,12 @@ void _mw_decprovided(void)
   We have an internal list for holding the pionter ro the functioon to
   be called for each service. */
 
-struct ServiceFuncEntry {
-  SERVICEID svcid;
-  int (*func)  (mwsvcinfo*);
-  struct ServiceFuncEntry * next;
-};
-
 static struct ServiceFuncEntry * serviceFuncList = NULL;
 
 /* two methods for poping and pushing functions references to C
    functions coupled with SERICEID.  */
 
-static struct ServiceFuncEntry * pushservice(SERVICEID sid, int (*svcfunc) (mwsvcinfo*)) 
+struct ServiceFuncEntry * _mw_pushservice(SERVICEID sid, int (*svcfunc) (mwsvcinfo*)) 
 {
   struct ServiceFuncEntry * newent;
 
@@ -127,7 +146,7 @@ static struct ServiceFuncEntry * pushservice(SERVICEID sid, int (*svcfunc) (mwsv
   return newent;
 };
 
-static void popservice(SERVICEID sid)
+void _mw_popservice(SERVICEID sid)
 {
   struct ServiceFuncEntry * thisp, * prev;
 
@@ -161,7 +180,6 @@ static void popservice(SERVICEID sid)
    which is to mark our self down in SHM tables, send detach to mwd, 
    detach ipc, and exit(),
 */
-#include <signal.h>
 static void install_sigactions(int flag);
 
 static void signal_handler(int sig) 
@@ -243,7 +261,7 @@ int mwprovide(char * service, int (*svcfunc) (mwsvcinfo*), int flags)
      ServiceFuncEntry object in the service entry in the SHM
      Tables. It must be searched anyway by the client or gateway
      process.  Likewise we can from say Perl store a reference here.  */
-  svcent->svcfunc = (void *) pushservice (svcid, svcfunc);
+  svcent->svcfunc = (void *) _mw_pushservice (svcid, svcfunc);
   provided++;
 
   /* THREAD MUTEX ENDS */
@@ -266,7 +284,7 @@ int mwunprovide(char * service)
   };
 
   rc = _mw_ipc_unprovide(service,  svcid);
-  popservice(svcid);
+  _mw_popservice(svcid);
   provided--;
   mwlog(MWLOG_DEBUG1, "mwunprovide() returned %d");
   return rc;
@@ -276,8 +294,8 @@ int mwunprovide(char * service)
    NB: NOT TREADSAFE. If we make us thread safe these are thread private data.
 */
 static struct timeval starttv, endtv; 
-static int waitmsec, servemsec, _mw_requestpending = 0;
-
+static int waitmsec, servemsec;
+int _mw_requestpending = 0;
 static void completeStats(void)
 {
   gettimeofday(&endtv, NULL);
@@ -297,50 +315,23 @@ static void completeStats(void)
 int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
 {
   char * ptr;
-  int rc, dataoffset;
-  void * dbuf;
+  int rc;
   int mwid;
 
   /* if we already have completed the replies */
   if (! _mw_requestpending) return -EALREADY;
 
-  /* we we try to send multiple replies, abnd multple flags not set in
-     callmesg */
-  if ( (flags & MWMORE) && !(callmesg->flags & MWMULTIPLE) ) 
-    return -EINVAL;
 
   rc = _mwsystemstate();
   if (rc) return rc;
 
-  /* First we handle return buffer. If data is not NULL, and len is 0,
-     datat is NULL terminated. if buffer is not a shared memory
-     buffer, get one and copy over. */
-    
-  if (data != NULL) {
-    if (len == 0) len = strlen(data);
 
-    dataoffset = _mwshmcheck(data);
-    if (dataoffset == -1) {
-      dbuf = _mwalloc(len);
-      if (dbuf == NULL) {
-	mwlog(MWLOG_ERROR, "mwalloc(%d) failed reason %d", len, (int) errno);
-	return -errno;
-      };
-      memcpy(dbuf, data, len);
-      dataoffset = _mwshmcheck(dbuf);
-    }
-    
-    callmesg->data = dataoffset;
-    callmesg->datalen = len;
-  } else {
-    callmesg->data = 0;
-    callmesg->datalen = 0;
-  }
+  _mw_putbuffer_to_call(callmesg, data, len);
 
   /* return code handling. returncode is EFAULT if MWFAIL, 
      0 on MWSUCCESS and MWMORE on MWMORE. */
   if (returncode == MWSUCCESS)
-    callmesg->returncode = 0;
+    callmesg->returncode = MWSUCCESS;
   else if (returncode == MWMORE)
     callmesg->returncode = MWMORE;
   else
@@ -369,7 +360,7 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
 
      We only update stats on service call completion.
   */
-  if ((! (flags & MWMORE)) && (callmesg->returncode != MWMORE)) {
+  if (callmesg->returncode != MWMORE) {
     _mw_requestpending = 0;  
     gettimeofday(&endtv, NULL);
     completeStats();
@@ -419,8 +410,9 @@ int mwforward(char * svcname, char * data, int len, int flags)
 
 
   /* First we handle return buffer. If data is not NULL, and len is 0,
-     datat is NULL terminated. if buffer is not a shared memory
-     buffer, get one and copy over. */
+   data is NULL terminated. if buffer is not a shared memory buffer,
+   get one and copy over. */
+
   if (data != NULL) {
     if (len == 0) len = strlen(data);
 
@@ -465,10 +457,47 @@ int mwforward(char * svcname, char * data, int len, int flags)
   return rc;
 };
 
+
+int _mw_set_deadline(Call * callmesg, mwsvcinfo * svcreqinfo)
+{
+  int remain_ms;
+  /* now we do calulations on issue time, now, and deadlines.
+     we need to update stats (NYI) and to check to see if the deadline has expired, 
+     and returne a timeout reply if it has.
+  */
+  gettimeofday(&starttv, NULL);
+  if (callmesg->timeout > 0 ) {
+    svcreqinfo->deadline  = callmesg->issued + callmesg->timeout/1000;
+    svcreqinfo->udeadline = callmesg->uissued; + ((callmesg->timeout)%1000)*1000000;
+  } else {
+    svcreqinfo->deadline = 0;
+    svcreqinfo->udeadline = 0;
+  };
+  
+  waitmsec = (starttv.tv_sec - callmesg->issued) * 1000 
+    + (starttv.tv_usec - callmesg->uissued) / 1000;
+
+  /* we return time left to deadline(, or expired by if negative) */
+
+  if (callmesg->timeout > 0) {    
+    remain_ms  = (svcreqinfo->deadline - starttv.tv_sec);
+    if (remain_ms > 1000000) remain_ms = 1000000;
+    remain_ms *= 1000;
+    remain_ms += (svcreqinfo->udeadline - starttv.tv_usec) / 1000; 
+    return remain_ms;
+  }
+
+  /* if no deadline, we can't calc whats remains */
+  return 1000000000;
+};
+
 /*
  * This function is used to perform a service call. Thus it finds out if 
  * we really provides this service, sets stats data in shm and calls
  * the applictaion service function.
+ * 
+ * if your're in need of replacing it since you use tha message queue
+ * for other messages, see do_call() in mwd/request_parse.c
  */
 mwsvcinfo *  _mwGetServiceRequest (int flags)
 {
@@ -526,49 +555,34 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
     return NULL;
   };
 
-    /*    if (callmesg->srvid != _mw_get_my_serverid()) {
-	  mwlog (MWLOG_ERROR, "Got a call request for service \"%s\" serviceid %#x and serverid %#x, but my serverid is %#x", 
-	  callmesg->service, callmesg->svcid, 
-	  callmesg->srvid, _mw_get_my_serverid());
-	  callmesg->returncode = -EBADMSG;
-	  _mw_ipc_putmessage(callmesg->cltid,callmesg, sizeof(Call), 0);
-	  _mw_set_my_status(NULL);
-	  errno = EBADMSG;
-	  return NULL;
-	  }
-    */
-    /* In the call stuct we get the time issued in struct timeval format and timeout in millisecs.
-       In the SI struct we give the deadline in struct timeval type data.
-       If the deadline is allready reached we just return ETIME.
-       Also we use this data to calc the time it took from issued to we begun to serv it, 
-       and how long we used to process the service request.
-       Also we keep track of busy time.
-       All this goes into the statistic section for the server in shm tbls. 
-    */
+  /*    if (callmesg->srvid != _mw_get_my_serverid()) {
+	mwlog (MWLOG_ERROR, "Got a call request for service \"%s\" serviceid %#x and serverid %#x, but my serverid is %#x", 
+	callmesg->service, callmesg->svcid, 
+	callmesg->srvid, _mw_get_my_serverid());
+	callmesg->returncode = -EBADMSG;
+	_mw_ipc_putmessage(callmesg->cltid,callmesg, sizeof(Call), 0);
+	_mw_set_my_status(NULL);
+	errno = EBADMSG;
+	return NULL;
+	}
+  */
+  /* In the call stuct we get the time issued in struct timeval format and timeout in millisecs.
+     In the SI struct we give the deadline in struct timeval type data.
+     If the deadline is allready reached we just return ETIME.
+     Also we use this data to calc the time it took from issued to we begun to serv it, 
+     and how long we used to process the service request.
+     Also we keep track of busy time.
+     All this goes into the statistic section for the server in shm tbls. 
+  */
 
   svcreqinfo = malloc(sizeof(mwsvcinfo));
-		     
-  /* now we do calulations on issue time, now, and deadlines.
-     we need to update stats (NYI) and to check to see if the deadline has expired, 
-     and returne a timeout reply if it has.
-  */
-  gettimeofday(&starttv, NULL);
-  if (callmesg->timeout > 0 ) {
-    svcreqinfo->deadline  = callmesg->issued + callmesg->timeout/1000;
-    svcreqinfo->udeadline = callmesg->uissued; + ((callmesg->timeout)%1000)*1000000;
-  } else {
-    svcreqinfo->deadline = 0;
-    svcreqinfo->udeadline = 0;
-  };
-  waitmsec = (starttv.tv_sec - callmesg->issued) * 1000 
-    + (starttv.tv_usec - callmesg->uissued) / 1000;
-  
-  if ( (callmesg->timeout > 0) && 
-       (starttv.tv_sec >= svcreqinfo->deadline) && 
-       (starttv.tv_usec > svcreqinfo->udeadline)) {
-    mwlog (MWLOG_WARNING, "Got a service request that had already expired by %d.%3.3d seconds.", 
-	   starttv.tv_sec - svcreqinfo->deadline,  
-	   (starttv.tv_usec - svcreqinfo->udeadline)/1000);
+
+  rc = _mw_set_deadline(callmesg, svcreqinfo);
+  if (rc < 0) {
+    mwlog (MWLOG_WARNING, "Got a service request that had already expired by "
+	   "%d milliseconds, replying ETIME", 
+	   -rc);
+    
     mwlog(MWLOG_DEBUG1, "issued %d.%d timeout %d now %d.%d deadline %d.%d",
 	  callmesg->issued, callmesg->uissued, callmesg->timeout,
 	  starttv.tv_sec ,  starttv.tv_usec, 
@@ -590,25 +604,13 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   memset(svcreqinfo->service, 0, MWMAXSVCNAME);
   strncpy(svcreqinfo->service, callmesg->service, MWMAXSVCNAME);
 
-  /* transfer of the data buffer, unless in fastpath where we recalc the pointer. */
-  if (_mw_fastpath_enabled()) {
-    svcreqinfo->data = _mwoffset2adr(callmesg->data);
-    svcreqinfo->datalen = callmesg->datalen;
-  } else {
-    char * ptr;
-    svcreqinfo->data = malloc(callmesg->datalen+1);
-    ptr = _mwoffset2adr(callmesg->data);
-    memcpy(svcreqinfo->data, ptr, callmesg->datalen);
-    svcreqinfo->data[callmesg->datalen+1] = '\0';
-    svcreqinfo->datalen = callmesg->datalen;
-    _mwfree(ptr);
-  };
-    
-  
+  _mw_getbuffer_from_call(svcreqinfo, callmesg);
+
   return svcreqinfo;
 };
 
-/* THis is only used in applications using C for implemeting service routines.
+
+/* This is only used in applications using C for implemeting service routines.
 */
 int _mwCallCServiceFunction(mwsvcinfo * svcinfo)
 {
@@ -623,6 +625,7 @@ int _mwCallCServiceFunction(mwsvcinfo * svcinfo)
   if (serviceFuncList == NULL) {
     rc  = -ENOENT;
   } else {
+    rc = -EBADRQC;
     serviceptr = serviceFuncList;
     while (serviceptr != NULL) {
       if (serviceptr->svcid == svcinfo->svcid) {

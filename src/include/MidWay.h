@@ -262,9 +262,9 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
 #define DECLAREEXTERNMUTEX(name)  extern pthread_mutex_t name
 #define _LOCKMUTEX(name)   do {pthread_mutex_lock(&name); }   while(0)
 #define _UNLOCKMUTEX(name) do {pthread_mutex_unlock(&name); } while(0)
-#define LOCKMUTEX(name)    do { DEBUG1("locking mutex " #name " ..." );  \
+#define LOCKMUTEX(name)    do { DEBUG3("locking mutex " #name " ..." );  \
 pthread_mutex_lock(&name); DEBUG1("locked mutex " #name);  } while(0)
-#define UNLOCKMUTEX(name)  do { DEBUG1("unlocking mutex " #name); pthread_mutex_unlock(&name); } while(0)
+#define UNLOCKMUTEX(name)  do { DEBUG3("unlocking mutex " #name); pthread_mutex_unlock(&name); } while(0)
 #else 
 #error "PTHREADS are currently required"
 #endif

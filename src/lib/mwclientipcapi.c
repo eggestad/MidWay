@@ -23,13 +23,19 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:12  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:24:22  eggestad
+ * CVS keywords were missing.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:12  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
  *
  */
+
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <stdio.h>
 #include <errno.h>

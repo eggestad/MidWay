@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.19  2004/12/29 19:57:56  eggestad
+ * Large data  protocol fix up
+ *
  * Revision 1.18  2004/11/17 20:39:42  eggestad
  * MIssmatch of EVENT & EVENTID SRBP fieldnames between implementation and spec
  *
@@ -189,8 +192,9 @@ static int pushCRqueue(urlmap * map)
    crelm->handle = map[idx].value;
    DEBUG3("pushCRqueue: handle = %s map=%p", crelm->handle, map);
  
-   idx = urlmapget(map, SRB_DATACHUNKS);
+   idx = urlmapget(map, SRB_DATATOTAL);
    if (idx != -1) {
+      // FIXME
       crelm->datachunksleft = atoi(map[idx].value);
    } else {
       crelm->datachunksleft = 0;

@@ -206,14 +206,16 @@ make sure that SVCDATA messages are interleaved with other traffic.
 I've specified that a DATA field shall not exceed 3000 token, which
 may be as long as 9000 octets, if every token is url escaped. With the
 other fields in SVCCALL leaves a max message size of about
-10000. Since many TCP implementation has a send/receive queue of 16k,
-we don't want to get near that.
+10000. Many TCP implementation has a send/receive queue of 16k,
+and we don't want to get near that.
 
 Then the DATA to to big to send complete with the SVCCALL message, the
-DATACHUNKS filed shall be set, and its value shall be the number of
-SVCDATA messages that will follow. The SVCDATA must come in sequence,
-and eah will also have the DATACHUNKS field set, and the last one
-shall have it set to 0.
+DATATOTAL field shall be set, and its value shall be the number of
+octets total of data. The SVCDATA messages that will follow, must be
+in order, and when all octets has been received, the recipents know
+that the completed SVCCALL has been received.
+
+FIXME:
 
 Alert readers may realize that requiring to know the number of chunks
 prior to the SVCCALL message prevents starting to send anything before
@@ -225,7 +227,7 @@ this type of behavior, and the SRB would just queue up the data until
 complete anyway.  Allowing early send, just uses memory on the server,
 who's memory is more precious that the clients. It also increases the
 risk of memory leak on the server.  Note that there are no provision
-in the protocol to recall messages, again deliberatlu so.  Consider
+in the protocol to recall messages, again deliberatly so.  Consider
 what happens is the client encounters an error after sending only
 partly the data. SVCDATA messages exist only as a mean to interleave
 large data with other traffic.
@@ -292,7 +294,7 @@ parametername =; "AGENT"
 ;| "CLIENTNAME"
 ;| "CONVERSATIONAL"
 ;| "DATA"
-;| "DATACHUNKS"
+;| "DATATOTAL"
 ;| "DOMAIN"
 ;| "EVENT"
 ;| "EVENTID"
@@ -526,7 +528,7 @@ l | l | l | l | l |.
 Parameter name;value ABNF;req;rpy;comment
 SVCNAME;1*32token;m;m;
 DATA;1*3000token;o;o;
-DATACHUNKS;1*DIGIT;o;o;See large 
+DATATOTAL;1*DIGIT;o;o;See large 
 ;;;;amount of data.
 INSTANCE;1*64token;m;m;See **
 DOMAIN;1*64token;o;n/a;
@@ -563,8 +565,6 @@ l | l | l | l | l |.
 Parameter name;value ABNF;req;rpy;comment
 SVCNAME;1*32token;m;m;
 DATA;1*3000token;o;o;
-DATACHUNKS;1*DIGIT;o;o;See large 
-;;;;amount of data.
 INSTANCE;1*64token;m;m;See **
 HANDLE;8HEXDIG;o;m;optional only if
 ;;;;NOREPLY=YES

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/10/20 18:07:27  eggestad
+ * added top and bottom offsets for legal buffer addresses, for _mwshmcheck
+ *
  * Revision 1.5  2002/10/06 23:51:10  eggestad
  * bug in getchunksize, rather large, so a fixup in handling of size and verification
  *
@@ -163,6 +166,7 @@ struct segmenthdr {
   long segmentsize;
   long semid;
 
+  long top, bottom; // the max and min offsets into the heap that may be buffers
   int inusecount;
   int inusehighwater;
   int inuseaverage;

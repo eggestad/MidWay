@@ -1,0 +1,14 @@
+
+import-policy-rollback-branch: a branch  (non working) I created since
+I'm at an empass with service import poliy. I've lately thought that a
+gateway should provide only one service for all it's peers and foreign
+domains  that has  exported the  service  to the  gateway. This  would
+negate the need to  have a entry in the IPC gateway  table for all but
+local gateways.  and  shorten the service table. However,  in order to
+avoid having to ask the mwgwd's for what GW we're connected to we need
+all  the  entries in  the  gw  table.  (THis  was  the  plan from  the
+outset). By having all the service/gateway relations in the IPC tables
+we also have tha added benefit  of knowing to cost of each service. SO
+right now I'm going with having an entry in the service table for each
+serveice each  peer export.  We keep  this branch in  case we  want to
+rollback to a policy change.

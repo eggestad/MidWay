@@ -73,6 +73,7 @@
 #define SRB_CAUSEFIELD 		"CAUSEFIELD"
 #define SRB_CAUSEVALUE 		"CAUSEVALUE"
 #define SRB_CLIENTNAME 		"CLIENTNAME"
+#define SRB_CALLERID 		"CALLERID"
 #define SRB_CONVERSATIONAL	"CONVERSATIONAL"
 #define SRB_COST 		"COST"
 #define SRB_DATA 		"DATA"
@@ -184,6 +185,8 @@ void _mw_srb_destroy (SRBmessage * srbmsg);
 void _mw_srb_setfield   (SRBmessage * srbmsg, char * key, char * value); 
 void _mw_srb_nsetfield  (SRBmessage * srbmsg, char * key, void * value, int vlen); 
 void _mw_srb_setfieldi  (SRBmessage * srbmsg, char * key, int value); 
+void _mw_srb_setfieldx  (SRBmessage * srbmsg, char * key, unsigned int value); 
+
 char * _mw_srb_getfield (SRBmessage * srbmsg, char * key);
 void _mw_srb_delfield   (SRBmessage * srbmsg, char * key); 
 

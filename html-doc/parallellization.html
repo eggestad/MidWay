@@ -16,11 +16,11 @@ and pipeline.</P>
 asynchronous request/response. In order do this, we use the <A HREF="http://mwcall.3.html/">mwacall</A>()
 to issue the request and <A HREF="http://mwcall.3.html/">mwfetch</A>()
 to get the response later.</P>
-<P><IMG SRC="sv9229221.gif" NAME="Object1" ALIGN=LEFT WIDTH=602 HEIGHT=430 BORDER=0><BR CLEAR=LEFT>In
+<P><IMG SRC="fanout.gif" NAME="FanOut" ALIGN=LEFT WIDTH=602 HEIGHT=430 BORDER=0><BR CLEAR=LEFT>In
 order to do pipelineing you use <A HREF="http://mwforward.3.html/">mwforward</A>()
 in the server to pass the request onto another service. 
 </P>
-<P><IMG SRC="sv9229222.gif" NAME="Object2" ALIGN=LEFT WIDTH=654 HEIGHT=579 BORDER=0><BR CLEAR=LEFT>The
+<P><IMG SRC="pipeline.gif" NAME="Pipeline" ALIGN=LEFT WIDTH=654 HEIGHT=579 BORDER=0><BR CLEAR=LEFT>The
 first service may do something like user authentication, the second
 format checking, the third the actual DB interface, and the third
 formatting of reply. Since we don't have implemented transaction

@@ -6,14 +6,25 @@
 </head>
 <body>
 
+<table width="100%">
+<tr><td colspan=3 align=center> MidWay Documentation </td></tr>
+<tr>
+<td width="10%">Prev</td>
+<td align=center><a href="toc.html">Top</a></td>
+<td width="10%" align=right>Next</td>
+</tr>
+</table>
+<hr>
+
 <h1>
 The Road ahead</h1>
 These are the features that I've planned, and to some extent readied the
 code for. This is not in a prioritized order. Some of these I've already
 has defined API for, others not.
-<h2>
-Mwd need to have a config file</h2>
-A config file are needed for
+
+<dl>
+<dt>Mwd need to have a config file
+<dd>A config file are needed for
 <ul>
 <li>
 TCP/IP info, access control foremost.</li>
@@ -28,64 +39,89 @@ define authentication schemes.</li>
 define gateways to other MidWay instances</li>
 </ul>
 and more....
-<h2>
-A Server manager module in mwd</h2>
+
+<dt>
+A Server manager module in mwd
+<dd>
 Starting servers directly from the command line is really just for development.
 mwd should be able to start and stop servers, either from executables or
 shared libraries, and restart them if they crash. Mwd will have some internal
 servers that need to be managed in the same way, gateways and TCP/IP clients
 servers.
-<h2>
+
+<dt>
 a GNOME version of mwadm</h2>
-
-<h2>
-A module for Apache</h2>
-Both for doing CGI call directly&nbsp; to a service, and as a http protocol
+<dd>
+<dt>
+A module for Apache
+<dd>Both for doing CGI call directly&nbsp; to a service, and as a http protocol
 provider for clients.
-<h2>
-A TCP/IP version of the client API for http.</h2>
+<dt>
+A TCP/IP version of the client API for http.
+<dd>
 
-<h2>
-Language bindings for perl</h2>
+<dt>
+Language bindings for perl
+<dd>
 I consider his to be urgent, the DBI module for Perl makes Perl possibly
 a very important language to write services in.
-<h2>
-Language bindings for Tcl/Tk</h2>
+
+<dt>
+Language bindings for Tcl/Tk
+<dd>
 Despite that AOL embedded a Tcl&nbsp; interpreter in their http server
 (se articles on <a href="http://www.LinuxWorld.com">LinuxWorld.com</a>
 they are quite good, and very relevant to MidWay), I consider Tcl/Tk to
-be a GUI language. I'm probably catch flames for this. So I'm going to
-prioritize the TCP/IP client API here.
-<h2>
-Language Bindings for Python</h2>
+be a GUI language. I'm probably catch flames for this, but I'm going to
+prioritize the TCP/IP client API here. (Depend on my success with SWiG>
 
-<h2>
-Language Bindings for PHP</h2>
+<dt>
+Language Bindings for Python
+<dd>
 
-<h2>
-The API's should be pthread safe</h2>
+<dt>
+Language Bindings for PHP
+<dd>
+
+<dt>
+The API's should be pthread safe
+<dd>
 At least the client API. To allow servers to increase their own numbers may 
 lead to extremly many processes. Thread are more interesting in statefull
 "servces" such as <a href="http:conversations.html">conversations</a> and objects.
 
-<h2>
-Implement the TCP/IP client API in Java</h2>
-I don't know about the IPC API.
+<dt>
+Implement the TCP/IP client API in Java.
+<dd>
+I don't know about the IPC API. I haven't yet looked much at servlets, 
+it might have a need for the server API. We'll see how servlets catches on.
 
-<h2>
-Define a native midway TCP/IP protocol</h2>
+<dt>
+Define a native midway TCP/IP protocol
+<dd>
 This is absolute a requirement for adding transactions support, events,
 queues, and gateways. Clients and gateways need a bit different things
 in this protocol, I <i><u>really</u></i> want only one protocol. This protocol
 must be SSL, and TLS'able, add that at the same time.
-<h2>
-Add gateways and clients servers</h2>
 
-<h2>
-Transactions support, two phase commit, XA style</h2>
+<dt>
+Transactions support, two phase commit, XA style
+<dd>
 
-<hr WIDTH="100%">
-<br>Top
-<br>&nbsp;
+<dt>
+Events
+<dd>Needed for sending notifications (from servers) to clients.
+</dl>
+
+<hr>
+<table width="100%">
+<tr>
+<td width="10%">Prev</td>
+<td align=center><a href="toc.html">Top</a></td>
+<td width="10%" align=right>Next</td>
+</tr>
+<tr><td colspan=3 align=center>&copy; 2000 <a href="mailto:terje.eggestad@iname.com">Terje Eggestad</a></td></tr>
+</table>
+
 </body>
 </html>

@@ -5,6 +5,17 @@
 	<META NAME="AUTHOR" CONTENT="Terje Eggestad">
 </HEAD>
 <BODY>
+
+<table width="100%">
+<tr><td colspan=3 align=center> MidWay Documentation </td></tr>
+<tr>
+<td width="10%">Prev</td>
+<td align=center><a href="toc.html">Top</a></td>
+<td width="10%" align=right>Next</td>
+</tr>
+</table>
+<hr>
+
 <h1>The Data Presentation issue</h1>
 <P>If you're unfamiliar with the term Presentation layer see
 discussion on <A HREF="osistack.html">the OSI reference mode</A>l.
@@ -21,6 +32,7 @@ bit, 36 bit? While all machines designs since the mini machines are 8
 bit based, mainframes where originally 6 bit. I believe that IBM 390
 machines are 9 bit based, and data width are 36 bit. 
 </P>
+
 <P>This is part of the reason IBM mainframes use EBCDIC character set
 (9 bit) while everyone else are in the ASCII world. ASCII is actually
 7 bit, How the upper half of the 8bit byte (octet) are be used was
@@ -34,6 +46,7 @@ The HP Unix HP-UX has the same peculiarity. The charset story gets
 better with multi-octet characters. 16Bit chars was proposed for a
 while, but we seem to end with variable length characters, n octets. 
 </P>
+
 <P>My first language happens to be Norwegian, and Norwegian has three
 extra characters from English: &AElig;&Oslash;&Aring; (upper) &aelig;&oslash;&aring;
 (lower). In strict seven bit machines, historic now, the ASCII values
@@ -47,6 +60,7 @@ places &aring; before &oslash;, think about a sort routine that sort
 b before a. Setting up OS's databases, etc. with the right LANG, LC_
 and NLS variables become an art form by itself. 
 </P>
+
 <P>So far I just talked about integers and characters, now consider
 that SQL databases usually define data types that don't exist in many
 programing languages. DECIMAL for example. It is defined in COBOL,
@@ -54,6 +68,7 @@ but not many other. C terminates strings with a NULL char, while many
 other languages has an integer associated with the string to specify
 length, Perl does this for example. 
 </P>
+
 <P>Data encoding is pretty much a field of science all by itself. 
 There has been many attempt to find general solutions to this
 problem. ASN.1 is one, the OSI had quite a few chapters on this, and
@@ -72,12 +87,12 @@ embraced it.
 
 <p>The cost difference of translation an integer to a string and back
 instead of a propper binary format drown the second you you start
-accessing disk. It has been traditionally a rarety if a service handler 
-don't perform some kind of disk operation.
-
-The very idea behind a SRB calls for coarse grain
-parallellism, ask for all that needs to be done in one call.
+accessing disk. It has been traditionally a rarety if a service
+handler don't perform some kind of disk operation.  The very idea
+behind a SRB calls for coarse grain parallellism, ask for all that
+needs to be done in one call.
 </p>
+
 <P>Data presentation don't stop with encoding of specific data types,
 but in function passing, you may want to define the parameters. In RPC
 you generate stubs, and in CORBA you've got an <I>IDL</I> (Interface
@@ -91,11 +106,13 @@ could handle old and new clients, or added new servers that very used
 for the new clients. Phased migration are the key. Remember that in
 24-7 systems all changes must be reversible.
 </P>
+
 <P>Another issue is that while some programming languages provide
 ranging on data, particular well in Pascal, and enums in C, it is
 still not enough. A legal range on a parameter in a function or
 method, may (actually usually do) change depending on the value in
 other parameters. A very typical example is the printf(3) function.</P>
+
 <P>When dealing with formats to use among MidWay participants, I'll
 recommend to copy the http scheme. First of all, specifying a MIME
 type. MIME are  perhaps one of the more ingenious schemes to do data
@@ -114,6 +131,7 @@ library for manipulating url-encoded buffers more gracefully. Just
 keep in mind that it will have nothing to do with MidWay. MidWay is
 strictly <A HREF="osi-stack.html">Session Layer</A>. 
 </P>
+
 <P ALIGN=LEFT><A HREF="tuxedo.html">Tuxedo</A> do mess with data
 presentation, while MidWay simply passes octet strings, Tuxedo has
 types buffers. One of the more interesting types are <I>FML</I>
@@ -125,6 +143,7 @@ dependent routing, thus selecting different servers depending on
 values in the FML buffer. Just keep in mind what I said above, if you
 want this, a new API should be created on top of MidWay's API. 
 </P>
+
 <p>I did consider adding a MIME parameter to mwcall(), but I don't
 really see what MidWay need ths information for.
 </p>
@@ -132,7 +151,15 @@ really see what MidWay need ths information for.
 In the end of the day the only form of data that is really language 
 independent is an octet string. 
 
-<HR>
-<P ALIGN=LEFT>Top</P>
+<hr>
+<table width="100%">
+<tr>
+<td width="10%">Prev</td>
+<td align=center><a href="toc.html">Top</a></td>
+<td width="10%" align=right>Next</td>
+</tr>
+<tr><td colspan=3 align=center>&copy; 2000 <a href="mailto:terje.eggestad@iname.com">Terje Eggestad</a></td></tr>
+</table>
+
 </BODY>
 </HTML>

@@ -8,6 +8,17 @@
 <meta name="CHANGED" content="20000109;18514300">
 </HEAD>
 <BODY>
+
+<table width="100%">
+<tr><td colspan=3 align=center> MidWay Documentation </td></tr>
+<tr>
+<td width="10%">Prev</td>
+<td align=center><a href="toc.html">Top</a></td>
+<td width="10%" align=right>Next</td>
+</tr>
+</table>
+<hr>
+
 <H1><FONT SIZE=4>Conversations</FONT></H1>
 <P>I've stressed before that in order to be fast and scalable, you need to be
 using request/response logic. R/R do have some limitations, there are times
@@ -16,48 +27,60 @@ through a database table. In SQL you've a cursor in order to do this. In
 Embedded SQL you can only traverse one way, but in ODBC both ways. Just
 consider when you make a search in a web search engine, you get the results 10
 at the time.</P>
+
 <P>A part of the issue is that you should keep the data size in R/R down. If
 you need to transfer a lot of data, you usually can begin to present data to
 the user with only a partial transfer.</P>
-<P>Tuxedo solves this with a <I>conversation</I>. A conversation is done my
-having conversational servers providing conversational services. These are in
-a different namespace that R/R services. The client gets one or, reserves of
-with a <TT><FONT FACE="courier, courier new">tpconnect</FONT></TT>() call ,and
-releases it by <TT><FONT FACE="courier, courier new">tpdisconnect</FONT>
-</TT>() call. The conversation is done through calling <TT><FONT FACE="courier, courier new">tpsend
-</FONT></TT>() and <TT><FONT FACE="courier, courier new">tpread</FONT>
-</TT>() on both sides. An import limitation in Tuxedo is that conversations
-are half duplex, only one side may do a <TT><FONT FACE="courier, courier new">tpsend
-</FONT></TT>() at a time, and the connection is turned with a flag on 
+
+<P>Tuxedo solves this with a <i>conversation</i>. A conversation is
+done my having conversational servers providing conversational
+services. These are in a different namespace that R/R services. The
+client gets one or, reserves of with a <TT><FONT FACE="courier,
+courier new">tpconnect</FONT></TT>() call ,and releases it by
+<TT><FONT FACE="courier, courier new">tpdisconnect</FONT> </TT>()
+call. The conversation is done through calling <TT><FONT
+FACE="courier, courier new">tpsend </FONT></TT>() and <TT><FONT
+FACE="courier, courier new">tpread</FONT> </TT>() on both sides. An
+import limitation in Tuxedo is that conversations are half duplex,
+only one side may do a <TT><FONT FACE="courier, courier new">tpsend
+</FONT></TT>() at a time, and the connection is turned with a flag on
 <TT><FONT FACE="courier, courier new">tpsend</FONT></TT>().</P>
-<p>
-It quite possible that Tuxedo got is conversation consept from CPI-C, or that
-they chosed to used CPI-C in order to be compatible. CPI-C is the
-programming API for SNA APPC. APPC is the <a href="osistack.html">session layer</a>
-in SNA. In CPI-C you do an allocate, send, recieve, and deallocate in order to do a 
-(mw)call. This simple spell of 4 calls are whet is normally done in all CPI-C 
-programs, but the API clearly allows keeping a dialog going. (I must admit that 
-CPI-C is second hand information to me, I'never used CPI-C, only read the API doc.)
+
+<p>It quite possible that Tuxedo got is conversation consept from
+CPI-C, or that they chosed to used CPI-C in order to be
+compatible. CPI-C is the programming API for SNA APPC. APPC is the <a
+href="osistack.html">session layer</a> in SNA. In CPI-C you do an
+allocate, send, recieve, and deallocate in order to do a
+(mw)call. This simple spell of 4 calls are whet is normally done in
+all CPI-C programs, but the API clearly allows keeping a dialog
+going. (I must admit that CPI-C is second hand information to me,
+I'never used CPI-C, only read the API doc.)
 </p>
-<P>Personally I would prefer to have a normal socket between the server and
-the client. Partly for having a full duplex connection, partly because I love
-the <TT><FONT FACE="courier, courier new">select</FONT></TT>(2) call. Another
-reason is for things like tcl that has the possibility to wait for an event
-either from the user (keypress or mouseinput) or data on a socket at the same time.
+
+<P>Personally I would prefer to have a normal socket between the
+server and the client. Partly for having a full duplex connection,
+partly because I love the <TT><FONT FACE="courier, courier
+new">select</FONT></TT>(2) call. Another reason is for things like tcl
+that has the possibility to wait for an event either from the user
+(keypress or mouseinput) or data on a socket at the same time.
 </P>
+
 <P>I've partly written code in MidWay for socket based conversations, but I'm
 holding it a bit of since there are issues on how this should be handled when
 having a gateway between two MidWay instances, and through FireWalls. (See 
 <A HREF="roadahead.html">RoadMap</A>)</P>
+
 <p>Another tempting thing to do is to make an ORB. An ORB in the MidWay 
 fashion would be to call methods in the mwcall() way. No data types, and 
 objects could dynamically add and remove methods on them selfs. 
 I need to give this some thought. hmmm
 </p>
+
 <P>I do understand why Tuxedo does it in the way it does. It goes back to the
 number of TCP connections. Tuxedo most likely multiplexes the conversations on
 the connection already established. In SNA this work quite differently, and
 </P>
+
 <P>However, you can your self implement a socket based conversation. If you
 read <A HREF="#mwreply.3.html">mwreply</A>() you will notice that the service
 routine do not return (the macro mwreturn() do). You can in your service
@@ -66,7 +89,16 @@ socket to the client thru mwreply(). Then you do an accept in the service
 routine. Just nota the until your service routine do perform a normal C
 return, your server are busy. <BR>
 </P>
-<HR>
-<P>Top</P>
+
+<hr>
+<table width="100%">
+<tr>
+<td width="10%">Prev</td>
+<td align=center><a href="toc.html">Top</a></td>
+<td width="10%" align=right>Next</td>
+</tr>
+<tr><td colspan=3 align=center>&copy; 2000 <a href="mailto:terje.eggestad@iname.com">Terje Eggestad</a></td></tr>
+</table>
+
 </BODY>
 </HTML>

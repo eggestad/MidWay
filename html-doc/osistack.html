@@ -2,7 +2,6 @@
 <html>
 <head>
    <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-   <meta name="GENERATOR" content="Mozilla/4.51 [en] (X11; I; Linux 2.2.5-15 i586) [Netscape]">
    <meta name="CREATED" content="19991214;19400500">
    <meta name="CHANGEDBY" content="Terje Eggestad">
    <meta name="CHANGED" content="20000109;2424800">
@@ -10,8 +9,17 @@
 </head>
 <body>
 
-<h1 STYLE="margin-top: 0.17in; page-break-after: avoid">
-<font face="Times New Roman, serif"><font size=+1>The OSI reference model.</font></font></h1>
+<table width="100%">
+<tr><td colspan=3 align=center> MidWay Documentation </td></tr>
+<tr>
+<td width="10%">Prev</td>
+<td align=center><a href="toc.html">Top</a></td>
+<td width="10%" align=right>Next</td>
+</tr>
+</table>
+<hr>
+
+<h1>The OSI reference model.</h1>
 During the 1980 ISO, the International Standards Organization, defined
 a packet network standard, called the Open Systems Interconnect, OSI. ISO
 is a committee organization and their work is heavily influence of this.
@@ -21,10 +29,12 @@ and CCITT. IBM should be known to everyone, CCITT may be shrouded a bit
 more, it has now become apart of a new organization, the ITU. These two
 represent to opposing forces in that IBM is Big business (the capitalist)
 and CCITT is a telco standard organization (the socialist.)
+
 <p>IBM had a vested interest since they had a comparable packet network
 SNA, SNA is very much in the prehistory of MidWay since TP monitors are
 child of the mainframe. Supposedly OSI has seven layers since SNA also
 has seven layers.
+
 <p>CCITT, which is a french abbreviation I forget, but means <u>the Committee
 for standardization of international telephone and telegraph</u>. Again
 they make committee style standards. CCITT is responsible for many things,
@@ -43,6 +53,7 @@ boxes. X.25 was designed for error rates in the order of one error in 10<sup>5
 </sup>errors, with made it ideal for make a packet network on amateur radio
 bands which is rather noisy. However in the OSI network, CCITT envisioned
 using X.21 and X.25 as the link (2) and packet (3) layers.
+
 <p>OSI was also a response to TCP/IP which was during the 80 regarded somewhere
 between a worthy research test-bed and a toy. The main criticism of TCP/IP
 was that it didn't do properly data representation and that addressing
@@ -55,59 +66,78 @@ implementations of SNA have the capability.
 <p>It should be noted that OSI did define a TP monitor, known as OSITP.
 When TP monitor of different make cooperate they often talk OSITP to each
 other.
-<h2 STYLE="margin-top: 0.17in; page-break-after: avoid">
-<font face="Times New Roman, serif"><font size=+1>The reference model.</font></font></h2>
-<img SRC="osistack.html.gif" NAME="Graphic1" ALT="osistack.html.gif" BORDER=0 height=170 width=128 align=LEFT>
+
+<h2>The reference model.</h2>
+<img SRC="osistack.gif" NAME="osistack" BORDER=0 height=170 width=128 align=LEFT>
 <br>Even if OSI as a packet switching communication stack is dead, the
 modeling work done by ISO turned out pretty useful in classifications.
 Everything such as TCP, UPD, IP, ethernet, ISDN, analog modems, http, html,
 xml do provide service that fit into the OSI reference model. Http is a
 protocol that provide layer 5, and html provide layer 6. TCP&nbsp;and UDP&nbsp;is
 layer 4, IP&nbsp;is layer 3.
+
 <p>The layers in the stack can be briefly described as follows.
-<p>7.) Applications: Where the user applications software lies. Such issues
+<dl>
+<dt>7. Applications: 
+<dd>Where the user applications software lies. Such issues
 as file access and transfer, virtual terminal emulation, interprocess communication
 and the like are handled here.
-<p>6.) Presentation: Differences in data representation are dealt with
+<dt>6. Presentation: 
+<dd>Differences in data representation are dealt with
 at this level. For example, UNIX-style line endings (LF only) might be
 converted to MS-DOS style (CRLF), or EBCIDIC to ASCII character sets.
-<p>5.) Session: Communications between applications across a net- work
+<dt>5. Session: 
+<dd>Communications between applications across a net- work
 is controlled at the session layer. Testing for out-of-sequence packets
 and handling two-way communication are handled here.
-<p>4.) Transport: Makes sure the lower three layers are doing their job
+<dt>4. Transport: 
+<dd>Makes sure the lower three layers are doing their job
 correctly, and provides a transparent, logical data stream between the
 end user and the network service s/he is using. This is the lower layer
 that provides local user services.
-<p>3.) Network: This layer makes certain that a packet sent from one device
+<dt>3. Network: 
+<dd>This layer makes certain that a packet sent from one device
 to another actually gets there in a reasonable period of time. Routing
 and flow control are performed here. This is the lowest layer of the OSI
 model that can remain ignorant of the physical network.
-<p>2.) Data Link: This layer deals with getting data packets on and off
+<dt>2. Data Link: 
+<dd>This layer deals with getting data packets on and off
 the wire, error detection and correction and retransmission. This layer
 is generally broken into two sub-layers: The LLC (Logical Link Control)
 on the upper half, which does the error checking, and the MAC (Medium Access
 Control) on the lower half, which deals with getting the data on and off
 the wire.
-<p>1) Physical: The nuts and bolts layer. Here is where the cable, connector
+<dt>1. Physical: 
+<dd>The nuts and bolts layer. Here is where the cable, connector
 and signaling specifications are defined.
-<p>There are actually a lession in connection orientated and connectless
-comminucation here. X.25 is connection orientated.&nbsp; You can either
-have a switched virtual circuit(SVC) or a permananet virtual circuit. (PVC).&nbsp;
-Between two host you have one or more switches, think of them as routers.
-Every switch must know about every VC going thru it, packets have only
-the VC&nbsp;number. not the end point adress like in IP.&nbsp; The VC&nbsp;number
-on the two interfaces on the switch a connection go thru are not identical.
-Should IP&nbsp;use the same scheme, the Internett backbone routers know
-about all the millions of TCP&nbsp;connections that go thru them.&nbsp;
-They have enough trouble finding space for the routing tables already.
-(Routing tables in the internett backbone routers grow 1.5 times the rate
-RAM&nbsp;chips grow.). In TCP/IP&nbsp;only the end nodes are avare that
-an connection exist. In all fairness OSI envisioned that only one X.25
-VC&nbsp;should exist between two hosts. Sessions should be multiplexed
-on the single VC.
-<br>&nbsp;
-<br>&nbsp;
-<br>&nbsp;
-<br>&nbsp;
+
+<p>There are actually a lession in connection orientated and
+connectless comminucation here. X.25 is connection orientated.&nbsp;
+You can either have a switched virtual circuit(SVC) or a permananet
+virtual circuit. (PVC).&nbsp; Between two host you have one or more
+switches, think of them as routers.  Every switch must know about
+every VC going thru it, packets have only the VC&nbsp;number. not the
+end point adress like in IP.&nbsp; The VC&nbsp;number on the two
+interfaces on the switch a connection go thru are not identical.
+Should IP&nbsp;use the same scheme, the Internett backbone routers
+know about all the millions of TCP&nbsp;connections that go thru
+them.&nbsp; They have enough trouble finding space for the routing
+tables already.  (Routing tables in the internett backbone routers
+grow 1.5 times the rate RAM&nbsp;chips grow.). In TCP/IP&nbsp;only the
+end nodes are avare that an connection exist. In all fairness OSI
+envisioned that only one X.25 VC&nbsp;should exist between two
+hosts. Sessions should be multiplexed on the single VC.
+
+<hr>
+<table width="100%">
+<tr>
+<td width="10%">Prev</td>
+<td align=center><a href="toc.html">Top</a></td>
+<td width="10%" align=right>Next</td>
+</tr>
+<tr><td colspan=3 align=center>&copy; 2000 <a href="mailto:terje.eggestad@iname.com">Terje Eggestad</a></td></tr>
+</table>
+
+
 </body>
 </html>

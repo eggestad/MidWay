@@ -9,7 +9,19 @@
 	<META NAME="CHANGED" CONTENT="20000109;16023300">
 </HEAD>
 <BODY>
-<P STYLE="margin-top: 0.17in; page-break-after: avoid"><FONT FACE="Times New Roman, serif"><FONT SIZE=4>Tuxedo&reg;</FONT></FONT></P>
+
+<table width="100%">
+<tr><td colspan=3 align=center> MidWay Documentation </td></tr>
+<tr>
+<td width="10%">Prev</td>
+<td align=center><a href="toc.html">Top</a></td>
+<td width="10%" align=right>Next</td>
+</tr>
+</table>
+<hr>
+
+<h1>Tuxedo</h1>
+
 <P>Tuxedo is a commercial software currently owned by BEA systems
 <A HREF="http://www.bea.com/">http://www.bea.com</A>. It was
 originally started by AT&amp;T (Bell labs), later bought by Novell,
@@ -17,12 +29,14 @@ and later bought by BEA. Tuxedo was originally called TUX, an
 abbreviation for Transaction UniX. It is apart for MidWay, the only
 TP monitor available on Linux, as far as I know. 
 </P>
+
 <P>Tuxedo is the only TP monitor I've actually written code with. 
 MidWay has therefore a lot of its ancestry in Tuxedo, there are many
 similarities between the API, and some very important differences.
 Most notably the fact that the <A HREF="presentation.html">data
 buffers</A> are types in Tuxedo while only octet strings in MidWay. 
 </P>
+
 <P>In addition to the request/response calls, Tuxedo has
 <A HREF="conversations.html">conversational</A> services, event
 notification, queues, and full <A HREF="transactions.html">transaction</A>
@@ -35,8 +49,10 @@ server without adding it to the configuration file. In short,
 configuration of Tuxedo is much more complex than getting a MidWay
 instance up and running. Simplicity is one major design goal of
 MidWay.</P>
+
 <P>I'm also very unhappy with the use of  the TCP/IP protocols in
 Tuxedo. MidWay will work a bit different.</P>
+
 <P>Tuxedo is directed much more towards legacy software, such as
 having SNA gateways. It also have native bindings for C and COBOL
 only. BEA has added Java in various ways lately. BEA also built a
@@ -44,15 +60,25 @@ product called web logic that uses Java Servlets to generate HTML,
 and that can call tuxedo services, among other things. <BR>Language
 Bindings for MidWay is primary C, but I will ASAP add perl, tcl,
 pyton, php, and java.</P>
+
 <P>Keep in mind that Tuxedo is old, and well evolved, with all its
 pros and cons. In particular, I've tried to write the current MidWay
 code as thread ready as possible. Tuxedo will have a much harder time in
 order to be thread safe.</P>
+
 <P>For those unfamiliar with Tuxedo, BEA was giving out evaluation
 copies for free on Lunix, they might still be. 
 </P>
-<HR>
-<P><BR><BR>
-</P>
+
+<hr>
+<table width="100%">
+<tr>
+<td width="10%">Prev</td>
+<td align=center><a href="toc.html">Top</a></td>
+<td width="10%" align=right>Next</td>
+</tr>
+<tr><td colspan=3 align=center>&copy; 2000 <a href="mailto:terje.eggestad@iname.com">Terje Eggestad</a></td></tr>
+</table>
+
 </BODY>
 </HTML>

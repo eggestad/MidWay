@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/02/17 14:23:31  eggestad
+ * - added missing includes
+ * - added _mw_getbuffer_from_call() and _mw_putbuffer_to_call()
+ * 	These now hide fastpath. If fast path pointers point to shm buffers.
+ *
  * Revision 1.5  2001/10/16 16:18:09  eggestad
  * Fixed for ia64, and 64 bit in general
  *
@@ -53,10 +58,12 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <stdio.h> 
 #include <math.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <MidWay.h>
 #include <shmalloc.h>
 #include <ipctables.h>
+#include <ipcmessages.h>
 
 /* a note on threads. Since shmalloc, shmrealloc, and shmfree
    deal in shared memory they must be multi process proof.
@@ -99,11 +106,73 @@ void * _mwoffset2adr(int offset)
   if (_mwHeapInfo == NULL) return NULL;
   return (void *)_mwHeapInfo + offset;
 };
+
 /* a check for corruption
    return -1 if adr is not in the shm buffer segment.
    return 0 of chunk is OK
    return chunksize if corrupt (in basechunksizes)
 */
+
+
+int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg)
+{
+  char * ptr;
+  
+  if ( (svcreqinfo == NULL) || (callmesg == NULL) ) {
+    errno = EINVAL;
+    return -1;
+  };
+  
+  /* transfer of the data buffer, unless in fastpath where we recalc the pointer. */
+  if (_mw_fastpath_enabled()) {
+    svcreqinfo->data = _mwoffset2adr(callmesg->data);
+    svcreqinfo->datalen = callmesg->datalen;
+  } else {
+    svcreqinfo->data = malloc(callmesg->datalen+1);
+    ptr = _mwoffset2adr(callmesg->data);
+    memcpy(svcreqinfo->data, ptr, callmesg->datalen);
+    svcreqinfo->data[callmesg->datalen] = '\0';
+    svcreqinfo->datalen = callmesg->datalen;
+    _mwfree(ptr);
+  };
+    
+  return 0;
+};
+
+int _mw_putbuffer_to_call (Call * callmesg, char * data, int len)
+{
+  int dataoffset;
+  void * dbuf;
+
+  /* First we handle return buffer. If data is not NULL, and len is 0,
+     datat is NULL terminated. if buffer is not a shared memory
+     buffer, get one and copy over. */
+    
+  if (data != NULL) {
+    if (len == 0) len = strlen(data);
+
+    dataoffset = _mwshmcheck(data);
+    if (dataoffset == -1) {
+      dbuf = _mwalloc(len);
+      if (dbuf == NULL) {
+	mwlog(MWLOG_ERROR, "mwalloc(%d) failed reason %d", len, (int) errno);
+	return -errno;
+      };
+      memcpy(dbuf, data, len);
+      dataoffset = _mwshmcheck(dbuf);
+    }
+    
+    callmesg->data = dataoffset;
+    callmesg->datalen = len;
+  } else {
+    callmesg->data = 0;
+    callmesg->datalen = 0;
+  }
+  return 0;
+};
+
+  
+
 static int getchunksizebyadr(chunkhead * pCHead)
 {
   int chksize, chkindex, i, rc = 0;

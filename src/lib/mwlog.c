@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2002/11/13 16:30:18  eggestad
+ * rewamped _mw_vlogf to format the whole message in a buffer, and writeit out at once. Better performance, and we got rid of the mutex locks
+ *
  * Revision 1.10  2002/11/08 00:12:58  eggestad
  * Major fixup on default logfile
  *
@@ -79,8 +82,16 @@
 static char * RCSId UNUSED = "$Id$";
 
 char levelprefix[] = { 'F', 'E', 'W', 'A', 'I', 'D', '1', '2', '3', '4' };
-char *levelheader[] = { "FATAL: ", "ERROR: ", "Warning: ", "ALERT:", "info: ", 
-			"Debug: ", "Debug1: ", "Debug2: ", "Debug3: ", "Debug4: ", 
+char *levelheader[] = { "\e[37;1;43mFATAL: \e[m", 
+			"\e[31;1mERROR: \e[m", 
+			"\e[33;1mWarning: \e[m", 
+			"\e[35;1mALERT: \e[m", 
+			"\e[32;1minfo: \e[m", 
+			"\e[34mDebug: \e[m", 
+			"\e[37mDebug1: \e[m", 
+			"\e[37mDebug2: \e[m", 
+			"\e[30;1mDebug3: \e[m", 
+			"\e[30;1mDebug4: \e[m", 
 			NULL };
 
 static FILE *log = NULL;
@@ -90,15 +101,16 @@ static char * logprefix = NULL;
 static char * progname = NULL;
 static FILE * copy_on_FILE = NULL;
 
-DECLAREMUTEX(logmutex);
-
 
 // we can use DEBUG here, since we an error here will likely stop all logging 
 #ifdef DEBUGGING_X
+DECLAREMUTEX(logmutex);
 #define _fprintf(m...) fprintf(m)
 #else 
 #define _fprintf(m...)
 #endif
+
+
 
 /* this is meant to be undocumented. Needed my mwd to print on stdout before 
    becoming a daemon.*/
@@ -117,20 +129,21 @@ void _mw_copy_on_stderr(int flag)
   return;
 };
 
-static void
-fptime(FILE *fp)
+static int
+sptime(char *b, int max)
 {
+  int rc;
   struct timeval tv;
   struct tm * now;
-  if (fp == NULL) return ;
+  if (b == NULL) return  -1;
 
   gettimeofday(&tv,NULL);
   now = localtime((time_t *) &tv.tv_sec);
   
-  _fprintf(fp, "%4d%2.2d%2.2d %2.2d%2.2d%2.2d.%3.3d ",
+  rc = snprintf(b, max, "%4d%2.2d%2.2d %2.2d%2.2d%2.2d.%3.3d ",
 	  now->tm_year+1900, now->tm_mon+1, now->tm_mday,
 	  now->tm_hour, now->tm_min, now->tm_sec, tv.tv_usec/1000);
-  return ;
+  return rc;
 }
 
 static void 
@@ -181,24 +194,61 @@ switchlog (void)
 void 
 _mw_vlogf(int level, char * format, va_list ap)
 {
-  
+  char buffer[LINE_MAX];
+  int l, s, rc;
+
   if (level > loglevel) return;
 
   if (logprefix == NULL) mwsetlogprefix(NULL);
   switchlog();
 
-  _LOCKMUTEX(logmutex);
+#ifdef DEBUGGING_X
+    _LOCKMUTEX(logmutex);
+#endif 
 
+  s = LINE_MAX-2; 
+  l = 0;
   /* print to log file if open */
   if (log != NULL) {
-    fptime(log);
-    if (progname != 0) 
-      fprintf(log,"%8.8s", progname);
-    fprintf(log,"[%5d] [%c]: ",getpid(), levelprefix[level]);
-    vfprintf(log, format, ap);
-    fputc('\n',log);
-    
-    fflush(log);
+
+    // we don't check rc on these, since the *must* succed. 
+    rc = sptime(buffer+l, s);
+    s -= rc;
+    l += rc;
+
+    _fprintf (stderr, "%d (l=%d s=%d) %s\n", __LINE__, l, s, buffer);
+  
+    if (progname != 0) {
+      rc = snprintf(buffer+l, s, "%8.8s", progname);
+      s -= rc;
+      l += rc;
+    };
+
+    _fprintf (stderr, "%d (l=%d s=%d) %s\n", __LINE__, l, s, buffer);
+          
+    rc = snprintf(buffer+l, s, "[%5d] [%c]: ",getpid(), levelprefix[level]);
+    s -= rc;
+    l += rc;
+
+    _fprintf (stderr, "%d (l=%d s=%d) %s\n", __LINE__, l, s, buffer);
+
+    // Here we might get an overflow...
+    rc = vsnprintf(buffer+l, s, format, ap);
+    l += rc;
+
+    _fprintf (stderr, "%d (l=%d s=%d) %s\n", __LINE__, l, s, buffer);
+
+    if (rc > s) {
+      s = 0;
+      buffer[l-1] = '\n';
+    } else {
+      buffer[l] = '\n';
+      buffer[l+1] = '\0';
+      l++;
+    };
+    _fprintf (stderr, "%d %s", __LINE__, buffer);
+
+    fwrite (buffer, 1, l, log);
   } 
 
   /* copy to stdout/stderr if so has been desired */
@@ -209,7 +259,9 @@ _mw_vlogf(int level, char * format, va_list ap)
     fflush(copy_on_FILE);
   };
 
+#ifdef DEBUGGING_X
   _UNLOCKMUTEX(logmutex);
+#endif
 
   return ;
 };

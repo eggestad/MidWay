@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.1  2002/02/19 23:45:57  eggestad
+ * version.h now genrated from version.h.in
+ *
  * Revision 1.3  2000/08/31 19:50:09  eggestad
  * removed globals vars for version info
  *
@@ -37,8 +40,20 @@
  *
  */
 
+#ifndef _VERSION_H
+#define _VERSION_H
+
+#define MW_PREFIX @prefix@
+
+#endif
+
 const char * mwversion(void);
  
 int _mwgetversion(int * vmaj, int * vmin, int * ptcl);
 
 const char * _mwgetmagic(void);
+
+
+
+
+

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/11/29 23:19:54  eggestad
+ * No data to service in call was illegal, now legal
+ *
  * Revision 1.2  2000/07/20 19:42:34  eggestad
  * Listing of SRB clients fix.
  *
@@ -366,29 +369,33 @@ int call(int argc, char ** argv)
   struct timeval start, end;
 
   
-  if ( (argv[1] == NULL) ||  (argv[2] == NULL) ) {
+  if ( (argc <= 1) || (argv[1] == NULL) ) {
     return -1;
   }
 
-  len = strlen(argv[2]);
-  data = (char *) malloc(len);
-  j = 0;
-  for (i = 0; i < len; i++) {
-    if (argv[2][i] == '%') {
-      /* simlified, we accept only %UL where H is the high nibble
-	 and L is teh lower nibble. Thus a char in hex.
-	 fortunalty the lowe niddle in an ascii hex reprenentation
-	 is the binary value */
-      if ((i + 2) < len) {
-	data[j++] = argv[2][++i] & 0x0f << 4
-	  + argv[2][++i] & 0x0f;
-      } 
-    } else {
-      data[j++] = argv[2][i];
+  if (argc > 2) {
+    len = strlen(argv[2]);
+    data = (char *) malloc(len);
+    j = 0;
+    for (i = 0; i < len; i++) {
+      if (argv[2][i] == '%') {
+	/* simlified, we accept only %UL where H is the high nibble
+	   and L is teh lower nibble. Thus a char in hex.
+	   fortunalty the lowe niddle in an ascii hex reprenentation
+	   is the binary value */
+	if ((i + 2) < len) {
+	  data[j++] = argv[2][++i] & 0x0f << 4
+	    + argv[2][++i] & 0x0f;
+	} 
+      } else {
+	data[j++] = argv[2][i];
+      }
     }
-  }
-  data[j] = '\0';
-
+    data[j] = '\0';
+  } else {
+    data = NULL;
+    j = 0;
+  };
   mwlog(MWLOG_DEBUG,"about to call(%s, %s, %d, ...)", argv[1], data, j);
   gettimeofday(&start, NULL); 
   rc = mwcall(argv[1], data, j, &rdata, &len, &apprc, 0);

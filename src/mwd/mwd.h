@@ -23,6 +23,12 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2002/02/17 14:48:38  eggestad
+ * - added missing includes
+ * - added missing prototypes
+ * - added IPC param aliases
+ * - Added define for server manager service name
+ *
  * Revision 1.2  2000/07/20 19:44:00  eggestad
  * prototype fixup.
  *
@@ -43,15 +49,26 @@ typedef struct {
   int user2;
 } Flags;
 
+
+#include <MidWay.h>
+
 #ifndef _MWD_C
+#include <ipctables.h>
 extern Flags flags;
 extern ipcmaininfo * ipcmain;
 #endif
 
-#include <MidWay.h>
-
 void inst_sighandlers(void);
 
+typedef enum  { MAXCLIENTS = 10, MAXSERVERS, MAXSERVICES, MAXGATEWAYS, MAXCONVS, 
+	       BUFFERBASESIZE, MASTERIPCKEY, NUMBUFFERS } IPCPARAM;
+
+void init_maininfo(void);
+int cleanup_ipc(void) ;
+int mymqid(void);
+      
+int mwdSetIPCparam(IPCPARAM, int);
+int mwdGetIPCparam(IPCPARAM);
 ipcmaininfo * getipcmaintable(void); 
 cliententry * getcliententry(int i);
 serverentry * getserverentry(int i);
@@ -60,3 +77,5 @@ gatewayentry * getgatewayentry(int i);
 conv_entry * getconv_entry(int i);
 
 void usage(void);
+
+#define MWSRVMGR ".mwsrvmgr"

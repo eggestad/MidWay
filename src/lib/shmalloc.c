@@ -23,13 +23,20 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:16  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:36:21  eggestad
+ * core dump on mwfree() on malloc()'d buffer fix.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:16  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
  *
  */
+
+
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <sys/sem.h>
 #include <sys/shm.h>
@@ -77,6 +84,7 @@ int _mwadr2offset(void * adr)
   if (_mwHeapInfo == NULL) return -1;
   return (int) adr - (int) _mwHeapInfo;
 };
+
 void * _mwoffset2adr(int offset)
 {
   if (_mwHeapInfo == NULL) return NULL;
@@ -91,6 +99,7 @@ static int getchunksizebyadr(chunkhead * pCHead)
 {
   int chksize, chkindex, i, rc = 0;
   chunkfoot *pCFoot;
+  chunkhead *pCHabove;
   int iCHead;
 
   /* if order to do this fast when OK, we want to know if
@@ -123,10 +132,11 @@ static int getchunksizebyadr(chunkhead * pCHead)
       rc = pCHead->size;
     }
   };
-
+  
   /* check for footer corruption and correct if neccessary */
   pCFoot = _mwfooter(pCHead);
-  if (_mwoffset2adr(pCFoot->above) != pCHead  ) {
+  pCHabove = _mwoffset2adr(pCFoot->above);
+  if (pCHabove != pCHead) {
     pCFoot->above = _mwadr2offset(pCHead);
     rc = pCHead->size;
   };
@@ -146,6 +156,11 @@ int _mwshmcheck(void * adr)
   int offset;
   int size;
   
+  /* first we make sure that adr is within the heap*/
+  if (adr < (void *) ((int)_mwHeapInfo + sizeof(struct segmenthdr))) return -1;
+  if (adr > (void *) ((int)_mwHeapInfo + _mwHeapInfo->segmentsize)) return -1;
+      
+  /* now we do sanity check on the chunk */
   size = getchunksizebyadr(adr - sizeof(chunkhead));
 
   if (size < 0)   return -1;

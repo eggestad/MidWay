@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.17  2003/06/12 07:43:21  eggestad
+ * added MWIPCONLY flag to _mwipcacall, to force local service
+ *
  * Revision 1.16  2003/03/26 01:59:33  cstup
  * Another fix to the same DEBUG line.
  *
@@ -544,12 +547,15 @@ MWID * _mw_get_service_providers(char * svcname, int convflag)
 #endif
 
 /* return the list of sericeid's of the given service */
-SERVICEID * _mw_get_services_byname (char * svcname, int * N, int convflag)
+SERVICEID * _mw_get_services_byname (char * svcname, int * N, int flags)
 {
   SERVICEID * slist;
   int type, i, index, n = 0, x;
+  int convflag = flags & MWCONV;
+  int ipc_only_flag = flags & MWIPCONLY;
 
-  DEBUG3("getting the list of services that provide %s conv=%d", svcname, convflag);
+  DEBUG3("getting the list of services that provide %s conv=%d ipconly=%d", 
+	 svcname, convflag, ipc_only_flag);
   if (N != NULL) *N = 0;
 
   if (ipcmain == NULL) { 
@@ -581,6 +587,10 @@ SERVICEID * _mw_get_services_byname (char * svcname, int * N, int convflag)
 
     DEBUG3("checking index %d service %s type = %d", 
 	   index, svctbl[index].servicename, svctbl[index].type);
+
+    /* for GW, to make sure we're not routing to a imported service */
+    if (ipc_only_flag) 
+       if (svctbl[index].location != GWLOCAL) continue;
 
     if (strncmp(svctbl[index].servicename, svcname, MWMAXSVCNAME) == 0) {
       DEBUG3("adding svcentry with index %d n = %d", index, n);

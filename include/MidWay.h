@@ -67,12 +67,20 @@ typedef struct {
 #define MWSIGRST     0x00000008
 #define MWNOTRAN     0x00000010
 #define MWUNIQUE     0x00000020
-#define MWMULTIPLE   0x00000100
+#define MWMULTIPLE   0x00000040
+
+/* the IPC only flag was introduced for the GW, inorder to ensure that
+incomming service calls aren't routed back out. As such this flag may
+dissappear whenever remote domains are implemented. However it *might*
+be a nice feature for high perf apps, that want to make sure local
+services only are called.  (in this case the service in question
+should begin with . ) */
+#define MWIPCONLY    0x00000080 /* only allow local IPC services to e selected */
 
 #define MWFASTPATH   0x00000100
 #define MWSAFEPATH   0x00000200
  
-/* Flags*/
+/* Flags for conv */
 #define MWCONV       0x00010000
 #define MWSTDIO      0x00020000
 

@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.20  2003/06/12 07:43:21  eggestad
+ * added MWIPCONLY flag to _mwipcacall, to force local service
+ *
  * Revision 1.19  2003/03/16 23:53:53  eggestad
  * bug fixes
  *
@@ -729,7 +732,7 @@ int _mw_ipcsend_unprovide_for_id(MWID mwid, char * servicename,  SERVICEID svcid
     return rc;
   };
   DEBUG1("mwunprovide() sent request for unprovide %s with serviceid=%d to mwd", 
-	servicename, svcid);
+	servicename, SVCID2IDX(svcid));
 
   return rc;
 };
@@ -772,7 +775,11 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   SERVICEID * svclist;
 
   TIMEPEG();
-  
+
+  DEBUG1("BEGIN: (svcname=%s, data=%p, datalen=%d, flags=%#x, mwid=%#x, instance=%s, domain=%s, "
+	 "callerid=%ld, hops=%d", svcname, data, datalen, flags, mwid, 
+	 instance?instance:"(NULL)", domain?domain:"(NULL)", callerid, hops);
+
   memset (&calldata, '\0', sizeof(Call));
   errno = 0;
 
@@ -797,6 +804,8 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
     calldata.timeout = 0; 
   };
 
+  TIMEPEG();
+  DEBUG1("doing mwid's");
   /* now the data string are passed in shm, we only pass the address (offset) , and 
      the other neccessary data.
      since shmat on Linux do not always reurn tha same address for a given shm segment
@@ -845,6 +854,7 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   calldata.hops = hops;
 
   TIMEPEG();
+  DEBUG1("doing data");
 
   if (data != NULL) {
     dataoffset = _mwshmcheck(data);
@@ -869,8 +879,8 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   calldata.datalen = datalen;
 
   TIMEPEG();
-
-  svclist = _mw_get_services_byname(svcname, &n, flags&MWCONV);
+  DEBUG1("getting available servers");
+  svclist = _mw_get_services_byname(svcname, &n, flags);
   if (svclist == NULL) return -ENOENT;
 
   TIMEPEG();
@@ -915,7 +925,7 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   free(svclist);
   
   TIMEPEG();
-
+  DEBUG1("done");
   return rc;
 };
     

@@ -1,3 +1,10 @@
+2001-10-04  Terje Eggestad  <terje@localhost.localdomain>
+
+	* a lot of bugfixes, all memleaks in mwgwd now seem to be plugged.
+	* added a RC script for mwbd
+	* Multicast in lib now, clients may attach to uri: srbp:/domainname
+	* added multicast query and gateway table view to mwadm
+
 2001-09-09  Terje Eggestad  <terje@localhost.localdomain>
 
 	* did a lot of clean up to get a cleaner compile.

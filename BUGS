@@ -26,11 +26,6 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
   service calls sets what's right.
 
 * _mwrealloc() handles malloc() buffers, it shouldn't. (??)
-
-* I don't think I'm going to have a network lib and IPC lib
-  anymore. clean up.  The way an URI for selection IPC or TCP/IP
-  removes the need.  THE only thing that may change my mind is if the
-  lib should get so big that the TCP/IP lib should be taken out.
   
 * I question the way I get ipcmain info. I call _mw_ipcmaininfo() in
   every function where it's needed. I really should have a global var.
@@ -142,6 +137,16 @@ REL: 0.10.0
 	Actually, it shall return 0 on success, -1 on fail and 1 
 	if more replies are pending
 
+REL: 0.10.1
+
+* segfault in mwgwd on ^C without core dump...
+
+* memleak in mwbd
+
+* memleak in mwd
+
+REL 0.11.0
+
 -----------------------------------------------------------------------
 
 CRITICAL BUGS:
@@ -183,4 +188,7 @@ FIXED * handling of accidental deletion of shm segments. On HP-UX key
   malloced buffer. It dissapears when MALLOC_DEBUG_ env is set!
   (Really anoying, have to try efence.).
 
+(fixed) * gwtbl goes full, no info on gwtable in mwadm
+
+(fixed) * mwgwd don't reconnect broker
 

@@ -1,0 +1,10 @@
+Release 0.11.0
+
+Many bugfixes over 0.10.1, there should have been a 0.10.2 before this
+release.
+
+The new feature is the broker daemon (mwbd) and the
+possibility to do multicast query from the clients, so that a SRBP
+clients don't have to have the ip adresss in the uri. srbp:/domainname
+suffice.
+

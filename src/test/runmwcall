@@ -7,6 +7,6 @@ while ( 1 )
     @ i ++
     echo "$i";
 
-    ./mwcall -A srbp:/testdom test data;
+    mwcall -A srbp:/testdom test data;
 
 end

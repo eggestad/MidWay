@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.9  2002/10/22 21:46:55  eggestad
+ * debuging was not #ifdef encapsulated
+ *
  * Revision 1.8  2002/10/17 22:20:19  eggestad
  * - bug in handling an empty field
  *
@@ -252,20 +255,27 @@ urlmap * urlmapdup(urlmap * map)
   int l;
 
   if (map == NULL) return NULL;
+#ifdef DEBUG  
   fprintf (stderr, "beginning copy of map at %p\n", map);
+#endif
 
   /* find the number of pairs in the map. */
   for (n = 0; map[n].key != NULL;  n++) ;
   
+#ifdef DEBUG  
   fprintf (stderr, "map to be copied has %d pairs\n", n);
+#endif
+
   newmap = malloc(sizeof(urlmap) * (n+1));
   
   for (idx = 0; idx < n; idx++) {
     
+#ifdef DEBUG  
     fprintf (stderr, "copying pair %d: key=%s :: value=%s(%d)\n",  idx,  
 	     map[idx].key, 
 	     map[idx].value!=NULL?map[idx].value:"(null)",
 	     map[idx].valuelen);
+#endif
 
     /* copy key */
     l = strlen(map[idx].key);

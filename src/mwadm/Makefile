@@ -7,7 +7,7 @@ INCPATH = ../include
 
 CFLAGS =  $(INCLUDES) -g
 
-LIBS =  -L../lib -lreadline -lMWipc
+LIBS =  -L../lib -lreadline -lMidWay
 
 LDFLAGS = $(LIBS) 
 
@@ -24,7 +24,7 @@ depend:
 	makedepend -Y *.c
 
 clean:
-	rm mwadm $(OBJ) core 
+	rm -f mwadm $(OBJ) core 
 
 tags:
 	etags -a -o ../TAGS *.c *.h

@@ -8,7 +8,7 @@ CFLAGS =  $(INCLUDES) -g
 all: testsuiteserver.so testsuiteclient
 
 clean: 
-	rm testsuiteclient *.o *.so
+	rm -f testsuiteclient *.o *.so
 
 test: 
 	runtestsuite.pl
@@ -27,5 +27,5 @@ testsuitclient.o: testsuiteclient.c ../include/MidWay.h testsuite.h
 	gcc $(CFLAGS) -c $<
 
 testsuiteclient: testsuiteclient.o
-	gcc -o $@ testsuiteclient.o -L../lib -lMWipc
+	gcc -o $@ testsuiteclient.o -L../lib -lMidWay
 

@@ -3,12 +3,14 @@ CC = gcc
  
 INCLUDES = -I../include 
 
-CFLAGS =  $(INCLUDES) -g
+LIBS = -L../lib -lMidWay
+
+CFLAGS =  $(INCLUDES) -g 
 
 all: mwserver testservices.so
 
 clean: 
-	rm mwserver *.o *.so core
+	rm -f mwserver *.o *.so core
 
 test: 
 	./mwserver -s test1:servicehandler1 -s servicehandler1 -s sleep1 testservices.so
@@ -26,7 +28,7 @@ mwserver.o: ../include/MidWay.h ./shared_lib_services.h
 
 shared_lib_services.o: ../include/MidWay.h ./shared_lib_services.h
 
-mwserver: mwserver.o shared_lib_services.o ../lib/libMWipc.so
-	gcc -o $@ mwserver.o shared_lib_services.o -rdynamic $(CFLAGS) -L../lib -lMWipc  -ldl
+mwserver: mwserver.o shared_lib_services.o ../lib/libMidWay.so
+	gcc -o $@ mwserver.o shared_lib_services.o -rdynamic $(CFLAGS) $(LIBS) -ldl
 
 

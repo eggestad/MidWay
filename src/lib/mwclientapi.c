@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2003/12/11 14:18:03  eggestad
+ * added mwlistsvc for IPC
+ *
  * Revision 1.13  2003/07/20 23:13:34  eggestad
  * - better exit from mwacall
  *
@@ -241,6 +244,31 @@ int mwdetach()
     return _mwdetach_srb();
   };
   Error("mwdetach: This can't happen unknown protocol %d", proto);
+
+};
+
+int mwlistsvc(char * glob, char *** list, int flags)
+{
+  int proto;
+
+  /* If we're not attached */  
+  if (_mwaddress == NULL) return 0;
+
+  if (!_mwaddress) {
+    DEBUG1("not attached");
+    return -ENOTCONN;
+  };
+
+  switch (_mwaddress->protocol) {
+    
+  case MWSYSVIPC:
+
+    return _mw_list_services_byglob(glob, list, flags);
+    
+  case MWSRBP:
+    return -ENOSYS;
+  };
+  Error("mwlistsvc: This can't happen unknown protocol %d", proto);
 
 };
 

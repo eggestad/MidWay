@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.18  2003/12/11 14:18:03  eggestad
+ * added mwlistsvc for IPC
+ *
  * Revision 1.17  2003/06/12 07:43:21  eggestad
  * added MWIPCONLY flag to _mwipcacall, to force local service
  *
@@ -92,6 +95,7 @@
 #include <sys/shm.h>
 #include <sys/time.h>
 #include <signal.h>
+#include <fnmatch.h>
 
 #include <MidWay.h>
 #include <ipctables.h>
@@ -605,6 +609,108 @@ SERVICEID * _mw_get_services_byname (char * svcname, int * N, int flags)
   free(slist);
   return NULL; 
 };
+
+/* return the ulist of unique service names that matches glob */
+
+/* plist is set t to point at a char **, and the list is allocated
+   with a single malloc */
+int _mw_list_services_byglob (char * glob, char *** plist, int inflags)
+{
+   int * namelens;
+   char ** list, ** rlist;
+   char * svcname, * tmp;
+   int type, i, index, n = 0, l, x, rc;
+   int flags = FNM_PERIOD;
+  
+   if (ipcmain == NULL) { 
+      return -EFAULT;
+   };
+
+   if (plist == NULL) return -EINVAL;
+   if (glob == NULL) glob = "*";
+
+   DEBUG3("glob is \"%s\"", glob);
+   list = malloc(sizeof(char *) * (ipcmain->svctbl_length+1)); 
+   namelens = malloc(sizeof(int) * (ipcmain->svctbl_length+1)); 
+   
+   DEBUG3("clearing the lists");
+   for (index = 0; index < ipcmain->svctbl_length+1; index++) {
+      list[index] = NULL;
+      namelens[index] = 0;
+   };
+
+   for (index = 0; index < ipcmain->svctbl_length; index++) {
+      
+      if (svctbl[index].type == UNASSIGNED) continue;
+
+      svcname = svctbl[index].servicename;
+      
+      DEBUG3("checking index %d service %s type = %d", 
+	     index, svcname, svctbl[index].type);
+     
+
+
+      rc = fnmatch(glob, svcname, flags);
+      DEBUG3("fnmatch returned %d No match = %d", rc, FNM_NOMATCH);
+      if (rc == FNM_NOMATCH) continue;
+      if (rc != 0) {
+	 Warning ("fnmatch failed due to illegal glob pattern");
+	 return -EFAULT;
+      };
+      
+      l = strlen (svcname);
+
+      /* now we check to see if we've found it before */
+      x = 0;
+      DEBUG3("checking the %d matches we got for duplicates", n); 
+      for (i = 0; i < n; i++) {
+	 if (l != namelens[i]) continue;
+	 if (strcmp(list[i], svcname) == 0) {
+	    x = 1;
+	    break;
+	 };
+      };
+      if (x) continue;
+      
+      /* new to the list, now add */ 
+      list[n] = svcname;
+      namelens[n] = l;
+      n++;
+   };
+   DEBUG3 ("the matches %d", n);
+
+   /* calc the size for the return buffer which hold a null terminated
+      pointer array at the head, and all the strings (nul term'ed)
+      consecutively following */   
+   for (l = 0, i = 0; i < n; i++) {
+      l += namelens[i];
+   };
+   l += n;
+   DEBUG3 ("the total string length is %d", l);
+   
+   l +=  sizeof(char*) * (n+1) + 4;
+   rlist = malloc(l); // adding 4 bytes as a paranoia safty 
+   DEBUG3 ("the total buffer length is %d", l);
+   
+   // tmp points to the place to put the strings
+   tmp = ((char *) rlist) + sizeof(char*) * (n+1);  
+   for (l = 0, i = 0; i < n; i++) {
+      rlist[i] = tmp;
+      strncpy(tmp, list[i],  namelens[i]);
+      tmp += namelens[i];
+      tmp[0] = '\0';
+      tmp++;
+   };
+
+   free(list);
+   free(namelens);
+   
+   rlist[n] = NULL;
+   *plist = rlist;
+   DEBUG("Completes");  
+   return n; 
+};
+
 
   /* depreciated */
 SERVICEID _mw_get_service_byname (char * svcname, int convflag)

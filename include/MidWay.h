@@ -153,6 +153,10 @@ extern "C" {
 	     int * appreturncode, int flags);
   int mwacall(char * svcname, char * data, int len, int flags);
   int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags);
+   
+   /* return a list of service names matching glob. What plist points
+      to shall be free'ed with a single free */
+  int mwlistsvc (char * glob, char *** plist, int flags);
 
   /* server API */
   int mwforward(char * service, char * data, int len, int flags);

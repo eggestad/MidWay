@@ -247,6 +247,7 @@ MWID           _mw_get_provider_by_serviceid (SERVICEID svcid);
 SERVICEID      _mw_get_service_byname (char * svcname, int flags); 
 SERVICEID    * _mw_get_services_byname (char * svcname, int * n, int convflag);
 //MWID         * _mw_get_service_providers(char * svcname, int convflag);
+int _mw_list_services_byglob (char * glob, char *** plist, int flags);
 
 gatewayentry * _mw_get_gateway_table (void);
 gatewayentry * _mw_get_gateway_byid (GATEWAYID srvid);

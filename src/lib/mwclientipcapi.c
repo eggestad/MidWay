@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2003/12/11 14:18:03  eggestad
+ * added mwlistsvc for IPC
+ *
  * Revision 1.11  2002/10/20 18:12:19  eggestad
  * prototype change in _mwipcacall
  *
@@ -253,5 +256,6 @@ int _mwacall_ipc(char * svcname, char * data, int datalen, int flags)
 
   return _mwacallipc (svcname, data, datalen,  flags| MWMULTIPLE, UNASSIGNED, NULL, NULL, UNASSIGNED, 0);
 }
+
 
 

@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.5  2004/10/13 18:41:23  eggestad
+ * task API updates
+ *
  * Revision 1.4  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -58,6 +61,9 @@ int  sendmessage (Connection * conn, char * message, int len);
 void tcpserverinit(void);
 void tcpcloseall(void);
 int tcpstartlisten(int port, int role);
+
+void wake_fast_task(void);
+
 void * tcpservermainloop(void *);
 
 #endif

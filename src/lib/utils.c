@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.9  2004/10/13 18:41:10  eggestad
+ * task API updates
+ *
  * Revision 1.8  2004/10/07 22:01:23  eggestad
  * task API updates
  *
@@ -108,25 +111,31 @@ unsigned long long _mw_lltimes(void)
   return now;
 };
 
-/* compatibility wrapper function. setitimer is not POSIX...  */
-/* arg must be positive, 0 mean disable timer, arg is the time in the
-   future, in usecs since epoch that the timer shall expire.  */
 
 void _mw_setrealtimer(long long usecs)
 {
   struct itimerval itv;
   int rc;
 
-  /* the timer shall stop after expire */
-  itv.it_interval.tv_sec = 0;
+  // this is to avoid a race condition. It's posssible that within
+  // the mainloop a signal occur just after the enabling of the
+  // alarm signal just after mwdotask() to the msgrcv() in
+  // parse_request() is called. By resetting the timer here to a
+  // long time (1 minute) into the future we ensure that we got a
+  // way out of the race.
+
+  itv.it_interval.tv_sec = 60;
   itv.it_interval.tv_usec = 0;
 
   if (usecs < 0)
-    Fatal("attemot to set timer with negative timeout");
+    Fatal("attempted to set timer with negative timeout");
 
   if (usecs == 0) {
      itv.it_value.tv_sec = 0;
      itv.it_value.tv_usec = 0;
+
+     itv.it_interval.tv_sec = 0;
+     itv.it_interval.tv_usec = 0;
      
      DEBUG1("Disable timer");
      usecs = usecs - _mw_llgtod();

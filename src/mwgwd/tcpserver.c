@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.19  2004/10/13 18:41:23  eggestad
+ * task API updates
+ *
  * Revision 1.18  2004/04/12 23:05:25  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -99,6 +102,7 @@
 #include <SRBprotocol.h>
 #include "SRBprotocolServer.h"
 #include <multicast.h>
+#include <tasks.h>
 #include "tcpserver.h"
 #include "gateway.h"
 #include "connections.h"
@@ -351,6 +355,12 @@ void sig_initshutdown(int sig)
   };
 };
 
+static int alarms = 0;
+void sig_alarm(int sig)
+{
+  alarms++;
+};
+
 void sig_dummy(int sig)
 {
   ;
@@ -461,19 +471,24 @@ int tcp_do_read_condiion(Connection * conn)
 /************************************************************************
  * timer task, is called every time conn_select() times out */
 
-int  TASK_INTERVAL = 60 /* secs */;
+static double  task_interval = 60.0 /* secs */;
+static double  fast_task_interval = 1.0 /* secs */;
 
 /* the timeout is the next time in unix time that we shall be
    called. initial value of 1 just ensure that it will be called first
    time out */
-static time_t  timeout = 1; 
 
-void timer_task(void)
+static PTask slowtask;
+static PTask fasttask;
+
+static time_t  timeout = -1; 
+
+// the slow task
+int timer_task_1(PTask pt)
 {
-  char t[16];
   int fd;
 
-  DEBUG("vvvvvvvvvv starting timer task %ld secs after timeout", time(NULL) - timeout);
+  DEBUG("vvvvvvvvvv starting slow timer task");
   if (globals.mydomain && globals.myinstance) {
     /* reconnect broker */
     if (reconnect_broker) {
@@ -493,12 +508,38 @@ void timer_task(void)
 
   };
 
-  timeout = time(NULL) + TASK_INTERVAL;
-  strftime ( t, 16, "%T", localtime(&timeout));
-  DEBUG("^^^^^^^^^^ ending timer task, next at %s (%ld now %ld)", t, timeout, time(NULL));
+  DEBUG("^^^^^^^^^^ ending timer task");
 
+  return 0;
 };
 
+// the fast task
+int timer_task_2(PTask pt)
+{
+  int rc;
+
+  DEBUG("vvvvvvvvvv starting fast timer task");
+
+  rc = srb_flush_ipc_fifo();
+  DEBUG("fifo queue = %d", rc);
+  if (rc == 0) {
+     DEBUG("suspending fast task");
+     mwsuspendtask(pt);
+  };
+
+  DEBUG("^^^^^^^^^^ ending fast timer task ");
+
+  return 0;
+}
+
+void wake_fast_task(void)
+{
+  if (_mw_gettaskstate(fasttask) == TASK_SUSP) {
+    DEBUG("waking fast task");
+    mwresumetask(fasttask);
+  };
+  return;
+};
   
 /* the main loop, here we select on all sockets and issue actions. */
 void * tcpservermainloop(void * param)
@@ -506,6 +547,7 @@ void * tcpservermainloop(void * param)
   int cond, rc;
   Connection * conn;
   char * penv;
+  double d;
 
   globals.tcpserverpid = getpid();
   Info("tcpserver thread starting with pid=%d", globals.tcpserverpid);
@@ -517,6 +559,7 @@ void * tcpservermainloop(void * param)
   signal(SIGHUP, sig_initshutdown);
 
   signal(SIGPIPE, sig_dummy);
+  signal(SIGALRM, sig_alarm);
 
   /* if we're in a domain, nad not in a standalone mode */
   if (globals.mydomain && globals.myinstance) {
@@ -524,9 +567,20 @@ void * tcpservermainloop(void * param)
   };
 
   if (penv = getenv ("MWGWD_TASK_INTERVAL")) {
-     rc = atoi(penv);
-     if (rc > 0) TASK_INTERVAL = rc;
+    d = atof(penv);
+    if (d > 0) task_interval = d;
   };
+
+  if (penv = getenv ("MWGWD_FAST_TASK_INTERVAL")) {
+    d = atof(penv);
+    if (d > 0) fast_task_interval = d;
+  };
+
+  Info("slow task interval %lg", task_interval);
+  slowtask = mwaddtaskdelayed(timer_task_1, task_interval, 1);
+  Info("fast task interval %lg", fast_task_interval);
+  fasttask = mwaddtaskdelayed(timer_task_2, fast_task_interval, -1);
+  mwsuspendtask(fasttask);
 
   while(! globals.shutdownflag) {
 
@@ -539,10 +593,14 @@ void * tcpservermainloop(void * param)
 
     TIMEPEG();
     if (rc < 0) {
-      if (rc == -ETIME) {
-	timer_task();
-	continue;
-      } else if (rc == -EINTR) {
+      if ((rc == -ETIME) || (rc == -EINTR) ) {
+
+	DEBUG("conn_select returned timeout or interrupted, doing tasks");
+	mwblocksigalarm();
+	alarms = 0;
+	while(mwdotasks());
+	mwunblocksigalarm();
+	DEBUG("tasks completed");
 	continue;
       };
       
@@ -576,6 +634,11 @@ void * tcpservermainloop(void * param)
   return param;
 };
   
+/* Emacs C indention
+Local variables:
+c-basic-offset: 2
+End:
+*/
 
 
 

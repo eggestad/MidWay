@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.17  2004/10/13 18:41:23  eggestad
+ * task API updates
+ *
  * Revision 1.16  2004/08/11 19:02:40  eggestad
  * added large buffer alloc
  *
@@ -426,7 +429,7 @@ static int do_admin(void * mp)
   switch(admmsg->opcode) {
   case ADMSHUTDOWN:
     ipcmain->shutdowntime = time(NULL) + admmsg->delay;
-    mwaddtaskdelayed(do_shutdowntrigger, -1, admmsg->delay*1000);
+    mwaddtaskdelayed(do_shutdowntrigger, -1, admmsg->delay);
 
     Info("Received a shutdown request from client %d, shutdown in %d seconds", 
 	 admmsg->cltid & MWINDEXMASK, admmsg->delay);
@@ -679,7 +682,7 @@ int parse_request(int nonblock)
   
   if (rc == -1) {
     /* interrupts do usually happen for a reason. mwd should go down on SIGTERM.
-       shutdown arrived. It really is the watchdog process that shou do */
+       shutdown arrived. It really is the watchdog process that should do */
     if ((errno == EINTR) || (errno == ENOMSG)) {
       if (ipcmain->status ==  MWDEAD) return -ESHUTDOWN;
 

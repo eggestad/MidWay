@@ -204,14 +204,19 @@ extern "C" {
   typedef long PTask;
   typedef int (*taskproto_t)(PTask);
 
-  PTask _mwaddtaskdelayed(taskproto_t func, char * name, int interval, int initialdelay);
-  PTask _mwaddtask(taskproto_t func, char * name, int interval);
+  PTask _mwaddtaskdelayed(taskproto_t func, char * name, double interval, double initialdelay);
+  PTask _mwaddtask(taskproto_t func, char * name, double interval);
 #define mwaddtaskdelayed(f, i, d) _mwaddtaskdelayed(f, #f, i, d)
 #define mwaddtask(f, i) _mwaddtask(f, #f, i)
 
   int mwwaketask(PTask t);
-   int mwdotasks(void) ;
-   int mwsettaskinterval (PTask pt, int interval) ;
+  int mwdotasks(void) ;
+  int mwsettaskinterval (PTask pt, double interval) ;
+  int mwsuspendtask(PTask pt);
+  int mwresumetask(PTask pt);
+  // helpers, these wrap around sigprocmask, and manipulate the set of blocked signals. 
+  void mwblocksigalarm(void);
+  void mwunblocksigalarm(void);
 
 
   /* internal logging API */
@@ -238,7 +243,7 @@ extern "C" {
   void mwrecvevents(void);
 
   /* discovery api */
-
+  
   typedef struct  {
     char version[8];
     char instance[MWMAXNAMELEN];
@@ -247,7 +252,7 @@ extern "C" {
   } instanceinfo;
 
   instanceinfo * mwbrokerquery(char * domain, char * instance);
-
+  
 
 #ifdef	__cplusplus
 }
@@ -301,3 +306,8 @@ typedef void (*mw_do_event_handler_t) (int subid, char * event, char * data, int
 
 #endif /* _MIDWAY */
 
+/* Emacs C indention
+Local variables:
+c-basic-offset: 2
+End:
+*/

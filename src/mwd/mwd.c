@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.21  2004/10/13 18:41:13  eggestad
+ * task API updates
+ *
  * Revision 1.20  2004/08/11 20:32:30  eggestad
  * - daemonize fix
  * - umask changes (Still wrong, but better)
@@ -169,6 +172,11 @@ mode_t mw_umask = UNASSIGNED;
 static struct passwd * mepw = NULL;
 
 static Flags flags = { 0, 0, 0, 0, 0};
+
+
+// prototypes for this module
+int term_maininfo(void);
+
 
 void usage(void)
 {
@@ -320,7 +328,7 @@ static void sighandler(int sig)
       
    case SIGTERM:
    case SIGINT:
-      mwaddtaskdelayed(do_shutdowntrigger, -1, 1);
+      mwaddtaskdelayed(do_shutdowntrigger, -1, 1.0);
       DEBUG("normal shutdown sig=%d", sig);
       return;
 
@@ -813,10 +821,10 @@ int do_shutdowntask(PTask pt)
 
    if (countdown == 5) {
       Info ("beginning shutdown");
-      mwsettaskinterval(pt, 1000);
+      mwsettaskinterval(pt, 1.0);
    };
 
-   DEBUG ("shutdown task countdown %d\n", countdown);
+   DEBUG ("shutdown task countdown %d", countdown);
 
    switch (countdown) {
       
@@ -992,7 +1000,8 @@ static void mainloop(void)
   serviceentry * svcent;
   int provided = 0;
   PTask srvmgrtask, eventtask;
-  int srvmgrtaskinterval = 5000, eventtaskinterval = 5000;
+  double srvmgrtaskinterval = 5.0, eventtaskinterval = 5.0;
+  double d;
   char * penv;
 
   /* simplified mwprovide() since we're not going to send a provide
@@ -1008,17 +1017,21 @@ static void mainloop(void)
   _mw_set_my_status("");
 
   if (penv = getenv ("MWD_SRVMGR_TASK_INTERVAL")) {
-     rc = atoi(penv);
-     if (rc > 0) srvmgrtaskinterval = rc * 1000;
+     d = atof(penv);
+     if (d > 0.0) srvmgrtaskinterval = d;
   };
 
   if (penv = getenv ("MWD_EVENT_TASK_INTERVAL")) {
-     rc = atoi(penv);
-     if (rc > 0) eventtaskinterval = rc * 1000;
+     d = atof(penv);
+     if (d > 0.0) eventtaskinterval = d;
   };
 
+  DEBUG("adding server manager task with interval %lg", srvmgrtaskinterval);
   srvmgrtask = mwaddtask(smgrTask, srvmgrtaskinterval);
+  
+  DEBUG("adding event task with interval %lg", eventtaskinterval);
   eventtask = mwaddtask(do_events, eventtaskinterval);
+
   shutdowntask = mwaddtask(do_shutdowntask, -1);
 
   mwwaketask(srvmgrtask);
@@ -1026,9 +1039,21 @@ static void mainloop(void)
   /* finally the loop */
   DEBUG("mainloop starts");
   while(1) {
+    mwblocksigalarm();
+    flags.alarm = 0;
     nonblock = mwdotasks();
-    DEBUG("mwdotask returned %s", nonblock?"nonblock":"block");
+    mwunblocksigalarm();
+    DEBUG("mwdotask returned %d task ready to run", nonblock);
 
+
+    // there is a potential race here if a timer signal should occur
+    // after alarm counter is tested and the beginning of mgrcv() in
+    // request_parse(). The race is avoided by having a 60 second
+    // timeout fallback timer interval in _mw_serrealtimer().
+
+    if ((!nonblock) && flags.alarm) nonblock = 1;
+    DEBUG("mwdotask returned %s", nonblock?"nonblock":"block");
+    
     rc = parse_request(nonblock);
     if (rc == -ESHUTDOWN) break;
     if (ipcmain->status == MWDEAD) exit(-1);
@@ -1499,3 +1524,9 @@ int main(int argc, char ** argv)
 
   Info("MidWay daemon shutdown complete");
 };
+
+/* Emacs C indention
+Local variables:
+c-basic-offset: 2
+End:
+*/

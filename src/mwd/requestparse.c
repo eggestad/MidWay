@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2002/10/03 21:13:25  eggestad
+ * - cost field in provide was ignored, now correctly done
+ *
  * Revision 1.10  2002/09/29 17:39:50  eggestad
  * improved the _mw_get[client|server|service|gateway]entry functions and removed duplicates in mwd.c
  *
@@ -307,7 +310,7 @@ static int do_provide(void * mp)
     } 
     rmqid = ge->mqid;
     /* now we've decided that the request is OK, creating entries. */
-    pmesg->svcid = addremoteservice(pmesg->gwid,pmesg->svcname,type);
+    pmesg->svcid = addremoteservice(pmesg->gwid,pmesg->svcname,pmesg->cost, type);
   } else {
     Warning("Got a provide with both srvid and gwid == -1, rejecting");
     pmesg->returncode = -EINVAL;
@@ -325,7 +328,7 @@ static int do_provide(void * mp)
   };
   
  errout:
-  DEBUG(	"Replying to provide request from server %#x gateway %#x on mqid %d: service \"%s\" got id %#x rcode = %d", 
+  DEBUG("Replying to provide request from server %#x gateway %#x on mqid %d: service \"%s\" got id %#x rcode = %d", 
 	pmesg->srvid, pmesg->gwid, rmqid, 
 	pmesg->svcname, pmesg->svcid, 
 	pmesg->returncode );

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2002/10/03 21:14:04  eggestad
+ * - cost field in provide was ignored, now correctly done
+ *
  * Revision 1.11  2002/09/29 17:39:50  eggestad
  * improved the _mw_get[client|server|service|gateway]entry functions and removed duplicates in mwd.c
  *
@@ -494,7 +497,7 @@ SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
   return svcidx;
 };
 
-SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type)
+SERVICEID addremoteservice(GATEWAYID gwid, char * name, int cost, int type)
 {
   int svcidx;
   mwprovideevent evdata;
@@ -508,7 +511,7 @@ SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type)
 
   gwent = _mw_getgatewayentry(gwid);
   if (gwent->status == UNASSIGNED) {
-    Error("got a request to assign a service to gateway %#x which is nott attached", gwid);
+    Error("got a request to assign a service to gateway %#x which is not attached", gwid);
     return -EINVAL;
   };
   
@@ -517,7 +520,8 @@ SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type)
   if (svcidx < 0) return svcidx;
 
   svctbl[svcidx].gateway = gwid;
-  svctbl[svcidx].location = GWREMOTE;
+  svctbl[svcidx].location = gwent->location;
+  svctbl[svcidx].cost = cost;
 
   strncpy(evdata.name, name, MWMAXSVCNAME);
   evdata.provider = gwid;

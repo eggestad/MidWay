@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/10/03 21:14:30  eggestad
+ * - cost field in provide was ignored, now correctly done
+ *
  * Revision 1.6  2002/09/04 07:13:31  eggestad
  * mwd now sends an event on service (un)provide
  *
@@ -70,7 +73,7 @@ int delclient(CLIENTID cid);
 
 
 SERVICEID addlocalservice(SERVERID srvid, char * name, int type);
-SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type);
+SERVICEID addremoteservice(GATEWAYID gwid, char * name, int cost, int type);
 int delservice(SERVICEID svcid);
 int delallservices(SERVERID srvid);
 

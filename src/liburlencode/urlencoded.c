@@ -200,7 +200,7 @@ int urldecode(char * plain, char * encoded)
     };
   };
   plain[j] = '\0';
-  
+
   return j;
 };
 

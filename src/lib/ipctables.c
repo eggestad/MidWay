@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.23  2004/11/17 20:48:43  eggestad
+ * 2 byte Emacs C indent
+ *
  * Revision 1.22  2004/08/11 18:58:04  eggestad
  * - shm tables is now 32/64 bit interoperable
  *
@@ -978,3 +981,9 @@ void _mw_update_stats(int qlen, int waitmsec, int servmsec)
   DEBUG1("Last service request waited %d millisec to be processes and was  completed in %d millisecs. Message queue has now %d pending requests.", waitmsec, servmsec, qlen);
   return;
 };
+
+/* Emacs C indention
+Local variables:
+c-basic-offset: 2
+End:
+*/

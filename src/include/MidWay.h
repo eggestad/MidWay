@@ -211,13 +211,14 @@ static int * debuglevel = NULL;
 int _mwstr2loglevel(char *);
 
 #define PRINTF_ATTR __attribute__ ((format (printf, 5, 6)))
+#define DEPRECATED __attribute__ ((deprecated))
+
 #ifndef PRINTF_ATTR
 #define PRINTF_ATTR
 #endif
+static inline int _DEBUGN(int N, const char * func, const char * file, int line, char * m, ...) PRINTF_ATTR;
 
-static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, ...) PRINTF_ATTR;
-
-static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, ...)
+static inline int _DEBUGN(int N, const char * func, const char * file, int line, char * m, ...)
 {
   va_list ap;
   char buffer[4096];
@@ -246,12 +247,16 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
 #define DEBUG3(m...) _DEBUGN(3, __FUNCTION__ , __FILE__, __LINE__, m)
 #define DEBUG4(m...) _DEBUGN(4, __FUNCTION__ , __FILE__, __LINE__, m)
 
-#else 
+#else  // ifndef NDEBUG
 #define DEBUG(m...)
 #define DEBUG1(m...)
 #define DEBUG2(m...)
 #define DEBUG3(m...)
 #define DEBUG4(m...)
+#endif // ifndef NDEBUG
+
+#ifndef DEPRECATED
+#define DEPRECATED
 #endif
 
 #define Info(m...)    mwlog(MWLOG_INFO, m)
@@ -271,8 +276,9 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
 #ifdef USETHREADS
 
 #define DECLAREMUTEX(name) static pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
-#define DECLAREGLOBALMUTEX(name)  pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
-#define DECLAREEXTERNMUTEX(name)  extern pthread_mutex_t name
+#define DECLARESTRUCTMUTEX(name) pthread_mutex_t name
+#define DECLAREGLOBALMUTEX(name) pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
+#define DECLAREEXTERNMUTEX(name) extern pthread_mutex_t name
 
 #define _LOCKMUTEX(name)   do {pthread_mutex_lock(&name); }   while(0)
 #define _UNLOCKMUTEX(name) do {pthread_mutex_unlock(&name); } while(0)

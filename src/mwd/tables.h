@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/02/17 17:57:12  eggestad
+ * - added prototype for delallservices()
+ *
  * Revision 1.3  2001/08/29 17:57:59  eggestad
  * had declared a shutdown() function that collided with the syscall, renamed to cmd_shutdown
  *
@@ -62,9 +65,10 @@ int delclient(CLIENTID cid);
 
 SERVICEID addlocalservice(SERVERID srvid, char * name, int type);
 int delservice(SERVICEID svcid, SERVERID srvid);
+int delallservices(SERVERID srvid);
 
 serverentry *  _mw_get_server_byid(SERVERID);
 
-int kill_all_members(void);
+int kill_all_servers(void);
 int check_tables(void);
 int get_pids(int *, int **);

@@ -7,7 +7,7 @@
 .\"
 .TH MWLOG 3  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwlog mwloglevel, mwlogprefix \- MidWay logging facility
+mwlog, mwopenlog, mwloglevel, mwlogprefix \- MidWay logging facility
 .SH SYNOPSIS
 .B #include <MidWay.h>
 .sp
@@ -36,16 +36,44 @@ entry made by
 .BR mwlog () 
 in the logfile is prefixed by a time stamp, the calling pid, and
 loglevel.
-.br
-To set what level of log messages to ignore and what to write to log
-file we set level with
-.BR mwlogprefix ().
-All logging above this loglevel is ignored.
-.br
-The default log fileprefix is 
-.BI ./userlog.  YYYYMMDD
-The date suffix is alway added to the logfile and the filename is
-automatically switched after midnight.
+.PP
+.BR mwopenlog ()
+This is the recommended way to open a logfile. fileprefix is passed to
+.BR  mwlogprefix ()
+internally, and 
+.B level 
+is passed to 
+.BR mwsetloglevel ().
+.PP
+.BR mwsetloglevel ()
+is used to set what level of log messages to ignore and what to write
+to log file we set level with
+.BR mwsetloglevel ().
+All logging above this loglevel is ignored. If loglevel is MWLOG_DEBUG
+or above, logging goes to stderr as well as the log file.
+.PP
+.BR  mwlogprefix ()
+is used to det the logfile.  However, there is a default logfile.  The
+default log fileprefix is
+.BI mwhome / instance /log/ progname 
+and is set when fileprefix is NULL.  mwhome is attemped fetched from
+the environmant MWHOME and instance name from the environment var
+MWINSTANCE. If their're not set, and the application is attached with
+IPC, mwhome and instance name is fetched from
+.IR mwd (1). 
+If no progname is set with 
+.BR mwopenlog (3)
+then there is no default logprefix, and logging  is silently ignored. 
+When 
+.I fileprefix 
+is not null, then it's attemped to break up into dirname and basename
+parts.  The basename part replaces progname in the file prefix. If
+there is a dirname part, and it's absolute, it replaces the entire
+dirpath mwhome/instance/log.  If it's a relative path, it relates to
+CWD. The date suffix
+.I .YYYYMMDD 
+is alway added to the  logfileprefix and the filename is automatically
+switched after midnight.
 
 Note that progname is limited to 8 chars. If NULL, mwlog() will not
 insert blanks in the logentries.
@@ -106,7 +134,48 @@ using this logfile have it open for writing. Attempting to remove the
 logfile by rm will only unlink it, but not remove the inode. (Common
 problem). Check it with lsof or fuser before removing.  
 
+.SH ENVIRONMENT
+.TP
+.B MWHOME
+The home directory for MidWay run time. See 
+.BR MidWay (7)
+for directory tree. 
+It's is set by 
+.BR mwd (1) 
+for all servers. 
+
+.TP
+.B MWINSTANCE
+The instance name for the MidWay instance. See 
+.BR MidWay (7)
+for directory tree. 
+It's is set by 
+.BR mwd (1) 
+for all servers. 
+.PP
+
 .SH EXAMPLES
+.TP
+mwopenlog(argv[0], "userlog", MWLOG_DEBUG); 
+sets arg 0 as the progname, and open
+/mwhome/instance/log/userlog.YYYYMMDD as the logfile, with logging up
+to DEBUG level.
+.TP
+mwopenlog("Gollum", NULL, MWLOG_INFO); 
+sets "Gollum" as the progname, and open
+/mwhome/instance/log/userlog.YYYYMMDD as the logfile, with logging up
+to info level.
+.TP
+mwopenlog("Gollum", "/tmp", MWLOG_INFO); 
+sets "Gollum" as the progname, and open
+/tmp/Gollum.YYYYMMDD as the logfile, with logging up
+to info level.
+.TP
+mwopenlog("Gollum", "./gollum", MWLOG_INFO); 
+sets "Gollum" as the progname, and open
+./gollum.YYYYMMDD as the logfile, with logging up
+to info level.
+.PP
 
 .SH BUGS 
 Even if mwlog() flushes the log on every write, there are no file
@@ -116,10 +185,9 @@ occur.
 .br
 If you use a relative or absolute path in mwloprefix(), and we
 fail to open the file, we silently drop all logging.
+
 .SH "SEE ALSO"
 
-.BR MidWay (7)
+.BR MidWay "(7), " mwd (1)
 
 .SH STANDARDS
-These calls are somewhat inspired by syslog and the logging facility
-in CA/Unicenter AgentWorks.

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/11/08 00:12:59  eggestad
+ * Major fixup on default logfile
+ *
  * Revision 1.4  2002/07/07 22:29:16  eggestad
  * fixes to shared object search paths
  *
@@ -91,7 +94,11 @@ int main(int argc, char ** argv)
   char  * mwhome, * instance;
   ipcmaininfo * ipcmain;
 
+#ifdef DEBUGGING
   loglevel = MWLOG_DEBUG2;
+#else 
+  loglevel = MWLOG_INFO
+#endif
 
   while ((option = getopt(argc, argv, "l:L:s:A:")) != EOF) {
     
@@ -114,7 +121,7 @@ int main(int argc, char ** argv)
       break;
 
     case 'L':
-      mwsetlogprefix(optarg);
+      logprefix = optarg;
       break;
 
     case 'n':

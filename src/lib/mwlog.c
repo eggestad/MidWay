@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2002/11/08 00:12:58  eggestad
+ * Major fixup on default logfile
+ *
  * Revision 1.9  2002/10/22 21:58:20  eggestad
  * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
  *
@@ -69,9 +72,9 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
-#include <pthread.h>
 
 #include <MidWay.h>
+#include <ipctables.h>
 
 static char * RCSId UNUSED = "$Id$";
 
@@ -88,6 +91,14 @@ static char * progname = NULL;
 static FILE * copy_on_FILE = NULL;
 
 DECLAREMUTEX(logmutex);
+
+
+// we can use DEBUG here, since we an error here will likely stop all logging 
+#ifdef DEBUGGING_X
+#define _fprintf(m...) fprintf(m)
+#else 
+#define _fprintf(m...)
+#endif
 
 /* this is meant to be undocumented. Needed my mwd to print on stdout before 
    becoming a daemon.*/
@@ -116,7 +127,7 @@ fptime(FILE *fp)
   gettimeofday(&tv,NULL);
   now = localtime((time_t *) &tv.tv_sec);
   
-  fprintf(fp, "%4d%2.2d%2.2d %2.2d%2.2d%2.2d.%3.3d ",
+  _fprintf(fp, "%4d%2.2d%2.2d %2.2d%2.2d%2.2d.%3.3d ",
 	  now->tm_year+1900, now->tm_mon+1, now->tm_mday,
 	  now->tm_hour, now->tm_min, now->tm_sec, tv.tv_usec/1000);
   return ;
@@ -172,9 +183,10 @@ _mw_vlogf(int level, char * format, va_list ap)
 {
   
   if (level > loglevel) return;
+
+  if (logprefix == NULL) mwsetlogprefix(NULL);
   switchlog();
 
-  
   _LOCKMUTEX(logmutex);
 
   /* print to log file if open */
@@ -208,16 +220,11 @@ mwlog(int level, char * format, ...)
 {
   va_list ap;
 
-  if (level > loglevel) return;
-  switchlog();
-
   va_start(ap, format);
   
   _mw_vlogf(level, format, ap);
   
   va_end(ap);
-
-  pthread_mutex_unlock(&logmutex);
 
   return ;
 };
@@ -230,24 +237,125 @@ int mwsetloglevel(int level)
   if ( (level < MWLOG_FATAL) || (level > MWLOG_DEBUG4) ) return ;
   oldlevel = loglevel;
   loglevel = level;
+  DEBUG("loglevel is now %s", levelheader[level]);
   if (level >= MWLOG_DEBUG) copy_on_FILE = stderr;
   else copy_on_FILE = NULL;
   return oldlevel;
 };
 
+/* the if's and but's here  are getting complicated...  
+
+   if the arg lfp (LogFilePrefix) is not NULL, we check if the lfp has
+   a leading  path it's relative  to cwd.  If  not we place it  in the
+   logdir.   However, we  may not  have the  logdir until  we actually
+   mwattach(), and then only in the  case if IPC attach. The logdir is
+   default mwhome/instancename/log/. 
+
+   if lfp is NULL we use  progname as default filename, if progname is
+   NULL, we use userlog;
+*/
+
+static char * logfilename = NULL;
+static char * logdir = NULL;
+
+
 void mwsetlogprefix(char * lfp)
 {
-  if (lfp == NULL) return;
-  if (logprefix != NULL) free (logprefix);
-  logprefix = strdup(lfp);
+  char * mwhome, * instancename;
+  ipcmaininfo * ipcmain;
+
+  _fprintf(stderr, "logprefix arg = %s at %s:%d\n", lfp, __FUNCTION__, __LINE__);
+
+  // if arg is null and we've set lofprefix, we no not override with default. 
+  if ( (logprefix != NULL) && (lfp == NULL) ) return;
+
+  if (lfp != NULL) {
+    char * tmp = strdup(lfp); 
+    char * slash;
+    slash = strrchr(tmp, '/'); 
+    if (slash == NULL) 
+      logfilename = tmp;
+    else {
+      *slash = '\0';
+      slash++;
+      _fprintf(stderr, "logfilename := %s (%d)\n", slash, strlen(slash));
+      if (strlen(slash) > 0) 
+	logfilename = strdup(slash);
+      else 
+	logfilename = strdup(progname);
+
+      logdir = malloc(PATH_MAX);
+      logdir[0] = '\0';
+      _fprintf(stderr, "logdirsuffix := %s\n", tmp);
+      if (tmp[0] != '/') { // leading / means absolute 
+	getcwd(logdir, PATH_MAX);
+	strncat(logdir, "/", PATH_MAX-strlen(logdir));
+      };
+      strncat(logdir, tmp, PATH_MAX-strlen(logdir));
+      logdir[PATH_MAX] = '\0';
+    };
+  } else {
+    // ok called with NULL, attempting to set default
+    if ((logfilename == NULL) && (progname != NULL)) {
+      logfilename = strdup(progname);
+    };
+  };
+
+  _fprintf(stderr, "logfilename = %s logdir = %s at %s:%d\n", 
+	  logfilename?logfilename:"(null)", 
+	  logdir?logdir:"(null)", 
+	  __FUNCTION__, __LINE__);
+  
+
+ /* MWHOME and MWINSTANCE is set by mwd, if their're not set we assume
+    start by  commandline and log to  stderr until we  get the ipcmain
+    info */
+
+  if (logdir == NULL) {
+    mwhome = getenv ("MWHOME");
+    instancename = getenv ("MWINSTANCE");
+    
+    if (!(mwhome && instancename)) {
+      // last try is shm
+      ipcmain = _mw_ipcmaininfo();
+      if (ipcmain != NULL) {
+	
+	if  (!instancename) 
+	  instancename = ipcmain->mw_instance_name;
+	
+	if  (!mwhome) 
+	  mwhome = ipcmain->mw_homedir;
+      };
+    } 
+
+    if (mwhome && instancename) {
+      logdir = malloc(strlen(mwhome) + strlen(instancename) +10);
+      sprintf(logdir, "%s/%s/log", mwhome, instancename);
+    };
+
+    _fprintf(stderr, "logfilename = %s logdir = %s at %s:%d\n", 
+	    logfilename?logfilename:"(null)", 
+	    logdir?logdir:"(null)", 
+	    __FUNCTION__, __LINE__);
+  };
+
+  if (logdir != NULL) {
+    if (logprefix != NULL) free (logprefix);
+    logprefix = malloc(strlen(logdir) + strlen(logfilename) +1);
+    sprintf(logprefix, "%s/%s", logdir, logfilename);
+    _force_switchlog = 1;
+    _fprintf(stderr, "logprefix = %s at %s:%d\n", logprefix, __FUNCTION__, __LINE__);
+  };
+  return;
 };
+
 
 void mwopenlog(char * prog, char * lfp, int level)
 {
-  /* set flag for switchlog() to switch logs even if not at the endof day. */
-  _force_switchlog = 1;
-  mwsetlogprefix(lfp);
-  mwsetloglevel(level);
+  _fprintf(stderr, "openlog(prog=%s, logprefix=%s, level=%d\n", 
+       prog?prog:"(null)", 
+       lfp?lfp:"(null)", 
+       level);
 
   if (progname != NULL)
     free (progname);
@@ -257,4 +365,8 @@ void mwopenlog(char * prog, char * lfp, int level)
   } else {
     progname = strdup(prog);
   };
+
+  mwsetlogprefix(lfp);
+  mwsetloglevel(level);
+
 };

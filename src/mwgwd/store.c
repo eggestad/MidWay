@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.3  2001/10/03 22:38:32  eggestad
+ * plugged mem leaks
+ *
  * Revision 1.2  2000/08/31 22:10:02  eggestad
  * DEBUG level set propper
  *
@@ -267,7 +270,8 @@ void storePushDataBuffer(unsigned int nethandle, int fd, char * data, int datale
   DBtmp = freeDataBuffer();
   DBtmp->fd = fd;
   DBtmp->nethandle = nethandle;
-  DBtmp->data = malloc(datalen);
+  DBtmp->data = malloc(datalen+1);
+  mwlog(MWLOG_DEBUG2, "memcpy %d bytes %p => %p", datalen, data, DBtmp->data);
   memcpy(DBtmp->data, data, datalen);
   DBtmp->datalen = datalen;
   DBtmp->next = DataBuffersIncomming;
@@ -328,8 +332,9 @@ int storeAddDataBufferChunk(unsigned int nethandle, int fd, char * data, int len
   while (DBtmp) {
     if ( (DBtmp->fd == fd) || (DBtmp->nethandle == nethandle) ) {
       DBtmp->datalen += len;
-      DBtmp->data = realloc(DBtmp->data, DBtmp->datalen);
-      memcpy(DBtmp->data, data, DBtmp->datalen);
+      DBtmp->data = realloc(DBtmp->data, DBtmp->datalen);  
+      mwlog(MWLOG_DEBUG2, "memcpy add %d bytes %p => %p", len, data, DBtmp->data);
+      memcpy(DBtmp->data, data, len);
       mwlog(MWLOG_DEBUG2, "Adding %d data to DataBuffer fd=%d, nethandle=%u", 
 	    len, fd, nethandle);
       return DBtmp->chunk;
@@ -474,6 +479,11 @@ int  storePopAttach(char * cname, int *connid, int * fd, urlmap ** map)
       *map = PAthis->mappedmsg;
     if (connid != NULL)
       *connid = PAthis->connid;
+
+    free(PAthis->cname);
+    PAthis->mappedmsg = NULL;
+    PAthis->connid = -1;
+    
     AttachInProgress = PAthis->next;
     PAthis->next = AttachFreeList;
     AttachFreeList = PAthis;
@@ -492,6 +502,11 @@ int  storePopAttach(char * cname, int *connid, int * fd, urlmap ** map)
 	*map = PAthis->mappedmsg;
       if (connid != NULL)
 	*connid = PAthis->connid;
+      
+      free(PAthis->cname);
+      PAthis->mappedmsg = NULL;
+      PAthis->connid = -1;
+      
       PAprev->next = PAthis->next;
       clearPendingAttach(PAthis);
       PAthis->next = AttachFreeList;

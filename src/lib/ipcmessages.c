@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/02/17 13:56:50  eggestad
+ * - debugging fixup
+ * - MWMORE is now a return code, not input flag
+ *
  * Revision 1.8  2001/09/15 23:59:05  eggestad
  * Proper includes and other clean compile fixes
  *
@@ -717,7 +721,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
 
   /*  if (handle == 0) return -NMWNYI;*/
   
-  mwlog(MWLOG_DEBUG1, "_mwfetch: called for handle %d", handle);
+  mwlog(MWLOG_DEBUG1, __FUNCTION__ ": called for handle %d", handle);
 
   /* first we check in another call to _mwfetch() retived it and placed 
      in the internal queue.*/
@@ -733,7 +737,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
     /* get the next message of type SVCREPLY of teh IPC queue. */
     rc = _mw_ipc_getmessage(buffer, len , SVCREPLY, flags);
     if (rc != 0) {
-      mwlog(MWLOG_DEBUG1, "_mwfetch: returned with error code %d", rc);
+      mwlog(MWLOG_DEBUG1, __FUNCTION__ ": returned with error code %d", rc);
       free (buffer);
       return rc;
     };
@@ -764,7 +768,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
   };
   
   /* we now have the requested reply */
-  mwlog(MWLOG_DEBUG1,"_mwfetchipc: Got a message of type %#x handle %d ", 
+  mwlog(MWLOG_DEBUG1, __FUNCTION__ ": Got a message of type %#x handle %d ", 
 	callmesg->mtype, callmesg->handle);
   /* Retriving info from the message 
      If fastpath we return pointers to the shm area, 
@@ -784,12 +788,12 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
 
   /* deadline info is invalid even though I can provide it */
 
-  mwlog(MWLOG_DEBUG1, "_mwfetch: returned with returncode=%d and with %d bytes of data", 
+  mwlog(MWLOG_DEBUG1, __FUNCTION__": returned with returncode=%d and with %d bytes of data", 
 	callmesg->returncode, callmesg->datalen);
 
-  if (callmesg->returncode == 0) return 0;
-  if (callmesg->returncode == MWMORE) return 1;
-  return -1;
+  if (callmesg->returncode > MWMORE) 
+    return -callmesg->returncode;
+  return callmesg->returncode;
 };
 
 int _mwCurrentMessageQueueLength()

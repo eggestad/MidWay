@@ -1,3 +1,8 @@
+2004-06-17  Terje Eggestad  <te@pc-16.office.scali.no>
+
+	* src/lib/ipcmessages.c (_mw_ipcsend_event):
+	  was broken, wrong handling of fromid parameter. 	
+
 2004-06-16  Terje Eggestad  <te@pc-16.office.scali.no>
 
 	* mwattach: If failed the lib was still in attached state, forcing

@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.32  2004/06/17 08:36:51  eggestad
+ * mwevent on IPC was broken
+ *
  * Revision 1.31  2004/04/20 08:55:17  eggestad
  * avoid event round loop
  *
@@ -1473,7 +1476,7 @@ int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, 
   if (remoteflag)
      ev.flags = MWEVENTPEERGENERATED;
 
-  if (fromid != UNASSIGNED) 
+  if (fromid == UNASSIGNED) 
      id = _mw_get_my_mwid();
   else 
      id = fromid;

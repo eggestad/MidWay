@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2004/11/26 16:38:00  eggestad
+ * added mutexes to Connection
+ *
  * Revision 1.6  2003/09/25 19:36:17  eggestad
  * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
  * - also improved logic in blocking/nonblocking of reading on Connection objects
@@ -47,6 +50,9 @@
 
 #ifndef _CONNECTION_H
 #define _CONNECTION_H
+
+#include <MidWay.h>
+
 
 #include <sys/socket.h>
 /* ip */
@@ -83,6 +89,11 @@ struct Connection {
   int role;
   int version;
 
+#ifdef USETHREADS
+   DECLARESTRUCTMUTEX(sendlock);
+   DECLARESTRUCTMUTEX(recvlock);
+#endif
+  
   int protocol;
   SockAddress peeraddr;
   char   peeraddr_string[128];
@@ -112,7 +123,7 @@ struct Connection {
       writes. */
    Connection * read_fifo_prev, * read_fifo_next;
    Connection * write_fifo_prev, * write_fifo_next;
-
+   
 } ;
 
 /* type parm to conn_add, all possible types of sockets (peers) */

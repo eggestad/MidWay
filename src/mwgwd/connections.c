@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.23  2004/11/26 16:38:00  eggestad
+ * added mutexes to Connection
+ *
  * Revision 1.22  2004/04/12 23:05:25  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -591,6 +594,9 @@ static void conn_clear(Connection * conn)
     conn->messagebuffer = NULL;
   };
 
+  pthread_mutex_destroy(&conn->sendlock);
+  pthread_mutex_destroy(&conn->recvlock);
+
   memset (conn, '\0', sizeof(Connection));
   conn->cid = UNASSIGNED;
   conn->gwid = UNASSIGNED;
@@ -671,6 +677,9 @@ Connection * conn_add(int fd, int role, int type)
   conn->connected = time(NULL);
   conn->messagebuffer = (char *) malloc(SRBMESSAGEMAXLEN+1);
   conn->cost = 100;
+
+  pthread_mutex_init(&conn->sendlock, NULL);
+  pthread_mutex_init(&conn->recvlock, NULL);
 
   poll_on(fd);
   conn_set(conn, role, type);

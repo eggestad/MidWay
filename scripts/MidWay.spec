@@ -1,7 +1,7 @@
 # -*- RPM-SPEC -*- 
 Summary: The MidWay service request broker
 Name: MidWay
-Version: 0.11.0
+Version: 0.12.0
 Release: 1
 Copyright: GPL,LGPL
 Group: System Environment/Base
@@ -43,7 +43,7 @@ sed s+${RPM_BUILD_ROOT}++g ${RPM_BUILD_ROOT}/usr/sbin/midway.rc > ${RPM_BUILD_RO
 rm -rf $RPM_BUILD_ROOT
 
 %post 
-ln -s /usr/lib/libMidWay.so.0.11 /usr/lib/libMidWay.so.0
+ln -s /usr/lib/libMidWay.so.0.12 /usr/lib/libMidWay.so.0
 chkconfig --add mwbd
 service mwbd start
 
@@ -53,7 +53,7 @@ chkconfig --del mwbd
 rm /usr/lib/libMidWay.so.0
 
 %post devel
-ln -s /usr/lib/libMidWay.so.0.11 /usr/lib/libMidWay.so
+ln -s /usr/lib/libMidWay.so.0.12 /usr/lib/libMidWay.so
 
 %preun devel 
 rm /usr/lib/libMidWay.so

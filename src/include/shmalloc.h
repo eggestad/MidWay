@@ -23,8 +23,11 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:04  eggestad
- * Initial revision
+ * Revision 1.2  2002/02/17 13:53:14  eggestad
+ * added prototypes for _mw_putbuffer_to_call(), _mw_getbuffer_from_call()
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:04  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
@@ -113,8 +116,12 @@
   segments, as well as storing large segemtens to disk. We also
   postpone having several segments
 
-  */
+*/
 
+#ifndef _SHMALLOC_H
+#define _SHMALLOC_H
+
+#include <ipcmessages.h>
 
 struct _chunkhead {
   long ownerid;
@@ -160,3 +167,11 @@ struct segmenthdr {
 void * _mwalloc(int size);
 void * _mwrealloc(void * adr, int newsize);
 int _mwfree(void * adr);
+
+int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg);
+int _mw_putbuffer_to_call (Call * callmesg, char * data, int len);
+
+#endif /* _SHMALLOC_H */
+
+
+

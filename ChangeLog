@@ -8,6 +8,34 @@
 	* mwattach: If failed the lib was still in attached state, forcing
 	a mwdetach() before a retry was possible. Now fixed.
 
+
+2004-05-31  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* changes to internal API to allow language modules access to intenal API
+
+	* Created struct to hold pointers to MW functions for a given
+	protocol, a step towards building the lib with only a subset of
+	protocols (like an tcp/ip only lib)
+
+	
+2004-04-13  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* mwd completely failed unprovide requests, fixed. Also the server
+	name is not set propperly in the server table.
+
+2004-04-12  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* mwsetcred() introduced, for setting authentication information
+	like username, password, X509 certificates, and kerboeros
+	information.  
+
+	* mwattach() has a new prototype, username and password is
+	moved to a new function: mwsetcred().
+
+	* mwdetach() now return correct returncodes.  
+
+	* mwgeturl() introduced to the the url we actually attached to.
+	
 2004-04-08  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* introduced a struct with pointers to the functions implementing
@@ -90,7 +118,8 @@
 	* TIMEPEGS in liburl and more
 	* mwfetch(,,,MWMULTPILE) returned queued replies in the wrong order
 	* critcal stack corruption error in _mwfetchipc()
-	* increased the maximum log message length from LINE_MAX to 64k, timepegs got way longer than LINE_MAX.
+	* increased the maximum log message length from LINE_MAX to 64k, 
+	  timepegs got way longer than LINE_MAX.
 	* added bufferspersize property to mwd tag in config
 	* took out reverse ip lookups, it caused timeout on mwgwd start if no dns server is available
 

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/02/17 14:12:47  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.6  2001/09/15 23:59:05  eggestad
  * Proper includes and other clean compile fixes
  *
@@ -128,12 +131,11 @@ int _mwdetachipc(void)
 
 
 
-/* the now usuall fallback incase libmw.c are not before in the link path */
-int _mwfetch_ipc(int handle, char ** data, int * len, int * appreturncode, int flags) 
+int _mwfetch_ipcxx(int handle, char ** data, int * len, int * appreturncode, int flags) 
 {
   int rc;
   int arc;
-  char * tmpdata;
+  char * tmpdata = NULL;
   char * buffer = NULL;
   int tlen, blen = 0;
 
@@ -183,7 +185,7 @@ int _mwfetch_ipc(int handle, char ** data, int * len, int * appreturncode, int f
 }
 
 /* the usuall IPC only API, except that mwcall() is implemeted
-   entierly here. Reemeber to do the same in lwbmw.c and TCP imp.
+   entierly here.
 */
 int _mwacall_ipc(char * svcname, char * data, int datalen, int flags) 
 {

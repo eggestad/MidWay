@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2002/10/20 18:12:19  eggestad
+ * prototype change in _mwipcacall
+ *
  * Revision 1.10  2002/10/17 22:05:37  eggestad
  * -  more params to _mwacallipc()
  *
@@ -248,7 +251,7 @@ int _mwacall_ipc(char * svcname, char * data, int datalen, int flags)
   rc = _mwsystemstate();
   if (rc) return rc;
 
-  return _mwacallipc (svcname, data, datalen,  flags| MWMULTIPLE, NULL, UNASSIGNED, 0);
+  return _mwacallipc (svcname, data, datalen,  flags| MWMULTIPLE, UNASSIGNED, NULL, NULL, UNASSIGNED, 0);
 }
 
 

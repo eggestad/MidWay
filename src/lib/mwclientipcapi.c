@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2002/10/17 22:05:37  eggestad
+ * -  more params to _mwacallipc()
+ *
  * Revision 1.9  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -245,7 +248,7 @@ int _mwacall_ipc(char * svcname, char * data, int datalen, int flags)
   rc = _mwsystemstate();
   if (rc) return rc;
 
-  return _mwacallipc (svcname, data, datalen,  flags| MWMULTIPLE);
+  return _mwacallipc (svcname, data, datalen,  flags| MWMULTIPLE, NULL, UNASSIGNED, 0);
 }
 
 

@@ -20,6 +20,10 @@
 
 /*
  * $Log$
+ * Revision 1.8  2002/09/22 22:53:30  eggestad
+ * - added IPC event message handler
+ * - fix of mutex locking error
+ *
  * Revision 1.7  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -74,6 +78,8 @@
 #include <shmalloc.h>
 #include <version.h>
 #include <address.h>
+#include <internal-events.h>
+#include <multicast.h>
 
 #define _GATEWAY_C
 #include "SRBprotocolServer.h"
@@ -83,6 +89,7 @@
 #include "remdomains.h"
 #include "connections.h"
 #include "toolbox.h"
+#include "impexp.h"
 
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$";
@@ -129,6 +136,67 @@ void usage(char * arg0)
    if any peers need an update. */
 
 DECLAREMUTEX(peersmutex);
+
+/************************************************************************
+ * functions to handle the different IPC messages, and the ipcmainloop
+ * that don't  do anything but just receive  IPC messages and dispatch
+ * them.
+ ************************************************************************/
+static void do_event_message(char * message, int len)
+{
+  Event *          evmsg  = (Event *)          message;
+  int newsvc, delsvc; 
+  serviceentry * svcent;
+  mwprovideevent * pe;
+	  
+  DEBUG("Got an event %s", evmsg->event);
+	
+  newsvc = strcmp(evmsg->event, NEWSERVICEEVENT);
+  delsvc = strcmp(evmsg->event, DELSERVICEEVENT);
+  
+  if ( (newsvc == 0) || (delsvc == 0) ){
+    
+    if (evmsg->datalen != sizeof(mwprovideevent)) {
+      Error("in datalength with provide event (%d != %d), probably an error in mwd(1)", 
+	    evmsg->datalen, sizeof(mwprovideevent));
+      return;
+    };
+    
+    pe = _mwoffset2adr(evmsg->data);
+    if (pe == NULL) {
+      Error("in getting data with provide event, probably an error in mwd(1)");
+      return;
+    };
+	  
+    DEBUG("Got an event %s: for service %s provider %#x svcid = %d", 
+	  evmsg->event, pe->name, pe->provider, pe->svcid);
+    
+    svcent = _mw_get_service_byid(pe->svcid);
+    if (svcent->location == GWPEER) {
+      DEBUG("(un)provide event for foreign serive in my own domain, ignoring");
+      goto ack;
+    };
+    
+    /* after this point we must send an ack. */
+    if (pe->provider == _mw_get_my_gatewayid()) {
+      DEBUG("(un)provide event from my self, ignoring");
+      goto ack;
+    } 
+    
+    if (newsvc == 0)
+      doprovideevent(pe->name);
+    else // delsvc == 0
+      dounprovideevent(pe->name);
+    
+  ack:
+    evmsg->mtype = EVENTACK;
+    DEBUG("acking event to mwd"); 
+    _mw_ipc_putmessage(MWD_ID, message, len, 0);
+    return;
+  } 
+  
+  Warning("Ignoring event we never (should have) subscribed to");
+};
 
 int ipcmainloop(void)
 {
@@ -237,6 +305,7 @@ int ipcmainloop(void)
       break;
 
     case SVCCALL:
+    case SVCFORWARD:
       /* gateway only, we have imported a service, find the remote gw
          and send the call */
       break;
@@ -345,6 +414,11 @@ int ipcmainloop(void)
       /* do I really care? */
       break;
 
+      /* events */
+    case EVENT:
+      do_event_message(message, len);
+      break;
+
     default:
       Warning("got a unknown message with message type = %#x", *mtype);
     } /* end switch */
@@ -353,6 +427,9 @@ int ipcmainloop(void)
   
 };
 
+/************************************************************************
+ *  
+ ************************************************************************/
 int gwattachclient(Connection * conn, char * cname, char * username, char * password, urlmap * map)
 {
   Attach mesg;
@@ -628,6 +705,7 @@ int gw_addknownpeer(char * instance, char * domain,
   DEBUG( "Adding %s as a know peer in domain %s at address %s", 
 	peer.instance, domain, peer.hostname);
   
+  LOCKMUTEX(peersmutex);
   if (knownGWs == NULL) {
     knownGWs = malloc(sizeof(struct gwpeerinfo));
     GWcount = 1;
@@ -637,7 +715,7 @@ int gw_addknownpeer(char * instance, char * domain,
       if (strcmp(instance, knownGWs[i].instance) == 0) {
 	DEBUG( "Known peer on index %d", i);
 	if (piptr) *piptr = &knownGWs[GWcount-1] ;
-	return 0;
+	goto out;
       };
     };    
     knownGWs = realloc(knownGWs, sizeof(struct gwpeerinfo) * GWcount++);
@@ -645,6 +723,10 @@ int gw_addknownpeer(char * instance, char * domain,
   
   knownGWs[GWcount-1] = peer;
   if (piptr) *piptr = &knownGWs[GWcount-1] ;
+
+ out:
+  
+  UNLOCKMUTEX(peersmutex);
 
   return 0;
 };
@@ -676,7 +758,7 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
     DEBUG( "gateway %s connected us from domain %s", instance, peerdomain);
   };
 
-
+  LOCKMUTEX(peersmutex);
   // first we check to see if we already have an active connection 
   for (i = 0; i < GWcount; i++) {    
     if (strcmp(instance, knownGWs[i].instance) == 0) {	  
@@ -692,6 +774,7 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
       };
     };
   };  
+  UNLOCKMUTEX(peersmutex);
 
   if (pi == NULL) {
     struct sockaddr sa;
@@ -731,6 +814,7 @@ void gw_provideservice_to_peers(char * service)
 
   DEBUG( "exporting service %s to all peers");
   
+  LOCKMUTEX(peersmutex);
   for (i = 0; i < GWcount; i++) {
     if (knownGWs[i].conn == NULL) {
       DEBUG(" peer %d is not connected");
@@ -744,6 +828,8 @@ void gw_provideservice_to_peers(char * service)
 
     exportservicetopeer(service, &knownGWs[i]);
   };
+  UNLOCKMUTEX(peersmutex);
+  DEBUG( "export complete");
 };
 
 /* now this is called only every time a new peer is connected. At that
@@ -758,6 +844,8 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
   char ** svcnamelist = NULL;
   DEBUG( "Checking to see if we need to send provide or unprovide to GW %d", gwid&MWINDEXMASK);
 
+  LOCKMUTEX(peersmutex);
+
   for (i = 0; i < GWcount; i++) {
     if (knownGWs[i].gwid == gwid) {
       pi = &knownGWs[i];
@@ -765,13 +853,13 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
     };
   };
 
+  UNLOCKMUTEX(peersmutex);
+
   if (pi == NULL) {
     Fatal("Internal error: could not find a gwpeerinfo entry for gwid %d", gwid&MWINDEXMASK);
   };
   
-  LOCKMUTEX(peersmutex);
-
-  /* get a list off all servcies with the lowest cost */
+  /* get an unique list off all services  */
   n = 0;
   for (i = 0; i < ipcmain->svctbl_length; i++) {
     if (svctbl[i].type == UNASSIGNED) {
@@ -781,10 +869,14 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
 
     DEBUG("new service %s, on idx %d", svctbl[i].servicename, i);
 
+    /* only imported services from foreign domains may be rexported. */
+    if (svctbl[i].location == GWPEER) {
+      DEBUG("We don't export services imported from gws in my own domain.");
+      continue;
+    };
+
     svcnamelist = charlistaddunique(svcnamelist, svctbl[i].servicename);
   };
-
-  LOCKMUTEX(peersmutex);
 
   if (svcnamelist == NULL) return;
 
@@ -797,23 +889,33 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
 
 };
 
-/*  OK, this is  where the  ipc service  table become  intolerable, we
-   travers it way  to many times. THis coupled  with the client lookup
-   finction in the lib, require a faster and more sensible lookup. */
 int gw_getcostofservice(char * service)
 {
-  serviceentry * svctbl = _mw_getserviceentry(0);
-  int i, cost = 999999999;
-  for (i = 0; i < ipcmain->svctbl_length; i++) {
-    if ( (svctbl[i].type == UNASSIGNED) && 
-	 (strcmp(svctbl[i].servicename, service) == 0) ) {
-      DEBUG2("service table entry %d matches service, cost = %d, oldcost = %d", i, svctbl[i].cost, cost);
-      if ( (svctbl[i].cost < cost) || (cost == -1) ) cost = svctbl[i].cost;
-    };
-  };
+  SERVICEID * svclist;
+  serviceentry * svctbl;
+  int n = 0, cost = INT_MAX;
 
-  DEBUG("cost of servoce %s is %d", service, cost);
-  
+  svctbl = _mw_getserviceentry(0);
+  svclist = _mw_get_services_byname(service, 0);
+
+  if (svclist  == NULL) return -1;
+  if (svctbl  == NULL) return -1;
+
+
+  while(svclist[n] != UNASSIGNED) {
+    /* first we check to see if we got the service as a local service,
+       if so, we export it with cost=0 (thus here we return 0) the cost
+       if bumped on the importing side. */
+    if (svctbl[svclist[n]].cost == 0) {
+      DEBUG2("service %s is local cost = 0", service);
+      free(svclist);
+      return 0;
+    };
+    if ((svctbl[svclist[n]].cost > -1) && (svctbl[svclist[n]].cost < cost))
+      cost = svctbl[svclist[n]].cost;
+  };
+  DEBUG2("service %s has cost = %d", service, cost);
+  free(svclist);
   return cost;
 };
 
@@ -1182,6 +1284,11 @@ int main(int argc, char ** argv)
   strncpy(gwtbl[idx].instancename, globals.myinstance, MWMAXNAMELEN);
   gwtbl[idx].status = MWREADY;
 
+  DEBUG("Subscribing to events");
+  rc = _mw_ipc_subscribe(NEWSERVICEEVENT, 0, MWEVSTRING);
+  DEBUG2("subscribe " NEWSERVICEEVENT " returned %d", rc);
+  rc = _mw_ipc_subscribe(DELSERVICEEVENT, 1, MWEVSTRING);
+  DEBUG2("subscribe " DELSERVICEEVENT " returned %d", rc);
 
   /* now do the magic on the outside (TCP) */
   tcpserverinit ();

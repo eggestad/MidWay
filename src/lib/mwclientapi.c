@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.19  2004/05/31 19:40:00  eggestad
+ * changes for allowing foreign language bindings access to internal API
+ *
  * Revision 1.18  2004/04/12 11:18:22  eggestad
  * - added mwgeturl()
  * - added mwsetcred()
@@ -654,6 +657,12 @@ static int get_subscriptionid(void)
   return id;
 };
 
+int _mwsubscribe(char * pattern, int subid, int flags)
+{
+   return _mwaddress.proto.subscribe(pattern, subid, flags);
+};
+  
+
 int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char * data, int datalen))
 {
   subscribed_events_t * se;
@@ -677,7 +686,7 @@ int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char
   se->callback = func;
   se->subscriptionid = get_subscriptionid();
   
-  rc =  _mwaddress.proto.subscribe(pattern, se->subscriptionid, flags);
+  rc =  _mwsubscribe(pattern, se->subscriptionid, flags);
   
   if (rc >= 0) {
     DEBUG1("subscription OK");
@@ -689,6 +698,11 @@ int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char
   subscription_count--;
   UNLOCKMUTEX(eventmutex);
   return error;
+};
+
+int _mwunsubscribe(int subid)
+{
+   return _mwaddress.proto.unsubscribe(subid);
 };
 
 int mwunsubscribe(int subid)
@@ -713,7 +727,7 @@ int mwunsubscribe(int subid)
   };
 
   DEBUG1("UNSUBSCRIBE %d", se->subscriptionid);
-  rc =  _mwaddress.proto.unsubscribe(se->subscriptionid);
+  rc =  _mwunsubscribe(se->subscriptionid);
 
   free(se->pattern);
   if (rc >= 0) {
@@ -753,13 +767,12 @@ void mwrecvevents(void)
 
 /* called after receiving a IPC of SRB event message, actually
    executes the event handler */
-void _mw_doevent(int subid, char * event, char * data, int datalen)
+void _mw_doevent_c(int subid, char * event, char * data, int datalen)
 {
   int i;
 
   DEBUG1("attempring to find callback for event %s subid %d", event, subid);
   
-  LOCKMUTEX(eventmutex);
   for (i = 0; i < subscription_count; i++) {
     if (subscriptions[i].subscriptionid == subid) {
       
@@ -768,8 +781,24 @@ void _mw_doevent(int subid, char * event, char * data, int datalen)
       break;
     }
   };
-  UNLOCKMUTEX(eventmutex);
 };
+
+mw_do_event_handler_t _mw_do_event_handler = _mw_doevent_c;
+
+void _mw_doevent(int subid, char * event, char * data, int datalen)
+{
+   LOCKMUTEX(eventmutex);
+
+   _mw_do_event_handler(subid, event, data, datalen);
+
+   UNLOCKMUTEX(eventmutex);
+};
+
+void _mw_register_event_handler(mw_do_event_handler_t event_handler)
+{
+   _mw_do_event_handler = event_handler;
+};
+
 
 /************************************************************************/
 

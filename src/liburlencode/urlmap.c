@@ -23,6 +23,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /* 
  * $Log$
+ * Revision 1.5  2001/09/15 23:55:34  eggestad
+ * Fixes for parameter sanity checking
+ *
  * Revision 1.4  2001/08/29 17:53:31  eggestad
  * - added missing licence header
  * - added  urlmapgetvalue()
@@ -290,7 +293,7 @@ int urlmapnset(urlmap * map, char * key, void * value, int len)
 	memcpy(map[idx].value, value, len);
 	map[idx].valuelen = len;
       } else {
-	free(map[idx].value);
+	if (map[idx].value) free(map[idx].value);
 	map[idx].value = NULL;
 	map[idx].valuelen = 0;
       };
@@ -298,8 +301,8 @@ int urlmapnset(urlmap * map, char * key, void * value, int len)
     };
     idx ++;
   };
-  
-  return urlmapnadd(map, key, value, len);
+  errno = ENOENT;
+  return -1;
 };
 
 int urlmapset(urlmap * map, char * key, char * value)
@@ -382,12 +385,16 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
   if (map[idx].key == NULL) return NULL;
   strcpy(map[idx].key, key);
 
+  if (value == NULL) {
+    map[idx].value = NULL;
+    map[idx].valuelen = 0;
+  } else {
   /* make a copy and insert value */
-  map[idx].value = malloc(len+1);;
-  if (map[idx].value == NULL) return NULL;
-  memcpy(map[idx].value,value, len);
-  map[idx].valuelen = len;
-
+    map[idx].value = malloc(len+1);;
+    if (map[idx].value == NULL) return NULL;
+    memcpy(map[idx].value,value, len+1);
+    map[idx].valuelen = len;
+  };
   /* NULL term the array */
   map[idx+1].key = NULL;
   map[idx+1].value = NULL;

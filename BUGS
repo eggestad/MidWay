@@ -29,16 +29,19 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
   
 * I question the way I get ipcmain info. I call _mw_ipcmaininfo() in
   every function where it's needed. I really should have a global var.
+  (maybe a macro?)
 
 * completion in mwadm is incomplete, works only on the command verb.
+  Need to do port to readlin4 anyway. 
 
 * the max number of times a request may be forwarded is hardcoded to
   100 in mwforward.  We should have a way to set a IP'ish TTL
   (TimeToLive).
 
-* mwlog used to print on stdout if loglevel >= debug, i liked that, I
+(fixed)* mwlog used to print on stdout if loglevel >= debug, i liked that, I
   changed it for start of mwd thru mwadm, but I think I should just
   cut stdout and stderr for mwd.
+  No, stderr kept. 
 
 * shm buffer leaks has been pluggen for non fastpath. Test fast path
   and check that memory leaks are plugged when it comes to passing of
@@ -50,9 +53,10 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 (fixed?) * shutdown servers on msgqueue remove, works, but services
   are not clean up.
 
-* mwlogsetprefix() should if not a absolute path arg, go to ipcmain
+(fixed) * mwlogsetprefix() should if not a absolute path arg, go to ipcmain
   and get mw_homedir, if that fail try MWHOME, and finally relate to
   cwd. (diff between relpath and no path prefix)
+  mwlogsetprefix depreciated, use mwopenlog().  
 
 * The shutdown command in mwadm don't indicate if successfull, and
   should detach IPC resources.
@@ -91,9 +95,9 @@ Minor BUGS:
 
 * in mwadm R&D commands are available when not in R&D mode.
 
-* mwadm boot should do a implicit mwattach. (in R&D mode only.)
+* mwadm boot should do a implicit mwattach. 
 
-* call in mwadm require an arg to the service, but no arg is OK.
+(fixed) * call in mwadm require an arg to the service, but no arg is OK.
 
 * Outside lib's and mw programs SERVERID, CLIENTID and SERVICEID
   should have stripped the prefix, leaving only the "index" .
@@ -126,6 +130,7 @@ Minor BUGS:
 
 * the whole consept of an instance name has become iffy with regards
   to URL, and is effectively broken in mwd.
+  We have effectively two instance names. a IPC symbolic, and an URL addr.
 
 * in SRBclient we don't send rejects even id the gateway (peer) should
   request it.

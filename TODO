@@ -3,7 +3,7 @@
      MAJOR TODO LIST
 =======================================================================
 
- * Events - sent from servers to clients
+ (now done in IPC, not SRB yet.) * Events - sent from servers to clients
    Haven't decided on an API yet.
 
  * Conversations - statefull clients server communicaion.
@@ -11,8 +11,8 @@
  PARTIAL * SRBP (TCP/IP) clients and gateways between MW instances.
 	 * missing large data
 	 * and of course all event handling
-	 * interinstance gw missing (need config file)
-	 * broker daemons missing.
+	 (done) * interinstance gw missing (need config file)
+	 (done) * broker daemons missing.
 
 (OK) * Perl module
      * A SRBP module partial ready
@@ -44,9 +44,9 @@
 
  * fast path missing
 
- * server mangement, Tuxedo style
+ (partly) * server mangement, Tuxedo style
 
- * config file (XML)
+ (partly) * config file (XML)
 
  * authentication in gateway. Requires config 
 
@@ -61,3 +61,12 @@
 	to  server so that concatination of replies happen on	 
 	client. Also, return code on mwreply() can now be either 
 	MWFAIL, MWSUCCESS, or MWMORE. MWMORE in flag is depreciated.
+
+ * After      introducing      the      [SVC|SRV|GW]ID2MWID()      and
+   MWID2[SVC|SRV|GW]ID()  macros,  shich  really  enhanced  a  lot  on
+   readability, and  propper casting, there is now  confusion on where
+   the masks (see MidWay.h) are used and where they're not.  we should
+   really introduce a  MWID datatype where the masks  are set, and NOT
+   use the mask in the SERVICEID, SERVERID, and GATEWAYID. It may be a
+   good idea  to make  the MWID  a long long  to enforce  this casting
+   propperly.

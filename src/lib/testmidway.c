@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.2  2000/07/20 19:37:10  eggestad
+ * new test service test
+ *
  * Revision 1.1  2000/03/21 21:29:01  eggestad
  * Still some MiddleWay references that I had not cleaned up.
  *
@@ -33,6 +36,10 @@
  * MidWay
  *
  */
+
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
+
 
 #include <MidWay.h>
 #include <signal.h>
@@ -53,11 +60,11 @@ int serverhandler1(mwsvcinfo * si)
 
   sprintf(buffer, "%.*s",  si->datalen, si->data);
   if (strcmp(buffer, "ok") == 0) {
-    mwreply ("Kapla", 0, TRUE, 666);
+    mwreply ("Kapla", 0, TRUE, 666, 0);
     return MWSUCCESS;
   };
   if (strcmp(buffer, "nack") == 0) {
-    mwreply ("Kapla", 0, FALSE, 666);
+    mwreply ("Kapla", 0, FALSE, 666, 0);
     return MWSUCCESS;
   };
   if (strcmp(buffer, "forward") == 0) {
@@ -68,11 +75,27 @@ int serverhandler1(mwsvcinfo * si)
     gettimeofday(&tv, NULL);
     
     sprintf (buffer, "%s - %d.%6.6d", ctime(&tv.tv_sec), tv.tv_sec, tv.tv_usec);
-    mwreply (buffer, 0, TRUE, 666);
+    mwreply (buffer, 0, TRUE, 666, 0);
     return MWSUCCESS;
   };
   
   return MWFAIL;
+};
+
+int serverhandler0(mwsvcinfo * si)
+{
+  char buffer [1024];
+  time_t t;
+  time(&t);
+  sprintf (buffer, 
+	   "test called Clientid %d Serverid %d Service %s flags %#x time=%s\n", 
+	   si->cltid & MWINDEXMASK, 
+	   si->srvid & MWINDEXMASK, 
+	   si->service, 
+	   si->flags, ctime(&t));
+
+  mwreply (buffer, 0, TRUE, 666, 0);
+  return MWSUCCESS;
 };
 
 void cleanup()
@@ -113,11 +136,17 @@ main()
   rc = mwprovide ("test1", serverhandler1,0L);
   printf("mwprovide \"test1\" returned %d\n", rc);
   
+  rc = mwprovide ("test", serverhandler0,0L);
+  printf("mwprovide \"test\" returned %d\n", rc);
+  
 
-  mwMainLoop();
+  mwMainLoop(0);
 
   rc = mwunprovide ("test1");
   printf("mwunprovide \"test1\" returned %d\n", rc);
+
+  rc = mwunprovide ("test");
+  printf("mwunprovide \"test\" returned %d\n", rc);
 
   rc = mwdetach();
   printf("detached rc = %d\n", rc);

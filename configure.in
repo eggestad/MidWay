@@ -44,6 +44,16 @@ AC_PROG_LN_S
 
 case "$host" in
 
+  x86_64*-linux*)
+    linux=true
+    ostype=Linux
+    echo "HAMMER $libdir"
+    if [[ x$libdir = x'${exec_prefix}/lib' ]]; then
+       libdir='${exec_prefix}'/lib64
+    fi
+    echo "HAMMER $libdir"    
+    ;;
+
   *-linux*)
     linux=true
     ostype=Linux
@@ -54,6 +64,7 @@ case "$host" in
     ;;
 
 esac
+
 
 dnl Checks for header files.
 AC_HEADER_STDC

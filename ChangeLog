@@ -1,3 +1,13 @@
+2003-12-08  eggestad  <eggestad@pc-16.office.scali.no>
+
+	* src/lib/mwlog.c: segv with efence fix (possible corruption)
+	* call reply queue was a FILO queue, should be a FIFO, which it now is
+	* rpm scriptslets work do upgrade right
+
+2003-09-28  eggestad  <eggestad@pc-16.office.scali.no>
+
+	* src/lib/SRBclient.c: duplicate initalizer
+
 2003-09-25  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* RELEASE 0.13.0 	

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2000/11/29 23:16:29  eggestad
+ * Parse of IPC url was wrong, IPC key ignored.
+ *
  * Revision 1.4  2000/09/21 18:26:59  eggestad
  * - plugged a memory leak of mwadr
  * - cleared regexp matches at beginning, and reset
@@ -94,7 +97,7 @@ static void debug_print_matches(regmatch_t *match, char * url)
   while (j < MAXMATCH) {
     if (match[j].rm_so >=0 ){
       len = match[j].rm_eo - match[j].rm_so;
-      mwlog(MWLOG_DEBUG3, "REGEXP Match %d in %s at %d to %d \"%*.*s\" \n", 
+      mwlog(MWLOG_DEBUG3, "REGEXP Match %d in %s at %d to %d \"%*.*s\"", 
 	    j, url, 
 	    (long int) match[j].rm_so, (long int) match[j].rm_eo, 
 	    len, len, url+match[j].rm_so);
@@ -155,8 +158,8 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
     char c;
     c = url[match[2].rm_eo];
     url[match[2].rm_eo] = '\0';
-    mwadr->sysvipckey = atol(url+match[2].rm_so);
-    mwlog(MWLOG_DEBUG3, "Decoded IPC key in URIl to be %d", mwadr->sysvipckey);
+    key = atol(url+match[2].rm_so);
+    mwlog(MWLOG_DEBUG3, "Decoded IPC key in URI to be %d", key);
     url[match[2].rm_eo] = c;
   } 
       /* IPC KEY is mutualy exclusive, we really should check.... */
@@ -206,11 +209,12 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
     uid = getuid();
   };
 
+  return -1;
+  /*  this was in the case for ipc:username or ipc:filepathtoconfig */
   if ( (instance == NULL) || (strcasecmp(instance, "default") == 0) ) {
     mwadr->sysvipckey = uid;
     return 0;
   } else {
-
     /* assume ftok on config. */
     mwlog(MWLOG_ERROR, "use of config file is not yet implemented");
     return -1;
@@ -428,6 +432,6 @@ mwaddress_t * _mwdecode_url(char * url)
   
   mwlog(MWLOG_ERROR, 
 	"Unknown protocol %s in the URL \"%s\" for MidWay instance, error %d", 
-	url, mwadr->protocol);
+	url+match[1].rm_so, url, mwadr->protocol);
   return NULL;
 };

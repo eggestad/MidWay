@@ -25,6 +25,10 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.2  2000/08/31 22:06:54  eggestad
+ * - srbsend*() funcs now has a _mw_ prefix
+ * - all direct use of urlmap, and sprintf() in making messages, we now use SRBmsg structs
+ *
  * Revision 1.1  2000/07/20 18:49:59  eggestad
  * The SRB daemon
  *
@@ -47,6 +51,8 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <ipcmessages.h>
 #include <urlencode.h>
 #include <shmalloc.h>
+
+#define _GATEWAY_C
 #include "gateway.h"
 #include "tcpserver.h"
 #include "store.h"
@@ -93,7 +99,7 @@ int ipcmainloop(void)
   char message[MWMSGMAX];
   char * data;
   int fd, connid;
-  urlmap * map;
+  SRBmessage srbmsg;
   cliententry * cltent;
 
   /* really a union with the message buffer*/
@@ -104,6 +110,7 @@ int ipcmainloop(void)
   Provide *        pmsg   = (Provide *)        message;
   Call *           cmsg   = (Call *)           message;
 
+  memset (&srbmsg, '\0', sizeof(SRBmessage));
   i = _mw_get_my_gatewayid();
   i &= MWINDEXMASK;
   gwtbl[i].status = MWREADY;
@@ -113,6 +120,7 @@ int ipcmainloop(void)
 
   while(!globals.shutdownflag) {
     len = MWMSGMAX;
+    mwlog(MWLOG_DEBUG, "ipcmainloop: doing _mw_ipc_getmessage()");
     rc = _mw_ipc_getmessage(message, &len, 0, 0);
     mwlog(MWLOG_DEBUG, "ipcmainloop: _mw_ipc_getmessage() returned %d", rc);
 
@@ -147,7 +155,9 @@ int ipcmainloop(void)
       /* now this is in response to an attach. mwd must reply in
 	 sequence, so this is the reply to my oldest pending request.
 	 (not that it matters)*/
-      rc = storePopAttach(amsg->cltname, &connid, &fd, &map);
+      strcpy(srbmsg.command, "SRB INIT");
+      srbmsg.marker = SRB_RESPONSEMARKER;
+      rc = storePopAttach(amsg->cltname, &connid, &fd, &srbmsg.map);
       if (rc != 1) {
 	mwlog(MWLOG_WARNING, "Got a Attach reply that I was not expecting! clientname=%s gwid=%#x srvid=%#x", amsg->cltname, amsg->gwid, amsg->srvid); 
 
@@ -164,6 +174,8 @@ int ipcmainloop(void)
 	  /* hand over to mwd */
 	  cltent->status = UNASSIGNED;
 	};
+	amsg->cltid |= MWCLIENTMASK;
+	tcpsetconninfo(fd, &amsg->cltid, NULL, NULL, NULL);
 	/* nothing more to do */
 	break;
       };
@@ -172,7 +184,7 @@ int ipcmainloop(void)
 	    amsg->cltname, fd, &amsg->cltid);
       /* now assign the CLIENTID to the right connection. */
       tcpsetconninfo(fd, &amsg->cltid, NULL, NULL, NULL);
-      srbsendinitreply(fd, map, SRB_PROTO_OK, NULL);
+      _mw_srbsendinitreply(fd, &srbmsg, SRB_PROTO_OK, NULL);
       break;
 
     case DETACHRPL:
@@ -192,8 +204,11 @@ int ipcmainloop(void)
 
       /* we must lock since it happens that the server replies before
          we do storeSetIpcCall() in SRBprotocol.c */
+      strcpy(srbmsg.command, "SVCCALL");
+      srbmsg.marker = SRB_RESPONSEMARKER;
+
       storeLockCall();
-      rc = storePopCall(cmsg->cltid, cmsg->handle, &fd, &map);
+      rc = storePopCall(cmsg->cltid, cmsg->handle, &fd, &srbmsg.map);
       storeUnLockCall();
 
       if (!rc ) {
@@ -201,7 +216,17 @@ int ipcmainloop(void)
 	      "Couldn't find a waiting call for this message, possible quite normal");
 	break;
       };
+      mwlog(MWLOG_DEBUG2, "storePopCall returned %d, address of old map is %#x", 
+	    rc, &srbmsg.map);
+      {
+	int idx = 0;
 
+	while(srbmsg.map[idx].key != NULL) {
+	  mwlog(MWLOG_DEBUG2, "  Field %s => %s", 
+		srbmsg.map[idx].key, srbmsg.map[idx].value);
+	  idx++;
+	};
+      };
       if (cmsg->flags & MWNOREPLY) {
 	mwlog(MWLOG_DEBUG, "Noreply flags set, ignoring");
 	_mwfree(_mwoffset2adr(cmsg->data));
@@ -217,10 +242,11 @@ int ipcmainloop(void)
       };
       
       mwlog(MWLOG_DEBUG, "sending reply on fd=%d", fd);
-      srbsendcallreply(fd, map, data, len, 
+      _mw_srbsendcallreply(fd, &srbmsg, data, len, 
 		       cmsg->appreturncode,  cmsg->returncode, 
 		       cmsg->flags); 
       mwlog(MWLOG_DEBUG, "reply sendt");
+      urlmapfree(srbmsg.map);
       _mwfree(_mwoffset2adr(cmsg->data));
       /* may be either a client or gateway, if clientid is myself,
          then gateway. */
@@ -287,6 +313,42 @@ int gwattachclient(int connid, int fd, char * cname, char * username, char * pas
   if (rc != 0) {
     mwlog (MWLOG_ERROR, 
 	   "gwattachclient()=>%d failed with error %d(%s)", 
+	   rc, errno, strerror(errno));
+    return -errno;
+  };
+  return 0;
+};
+
+
+int gwdetachclient(int cltid)
+{
+  Attach mesg;
+  int rc;
+
+  /* first of all we should test authentication..... that means
+     checking config for authentication level required for this
+     gateway or client name, whatever, we need to code the config
+     first. */
+  
+  mwlog(MWLOG_DEBUG,
+	"gwdetachclient(clientid=%d) (%s)", MWINDEXMASK& cltid, tcpgetclientpeername(cltid));
+
+  memset (&mesg, '\0', sizeof(Attach));
+
+  mesg.mtype = DETACHREQ;
+  mesg.cltid = cltid | MWCLIENTMASK;
+  mesg.gwid = _mw_get_my_gatewayid(); 
+  mesg.client = TRUE;    
+  mesg.server = FALSE;
+  mesg.pid = my_gw_pid;
+  mesg.flags = MWFORCE;
+  mesg.ipcqid = _mw_my_mqid();
+
+  rc = _mw_ipc_putmessage(0, (void *) &mesg, sizeof(mesg) ,0);
+
+  if (rc != 0) {
+    mwlog (MWLOG_ERROR, 
+	   "gwdetachclient() putmessage =>%d failed with error %d(%s)", 
 	   rc, errno, strerror(errno));
     return -errno;
   };
@@ -391,7 +453,7 @@ int mwgwd(int argc, char ** argv)
   int tcp_thread_rc;
   int rc = 0, i;
 
-  loglevel = MWLOG_DEBUG;
+  loglevel = MWLOG_DEBUG2;
   /* first of all do command line options */
   while((c = getopt(argc,argv, "A:l:cgp:")) != EOF ){
     switch (c) {
@@ -404,6 +466,7 @@ int mwgwd(int argc, char ** argv)
       else if (strcmp(optarg, "debug")   == 0) loglevel=MWLOG_DEBUG;
       else if (strcmp(optarg, "debug1")  == 0) loglevel=MWLOG_DEBUG1;
       else if (strcmp(optarg, "debug2")  == 0) loglevel=MWLOG_DEBUG2;
+      else if (strcmp(optarg, "debug3")  == 0) loglevel=MWLOG_DEBUG3;
       else usage(argv[0]);
       break;
     case 'A':

@@ -26,6 +26,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/02/17 14:11:45  eggestad
+ * MWMORE is no longer a flag
+ *
  * Revision 1.6  2001/10/03 22:46:51  eggestad
  * Added timeout errno for attach
  *
@@ -242,15 +245,72 @@ int mwfetch(int handle, char ** data, int * len, int * appreturncode, int flags)
     mwlog(MWLOG_DEBUG1, "not attached");
     return -ENOTCONN;
   };
-     
-  switch (_mwaddress->protocol) {
-    
-  case MWSYSVIPC:
 
-    return _mwfetch_ipc(handle, data, len, appreturncode, flags);
+  /* if client didn't set MWMULTIPLE, the client is expecting one and
+     only one reply, we must concat multiiple replies */
+  if (! (flags & MWMULTIPLE)) {
+    char * pdata = NULL;
+    int pdatalen = 0;
+    int first = 1;
+ 
+    * len = 0;
+
+    do {
+      switch (_mwaddress->protocol) {
+	
+      case MWSYSVIPC:
+	
+	rc = _mwfetchipc(handle, &pdata, &pdatalen, appreturncode, flags);
+	break;
+
+      case MWSRBP:
+	rc = _mwfetch_srb(handle, &pdata, &pdatalen, appreturncode, flags);
+	break;
+
+      default:
+	mwlog(MWLOG_ERROR, "mwfetch: This can't happen unknown protocol %d", 
+	      _mwaddress->protocol);
+	return -EINVAL;
+      };
+      mwlog(MWLOG_DEBUG1, "protocol level fetch returned %d", rc);
+
+      /* if error */
+      if (rc == MWFAIL) {
+	return rc;
+      };
+
+      /* shortcut, iff one reply there is no copy needed. */
+      if ( (rc != MWMORE) && (first) ) {
+	*data = pdata;
+	*len = pdatalen;	
+	return rc;
+      };
+      
+      first = 0;
+      
+      *data = realloc(*data, *len + pdatalen + 1);
+      mwlog(MWLOG_DEBUG1, "Adding reply: *data = %p appending at %p old len = %d new len = %d",
+	    *data, (*data)+(*len), *len, pdatalen);
+      memcpy((*data)+(*len), pdata, pdatalen);
+      *len += pdatalen;
+      
+    }  while(rc == MWMORE);
+
+    (*data)[*len]  = '\0';
+    return rc;
+  };
+      
+  /* multiple replies handeled in user code, we return the first reply */
+  switch (_mwaddress->protocol) {
+      
+  case MWSYSVIPC:
+    
+    rc = _mwfetchipc(handle, data, len, appreturncode, flags);
+    return rc; 
     
   case MWSRBP:
-    return _mwfetch_srb(handle, data, len, appreturncode, flags);
+    rc = _mwfetch_srb(handle, data, len, appreturncode, flags);
+    return rc;
   };
   mwlog(MWLOG_ERROR, "mwfetch: This can't happen unknown protocol %d", 
 	_mwaddress->protocol);
@@ -308,57 +368,22 @@ int mwcall(char * svcname,
 	       char ** rdata, int * rlen, 
 	       int * appreturncode, int flags)
 {
-  int hdl;
+  int hdl, rc;
   float timeleft;
-
   /* input sanyty checking, everywhere else we depend on params to be sane. */
   if ( (clen < 0) || (svcname == NULL) ) 
     return -EINVAL;
   if  ( !(flags & MWNOREPLY) && ((rlen == NULL) || (rdata == NULL)))
     return -EINVAL; 
+  if  ( (flags & MWMULTIPLE) )
+    return -EINVAL; 
 
   mwlog(MWLOG_DEBUG1, "mwcall called for service %.32s", svcname);
 
-  if ( _mw_deadline(NULL, &timeleft)) {
-    /* we should maybe say that a few ms before a deadline, we call it expired? */
-    if (timeleft <= 0.0) {
-      /* we've already timed out */
-      mwlog(MWLOG_DEBUG1, "call to %s was made %d ms after deadline had expired", 
-	    timeleft, svcname);
-      return -ETIME;
-    };
-  };
+  hdl = mwacall(svcname, cdata, clen, flags);
+  mwlog(MWLOG_DEBUG1, "mwcall(): mwacall() returned handle %d", hdl);
+  return mwfetch (hdl, rdata, rlen, appreturncode, flags);
 
-  /* clen may be zero if cdata is null terminated */
-  if ( (cdata != NULL) && (clen == 0) ) clen = strlen(cdata);
-
-  if (!_mwaddress) {
-    mwlog(MWLOG_DEBUG1, "not attached");
-    return -ENOTCONN;
-  };
-  
-  switch (_mwaddress->protocol) {
-    
-  case MWSYSVIPC:
-    mwlog(MWLOG_DEBUG1, "mwcall using  SYSVIPC");
-    hdl = _mwacall_ipc (svcname, cdata, clen, flags);
-    if (hdl < 0) return hdl;
-    hdl = _mwfetch_ipc (hdl, rdata, rlen, appreturncode, flags);
-    mwlog(MWLOG_DEBUG1, "mwcall(): _mwfetch_ipc() returned %d", hdl);
-    return hdl;
-    
-  case MWSRBP:
-    mwlog(MWLOG_DEBUG1, "mwcall using  SRBP");
-    hdl = _mwacall_srb (svcname, cdata, clen, flags);
-    if (hdl < 0) return hdl;
-    hdl = _mwfetch_srb (hdl, rdata, rlen, appreturncode, flags);
-    return hdl;
-
-  };
-  mwlog(MWLOG_ERROR, "mwcall: This can't happen unknown protocol %d", 
-	_mwaddress->protocol);
-
-  return -EFAULT;
 };
 
 /* TRANSACTIONAL API

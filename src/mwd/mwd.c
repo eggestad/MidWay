@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.16  2003/06/12 07:27:03  eggestad
+ * sighandlers are now private, watchdog needed it's own
+ *
  * Revision 1.15  2003/06/05 21:55:07  eggestad
  * environment var fixes
  *
@@ -267,6 +270,72 @@ ipcmaininfo * getipcmaintable()
   return ipcmain;
 };
 
+  
+/****************************************************************************************
+ * Signal handling
+ ****************************************************************************************/
+
+static void sighandler(int sig)
+{
+   switch(sig) {
+      
+   case SIGALRM:      
+      flags.alarm++;
+      return;
+      
+   case SIGTERM:
+   case SIGINT:
+      mwaddtaskdelayed(do_shutdowntrigger, -1, 1);
+      DEBUG("normal shutdown sig=%d", sig);
+      return;
+
+   case SIGHUP:
+   case SIGQUIT:
+
+      DEBUG("fast track shutdown");
+      kill(sig,ipcmain->mwwdpid);
+      /* fast track down */
+      shm_destroy();
+      term_tables();
+      term_maininfo();
+      exit(-1);
+      
+  case SIGCHLD:
+    flags.childdied++;
+    return;
+
+  case SIGUSR1:
+    flags.user1++;
+    return;
+
+  case SIGUSR2:
+    flags.user2++;
+    return;
+  };
+};
+
+static void inst_sighandlers(void)
+{
+  struct sigaction action;
+  int failed = 0;
+
+  action.sa_flags = 0;
+  action.sa_handler = sighandler;
+  sigfillset(&action.sa_mask);
+  
+  if (sigaction(SIGTERM, &action, NULL)) failed++;
+  if (sigaction(SIGHUP, &action, NULL)) failed++;
+  if (sigaction(SIGINT, &action, NULL)) failed++;
+  if (sigaction(SIGQUIT, &action, NULL)) failed++;
+  if (sigaction(SIGCHLD, &action, NULL)) failed++;
+  if (sigaction(SIGUSR1, &action, NULL)) failed++;
+  if (sigaction(SIGUSR2, &action, NULL)) failed++;
+
+  if (failed != 0) {
+    Error("failed to install %d signals handlers\n", failed);
+    exit(-19);
+  }
+};
 
 conv_entry * getconv_entry(int i)
 {
@@ -686,8 +755,7 @@ int cleanup_ipc(void)
   term_maininfo();
 };
 
-PTask shutdowntask = NULL;
-static int signallist[5] = { SIGTERM, SIGHUP, SIGQUIT, SIGKILL, 0 };
+PTask shutdowntask = 0;
 
 int do_shutdowntrigger(PTask pt)
 {
@@ -769,72 +837,6 @@ int do_shutdowntask(PTask pt)
    thru the network devices and look for our primary ip address.  if
    that fail, we use teh MAC addr, if the fail, we don't have a
    network connected,and we use the hostname. */
-  
-/****************************************************************************************
- * Signal handling
- ****************************************************************************************/
-
-void sighandler(int sig)
-{
-   switch(sig) {
-      
-   case SIGALRM:      
-      flags.alarm++;
-      return;
-      
-   case SIGTERM:
-   case SIGINT:
-      mwaddtaskdelayed(do_shutdowntrigger, -1, 1);
-      DEBUG("normal shutdown sig=%d", sig);
-      return;
-
-   case SIGHUP:
-   case SIGQUIT:
-
-      DEBUG("fast track shutdown");
-      kill(sig,ipcmain->mwwdpid);
-      /* fast track down */
-      shm_destroy();
-      term_tables();
-      term_maininfo();
-      exit(-1);
-      
-  case SIGCHLD:
-    flags.childdied++;
-    return;
-
-  case SIGUSR1:
-    flags.user1++;
-    return;
-
-  case SIGUSR2:
-    flags.user2++;
-    return;
-  };
-};
-
-void inst_sighandlers()
-{
-  struct sigaction action;
-  int failed = 0;
-
-  action.sa_flags = 0;
-  action.sa_handler = sighandler;
-  sigfillset(&action.sa_mask);
-  
-  if (sigaction(SIGTERM, &action, NULL)) failed++;
-  if (sigaction(SIGHUP, &action, NULL)) failed++;
-  if (sigaction(SIGINT, &action, NULL)) failed++;
-  if (sigaction(SIGQUIT, &action, NULL)) failed++;
-  if (sigaction(SIGCHLD, &action, NULL)) failed++;
-  if (sigaction(SIGUSR1, &action, NULL)) failed++;
-  if (sigaction(SIGUSR2, &action, NULL)) failed++;
-
-  if (failed != 0) {
-    Error("failed to install %d signals handlers\n", failed);
-    exit(-19);
-  }
-};
 
 /* lets go thru the ~/.midwaytab and see if there is a home or ipc set. */
 static void checktab(char * instancename, char ** home, int * key)
@@ -860,7 +862,7 @@ static void checktab(char * instancename, char ** home, int * key)
 
     arg[0][0] = arg[1][0] = arg[2][0] = arg[3][0] = arg[4][0] = '\0';
     n = sscanf(line, "%64s %64s %64s %64s %64s", 
-	       &arg[0], &arg[1], &arg[2], &arg[3], &arg[4]);
+	       arg[0], arg[1], arg[2], arg[3], arg[4]);
 
     DEBUG2("read %d items from %s", n, tabpath);
     if (n == 0) continue;

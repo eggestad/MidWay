@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2003/06/12 07:27:03  eggestad
+ * sighandlers are now private, watchdog needed it's own
+ *
  * Revision 1.5  2003/04/25 13:03:09  eggestad
  * - fix for new task API
  * - new shutdown procedure, now using a task
@@ -67,8 +70,6 @@ extern char * uri;
 extern char * mwhome;
 extern char * instancename;
 #endif
-
-void inst_sighandlers(void);
 
 int do_shutdowntrigger(PTask pt);
 

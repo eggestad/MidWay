@@ -21,6 +21,10 @@
 /*
  * 
  * $Log$
+ * Revision 1.25  2003/07/20 23:12:06  eggestad
+ * - in acall, corrected handling of data ptr to offset and buffer alloc
+ * - added usleep() loop if no buffers are available
+ *
  * Revision 1.24  2003/07/08 19:23:43  eggestad
  * critcal stack corruption error in _mwfetchipc()
  *
@@ -574,10 +578,10 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
   */
   if (rc < 0) {
     if (errno == EINTR) {
-      DEBUG1("msgrcv in _mw_ipc_putmessage interrupted");
+      DEBUG1("msgsnd in _mw_ipc_putmessage interrupted");
       return 0;
     };
-    Warning("msgrcv in _mw_ipc_putmessage returned error %d", errno);
+    Warning("msgsnd in _mw_ipc_putmessage returned error %d", errno);
     return -errno;
   };
 
@@ -929,9 +933,8 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
 {
   int dest; 
   int rc;
-  int hdl, dataoffset, n, idx;
-  char * dbuf;
-  Call calldata;
+  int hdl, n, idx;
+  Call callmesg;
   struct timeval tm;
   float timeleft;
   SERVICEID * svclist;
@@ -942,13 +945,13 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
 	 "callerid=%ld, hops=%d", svcname, data, datalen, flags, mwid, 
 	 instance?instance:"(NULL)", domain?domain:"(NULL)", callerid, hops);
 
-  memset (&calldata, '\0', sizeof(Call));
+  memset (&callmesg, '\0', sizeof(Call));
   errno = 0;
 
   /* set up the message */  
   gettimeofday(&tm, NULL);
-  calldata.issued = tm.tv_sec;
-  calldata.uissued = tm.tv_usec;
+  callmesg.issued = tm.tv_sec;
+  callmesg.uissued = tm.tv_usec;
   /* mwbegin() is the tuxedo way of set timeout. We use it too
      The nice feature is to set exactly the same deadline on a set of mwacall()s */
     
@@ -961,9 +964,9 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
       return -ETIME;
     };
     /* timeout is here in ms */
-    calldata.timeout = (int) (timeleft * 1000);
+    callmesg.timeout = (int) (timeleft * 1000);
   } else {
-    calldata.timeout = 0; 
+    callmesg.timeout = 0; 
   };
 
   TIMEPEG();
@@ -973,19 +976,19 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
      since shmat on Linux do not always reurn tha same address for a given shm segment
      we must operate on offset into the segment (se shmalloc.c) */
   
-  calldata.mtype = SVCCALL;
+  callmesg.mtype = SVCCALL;
 
   if (mwid == UNASSIGNED) {
-    calldata.cltid = _mw_get_my_clientid();
-    calldata.gwid = _mw_get_my_gatewayid();
+    callmesg.cltid = _mw_get_my_clientid();
+    callmesg.gwid = _mw_get_my_gatewayid();
   } else {
-    calldata.cltid = CLTID(mwid);
-    calldata.gwid = GWID(mwid);
+    callmesg.cltid = CLTID(mwid);
+    callmesg.gwid = GWID(mwid);
   } 
-  calldata.srvid = UNASSIGNED;
-  strncpy (calldata.service, svcname, MWMAXSVCNAME);
-  strncpy (calldata.origservice, svcname, MWMAXSVCNAME);
-  calldata.forwardcount = 0;
+  callmesg.srvid = UNASSIGNED;
+  strncpy (callmesg.service, svcname, MWMAXSVCNAME);
+  strncpy (callmesg.origservice, svcname, MWMAXSVCNAME);
+  callmesg.forwardcount = 0;
 
   TIMEPEG();
 
@@ -993,55 +996,49 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   hdl = _mw_nexthandle();
 
   /* when properly implemented some flags will be used in the IPC call */
-  calldata.handle = hdl;
-  calldata.flags = flags;
-  calldata.appreturncode = 0;
-  calldata.returncode = 0;
+  callmesg.handle = hdl;
+  callmesg.flags = flags;
+  callmesg.appreturncode = 0;
+  callmesg.returncode = 0;
 
   TIMEPEG();
 
   if (instance) {
-    strncpy(calldata.instance, instance, MWMAXNAMELEN);
+    strncpy(callmesg.instance, instance, MWMAXNAMELEN);
   } else {
-    calldata.instance[0] = '\0';
+    callmesg.instance[0] = '\0';
   };
 
   if (domain) {
-    strncpy(calldata.domainname, domain, MWMAXNAMELEN);
+    strncpy(callmesg.domainname, domain, MWMAXNAMELEN);
   } else {
-    calldata.domainname[0] = '\0';
+    callmesg.domainname[0] = '\0';
   };
 
-  calldata.callerid = callerid;
-  calldata.hops = hops;
+  callmesg.callerid = callerid;
+  callmesg.hops = hops;
 
   TIMEPEG();
   DEBUG1("doing data");
 
-  if (data != NULL) {
-    dataoffset = _mwshmcheck(data);
-    DEBUG1("dataoffset = %d", dataoffset);
-    if (dataoffset == -1) {
-       DEBUG1("data buffer is not in heap, getting a buffer in the heap");
-      dbuf = _mwalloc(datalen);
-      if (dbuf == NULL) {
-	Error("mwalloc(%d) failed reason %d", datalen, (int) errno);
-	return -errno;
-      };
-      memcpy(dbuf, data, datalen);
-      dataoffset = _mwshmcheck(dbuf);
-      DEBUG1("dataoffset = %d", dataoffset);
-    };
-  } else {
-    dataoffset = 0;
-    datalen = 0;
-  };
-  /* else 
-     we really should check to see if datalen is longe that buffer 
-  */
+ // if there is not available buffers,  we try for a while
+  do {
+     int n; 
+     n = 0;
+     
+     rc = _mw_putbuffer_to_call(&callmesg, data, datalen);
 
-  calldata.data = dataoffset;
-  calldata.datalen = datalen;
+     if (rc) {
+	if (n >= 100) return rc;
+	if (n == 0) {
+	   Warning("Reply: failed to place reply buffer rc=%d", rc);
+	};
+	usleep(20);
+	n++;
+     }
+  } while (rc != 0);
+  
+  DEBUG1("dataoffset %d length %d",   callmesg.data, callmesg.datalen);
 
   TIMEPEG();
   DEBUG1("getting available servers");
@@ -1054,23 +1051,23 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
     
     idx = (rand() % n);
     DEBUG1("selecting %d of %d = %d", idx, n, SVCID2IDX(svclist[idx]));
-    calldata.svcid = svclist[idx];
+    callmesg.svcid = svclist[idx];
 
     TIMEPEG();
     
-    dest = _mw_get_provider_by_serviceid (calldata.svcid);
+    dest = _mw_get_provider_by_serviceid (callmesg.svcid);
     if (dest < 0) {
       Warning("mw(a)call(): getting the serverid for serviceid %#x(%s) failed reason %d",
-	      calldata.svcid, svcname, dest);
+	      callmesg.svcid, svcname, dest);
       continue;
     };
  
     DEBUG1("Sending a ipcmessage to serviceid %#x service %s on server %#x my clientid %#x buffer at offset%d len %d ", 
-	   calldata.svcid, calldata.service, dest, calldata.cltid, calldata.data, calldata.datalen);
+	   callmesg.svcid, callmesg.service, dest, callmesg.cltid, callmesg.data, callmesg.datalen);
 
     TIMEPEG();
 
-    rc = _mw_ipc_putmessage(dest, (char *) &calldata, sizeof (Call), 0);
+    rc = _mw_ipc_putmessage(dest, (char *) &callmesg, sizeof (Call), 0);
     
     DEBUG1("_mw_ipc_putmessage returned %d handle is %d", rc, hdl);
     if (rc >= 0) {
@@ -1173,22 +1170,30 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
      else we copy to private heap.
   */
 
-  id = 0;
-  _mwshmgetowner(callmesg->data, &id);
-  DEBUG1("owner id of data is %d", id);
+  if (*data != NULL) free (*data);
+  
+  if (callmesg->data) {
+     id = 0;
+     _mwshmgetowner(callmesg->data, &id);
+     DEBUG1("owner id of data is %d", id);
+     
+     if (! _mw_fastpath_enabled()) {
+	
+	DEBUG3("copying data to local byffer, freeing shm buffer");
+	*data = malloc(callmesg->datalen+1);
+	memcpy(*data, _mwoffset2adr(callmesg->data), callmesg->datalen);
+	(*data)[callmesg->datalen] = '\0';
+	_mwfree(_mwoffset2adr(callmesg->data));
+     } else {
+	*data = _mwoffset2adr(callmesg->data);
+     }; 
 
-  if (! _mw_fastpath_enabled()) {
-    if (*data != NULL) free (*data);
-    DEBUG3("copying data to local byffer, freeing shm buffer");
-    *data = malloc(callmesg->datalen+1);
-    memcpy(*data, _mwoffset2adr(callmesg->data), callmesg->datalen);
-    (*data)[callmesg->datalen] = '\0';
-    _mwfree(_mwoffset2adr(callmesg->data));
+     *len = callmesg->datalen;
   } else {
-    *data = _mwoffset2adr(callmesg->data);
-  }; 
+     *data = NULL;
+     *len = 0;
+  };
 
-  *len = callmesg->datalen;
   *appreturncode = callmesg->appreturncode;
 
   /* deadline info is invalid even though I can provide it */
@@ -1286,7 +1291,7 @@ int _mw_ipcsend_subscribe (char * pattern, int subid, int flags)
 
     dbuf = _mwalloc(pattlen+1);
     if (dbuf == NULL) {
-      Error("mwalloc(%d) failed reason %d", pattlen, (int) errno);
+      Error("Subscribe: mwalloc(%d) failed reason %d", pattlen, (int) errno);
       return -errno;
     };
     memcpy(dbuf, pattern, pattlen);
@@ -1365,7 +1370,7 @@ int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, 
     if (dataoffset == -1) {
       dbuf = _mwalloc(datalen);
       if (dbuf == NULL) {
-	Error("mwalloc(%d) failed reason %d", datalen, (int) errno);
+	Error("Send Event: mwalloc(%d) failed reason %d", datalen, (int) errno);
 	return -errno;
       };
       memcpy(dbuf, data, datalen);

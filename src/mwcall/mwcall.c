@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/02/17 14:26:56  eggestad
+ * added handling of MWMORE return code.
+ *
  * Revision 1.3  2001/10/03 22:53:57  eggestad
  * *** empty log message ***
  *
@@ -149,14 +152,16 @@ int call(int argc, char ** argv)
 
   gettimeofday(&end, NULL); 
 
-  if (rc != 0) {
-    mwlog(MWLOG_ERROR,"Call failed with reason %d", rc);
-    return rc;
-  };
   mwlog(MWLOG_INFO,"call returned in %f", 
 	 (float)(end.tv_sec - start.tv_sec) 
 	 +(float)(end.tv_usec - start.tv_usec)/1000000); 
   
+
+  if (rc != MWSUCCESS) {
+    mwlog(MWLOG_ERROR,"Call failed with reason %d apprc %d", rc, apprc);
+    return rc;
+  };
+
   if (rdata != NULL) {
     FILE * OF;
     mwlog(MWLOG_INFO,
@@ -199,7 +204,7 @@ void usage(int rc)
 };
 
   
-main(int argc, char ** argv)
+int main(int argc, char ** argv)
 {
   int option, rc, i;
   int loglevel = MWLOG_DEBUG;

@@ -9,7 +9,7 @@ IPCOBJS = mwclientipcapi.o ipctables.o ipcmessages.o mwserverapi.o shmalloc.o os
 
 NETOBJS = SRBclient.o SRBprotocol.o
 
-COMMONOBJS = mwlog.o version.o address.o
+COMMONOBJS = mwlog.o version.o address.o mwclientapi.o
 
 LIBS = libMidWay.a libMidWay.so
 

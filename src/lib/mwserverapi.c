@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2002/10/07 00:01:33  eggestad
+ * - on error EFAULT was positive and not negative in callmesg.returncode.
+ * - _mw_get_server_by_serviceid() was renamed to _mw_get_provider_by_serviceid()
+ * - if _mw_getbuffer_from_call() return error, client sent a junk message, that are returned with error.
+ *
  * Revision 1.11  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -338,7 +343,7 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
   else if (returncode == MWMORE)
     callmesg->returncode = MWMORE;
   else
-    callmesg->returncode = EFAULT;
+    callmesg->returncode = -EFAULT;
 
   callmesg->appreturncode = appreturncode;
 
@@ -403,7 +408,7 @@ int mwforward(char * svcname, char * data, int len, int flags)
     return svcid;
   };
 
-  dest = _mw_get_server_by_serviceid (svcid);
+  dest = _mw_get_provider_by_serviceid (svcid);
   if (dest < 0) {
     Warning("mwforward(): getting the serverid for serviceid %d(%s) failed reason %d",
 	  svcid, svcname, dest);
@@ -607,6 +612,18 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
     return NULL;
   };
 
+  /* in this case the client sent junk, reply error, and return next 
+
+     TODO: this is a DoS bug, send enough junk messages, and a server crashed due to stack overrun
+
+   */ 
+  rc = _mw_getbuffer_from_call(svcreqinfo, callmesg);
+  if (rc != 0) {
+    mwreply(NULL, 0, -1, 0, 0);
+    free(svcreqinfo); 
+    return _mwGetServiceRequest (flags);
+  };
+
   /* transfer data from ipc message to mwsvcinfo struct. */  
   svcreqinfo->cltid = callmesg->cltid;
   svcreqinfo->srvid = callmesg->srvid;
@@ -615,8 +632,6 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
   svcreqinfo->flags = callmesg->flags;
   memset(svcreqinfo->service, 0, MWMAXSVCNAME);
   strncpy(svcreqinfo->service, callmesg->service, MWMAXSVCNAME);
-
-  _mw_getbuffer_from_call(svcreqinfo, callmesg);
 
   return svcreqinfo;
 };

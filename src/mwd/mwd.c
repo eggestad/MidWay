@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.20  2004/08/11 20:32:30  eggestad
+ * - daemonize fix
+ * - umask changes (Still wrong, but better)
+ * - large buffer alloc
+ *
  * Revision 1.19  2004/04/12 23:05:24  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -155,12 +160,15 @@ static int bufferbasesize =   1024;
 static key_t masteripckey =     -1;
 
 char * uri = NULL;
-char * mwhome = NULL;
+static char * mwhome = NULL;
+static char * mwdatadir = NULL;
 char * instancename = NULL;
 
-struct passwd * mepw = NULL;
+mode_t mw_umask = UNASSIGNED;
 
-Flags flags = { 0, 0, 0, 0, 0};
+static struct passwd * mepw = NULL;
+
+static Flags flags = { 0, 0, 0, 0, 0};
 
 void usage(void)
 {
@@ -168,8 +176,9 @@ void usage(void)
   fprintf (stderr,"  where options is one of the following:\n");
   fprintf (stderr,"    -l loglevel : (error|warning|info|debug|debug1|debug2|debug3|debug4)\n");  
   fprintf (stderr,"    -A uri : uri is the address of the MidWay instance e.g. ipc://12345\n");  
-  fprintf (stderr,"    -D : Start mwd as a daemon.\n");  
+  fprintf (stderr,"    -f : Start mwd in foreground not as a daemon.\n");  
   fprintf (stderr,"    -H MidWayHome : Defaults to ~/MidWay.\n");  
+  fprintf (stderr,"    -D Datadir : Defaults to <MidWayHome><instancename>/data.\n");  
   fprintf (stderr,"    -c maxclients\n");  
   fprintf (stderr,"    -s maxservers\n");  
   fprintf (stderr,"    -S maxservices\n");  
@@ -178,8 +187,8 @@ void usage(void)
   fprintf (stderr,"    -C maxconversations\n");  
   fprintf (stderr,"\n");
   fprintf (stderr,"  Instancename is the name of the instance. It looks for config etc\n");
-  fprintf (stderr,"    under MidWayHome/instancename/ defaults to userid.\n");
-  fprintf (stderr,"    MidWayHome defaults ~/MidWay unless overridden by -D\n");
+  fprintf (stderr,"    under MidWayHome/instancename/ defaults to username.\n");
+  fprintf (stderr,"    MidWayHome defaults ~/MidWay unless overridden by -H \n");
   fprintf (stderr,"    or envirnoment variable MWHOME\n");
   fprintf (stderr,"\n");
   exit(1);
@@ -233,6 +242,14 @@ int mwdSetIPCparam(IPCPARAM param, int value)
       masteripckey = (key_t) value;
     break;
 
+  case UMASK:
+     if ( (value >= 0) && (value <= 066) ) {
+	umask(value);
+	mw_umask = value;
+     } else if (value > 066) {
+	Error("illegal umask %#o, owner mask must be 0 for MidWay to work, umask must be between 0 and 066", value);
+     };
+	
   default:
     return -1;
   };
@@ -268,6 +285,12 @@ int mwdGetIPCparam(IPCPARAM param)
   case NUMBUFFERS:
     value = numbuffers;
     break;
+  case UMASK:
+     if (mw_umask == UNASSIGNED) {
+	mw_umask = umask(0);
+	umask(mw_umask);
+     };
+     value = mw_umask;
   default:
     return -1;
   };
@@ -365,9 +388,14 @@ int mymqid(void)
  * we have placed this function here, and not in ipctables.c
  */
 
-static int tablemode = 0644, /* shm tables mode is 0666 & mask */
+static int tablemode = 0644, /* shm tables mode is 0644 & mask */
   heapmode           = 0666, /* shm heap and semaphore mode is 0666 & mask */
   queuemode          = 0622; /* mwd message queue mode is 0622 & mask */
+
+int mwdheapmode(void)
+{
+   return heapmode;
+};
 
 static int
 create_ipc(int mode)
@@ -391,13 +419,11 @@ create_ipc(int mode)
 
   mode_t um = 0, mask = 0;
   
-  if (mode == 0) {
-    um = umask(0);
-    umask(um);
+  um =mwdGetIPCparam(UMASK);
 
+  if (mode == 0) {
     /* just to make the arithmetic more readable we convert the mask to mode: */
     mode = 0777& ~um;
-
   } else {
     /* in order to fake the fact that we only test fro read on arg */
     mode |= S_IXGRP | S_IXOTH;
@@ -405,6 +431,7 @@ create_ipc(int mode)
 
   mask = S_IRUSR | S_IWUSR;
   printf("mode = %o umask = %o\n", mode, um); 
+
   /* test for group access */
   if ( ((mode&S_IRGRP) && (mode&S_IXGRP)) )
     mask |= S_IRGRP | S_IWGRP;
@@ -554,7 +581,7 @@ create_ipc(int mode)
   return 0;
 
 }
-
+// TODO: this is the wrong way to list all interfaces
 void set_instanceid(ipcmaininfo * ipcmain)
 {
   char * pt, buffer [256] = {0};
@@ -1025,6 +1052,33 @@ static void mainloop(void)
 
 };
 
+int daemonize(void)
+{
+  pid_t p;
+
+  
+  p = fork();
+
+  if (p == -1) {
+    Error("fork failed, reason %s", strerror(errno));
+    return p;
+  };
+
+  if (p > 0) {
+     return p;
+  };
+	
+  fclose(stdin);
+  fclose(stderr);
+  fclose(stdout);
+
+  stdout = fopen("/dev/null", "w");
+  stderr = fopen("/dev/null", "w");
+  
+  setsid();
+
+  return p;
+};
 
 /**********************************************************************
  * main
@@ -1035,7 +1089,7 @@ static void mainloop(void)
 int main(int argc, char ** argv)
 {
   char c;
-  int rc, loglevel, daemon = 0, n;
+  int rc, loglevel, daemon = 1, n;
   char wd[PATH_MAX]; 
   char * name, * tabhome = NULL;
   int tabkey = -1;
@@ -1046,9 +1100,15 @@ int main(int argc, char ** argv)
   int opt_services =      -1;
   int opt_gateways =      -1;
   int opt_conversations = -1;
-  int opt_numbuffers =       -1;
   int opt_bufferbasesize =   -1;
   char * penv;
+  mode_t m;
+  
+
+  m = umask(0);
+  umask(m);
+  mwdSetIPCparam(UMASK, m);
+
 
   /* obtaining info about who I am, must be fixed for suid, check masterd*/
   mepw = getpwuid(getuid());
@@ -1074,7 +1134,7 @@ int main(int argc, char ** argv)
   Info("Version %s", mwversion());
 
   /* doing options */
-  while((c = getopt(argc,argv, "A:DH:l:c:C:s:S:b:B:g:")) != EOF ){
+  while((c = getopt(argc,argv, "A:fD:H:l:c:C:s:S:b:B:g:")) != EOF ){
     switch (c) {
     case 'l':
       loglevel = _mwstr2loglevel(optarg); 
@@ -1083,11 +1143,14 @@ int main(int argc, char ** argv)
     case 'A':
       uri = strdup(optarg);
       break;
-    case 'D':
-      daemon = 1;
+    case 'f':
+      daemon = 0;
       break;
     case 'H':
       mwhome = strdup(optarg);
+      break;
+    case 'D':
+      mwdatadir = strdup(optarg);
       break;
     case 'c':
       opt_clients = atoi(optarg);
@@ -1334,7 +1397,6 @@ int main(int argc, char ** argv)
   
   mwdSetIPCparam(MASTERIPCKEY, mwaddress->sysvipckey);
 
-
   /* We have a protection mode = 0 here. We should use umask.
    * but then again we should alse allow this to be set by cmdline 
    */
@@ -1364,9 +1426,9 @@ int main(int argc, char ** argv)
   DEBUG("Shm data segments created.");
 
   if (daemon) {
-    rc = fork();
+    rc = daemonize();
     if (rc == -1) {
-      Error("fork failed reason: %s", strerror(errno));
+      Error("daemonize failed reason: %s", strerror(errno));
       shm_destroy();
       term_tables();
       term_maininfo();
@@ -1374,7 +1436,6 @@ int main(int argc, char ** argv)
     };
     /* parent just die */
     if (rc > 0) {
-      usleep(100000);
       exit(0);
     }
   };
@@ -1384,7 +1445,22 @@ int main(int argc, char ** argv)
 
   /* place MWHOME in ipcmain */
   strncpy(ipcmain->mw_homedir, mwhome, 256);
-
+  
+  if (mwdatadir == NULL) {
+     strncpy(ipcmain->mw_bufferdir, mwhome, 256);
+     strcat(ipcmain->mw_bufferdir, "/");
+     strcat(ipcmain->mw_bufferdir, instancename);
+     strcat(ipcmain->mw_bufferdir, "/data");
+  } else {
+     strncpy(ipcmain->mw_bufferdir, mwdatadir, 256);
+  };
+  rc = mkdir_asneeded(ipcmain->mw_bufferdir);
+  if (rc != 0) {
+     Error("Failed to create the directory %s reason %s",
+	   ipcmain->mw_bufferdir, strerror(errno));
+     exit(-1);
+  };
+  
   /* module ipctables.c has a static defined ipcmain, we must set it. */
   _mw_set_shmadr (ipcmain, clttbl, srvtbl, svctbl, gwtbl, convtbl);
 
@@ -1411,16 +1487,8 @@ int main(int argc, char ** argv)
   Info("MidWay daemon boot complete instancename is %s", 
 	ipcmain->mw_instance_name); 
 
-  /* we copy all log messages to stdout iff in debugmode. */
-  if (loglevel < MWLOG_DEBUG) {
-    _mw_copy_on_stdout(FALSE);
-    fclose (stdin);
-    fclose (stdout);
-    fclose (stderr);
-  };
-
   ipcmain->status = MWREADY;
-  time(&ipcmain->boottime);
+  ipcmain->boottime = (int64_t) time(NULL);
 
   /* now start all autobott servers */
   smgrAutoBoot();

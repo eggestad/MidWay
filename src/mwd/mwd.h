@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2004/08/11 20:32:30  eggestad
+ * - daemonize fix
+ * - umask changes (Still wrong, but better)
+ * - large buffer alloc
+ *
  * Revision 1.6  2003/06/12 07:27:03  eggestad
  * sighandlers are now private, watchdog needed it's own
  *
@@ -74,11 +79,12 @@ extern char * instancename;
 int do_shutdowntrigger(PTask pt);
 
 typedef enum  { MAXCLIENTS = 10, MAXSERVERS, MAXSERVICES, MAXGATEWAYS, MAXCONVS, 
-	       BUFFERBASESIZE, MASTERIPCKEY, NUMBUFFERS } IPCPARAM;
+	       BUFFERBASESIZE, MASTERIPCKEY, NUMBUFFERS, UMASK } IPCPARAM;
 
 void init_maininfo(void);
 int cleanup_ipc(void) ;
 int mymqid(void);
+int mwdheapmode(void);
       
 int mwdSetIPCparam(IPCPARAM, int);
 int mwdGetIPCparam(IPCPARAM);

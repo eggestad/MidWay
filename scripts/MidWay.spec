@@ -65,7 +65,7 @@ rm /usr/lib/libMidWay.so
 %attr(555,root,root) /etc/rc.d/init.d/mwbd
 /usr/bin/*
 /usr/sbin/*
-/usr/lib/libMidWay.so.0.11
+/usr/lib/libMidWay.so.0.12
 /usr/man/man1/*
 /usr/man/man7/*
 /usr/man/man8/*

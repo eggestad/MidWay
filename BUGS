@@ -85,14 +85,19 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
   servermanager. However it really should be @exec_prefix@ from
   autoconf.
 
-<<<<<<< BUGS
 * remove libxml-devel readline-devel glibc-devel and make sure
   configure barf at it.
 
-=======
-* in mwbd change read()/write() to sendmsg/recvmsg to avoid SIGPIPE's
+(fixed?) * in mwbd change read()/write() to sendmsg/recvmsg to avoid SIGPIPE's
 
->>>>>>> 1.13
+* in useing address srbp://hostname/domain port 11000 is attempted,
+  not broker
+
+* rarely seen, but on third gateway booting, only one peer is seen
+  (probaly if replies are too close, both are being connected by third
+  gw.)
+
+
 -----------------------------------------------------------------------
 
 Minor BUGS:
@@ -181,6 +186,9 @@ REL 0.11.0
 * in _mwGetServiceRequest()  there is  a possible explotable  DoS bug,
   (stack  overrun)  Need  to  change  behavoir  and  find  all  places
   _mwGetServiceRequest is called to handle a NULL return as nornal.
+
+* If the same mwalloced buffer is used twice, there is no check
+  (needed for fast path)
 
 -----------------------------------------------------------------------
 

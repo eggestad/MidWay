@@ -3,11 +3,11 @@ CC = gcc
  
 INCLUDES = -I../include 
 
-CFLAGS =  $(INCLUDES) -g -Wstrict-prototypes
+CFLAGS =  $(INCLUDES) -g -Wstrict-prototypes 
 
 IPCOBJS = mwclientipcapi.o ipctables.o ipcmessages.o mwserverapi.o shmalloc.o osdep.o
 
-NETOBJS = SRBclient.o
+NETOBJS = SRBclient.o SRBprotocol.o
 
 COMMONOBJS = mwlog.o version.o address.o
 
@@ -37,21 +37,25 @@ ipcmessages.o: ipcmessages.c ../include/MidWay.h ../include/ipcmessages.h
 
 shmalloc.o: shmalloc.c ../include/shmalloc.h ../include/MidWay.h  
 	gcc -o shmalloc-m.o -c  shmalloc.c $(CFLAGS) 
-	ld -i -o shmalloc.o shmalloc-m.o -lm
+	ld -i -o shmalloc.o shmalloc-m.o -lm -L/usr/lib
 
 mwlog.o: mwlog.c ../include/MidWay.h
 
 mwclientipcapi.o: mwclientipcapi.c ../include/MidWay.h 
 mwclientipcapi.o: ../include/ipctables.h  ../include/ipcmessages.h ../include/address.h 
 	gcc -o mwclientipcapi-m.o -c mwclientipcapi.c $(CFLAGS) 
-	ld -i -o mwclientipcapi.o mwclientipcapi-m.o -lm
+	ld -i -o mwclientipcapi.o mwclientipcapi-m.o -lm -L/usr/lib
 
 mwserverapi.o: mwserverapi.c ../include/MidWay.h 
 mwserverapi.o: ../include/ipctables.h  ../include/ipcmessages.h 
 
-SRBclient.o: SRBclient.c ../include/MidWay.h ../include/SRBprotocol.h ../include/urlencode.h
-	gcc -o SRBclient-m.o -c SRBclient.c $(CFLAGS) 	
-	ld -i -o SRBclient.o SRBclient-m.o ../liburlencode/liburlencode.a
+SRBclient.o: SRBclient.c ../include/MidWay.h ../include/SRBprotocol.h ../include/urlencode.h ../liburlencode/liburlencode.a
+#	gcc -o SRBclient-m.o -c SRBclient.c $(CFLAGS) 	
+#	ld -i -o SRBclient.o SRBclient-m.o ../liburlencode/liburlencode.a
+
+SRBprotocol.o: SRBprotocol.c ../include/MidWay.h ../include/SRBprotocol.h ../include/urlencode.h ../liburlencode/liburlencode.a
+	gcc -o SRBprotocol-m.o -c SRBprotocol.c $(CFLAGS) 	
+	ld -i -o SRBprotocol.o SRBprotocol-m.o ../liburlencode/liburlencode.a
 
 version.o: version.c
 

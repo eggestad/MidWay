@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.7  2002/09/26 22:36:05  eggestad
+ * added missing protptype
+ *
  * Revision 1.6  2002/09/22 22:58:50  eggestad
  * prototype fixup
  *
@@ -103,6 +106,7 @@ void gw_provideservice_to_peers(char * service);
 void gw_closegateway(GATEWAYID gwid);
 int gw_getcostofservice(char * service);
 void gw_setipc(struct gwpeerinfo * pi);
+void gw_sendmcasts(void);
 
 #endif
 

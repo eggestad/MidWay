@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.4  2001/10/03 22:38:10  eggestad
+ * pids now in globals struct
+ *
  * Revision 1.3  2001/09/15 23:49:38  eggestad
  * Updates for the broker daemon
  * better modulatization of the code
@@ -34,11 +37,14 @@
  *
  */
 #include <urlencode.h>
+#include <sys/types.h>
 
 typedef struct {
   int shutdownflag;
   char * mydomain;
   char * myinstance;
+  pid_t tcpserverpid;
+  pid_t ipcserverpid;
 } globaldata;
 
 int gwattachclient(int, int, char *, char *, char *, urlmap *);

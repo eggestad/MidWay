@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.6  2003/06/12 07:26:15  eggestad
+ * standalone fix, added unicast to loopback, if multicast fails
+ *
  * Revision 1.5  2003/01/07 08:26:53  eggestad
  * C99 struct init format and setfd correctly on multicast send trace
  *
@@ -102,13 +105,10 @@ int _mw_initmcast(int s)
 };
 
 
-int _mw_senducast (int s, char * payload, struct sockaddr * host)
-{
-};
 
 int _mw_sendmcast (int s, char * payload)
 {
-  int rc, plen;
+  int rc, plen, err;
   struct sockaddr_in to;
 
   to.sin_family = AF_INET;
@@ -116,13 +116,26 @@ int _mw_sendmcast (int s, char * payload)
   memcpy(&to.sin_addr,  &mr.imr_multiaddr.s_addr, sizeof(struct in_addr));
 
   plen = strlen(payload);
-  DEBUG1("_mw_sendmcast on fd=%d", s);
+  DEBUG1("send mcast on fd=%d", s);
   pseudoconn.fd = s;
   _mw_srb_trace(SRB_TRACE_OUT, &pseudoconn, payload, plen);
   pseudoconn.fd = -1;
   rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
+  err = errno;
 
-  DEBUG1("_mw_sendmcast returned %d errno=%d", rc, errno);
+  DEBUG1("sendto returned %d errno=%d", rc, err);
+
+  if ((rc == -1) && (err ==  ENETUNREACH)) {
+       DEBUG1("Multicast failed probably because we're on a standalone node, "
+	      "doing unicast to loopback");
+       errno = 0;
+       to.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+       rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
+       err = errno;
+       DEBUG1("sendto loopback returned %d errno=%d", rc, err);
+  } else {
+     DEBUG1("sendto failed with unexpected  errno=%d", err);
+  }
   return rc;
 };
 

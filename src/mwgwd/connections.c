@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.12  2002/10/20 18:17:44  eggestad
+ * fixup of debug messages
+ *
  * Revision 1.11  2002/10/17 22:16:54  eggestad
  * - fix for gateways
  * - downgraded some debug to debug2
@@ -597,7 +600,7 @@ int conn_select(int * cause, time_t deadline)
   int  i, fd;
   int now;
 
-  DEBUG("^^^^^^^^^^  Beginning conn_select() select version");    
+  DEBUG2("Beginning conn_select() select version");    
 
   if (deadline >= 0) {
     now = time(NULL);
@@ -624,13 +627,14 @@ int conn_select(int * cause, time_t deadline)
     DEBUG2("about to select() timeout = %d", 
 	  deadline==-1?deadline:tv.tv_sec);    
 
-#ifdef DEBUG
+#ifdef DEBUGGING
     for (i = 0; i <=maxsocket; i++) 
-      if (FD_ISSET(i, &rfds)) printf("waiting on %d\n", i);
+      if (FD_ISSET(i, &rfds)) DEBUG2("waiting on %d\n", i);
 #endif
     
+    DEBUG("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");    
     n = select(maxsocket+1, &rfds, NULL, &errfds, tvp);
-    
+    DEBUG("vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv");    
     if (n == -1) {
       DEBUG("select returned with failure %s", 
 	    strerror(errno));
@@ -643,7 +647,7 @@ int conn_select(int * cause, time_t deadline)
     return -ETIME;
   };
 
-  DEBUG("vvvvvvvvvv There are %d sockets that need attention", n);    
+  DEBUG2("There are %d sockets that need attention", n);    
     
   /* we do a round robin and do a foreach on the connections from last
      to last-1 */

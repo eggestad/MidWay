@@ -1,0 +1,52 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 2001 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MWBD 8 "DATE" Linux "MidWay Users Manual"
+.SH NAME
+mwbd \- The MidWay broker daemon
+.SH SYNOPSIS
+.B mwbd [-d] [-t] 
+.SH DESCRIPTION
+The broker daemon exists to provide a well known port for all MidWay
+instances running on a host. The broker must run as root, and listen
+on port 102 (until further notice) ans on the unix socket 
+.BR /var/run/mwbd.socket .
+
+The mwbd is normally started by init thru a rc script.
+
+A gateway daemon
+.BR mwgwd (1)
+running in a instance connects to the broker on the unix socket and
+inform the broker on the domain and instance id the gateway has. If
+someone send out a multicast query packet on port 102 the mwbd will
+reply with info on which domains and instances connected to it.
+
+If a client connects to the mwbd and request to connect to a given
+domain/instance, the mwbd will send the connect request along with the
+socket to the appropriate gateway. This is the mechanism that allow
+multiple gateways to share the same port.
+
+The mwbd logs to syslog, and only with priority INFO. The 
+.BR -d 
+option will cause also debugging message to be sent to syslog, as well
+as to stderr. The
+.BR -t 
+option
+traces all SRB messages the mwbd receives and sends to 
+.BR /var/log/mwbd.trace .
+
+.SH SEE ALSO
+.BR MidWay (7),  mwd (1), mwgwd (1)
+
+.SH WARNINGS
+
+.SH BUGS
+If the unix socket is rm'ed the broker must be restarted. It really
+shoud rebind the socket.
+
+The name broker daemon is confusing since midway is defined to be a
+service broker.

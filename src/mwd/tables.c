@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2001/10/03 22:41:05  eggestad
+ * added a TODO marker
+ *
  * Revision 1.3  2001/09/15 23:59:05  eggestad
  * Proper includes and other clean compile fixes
  *
@@ -695,6 +698,8 @@ int check_tables()
 	    if (clttbl[j].gwid = i)
 	      delclient(MWCLIENTMASK | j);
 	  };
+
+	  /* TODO clean up all imported services */
 
 	  gwtbl[i].pid = UNASSIGNED;
 	  gwtbl[i].srbrole = UNASSIGNED;

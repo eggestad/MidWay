@@ -27,7 +27,7 @@ clean:
 distclean:
 	rm -f Makefile  *~
 
-install:
+install: all
 	$(INSTALL)  mwgwd @bindir@/mwgwd
 
 uninstall:

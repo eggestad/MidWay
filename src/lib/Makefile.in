@@ -31,7 +31,7 @@ clean:
 distclean:
 	rm -f Makefile *~
 
-install:
+install: all
 	$(INSTALL) libMidWay.so @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION)
 	@LN_S@ -f @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION)
 	@LN_S@ -f @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) @libdir@/libMidWay.so

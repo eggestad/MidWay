@@ -31,7 +31,7 @@ clean:
 distclean:
 	rm -f Makefile *~
 
-install:
+install: all
 	$(INSTALL)  mwcall @bindir@/mwcall
 
 uninstall:

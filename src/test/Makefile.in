@@ -39,7 +39,7 @@ testsuitclient.o: testsuiteclient.c ../include/MidWay.h testsuite.h
 testsuiteclient: testsuiteclient.o
 	$(CC) -o $@ testsuiteclient.o -L../lib -lMidWay
 
-install:
+install: all
 
 
 uninstall:

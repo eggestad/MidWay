@@ -34,7 +34,7 @@ clean:
 distclean:
 	rm -f Makefile *~
 
-install:
+install: all
 	$(INSTALL)  mwadm @bindir@/mwadm
 
 uninstall:

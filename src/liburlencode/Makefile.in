@@ -20,7 +20,7 @@ clean:
 distclean:
 	rm -f Makefile *~ 
 
-install:
+install: all
 	$(INSTALL)  -m 644 liburlencode.a @libdir@/liburlencode.a
 
 uninstall:

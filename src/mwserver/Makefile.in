@@ -21,7 +21,7 @@ clean:
 distclean:
 	rm -f Makefile *~
 
-install:
+install: all
 	$(INSTALL)  mwserver @bindir@/mwserver
 
 uninstall:

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/10/06 23:51:10  eggestad
+ * bug in getchunksize, rather large, so a fixup in handling of size and verification
+ *
  * Revision 1.4  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -131,7 +134,7 @@
 
 struct _chunkhead {
   long ownerid;
-  long size; /* in basechunksizes */
+  long size; /* in # of basechunksizes */
 };
 typedef struct _chunkhead chunkhead ;
 

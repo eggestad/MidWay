@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/10/06 23:51:10  eggestad
+ * bug in getchunksize, rather large, so a fixup in handling of size and verification
+ *
  * Revision 1.8  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -136,25 +139,38 @@ void * _mwoffset2adr(int offset)
 int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg)
 {
   char * ptr;
-  
+  int size;
   if ( (svcreqinfo == NULL) || (callmesg == NULL) ) {
     errno = EINVAL;
     return -1;
   };
-  
+
+  /* is there no data (datalen == 0), shourtcut */
+  svcreqinfo->datalen = callmesg->datalen;    
+  if (callmesg->datalen == 0) {
+    svcreqinfo->data = NULL;
+    return 0;
+  };
+
+  /* check that the ptr is in the heap and is of sane length (eg larger) */
+  ptr = _mwoffset2adr(callmesg->data);
+  size = _mwshmgetsizeofchunk(ptr);
+  if ( (size <= 0) || (size <=  callmesg->datalen)) {
+    Error("got a call with illegal data pointer buffer size = %d datalen = %d", size, callmesg->datalen);
+    errno = -EBADMSG;
+    return -1;
+  };
+		    
   /* transfer of the data buffer, unless in fastpath where we recalc the pointer. */
   if (_mw_fastpath_enabled()) {
-    svcreqinfo->data = _mwoffset2adr(callmesg->data);
-    svcreqinfo->datalen = callmesg->datalen;
+    svcreqinfo->data = ptr;
   } else {
     svcreqinfo->data = malloc(callmesg->datalen+1);
-    ptr = _mwoffset2adr(callmesg->data);
     memcpy(svcreqinfo->data, ptr, callmesg->datalen);
+    /* we adda trainling NUL just to be safe */
     svcreqinfo->data[callmesg->datalen] = '\0';
-    svcreqinfo->datalen = callmesg->datalen;
     _mwfree(ptr);
-  };
-    
+  };    
   return 0;
 };
 
@@ -191,10 +207,10 @@ int _mw_putbuffer_to_call (Call * callmesg, char * data, int len)
 };
 
   
-
+/* return in bytes */
 static int getchunksizebyadr(chunkhead * pCHead)
 {
-  int  chkindex, i, rc = 0;
+  int  bin, i;
   chunkfoot *pCFoot;
   chunkhead *pCHabove;
   int iCHead;
@@ -208,25 +224,23 @@ static int getchunksizebyadr(chunkhead * pCHead)
        ((void*)pCHead > (void*)(_mwHeapInfo + _mwHeapInfo->segmentsize)) )
     return -1;
   
-  chkindex = log(pCHead->size) / log(2);
+  bin = log(pCHead->size) / log(2);
   
   /* if corrupt pCHead->size */ 
-  if ( (chkindex < 0) || (chkindex >= _mwHeapInfo->numbins) ) {
+  if ( (bin < 0) || (bin >= _mwHeapInfo->numbins) ) {
     pCHead->size = 0;
     iCHead = _mwadr2offset(pCHead);
-    chkindex = 0;
+    bin = 0;
     for (i = 0; i < _mwHeapInfo->numbins-1; i++) {
       if ( (iCHead > _mwHeapInfo->chunk[i]) && 
 	   (iCHead < _mwHeapInfo->chunk[i+1]) ) {
-	chkindex = i;
+	bin = i;
 	pCHead->size = 1<<i;
-	rc = pCHead->size;
       };
     };
     if (iCHead > _mwHeapInfo->chunk[_mwHeapInfo->numbins]) {
-      chkindex = _mwHeapInfo->numbins;
+      bin = _mwHeapInfo->numbins;
       pCHead->size = 1 << _mwHeapInfo->numbins;
-      rc = pCHead->size;
     }
   };
   
@@ -235,9 +249,8 @@ static int getchunksizebyadr(chunkhead * pCHead)
   pCHabove = _mwoffset2adr(pCFoot->above);
   if (pCHabove != pCHead) {
     pCFoot->above = _mwadr2offset(pCHead);
-    rc = pCHead->size;
   };
-  return rc;
+  return  pCHead->size;
 };
 
 /* Used in mw(a)call() and mwreply() to check if an address in a shmbuffer.
@@ -250,8 +263,8 @@ static int getchunksizebyadr(chunkhead * pCHead)
 */
 int _mwshmcheck(void * adr)
 {
-  int size;
-
+  int size, bin;
+  
   /* if SRBP then we have no heap... */
   if (_mwHeapInfo == NULL) return -1;
 
@@ -263,7 +276,11 @@ int _mwshmcheck(void * adr)
   size = getchunksizebyadr(adr - sizeof(chunkhead));
 
   if (size < 0)   return -1;
-  if (size >= _mwHeapInfo->numbins) return -1;
+  bin = log(size)/log(2);
+  DEBUG3("buffer at %p has size %d * %d, bin = %d of max %d", 
+	 size, _mwHeapInfo->basechunksize, bin, _mwHeapInfo->numbins);
+  if (bin >= _mwHeapInfo->numbins) return -1;
+
   return _mwadr2offset(adr);
 }
 
@@ -282,7 +299,7 @@ int _mwshmgetsizeofchunk(void * adr)
   size = getchunksizebyadr(adr - sizeof(chunkhead));
 
   if (size < 0)   return -1;
-  return size;
+  return size * _mwHeapInfo->basechunksize;
 }
 
 
@@ -394,33 +411,46 @@ static int unlock(int id)
   return semop(_mwHeapInfo->semid, sops, 1);
 };
 
-void * _mwalloc(int size)
+static inline int attachheap(void)
 {
   struct ipcmaininfo * ipcmain;
-  chunkhead *pCHead;
-  int chksize, i, rc;
-
-  if (_mwHeapInfo == NULL ) {
-    ipcmain = _mw_ipcmaininfo(); 
-    if (ipcmain == NULL) {
-      Error("_mwalloc: It seems there are no mwd running, no main shm info attached.");
-      return NULL;
-    };
-    _mwHeapInfo = shmat (ipcmain->heap_ipcid, NULL, 0);
-    /* the manual says that shmat return -1 on failure, but
-       that seem not natural to me since it return a pointer. */
-    if ((_mwHeapInfo == (void *) -1) || (_mwHeapInfo == NULL)) {
-      Error("_mwalloc: failed to attach the shm heap, erno = %d.", errno);
-      return NULL;
-    };
-    /* the magic numer is "MW" thus 0x4D57 */
-    if (_mwHeapInfo->magic != 0x4D57) {
-      Error("_mwalloc: The shm heap seem not to be formated, wrong magic header");
-      shmdt(_mwHeapInfo);
-      return NULL;
-    };
-  }
   
+  if (_mwHeapInfo != NULL ) return 0;
+
+  ipcmain = _mw_ipcmaininfo(); 
+  if (ipcmain == NULL) {
+    Error("_mwalloc: It seems there are no mwd running, no main shm info attached.");
+    return -ENOENT;
+  };
+  _mwHeapInfo = shmat (ipcmain->heap_ipcid, NULL, 0);
+  /* the manual says that shmat return -1 on failure, but
+     that seem not natural to me since it return a pointer. */
+  if ((_mwHeapInfo == (void *) -1) || (_mwHeapInfo == NULL)) {
+    Error("_mwalloc: failed to attach the shm heap, erno = %d.", errno);
+    return -errno;
+  };
+  /* the magic numer is "MW" thus 0x4D57 */
+  if (_mwHeapInfo->magic != 0x4D57) {
+    Error("_mwalloc: The shm heap seem not to be formated, wrong magic header");
+    shmdt(_mwHeapInfo);
+    return -EUCLEAN;;
+  };
+
+  return 0;
+};
+
+  
+void * _mwalloc(int size)
+{
+  chunkhead *pCHead;
+  int chksize, bin, i, rc;
+
+  rc = attachheap();
+  if (rc != 0) {
+    errno = -rc;
+    return NULL;
+  };
+
   /*
     now we need to know how many base chunks we need.
     Remember that I have for each group of chunks doubled 
@@ -430,9 +460,10 @@ void * _mwalloc(int size)
     n is the number of basesizes needed to hold the requested size.
  
   */
-  chksize =  (size / _mwHeapInfo->basechunksize );
-  
-  for (i = chksize; i < _mwHeapInfo->numbins; i++) {
+  chksize =  (size / _mwHeapInfo->basechunksize)+1;
+  bin = log(chksize) / log(2);
+  DEBUG1("alloc size %d, size in chunks = %d, bin = %d", size, chksize, bin);
+  for (i = bin; i < _mwHeapInfo->numbins; i++) {
  
     /* there are no free chunk at the right size, we try the larges ones. */
     if (_mwHeapInfo->freecount[i] > 0) {
@@ -462,6 +493,10 @@ void * _mwalloc(int size)
 	      pCHead->size, _mwHeapInfo->basechunksize , 
 	      1<<i, _mwHeapInfo->basechunksize);       
       };
+
+      DEBUG3("_mwalloc(%d) return a chunk with size %d", 
+	     size, pCHead->size*_mwHeapInfo->basechunksize);
+
       /* NB: wr return the addresss to the data area NOT to the head of chunk.
        */
       return (void*) pCHead + sizeof(chunkhead);
@@ -474,16 +509,25 @@ void * _mwalloc(int size)
 
 void * _mwrealloc(void * adr, int newsize) 
 {
-  int size, copylength;
+  int size, copylength, rc;
   void * newbuffer;
   if (adr == NULL ) return NULL; 
 
+  rc = attachheap();
+  if (rc != 0) {
+    errno = -rc;
+    return NULL;
+  };
  
   size = getchunksizebyadr(adr - sizeof(chunkhead));
   if (size > 0) {
-    /* check to see if newsize nedd teh same size of buffer. */
+    size *= _mwHeapInfo->basechunksize;
+    DEBUG1("newsize = %d oldsize = %d", newsize, size);
+
+    /* check to see if newsize need the same size of buffer. */
     if ( (newsize < size) && (newsize > size/2) ) 
       return adr;
+
     newbuffer = _mwalloc(newsize);
     if (newbuffer == NULL) return NULL;
     
@@ -499,44 +543,32 @@ void * _mwrealloc(void * adr, int newsize)
 
 int _mwfree(void * adr)
 {
-  struct ipcmaininfo * ipcmain;
   chunkhead *pCHead;
+  int bin, rc;
 
-  int chkindex, rc;
+  rc = attachheap();
+  if (rc != 0) {
+    return rc;
+  };
 
-  if (_mwHeapInfo == NULL ) {
-    ipcmain = _mw_ipcmaininfo(); 
-    if (ipcmain == NULL) return -1;
-    _mwHeapInfo = shmat (ipcmain->heap_ipcid, NULL, 0);
-    /* the manual says that shmat return -1 on failure, but
-       that seem not natural to me since it return a pointer. */
-    if ((_mwHeapInfo == (void *) -1) || (_mwHeapInfo == NULL))
-      return -1;
-    /* the magic numer is "MW" thus 0x4D57 */
-    if (_mwHeapInfo->magic != 0x4D57) {
-      shmdt(_mwHeapInfo);
-      return -1;
-    };
-  }
-  
   /* adr point to the data area of a chunk, which lies between the
      chunkhead and chunkfoot*/
   pCHead = adr - sizeof(chunkhead);;
   
   rc = getchunksizebyadr(pCHead);
   if (rc < 0) return -ENOENT;
-  chkindex = log(pCHead->size) / log(2);
+  bin = log(pCHead->size) / log(2);
   pCHead->ownerid = UNASSIGNED;
 
-  rc = lock(chkindex); /* lock sem for chunk */
-  rc = pushchunk(pCHead, &_mwHeapInfo->chunk[chkindex], 
-		 &_mwHeapInfo->freecount[chkindex]);
+  rc = lock(bin); /* lock sem for bin */
+  rc = pushchunk(pCHead, &_mwHeapInfo->chunk[bin], 
+		 &_mwHeapInfo->freecount[bin]);
   if (rc != 0) {
     Error("mwfree: shm chunk of size %d lost, reason %d", 
 	  pCHead->size, rc);
   };
   _mwHeapInfo->inusecount --;
-  unlock(chkindex);
+  unlock(bin);
   return 0;
 };
 

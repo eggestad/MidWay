@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.10  2002/09/29 17:44:01  eggestad
+ * added unproviding over srb
+ *
  * Revision 1.9  2002/09/26 22:38:21  eggestad
  * we no longer listen on the standalone  port (11000) for clients as default. Default is now teh broker.
  *
@@ -175,8 +178,8 @@ static void do_event_message(char * message, int len)
 	  evmsg->event, pe->name, pe->provider, pe->svcid);
     
     svcent = _mw_get_service_byid(pe->svcid);
-    if (svcent->location == GWPEER) {
-      DEBUG("(un)provide event for foreign serive in my own domain, ignoring");
+    if ( (svcent != NULL) && (svcent->location == GWPEER) ) {
+      DEBUG("(un)provide event for foreign sericve in my own domain, ignoring");
       goto ack;
     };
     
@@ -414,10 +417,21 @@ int ipcmainloop(void)
       break;
 
     case PROVIDERPL:
+      impsetsvcid(pmsg->svcname, pmsg->svcid);
+      break;
+
+    case UNPROVIDEREQ:
+      Warning("Got a providereq from serverid=%d, sending rc=EBADRQC", 
+	    pmsg->srvid&MWINDEXMASK);
+      pmsg->returncode = -EBADRQC;
+      _mw_ipc_putmessage(pmsg->srvid, message, len, IPC_NOWAIT);
+      break;
+
+     case UNPROVIDERPL:
       /* do I really care? */
       break;
 
-      /* events */
+       /* events */
     case EVENT:
       do_event_message(message, len);
       break;

@@ -25,6 +25,8 @@ distclean:: clean
 	(cd $$dir; $(MAKE) $@)\
 	done;\
 	rm -f Makefile config.cache config.h config.log config.status *~ *tgz
+	rm -f scripts/*~
+	rm -f scripts/midway.rc
 
 install:: all
 	if [ ! -d @bindir@ ]; then install -d @bindir@; fi
@@ -35,11 +37,13 @@ install:: all
 	if [ ! -d @mandir@/man1 ]; then install -d @mandir@/man1; fi
 	if [ ! -d @mandir@/man3 ]; then install -d @mandir@/man3; fi
 	if [ ! -d @mandir@/man7 ]; then install -d @mandir@/man7; fi
+	if [ ! -d @mandir@/man8 ]; then install -d @mandir@/man8; fi
 	@ for dir in $(SUBDIRS); do\
 	(cd $$dir; $(MAKE) $@);\
 	if [[ $$? -ne 0 ]]; then exit 3; fi\
 	done;
-	@INSTALL@ -m 644  include/MidWay.h @includedir@/MidWay.h
+	@INSTALL@ -m 644 include/MidWay.h @includedir@/MidWay.h
+	@INSTALL@ -m 744 scripts/midway.rc @sbindir@/midway.rc
 
 uninstall:
 	@ for dir in $(SUBDIRS); do\
@@ -52,6 +56,7 @@ depend:
 	if [[ $$? -ne 0 ]]; then exit 3; fi
 
 tgz: distclean
+	rm -f MidWay-@MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@
 	@LN_S@ -f . MidWay-@MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@
 	rm -f MidWay-@MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@.tgz
 	tar cvzf MidWay-@MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@.tgz \

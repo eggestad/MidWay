@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.8  2004/02/20 15:07:18  eggestad
+ * added use of broadcast in addition to multicast
+ *
  * Revision 1.7  2003/08/06 23:16:19  eggestad
  * Merge of client and mwgwd recieving SRB messages functions.
  *
@@ -81,6 +84,9 @@ Connection pseudoconn = {
 
 static struct ip_mreq mr;
 
+static int use_broadcast = USE_BROADCAST;
+static int use_multicast = 1;
+
 int _mw_setmcastaddr(void)
 {
   mr.imr_interface.s_addr = (uint32_t) htonl(INADDR_ANY);
@@ -89,21 +95,29 @@ int _mw_setmcastaddr(void)
 
   DEBUG1(" mcast addr %#x ifaddr %#x", 
 	 mr.imr_multiaddr.s_addr, mr.imr_interface.s_addr);
+
   return 0;
 };
 
 /* TODO: add member ship to all interfaces, and set TTL higher */
 int _mw_initmcast(int s)
 {
-  int rc;
+  int rc, val;
 
-  rc = setsockopt (s, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr, sizeof(struct ip_mreq));
-  DEBUG1("add membership returned %d errno =%d", rc, errno);
+  if (use_broadcast) {
+     val = 1;
+     rc = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &val, 4);
+     DEBUG1("set broadcast opt returned %d errno =%d", rc, errno);   
+  } 
 
-  rc = setsockopt (s, IPPROTO_IP, IP_MULTICAST_IF, &mr.imr_interface, 
-		   sizeof(struct in_addr));
-  DEBUG1("add multicast_if returned %d errno =%d", rc, errno);
-
+  if (use_multicast) {
+     rc = setsockopt (s, IPPROTO_IP, IP_ADD_MEMBERSHIP, &mr, sizeof(struct ip_mreq));
+     DEBUG1("add membership returned %d errno =%d", rc, errno);
+     
+     rc = setsockopt (s, IPPROTO_IP, IP_MULTICAST_IF, &mr.imr_interface, 
+		      sizeof(struct in_addr));
+     DEBUG1("add multicast_if returned %d errno =%d", rc, errno);
+  } 
   return rc;
 };
 
@@ -116,40 +130,76 @@ int _mw_sendmcast (int s, char * payload)
 
   to.sin_family = AF_INET;
   to.sin_port = htons(SRB_BROKER_PORT);
-  memcpy(&to.sin_addr,  &mr.imr_multiaddr.s_addr, sizeof(struct in_addr));
 
   plen = strlen(payload);
   DEBUG1("send mcast on fd=%d", s);
   pseudoconn.fd = s;
   _mw_srb_trace(SRB_TRACE_OUT, &pseudoconn, payload, plen);
   pseudoconn.fd = -1;
-  rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
-  err = errno;
+
+  errno = ENONET;
+  err = 0;
+  rc = -1;
+
+  if (use_broadcast) {
+     to.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+     rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
+     DEBUG1("sent broadcast rc = %d errno = %d", rc, errno);
+     err = errno;
+  }
+
+  if (use_multicast) {
+     memcpy(&to.sin_addr,  &mr.imr_multiaddr.s_addr, sizeof(struct in_addr));
+     rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
+     DEBUG1("sent multicast rc = %d errno = %d", rc, errno);
+     err = errno;
+  }
 
   DEBUG1("sendto returned %d errno=%d", rc, err);
 
-  if ((rc == -1) && (err ==  ENETUNREACH)) {
-       DEBUG1("Multicast failed probably because we're on a standalone node, "
-	      "doing unicast to loopback");
-       errno = 0;
-       to.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-       rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
-       err = errno;
-       DEBUG1("sendto loopback returned %d errno=%d", rc, err);
-  } else {
-     DEBUG1("sendto failed with unexpected  errno=%d", err);
-  }
+  if (rc == -1) {
+     if ( (err ==  ENETUNREACH) || (err ==  ENONET) ) {
+	DEBUG1("Multi/broadcast failed probably because we're on a standalone node, "
+	       "doing unicast to loopback");
+	errno = 0;
+	to.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
+	err = errno;
+	DEBUG1("sendto loopback returned %d errno=%d", rc, err);
+     } else {
+	DEBUG1("sendto failed with unexpected  errno=%d", err);
+     }
+  };
+
   return rc;
 };
+
+// we maintain a list of known instances, after a sendmcastquery. This
+// is to prevent multiple replies from the same instance from
+// _mw_getmcastreply().
+
+static char * known_instances_list = NULL;
+static int known_instances_alloc = 0;
+static int known_instances = 0;
 
 int _mw_sendmcastquery(int s, char * domain, char * instance)
 {
   SRBmessage srbreq;
-  char buffer[SRBMESSAGEMAXLEN];
-  int rc, len;
+  char * env, buffer[SRBMESSAGEMAXLEN];
+  int rc, len, val;
 
-  rc =  _mw_setmcastaddr();
-  if (rc == -1) return rc;
+  if (env = getenv ("MW_USE_BROADCAST") ) {
+     use_broadcast = atoi(env) ? 1 : 0;
+  };
+
+  if (use_broadcast) {
+     val = 1;     
+     rc = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &val, 4);
+     DEBUG1("set broadcast opt returned %d errno =%d", rc, errno);
+  } else {
+     rc =  _mw_setmcastaddr();
+     if (rc == -1) return rc;
+  };
 
   strcpy(srbreq.command, SRB_READY);
   srbreq.marker = SRB_REQUESTMARKER;
@@ -167,13 +217,20 @@ int _mw_sendmcastquery(int s, char * domain, char * instance)
   rc = _mw_sendmcast (s, buffer);
   urlmapfree(srbreq.map);
 
+  // clear the list of known instances, new query, a new unique list
+  if (known_instances_alloc == 0) {
+     known_instances_alloc = 16;
+     known_instances_list = malloc(sizeof(char) * known_instances_alloc * MWMAXNAMELEN);
+  };
+  known_instances = 0;
+
   return rc;
 };
   
 int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
 {
   char buffer[SRBMESSAGEMAXLEN];
-  int n, len, slen, rc;
+  int i, n, len, slen, rc;
   struct timeval tv;
   fd_set rfdset;
   struct sockaddr_in peeraddr;
@@ -246,16 +303,36 @@ int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
     return -1;
   };
 
+  // first we the the instance name 
+  mapval = urlmapgetvalue(srbrpy->map, SRB_INSTANCE) ;
+  if (!mapval) {
+     errno = EBADMSG;
+     return -1;
+  };
+
+  for (i = 0; i < known_instances; i++) {
+     DEBUG1("comparing %s with %s", known_instances_list+(i*MWMAXNAMELEN), mapval);
+     if (strncmp(known_instances_list+(i*MWMAXNAMELEN), mapval, MWMAXNAMELEN) == 0) {
+	DEBUG1("got a duplicate reply from %s", mapval);
+	return _mw_getmcastreply(s, reply, timeout);
+     };
+  };
+  
+  // extend the list if necessary
+  if (known_instances_alloc <= known_instances+1) {
+     known_instances_alloc *= 2;
+     known_instances_list = realloc(known_instances_list, sizeof(char) * known_instances_alloc * MWMAXNAMELEN);
+  };
+  
+  strncpy(known_instances_list+(known_instances*MWMAXNAMELEN), mapval, MWMAXNAMELEN);
+  strncpy(reply->instance, mapval, MWMAXNAMELEN);  
+  known_instances++;
 
   memcpy(&reply->address, &peeraddr, sizeof(struct sockaddr_in));
 
   mapval = urlmapgetvalue(srbrpy->map, SRB_VERSION) ;
   if (mapval)
     strncpy(reply->version, mapval, 7);
-  
-  mapval = urlmapgetvalue(srbrpy->map, SRB_INSTANCE) ;
-  if (mapval)
-    strncpy(reply->instance, mapval, MWMAXNAMELEN);
   
   mapval = urlmapgetvalue(srbrpy->map, SRB_DOMAIN) ;
   if (mapval)

@@ -88,7 +88,7 @@ AC_PROG_GCC_TRADITIONAL
 AC_FUNC_STRFTIME
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS(getcwd gettimeofday mkdir regcomp select poll socket strdup strerror strstr)
-
+AC_CHECK_FUNC(epoll_create, [AC_DEFINE(HAVE_EPOLL)])
 dnl check for libs
 
 dnl almost home here, all that's missing is -lreadline in LIBS
@@ -98,6 +98,7 @@ dnl AC_CHECK_LIB(readline, readline, , , -lncurses)
 
 AC_CHECK_LIB(m, log, , echo "missing required log function in math library (-lm)"; exit;)
 AC_CHECK_LIB(pthread, pthread_create, , echo "missing pthread library"; exit;)
+AC_CHECK_LIB(xml2, xmlParseFile, , echo "missing xml2 library"; exit;)
 
 dnl Link options when we need readline.
 dnl -----------------------------------

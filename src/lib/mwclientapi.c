@@ -23,6 +23,13 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.18  2004/04/12 11:18:22  eggestad
+ * - added mwgeturl()
+ * - added mwsetcred()
+ * - changed mwattach() prototype, username and passowrd moved to mwsetcred
+ * - fixed mwdetach() return code (missing)
+ * - debug format fixes
+ *
  * Revision 1.17  2004/04/08 10:34:06  eggestad
  * introduced a struct with pointers to the functions implementing the midway functions
  * for a given protocol.
@@ -95,6 +102,12 @@
 #include <time.h>
 #include <sys/time.h>
 #include <math.h>
+
+// needed for the gethostbyname and inet_ntop in mwgeturl
+#include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 #include <MidWay.h>
 #include <address.h>
@@ -225,6 +238,39 @@ mwaddress_t * _mw_get_mwaddress(void)
    return &_mwaddress;
 };
 
+#define URLMAXLEN 256
+char * mwgeturl()
+{
+   static char url[URLMAXLEN];
+   mwaddress_t * mwadr;
+   struct hostent * hent;
+   char ipadr[256];
+
+   mwadr = _mw_get_mwaddress();
+   switch(mwadr->protocol) {
+   case MWNOTCONN:
+      return NULL;
+
+   case MWSYSVIPC:
+      snprintf(url, URLMAXLEN, "ipc:%d", mwadr->sysvipckey);
+      return url;
+      
+   case MWSRBP:      
+      hent = gethostbyaddr( (char *) mwadr->ipaddress.sin4, sizeof(struct sockaddr_in), AF_INET);
+      DEBUG1("hent = %p", hent); 
+      ipadr[255] = '\0';
+      ipadr[0] = '\0';
+      if (hent && hent->h_name) {
+	 strncpy(ipadr, hent->h_name, 255);
+      } else {
+	 inet_ntop(mwadr->ipaddress.sa->sa_family, &mwadr->ipaddress.sin4->sin_addr, ipadr, 255);
+      };
+      snprintf(url, URLMAXLEN, "srbp://%s/%s", ipadr, mwadr->domain);
+      return url;      
+   }
+   return NULL;
+};
+
 static mwcred_t credentials = { 0 };
 
 /************************************************************************/
@@ -279,11 +325,49 @@ int _mw_nexthandle(void)
   return handle;
 };
 
+// we set the credentials by a seperate func call, the arguments after username depends on the auth type
+int mwsetcred(int authtype, char * username, ...)
+{
+   int rc = 0;
+   va_list ap;
+
+   va_start(ap, username);
+
+   switch(authtype) {
+      
+   case MWAUTH_NONE:
+      credentials.authtype = authtype;
+      credentials.username = NULL;
+      credentials.cred.data = NULL;
+      break;
+   
+   case MWAUTH_PASSWORD:
+      credentials.authtype = authtype;
+      credentials.username = strdup(username);
+      credentials.cred.password = strdup(va_arg(ap, char *));
+      break;
+
+   case MWAUTH_X509:
+      rc = -ENOSYS;
+      break;
+
+   case MWAUTH_KRB5:
+      rc = -ENOSYS;
+      break;
+
+   default:
+      rc = -EINVAL;
+      break;
+   };
+   
+   va_end(ap);
+   return rc;
+};
+
 
 /* should it take a struct as arg??, may as well not, even in a struct, all
    members must be init'ed.*/
-int mwattach(char * url, char * name, 
-	     char * username, char * password, int flags)
+int mwattach(char * url, char * name, int flags)
 {
   FILE * proc;
   int type;
@@ -364,11 +448,14 @@ int mwattach(char * url, char * name,
 
 int mwdetach()
 {
-  DEBUG1("mwdetach: %s", _mwaddress.protocol?"detaching":"not attached");
+   int rc;
 
-  _mwaddress.proto.detach();
+   DEBUG1("mwdetach: %s", _mwaddress.protocol?"detaching":"not attached");
 
-  _mw_clear_mwaddress();
+   rc = _mwaddress.proto.detach();
+
+   _mw_clear_mwaddress();
+   return rc;
 };
 
 int mwlistsvc(char * glob, char *** list, int flags)
@@ -465,8 +552,8 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
     /* we should maybe say that a few ms before a deadline, we call it expired? */
     if (timeleft <= 0.0) {
       /* we've already timed out */
-      DEBUG1("call to %s was made %d ms after deadline had expired", 
-	    timeleft, svcname);
+      DEBUG1("call to %s was made %f ms after deadline had expired", 
+	     svcname, timeleft);
       rc = -ETIME;
       goto out;
     };
@@ -573,7 +660,7 @@ int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char
   int error = 0;
   int rc;
 
-  DEBUG1("SUBSCRIBE %d %x", pattern, flags);
+  DEBUG1("SUBSCRIBE %p %x", pattern, flags);
   if (_mwaddress.protocol == MWNOTCONN) return -ENOTCONN;
   if (pattern == NULL) return -EINVAL;
   if (func == NULL) return -EINVAL;
@@ -705,7 +792,7 @@ int mwbegin(float fsec, int flags)
   
   deadline.tv_sec = now.tv_sec + (int) s;
   deadline.tv_usec = now.tv_usec + (int) (ss * 1000000); /*micro secs*/
-  DEBUG3("mwbegin deadline is at %d.%d",
+  DEBUG3("mwbegin deadline is at %ld.%ld",
 	deadline.tv_sec, deadline.tv_usec); 
   return 0;
 };

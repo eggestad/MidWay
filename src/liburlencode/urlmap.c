@@ -1,3 +1,36 @@
+/*
+  The MidWay API
+  Copyright (C) 2000 Terje Eggestad
+
+  The MidWay API is free software; you can redistribute it and/or
+  modify it under the terms of the GNU Library General Public License as
+  published by the Free Software Foundation; either version 2 of the
+  License, or (at your option) any later version.
+  
+  The MidWay API is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  Library General Public License for more details.
+  
+  You should have received a copy of the GNU Library General Public
+  License along with the MidWay distribution; see the file COPYING. If not,
+  write to the Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+  Boston, MA 02111-1307, USA. 
+*/
+
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
+
+/* 
+ * $Log$
+ * Revision 1.4  2001/08/29 17:53:31  eggestad
+ * - added missing licence header
+ * - added  urlmapgetvalue()
+ * - urlmapnset is now an implied urlmapadd() if no key exists
+ * - various NULL pointer checks added.
+ *
+ */
+
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
@@ -232,6 +265,15 @@ int urlmapget(urlmap * map, char * key)
   return -1;
 };
 
+char * urlmapgetvalue(urlmap * map, char * key)
+{
+  int n;
+  n = urlmapget(map, key);
+  if (n >= 0) return map[n].value;
+  return NULL;
+};
+
+
 int urlmapnset(urlmap * map, char * key, void * value, int len)
 {
   int idx = 0;
@@ -256,14 +298,15 @@ int urlmapnset(urlmap * map, char * key, void * value, int len)
     };
     idx ++;
   };
-
-  errno = ENOENT;
-  return -1;
+  
+  return urlmapnadd(map, key, value, len);
 };
 
 int urlmapset(urlmap * map, char * key, char * value)
 {
-  return urlmapnset(map, key, value, strlen(value));
+  int len = 0;
+  if (value) len = strlen(value);
+  return urlmapnset(map, key, value, len);
 };
 
 
@@ -305,6 +348,13 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
   int idx = 0;
   int l;
   urlmap * m;
+
+  if (key == NULL) return map;
+
+  if (len < 0) {
+    errno = EINVAL;
+    return NULL;
+  };
 
   m = map;
   /* extend the array */
@@ -348,7 +398,9 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
 
 urlmap * urlmapadd(urlmap * map, char * key, char * value)
 {
-  return urlmapnadd(map, key, value, strlen(value));
+  int len = 0;
+  if (value) len = strlen(value);
+  return urlmapnadd(map, key, value, len);
 };
 
 urlmap * urlmapaddi(urlmap * map, char * key, int iValue)

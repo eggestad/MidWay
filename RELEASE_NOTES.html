@@ -1,53 +1,33 @@
-0.13 is mainly a bugfix release, but it required quite significant
-changes, see the Changelog. The API is unchanged.
-
-0.13.1 is a bug fix that fixes one major bug, and that is that
-sometimes multiple replies to a service call was returned in wrong
-order.
-
-0.13.2 is a bugfix release that fixes two full IPC msg queue
-problems. mwd(1) would hang when attempting posting events to a full
-queue, and mwreply() would drop replies when replying to a full queue.
-
-There will be a change to mwfetch() in the next release. 
-<p>
-
-I haven't made a man page for the config so here is the corrently only doc of it. 
-
-The config file is placed under ~/Midway/&ltuserid&gt/config. (For
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+</head>
+<body>
+This is release 0.14.&nbsp; This release is binary incompatible with
+previous releases, the API has changed. Accompanying this release is an
+updated perl module (v 0.2) and the first release of a python module (v
+0.1).&nbsp; <br>
+<br>
+The API changes consist of a simpler mwattach() were everything about
+authentication has been removed, only the url and clientname remain as
+arguments. Username and password is now set via a mwsetcred() call.
+This call is a variable arguments call in preparation for different
+authentication data for different types of authentication. Password
+authentication is expecting <br>
+a password as an arg, private/public key is assumed to need a x509
+certificate, etc.&nbsp; <br>
+<br>
+<hr style="width: 100%; height: 2px;">I haven't made a man page for the
+config so here is the corrently only doc of it. The config file is
+placed under ~/Midway/&amp;ltuserid&gt;/config. (For
 info in how to change the place of this directory, see MidWay(7)). The
 file has an XML format, and here is an example:
-
-<pre>
-&lt;?xml version="1.0"?&gt
-&lt;MidWay&gt
-  &lt;mwd servers="20" clients="50"&gt
-  &lt;Servers autoboot="yes"&gt
-    &lt;group name="grp1" autoboot="yes"&gt
-      &lt;server name="shell" autoboot="yes"&gt
-        &lt;exec&gt;mwserver&lt/exec&gt
-        &lt;arglist&gt;-s shell shell.so&lt/arglist&gt
-        &lt;autorestart min="0" max="0" delay="5"/&gt
-      &lt/server&gt
-    &lt/group&gt
-  &lt/Servers&gt
-  &lt/mwd&gt
-
-  &lt;mwgwd&gt
-  &lt;env&gt
-MWGWD_LOGLEVEL=debug
-  &lt;/env&gt
-   &lt;domain name="testdom"&gt
-   &lt/domain&gt
-  &lt/mwgwd&gt
-
-&lt/MidWay&gt
-</pre>
-
+<pre>&lt;?xml version="1.0"?&gt;<br>&lt;MidWay&gt;<br>  &lt;mwd servers="20" clients="50"&gt;<br>  &lt;Servers autoboot="yes"&gt;<br>    &lt;group name="grp1" autoboot="yes"&gt;<br>      &lt;server name="shell" autoboot="yes"&gt;<br>        &lt;exec&gt;mwserver&lt;/exec&gt;<br>        &lt;arglist&gt;-s shell shell.so&lt;/arglist&gt;<br>        &lt;autorestart min="0" max="0" delay="5"/&gt;<br>      &lt;/server&gt;<br>    &lt;/group&gt;<br>  &lt;/Servers&gt;<br>  &lt;/mwd&gt;<br><br>  &lt;mwgwd&gt;<br>  &lt;env&gt;<br>MWGWD_LOGLEVEL=debug<br>  &lt;/env&gt;<br>   &lt;domain name="testdom"&gt;<br>   &lt;/domain&gt;<br>  &lt;/mwgwd&gt;<br><br>&lt;/MidWay&gt;<br></pre>
 this config will tell mwd to do two things.
 <br>
 a) start a server with a service shell that
-is implemented in a library shell.so. 
-<br>
-b) start a mwgwd in the domain testdom. 
-<p>
+is implemented in a library shell.so. <br>
+b) start a mwgwd in the domain testdom.
+<p></p>
+</body>
+</html>

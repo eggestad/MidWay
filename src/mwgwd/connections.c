@@ -20,6 +20,10 @@
 
 /*
  * $Log$
+ * Revision 1.14  2002/11/18 00:19:36  eggestad
+ * - added setting of address string for Multicast pseudo connect
+ * - peeraddress fix
+ *
  * Revision 1.13  2002/10/22 21:58:20  eggestad
  * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
  *
@@ -291,14 +295,17 @@ Connection * conn_getgateway(GATEWAYID gwid)
 static Connection * init_mcast(void) 
 {
   int s;
-  
+  Connection * conn;
+
   s = socket(PF_INET, SOCK_DGRAM, 0);
   if (s == -1) {
     Fatal("Out of sockets?, reason %s aborting", strerror(errno) );
   };
   _mw_setmcastaddr();
   DEBUG("created puedo multicast connection on fd=%d", s);
-  return conn_add(s, UNASSIGNED, CONN_TYPE_MCAST);
+  conn =  conn_add(s, UNASSIGNED, CONN_TYPE_MCAST);
+  strcpy(conn->peeraddr_string, "Multicast");
+  return conn;
 };
 
 
@@ -394,11 +401,14 @@ void conn_setpeername (Connection * conn)
 
   case AF_INET:
     inet_ntop(family, &conn->peeraddr.sin4.sin_addr, ipadr, 128);
-    hent = gethostbyaddr(ipadr, strlen(ipadr), family);
-    if (hent == NULL)
+    hent = gethostbyaddr(&conn->peeraddr.sin4.sin_addr, sizeof(struct in_addr), family);
+    if (hent == NULL) {
+      Error("gethostbyaddr failed reason %s", hstrerror(h_errno));
       ipname = ipadr;
-    else 
+    } else {
       ipname = hent->h_name;
+    };
+
     port = ntohs(conn->peeraddr.sin4.sin_port);
     snprintf(conn->peeraddr_string, 128, "%s id %d INET %s (%s) port %d", 
 	     role, id,

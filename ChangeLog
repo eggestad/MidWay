@@ -1,3 +1,14 @@
+2003-06-12    <terje@dpc-28.office.scali.no>
+
+	* fixes in mwgwd: NULL data in got garbage out, MWIPCONLY on inbound calls from peers
+	* all now uses MW*_LOGLEVEL env vars
+	* added INTERVAL env vars to mwd, and mwgwd.
+	* mwalloc() fix for neg size
+	* liburl, fix for %FF in data, fix for error in message decode
+	* integrated logging and profiling in liburl
+	* fix for multiple instances on host with now network connection.
+	* added <env> tags for servers and mwgwd in config.
+
 2001-10-09  Terje Eggestad  <terje@localhost.localdomain>
 
 	* multicast was only sendt to localhost, now fixed

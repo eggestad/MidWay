@@ -24,6 +24,10 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.6  2001/10/03 22:34:18  eggestad
+ * - plugged mem leaks, no detected mem leak in mwgwd now
+ * - switched to using _mw_srb_*field() instead of direct use of urlmap*()
+ *
  * Revision 1.5  2001/09/15 23:49:38  eggestad
  * Updates for the broker daemon
  * better modulatization of the code
@@ -189,7 +193,7 @@ static void srbhello(int fd, SRBmessage * srbmsg)
     
   case SRB_REQUESTMARKER:
     sprintf(buffer, "%d.%06d", now.tv_sec, now.tv_usec);
-    srbmsg->map = urlmapadd(srbmsg->map, SRB_REMOTETIME, buffer);
+    _mw_srb_setfield(srbmsg, SRB_REMOTETIME, buffer);
 
     srbmsg->marker = SRB_RESPONSEMARKER;
     _mw_srbsendmessage(fd, srbmsg);
@@ -531,10 +535,12 @@ static void srbinit(int fd, SRBmessage * srbmsg)
 	_mw_srbsendinitreply(fd, srbmsg, rc, NULL);
       }
       free(user);
+      free(name);
     } else {
       /* if (type == SRB_ROLE_GATEWAY) */
-      free(user);
       _mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_NOGATEWAYS, NULL);
+      free(user);
+      free(name);
       break;
     };
     
@@ -584,11 +590,11 @@ int srbDoMessage(int fd, char * message)
   srbmsg.marker = *ptr;
   srbmsg.map = urlmapdecode(message+commandlen+1);
   
-  mwlog(MWLOG_DEBUG2, "srbDoMessage: command=%*.*s marker=%c", 
-	commandlen, commandlen, message, *ptr);
-  mwlog(MWLOG_DEBUG, "srbDoMessage: command=%s marker=%c", 
-	srbmsg.command, srbmsg.marker);
+  mwlog(MWLOG_DEBUG2, "srbDoMessage: command=%*.*s marker=%c on fd=%d", 
+	commandlen, commandlen, message, *ptr, fd);
 
+  /* switch on command length in order to speed up (avoiding
+     strcmp()'s */
   switch(commandlen) {
   case 4:
     if ( strcasecmp(srbmsg.command, SRB_TERM) == 0) {
@@ -643,11 +649,11 @@ int _mw_srbsendinitreply(int fd, SRBmessage * srbmsg, int rcode, char * field)
 
   srbmsg->marker = SRB_RESPONSEMARKER;
   
-  srbmsg->map = urlmapaddi(srbmsg->map, SRB_RETURNCODE, rcode);
+  _mw_srb_setfieldi(srbmsg, SRB_RETURNCODE, rcode);
   if (rcode != 0) {
-    srbmsg->map = urlmapadd(srbmsg->map, SRB_CAUSE, _mw_srb_reason(rcode));
+    _mw_srb_setfield(srbmsg, SRB_CAUSE, _mw_srb_reason(rcode));
     if (field != NULL)
-      srbmsg->map = urlmapadd(srbmsg->map, SRB_CAUSEFIELD, field);
+      _mw_srb_setfield(srbmsg, SRB_CAUSEFIELD, field);
   };
   
   rc = _mw_srbsendmessage (fd, srbmsg);
@@ -666,33 +672,32 @@ int _mw_srbsendcallreply(int fd, SRBmessage * srbmsg, char * data, int len,
 
   srbmsg->marker = SRB_RESPONSEMARKER;
 
-  /* first update th edata field, or remove as appropreate */
+  /* first update the data field, or remove as appropreate */
   if ( (data != NULL) && (len > 0) ) {
-    srbmsg->map = urlmapadd(srbmsg->map, SRB_DATA, NULL);
-    urlmapnset(srbmsg->map, SRB_DATA, data, len);
+    _mw_srb_nsetfield(srbmsg, SRB_DATA,data, len);
   } else {
-    urlmapdel(srbmsg->map, SRB_DATA);
+    _mw_srb_delfield(srbmsg, SRB_DATA);
   };
 
   /* it really is the senders fault if it had set RETURNCODE fields when sending
    * but just to be nice...*/
-  urlmapdel(srbmsg->map, SRB_APPLICATIONRC);
-  urlmapdel(srbmsg->map, SRB_RETURNCODE);
+  _mw_srb_delfield(srbmsg, SRB_APPLICATIONRC);
+  _mw_srb_delfield(srbmsg, SRB_RETURNCODE);
   /* returncodes, add */
-  srbmsg->map = urlmapaddi(srbmsg->map, SRB_APPLICATIONRC, apprcode);
-  srbmsg->map = urlmapaddi(srbmsg->map, SRB_RETURNCODE, rcode);
+  _mw_srb_setfieldi(srbmsg, SRB_APPLICATIONRC, apprcode);
+  _mw_srb_setfieldi(srbmsg, SRB_RETURNCODE, rcode);
 
-  urlmapdel(srbmsg->map, SRB_MORE);
+  _mw_srb_delfield(srbmsg, SRB_MORE);
   if (flags & MWMORE) 
-    srbmsg->map = urlmapadd(srbmsg->map, SRB_MORE, SRB_YES);
+    _mw_srb_setfield(srbmsg, SRB_MORE, SRB_YES);
   else
-    srbmsg->map = urlmapadd(srbmsg->map, SRB_MORE, SRB_NO);
+    _mw_srb_setfield(srbmsg, SRB_MORE, SRB_NO);
 
-  urlmapdel(srbmsg->map, SRB_INSTANCE);
-  urlmapdel(srbmsg->map, SRB_CLIENTNAME);
-  urlmapdel(srbmsg->map, SRB_NOREPLY);
-  urlmapdel(srbmsg->map, SRB_MULTIPLE);
-  urlmapdel(srbmsg->map, SRB_MAXHOPS);
+  _mw_srb_delfield(srbmsg, SRB_INSTANCE);
+  _mw_srb_delfield(srbmsg, SRB_CLIENTNAME);
+  _mw_srb_delfield(srbmsg, SRB_NOREPLY);
+  _mw_srb_delfield(srbmsg, SRB_MULTIPLE);
+  _mw_srb_delfield(srbmsg, SRB_MAXHOPS);
 
   mwlog(MWLOG_DEBUG2, "_mw_srbsendcallreply: sends message");
   rc = _mw_srbsendmessage(fd, srbmsg);
@@ -704,15 +709,15 @@ int _mw_srbsendready(int fd, char * domain)
   int rc;
   SRBmessage srbmsg;
 
-  strncpy(srbmsg.command, SRB_READY, 32);
-  srbmsg.marker = SRB_NOTIFICATIONMARKER;
-  srbmsg.map = NULL;
 
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_VERSION, SRBPROTOCOLVERSION);
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_AGENT, "MidWay");
-  srbmsg.map = urlmapadd(srbmsg.map, SRB_AGENTVERSION, (char *) mwversion());
+  _mw_srb_init(&srbmsg, SRB_READY, SRB_NOTIFICATIONMARKER, 
+	       SRB_VERSION, SRBPROTOCOLVERSION, 
+	       SRB_AGENT, "MidWay", 
+	       SRB_AGENTVERSION, (char *) mwversion(), 
+	       NULL);
+
   if (domain != NULL)
-    srbmsg.map = urlmapadd(srbmsg.map, SRB_DOMAIN, domain);
+    _mw_srb_setfield(&srbmsg, SRB_DOMAIN, domain);
 
   rc = _mw_srbsendmessage(fd, &srbmsg);
   urlmapfree(srbmsg.map);

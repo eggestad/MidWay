@@ -576,6 +576,12 @@ static int ParseMWDTag(xmlNodePtr node)
     mwdSetIPCparam(BUFFERBASESIZE, atoi(propvalue));
   };
 
+  propvalue = xmlGetProp(node, "bufferspersize");
+  if (propvalue) {
+    DEBUG("bufferspersize = %d", atoi(propvalue));
+    mwdSetIPCparam(NUMBUFFERS, atoi(propvalue));
+  };
+
   for (cur = node->children; cur != NULL; cur = cur->next) {
     
      if (cur->type == XML_TEXT_NODE) {

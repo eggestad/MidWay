@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.16  2004/11/17 20:47:57  eggestad
+ * message map leak fix
+ *
  * Revision 1.15  2004/11/08 10:51:48  eggestad
  * fix for possible recv buffer corruption when moving remains to beginning
  *
@@ -313,6 +316,7 @@ void _mw_srb_destroy (SRBmessage * srbmsg)
 {
   if (srbmsg == NULL) return;
 
+  DEBUG1("releasing a srbmsg");
   urlmapfree(srbmsg->map);
   free(srbmsg);
 };
@@ -469,7 +473,7 @@ SRBmessage * _mw_srbdecodemessage(Connection * conn, char * message)
   if (srbmsg->map == NULL) {
      Warning ("rejected message due to error in decode: message \"%s\"", message);
      _mw_srbsendreject_sz(conn, message, -1);
-     free(srbmsg);
+     _mw_srb_destroy(srbmsg);
      errno = EBADMSG;
      return NULL;
   };     

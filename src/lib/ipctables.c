@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/08/31 21:50:48  eggestad
+ * DEBUG level set propper.
+ *
  * Revision 1.2  2000/07/20 19:23:40  eggestad
  * Changes needed for SRB clients and gateways.
  *
@@ -95,7 +98,7 @@ int _mw_attach_ipc(key_t key, int type)
   if (type & MWIPCSERVER)  readonly = 0;
   else readonly = SHM_RDONLY;
 
-  mwlog(MWLOG_DEBUG, "_mw_attachipc(key=%d, type=%s(%d)) readonly=%d", 
+  mwlog(MWLOG_DEBUG1, "_mw_attachipc(key=%d, type=%s(%d)) readonly=%d", 
 	key, type==MWIPCSERVER?"SERVER":"CLIENT", type, readonly);
 
   /* THREAD MUTEX BEGIN */
@@ -108,7 +111,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  key, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG,"main shm info table has id %d",mainid);
+  mwlog(MWLOG_DEBUG1,"main shm info table has id %d",mainid);
 
   ipcmain = (ipcmaininfo *) shmat(mainid, (void *) 0, readonly);
   if ( (ipcmain == NULL) || (ipcmain == (void *) -1) ) {
@@ -118,7 +121,7 @@ int _mw_attach_ipc(key_t key, int type)
     /* MUTEX END */
     return -errno;
   };
-  mwlog(MWLOG_DEBUG,"main shm info table attached at 0x%x",ipcmain);
+  mwlog(MWLOG_DEBUG1,"main shm info table attached at 0x%x",ipcmain);
 
 
   /* attaching all the other tables */
@@ -129,7 +132,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->clttbl_ipcid, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG,"client table attached at 0x%x 0x%x ",clttbl, rc);
+  mwlog(MWLOG_DEBUG1,"client table attached at 0x%x 0x%x ",clttbl, rc);
   
   srvtbl = shmat(ipcmain->srvtbl_ipcid, NULL, readonly);
   if (srvtbl == (void *) -1) {
@@ -137,7 +140,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->srvtbl_ipcid, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG,"Server table attached at 0x%x",srvtbl);
+  mwlog(MWLOG_DEBUG1,"Server table attached at 0x%x",srvtbl);
   
   svctbl = shmat(ipcmain->svctbl_ipcid, NULL, readonly);
   if (svctbl == (void *) -1) {
@@ -145,7 +148,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->svctbl_ipcid, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG,"service table attached at 0x%x",svctbl);
+  mwlog(MWLOG_DEBUG1,"service table attached at 0x%x",svctbl);
   
   gwtbl = shmat(ipcmain->gwtbl_ipcid, NULL, readonly);
   if (gwtbl == (void *) -1) {
@@ -153,7 +156,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->gwtbl_ipcid, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG,"gateway table attached at 0x%x",gwtbl);
+  mwlog(MWLOG_DEBUG1,"gateway table attached at 0x%x",gwtbl);
   
   convtbl = shmat(ipcmain->convtbl_ipcid, NULL, readonly);
   if (convtbl == (void *) -1) {
@@ -161,7 +164,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->convtbl_ipcid, strerror(errno));
     return -errno;
   };
-  mwlog(MWLOG_DEBUG,"convserver table attached at 0x%x",convtbl);
+  mwlog(MWLOG_DEBUG1,"convserver table attached at 0x%x",convtbl);
 
   my_mqid = msgget(IPC_PRIVATE, 0622); /* perm = rw--w--w- */ 
   if (my_mqid == -1) {
@@ -169,12 +172,12 @@ int _mw_attach_ipc(key_t key, int type)
 	  errno);
     return -errno;
   };
-  mwlog(MWLOG_DEBUG,"My request/reply queue has IPC id %d", my_mqid );
+  mwlog(MWLOG_DEBUG1,"My request/reply queue has IPC id %d", my_mqid );
 
   /* Note flag, the heap is never readonly. */
   _mwHeapInfo = shmat (ipcmain->heap_ipcid, NULL, 0);
   if (_mwHeapInfo != NULL) {
-    mwlog(MWLOG_DEBUG, "heap attached");
+    mwlog(MWLOG_DEBUG1, "heap attached");
   };
   /* THREAD MUTEX ENDS */
   return 0;
@@ -215,7 +218,7 @@ int _mw_my_mqid()
 int _mw_mwd_mqid()
 {
   if (ipcmain == NULL) return -EILSEQ;
-  mwlog(MWLOG_DEBUG,"lookup of mwd msgqid gave %d from ipcmain at 0x%x", 
+  mwlog(MWLOG_DEBUG1,"lookup of mwd msgqid gave %d from ipcmain at 0x%x", 
 	ipcmain->mwd_mqid, ipcmain);
   return ipcmain->mwd_mqid;
 };
@@ -337,22 +340,22 @@ serverentry  * _mw_get_server_byid (SERVERID srvid)
   serverentry * srvent; 
 
   if (ipcmain == NULL) { 
-    mwlog(MWLOG_DEBUG,"_mw_get_server_byid called while ipcmain == NULL");
+    mwlog(MWLOG_DEBUG1,"_mw_get_server_byid called while ipcmain == NULL");
     return NULL;
   };
   if (srvid & MWSERVERMASK != MWSERVERMASK) {
-    mwlog(MWLOG_DEBUG,"_mw_get_server_byid srvid & MWSERVERMASK %d != %d", srvid & MWSERVERMASK, MWSERVERMASK);
+    mwlog(MWLOG_DEBUG1,"_mw_get_server_byid srvid & MWSERVERMASK %d != %d", srvid & MWSERVERMASK, MWSERVERMASK);
     return NULL;
   };
   index = srvid & MWINDEXMASK;
   if (index >= ipcmain->srvtbl_length) {
-    mwlog(MWLOG_DEBUG,"_mw_get_server_byid index to big %d > %d", index, ipcmain->srvtbl_length);
+    mwlog(MWLOG_DEBUG1,"_mw_get_server_byid index to big %d > %d", index, ipcmain->srvtbl_length);
     return NULL;
   }
   
   srvent = & srvtbl[index];
   if (srvent->status == UNASSIGNED) {
-    mwlog(MWLOG_DEBUG,"_mw_get_server_byid serverid is not in use");
+    mwlog(MWLOG_DEBUG1,"_mw_get_server_byid serverid is not in use");
     return NULL;
   };
   return srvent;
@@ -502,22 +505,22 @@ gatewayentry * _mw_get_gateway_byid (GATEWAYID gwid)
   gatewayentry * gwent; 
 
   if (ipcmain == NULL) { 
-    mwlog(MWLOG_DEBUG,"_mw_get_gateway_byid called while ipcmain == NULL");
+    mwlog(MWLOG_DEBUG1,"_mw_get_gateway_byid called while ipcmain == NULL");
     return NULL;
   };
   if (gwid & MWSERVERMASK != MWSERVERMASK) {
-    mwlog(MWLOG_DEBUG,"_mw_get_gateway_byid gwid & MWGATEWAYMASK %d != %d", gwid & MWSERVERMASK, MWSERVERMASK);
+    mwlog(MWLOG_DEBUG1,"_mw_get_gateway_byid gwid & MWGATEWAYMASK %d != %d", gwid & MWSERVERMASK, MWSERVERMASK);
     return NULL;
   };
   index = gwid & MWINDEXMASK;
   if (index >= ipcmain->gwtbl_length) {
-    mwlog(MWLOG_DEBUG,"_mw_get_gateway_byid index to big %d > %d", index, ipcmain->gwtbl_length);
+    mwlog(MWLOG_DEBUG1,"_mw_get_gateway_byid index to big %d > %d", index, ipcmain->gwtbl_length);
     return NULL;
   }
   
   gwent = & gwtbl[index];
   if (gwent->status == UNASSIGNED) {
-    mwlog(MWLOG_DEBUG,"_mw_get_gateway_byid gatewayid is not in use");
+    mwlog(MWLOG_DEBUG1,"_mw_get_gateway_byid gatewayid is not in use");
     return NULL;
   };
   return gwent;
@@ -613,16 +616,16 @@ void _mw_set_my_status(char * status)
   if (status == NULL) {
     myentry->status = MWREADY;
     strncpy(myentry->statustext, "(idle)", MWMAXNAMELEN);
-    mwlog(MWLOG_DEBUG, "Returning to idle state");
+    mwlog(MWLOG_DEBUG1, "Returning to idle state");
   } else if (strcmp(status, SHUTDOWN) == 0) {
     myentry->status = MWSHUTDOWN;
     strncpy(myentry->statustext, SHUTDOWN, MWMAXNAMELEN);
-    mwlog(MWLOG_DEBUG, "Status is now SHUTDOWN");
+    mwlog(MWLOG_DEBUG1, "Status is now SHUTDOWN");
   } else {
     myentry->status = MWBUSY;
     /* status is a service name which is always legal length. */
     strncpy(myentry->statustext, status, MWMAXNAMELEN);
-    mwlog(MWLOG_DEBUG, "Starting service %s", status);
+    mwlog(MWLOG_DEBUG1, "Starting service %s", status);
   }
   return;
 };
@@ -634,6 +637,6 @@ void _mw_update_stats(int qlen, int waitmsec, int servmsec)
      I haven't yet figured out how to pass the updae data to mwd.
   */
   
-  mwlog(MWLOG_DEBUG, "Last service request waited %d millisec to be processes and was  completed in %d millisecs. Message queue has now %d pending requests.", waitmsec, servmsec, qlen);
+  mwlog(MWLOG_DEBUG1, "Last service request waited %d millisec to be processes and was  completed in %d millisecs. Message queue has now %d pending requests.", waitmsec, servmsec, qlen);
   return;
 };

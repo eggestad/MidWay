@@ -1,0 +1,51 @@
+The format to .mwsrvmgr is the now normal urlencoding.  every request
+and reply string is "\r\n" terminated. A required field opcode=
+specifies the function. Success or failure are returned thru std MW returncode, 
+error reason thru appcode.
+
+
+list: give multiple replies one for every server defined.
+Optional field group if listing of a spesified group is requested.
+
+
+cmd: opcode=list [group=groupname] 
+
+rep: opcode=list group=groupname  server=servername active=boolean booted=boolean
+
+
+start: starts an instance of a given server
+
+cmd: opcode=start group=groupname server=servername 
+
+rep: opcode=start group=groupname server=servername pid=pid
+
+
+
+stop: schedule stop of an instance to a given server
+
+cmd: opcode=stop group=groupname server=servername [pid=pid] 
+
+rep: opcode=stop group=groupname server=servername pid=pid
+
+
+
+info:
+
+
+
+boot: booting all groups or a given group 
+    
+cmd: opcode=boot [group=groupname]
+
+multiple replies:
+rep: opcode=boot group=groupname server=servername pid=pid
+
+
+
+
+shutdown: shutdowning all groups or a given group 
+    
+cmd: opcode=shutdown [group=groupname]
+
+multiple replies:
+rep: opcode=shutdown group=groupname server=servername pid=pid

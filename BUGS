@@ -138,6 +138,7 @@ REL: 0.10.0
 
 (FIXED) * mwcall fails if NULL as data.
 
+* mwcall return 0 on success, not MWSUCCESS (=1)
 
 -----------------------------------------------------------------------
 

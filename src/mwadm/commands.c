@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2001/10/03 22:56:12  eggestad
+ * added multicast query
+ * added view of gateway table
+ *
  * Revision 1.6  2001/09/15 23:42:56  eggestad
  * fix for changing ipcmain systemname to instance name
  *
@@ -58,6 +62,11 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <stdlib.h> 
 #include <sys/sem.h>
 #include <errno.h>
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <net/if.h>
 
 #include <MidWay.h>
 #include <ipctables.h>
@@ -208,6 +217,39 @@ int services(int argc, char ** argv)
   return 0 ;
 };
 
+int gateways(int argc, char ** argv)
+{
+  int i, count = 0;
+  gatewayentry * gwent;
+  char * token;
+  char * location[3] = { "Local", "Remote", NULL};
+  char * roles[5] = { "NONE", "Clients", "Gateways", "All", NULL};
+
+  printf ("Gateways table:\n");
+  gwent = _mw_getgatewayentry(0);
+  /*  if (extended) printf ("table address %#x \n", 
+      (long)svcent);*/
+  printf ("GWID Domain           location peer-roles pid   status instance \n");
+  for (i = 0; i < ipcmain->gwtbl_length; i++) {
+    if (gwent[i].pid != UNASSIGNED) {
+      count ++;
+      /* if (extended) printf ("@ %#x ", &svcent[i]);*/
+      printf ("%4d %-16.32s %8s %10s %5d %6d %-.32s\n", 
+	      i, 
+	      gwent[i].domainname, 
+	      location[gwent[i].location], 
+	      roles[gwent[i].srbrole], 
+	      gwent[i].pid, 
+	      gwent[i].status,
+	      gwent[i].instancename);
+      
+    };
+  }
+  printf ("\n %d/%d (%5.3f%%) entries used\n", count,i, 
+	  (float) count*100 / (float) i);
+  return 0 ;
+};
+
 
 int heapinfo(int argc, char ** argv) 
 {
@@ -241,6 +283,37 @@ int heapinfo(int argc, char ** argv)
 	   semarray[i] ? "no " : "yes");
   };
   return 0;
+};
+
+int query(int argc, char ** argv) 
+{
+  int i, rc;
+  char addr[INET_ADDRSTRLEN+1];
+  struct sockaddr_in * inaddr;
+  instanceinfo * replies;
+  char * domain = NULL, * instance = NULL;
+  
+  if (argc == 2) {
+    domain = argv[1];
+  } 
+  
+  printf("Domain               Instance             Version  Address\n");
+  replies = mwbrokerquery(domain, instance);
+  if (replies) {
+    for (i = 0; replies[i].version[0] != '\0'; i++) {
+      addr[0] = '\0';
+      inaddr = (struct sockaddr_in *) &replies[i].address;
+      inet_ntop(AF_INET, 
+		&inaddr->sin_addr, 
+		addr, INET_ADDRSTRLEN);
+      printf("%-20s %-20s %7s  AF_INET:%s:%d\n", 
+	     replies[i].domain,
+	     replies[i].instance,
+	     replies[i].version,
+	     addr, ntohs(inaddr->sin_port));      
+    }
+  };
+  return i;
 };
  
 

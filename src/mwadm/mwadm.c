@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2001/10/03 22:56:12  eggestad
+ * added multicast query
+ * added view of gateway table
+ *
  * Revision 1.4  2001/08/29 17:57:59  eggestad
  * had declared a shutdown() function that collided with the syscall, renamed to cmd_shutdown
  *
@@ -86,10 +90,12 @@ int boot(int, char **);
 int clients(int, char **);
 int servers(int, char **);
 int services(int, char **);
+int gateways(int, char **);
 int heapinfo(int, char **);
 int dumpipcmain(int, char **);
 int call(int, char **);
 int quit(int, char **);
+int query(int, char **);
 int toggleRandD(int, char **);
 int attach(int, char **);
 int detach(int, char **);
@@ -113,11 +119,13 @@ struct command  commands[] =
   { "clients",  clients,     0, "clients", "Lists attached clients" },
   { "servers",  servers,     0, "servers", "Lists attached servers" },
   { "services", services,    0, "services", "List provided services." },
+  { "gateways", gateways,    0, "gw", "List gateways." },
   { "boot",     boot,        0, "boot  [-- [any used for mwd]]", "Boot the mwd" },
   { "shutdown", cmd_shutdown,    0, "shutdown", "Shutdown the mwd" },
   { "buffers",  heapinfo,    1, "buffers",    "prints out info on the shm buffer area"},
   { "help",     help,        0, "help [command]", 
     "list available commands and gives online help on spesific commands"},
+  { "query",     query,        0, "query",    "perform a multicast discovery of running instances"},
   { "quit",     quit,        0, "quit",    "exits mwadm"},
   { "q",        quit,        0, "quit",    "exits mwadm"},
   { "R&D",      toggleRandD, 0, "R&D",     "Toggle mwadm into R&D mode."},

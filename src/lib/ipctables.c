@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/09/04 07:13:31  eggestad
+ * mwd now sends an event on service (un)provide
+ *
  * Revision 1.8  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -307,7 +310,9 @@ serverentry * _mw_getserverentry(int i)
 serviceentry * _mw_getserviceentry(int i)
 {
   if (svctbl == NULL) return NULL;
-  i &= MWINDEXMASK;
+
+  i = MWID2SVCID(i);
+
   if ( (i >= 0) && (i <= ipcmain->svctbl_length) )
     return & svctbl[i];
   else 

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2002/09/04 07:13:31  eggestad
+ * mwd now sends an event on service (un)provide
+ *
  * Revision 1.7  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -61,6 +64,7 @@
 #include <ipctables.h>
 #include <mwserverapi.h>
 #include <shmalloc.h>
+#include <internal-events.h>
 #include "mwd.h"
 #include "tables.h"
 #include "events.h"
@@ -326,29 +330,48 @@ static int do_provide(void * mp)
 static int do_unprovide(void * mp)
 {
   Provide * pmesg;
-  serverentry * se;
+  serviceentry * svcent;
+  serverentry * srvent;
+  gatewayentry * gwent;
+  int mqid = -1;
 
   pmesg = (Provide * ) mp;
-  DEBUG("Got an unprovide request from server %#x for service \"%s\" (%#x)", 
-	pmesg->srvid, pmesg->svcname, pmesg->svcid);
-  se = _mw_get_server_byid(pmesg->srvid);
+  DEBUG("Got an unprovide request from server %#x or gateway %#x for service \"%s\" (%#x)", 
+	pmesg->srvid, pmesg->gwid, pmesg->svcname, pmesg->svcid);
 
-  if (se == NULL) {
-    pmesg->returncode = -ENOENT;
-    Warning("Got an unprovide request for \"%s\" from a none attached server %#x",pmesg->svcname, pmesg->srvid);
-  } else {
-    pmesg->returncode = delservice(pmesg->svcid, pmesg->srvid);
-    if (pmesg->returncode == 0) {
-      Info("UNPROVIDE: Service \"%s\" on server %d", pmesg->svcname, pmesg->srvid);
+  svcent = getserviceentry(MWID2SVCID(pmesg->svcid));
+
+  if (svcent == NULL) {
+    Error("unable to get service tbl entry for %d", MWID2SVCID(pmesg->svcid));
+    return -ENOENT;
+  };
+
+  if (pmesg->gwid != svcent->gateway)   
+    Warning("in unprovide request gateway ids mismatch pmesg->gwid %#x != svcent->gateway %#x", 
+	    pmesg->gwid,  svcent->gateway);
+  if (pmesg->srvid != svcent->server)   
+    Warning("in unprovide request server ids mismatch pmesg->srvid %#x != svcent->server %#x", 
+	    pmesg->srvid, svcent->server);
+
+  pmesg->returncode = delservice(pmesg->svcid);
+  if (pmesg->returncode == 0) {
+    Info("UNPROVIDE: Service \"%s\" on server %d or gateway %d", pmesg->svcname, pmesg->srvid, pmesg->gwid);
+    if (svcent->server != UNASSIGNED) {
+      srvent = _mw_getserverentry(svcent->server);
+      if (srvent) mqid = srvent->mqid;      
     } else {
-      Warning("Failed to unprovide service \"%s\" from server %#x reason ",pmesg->svcname, pmesg->srvid, pmesg->returncode);
-    }
+      gwent = _mw_getgatewayentry(svcent->gateway);
+      if (gwent) mqid = gwent->mqid;
+    };
+  } else {
+    Warning("Failed to unprovide service \"%s\" from server %#x reason ", 
+	    pmesg->svcname, pmesg->srvid, pmesg->returncode); 
   }
+
   DEBUG("Replying to unprovide request for \"%s\" rcode = %d", 
 	pmesg->svcname,pmesg->returncode );
   pmesg->mtype = UNPROVIDERPL;
-  return send_reply(pmesg,  sizeof(Provide) -sizeof(long), se->mqid);
-  return -ENOSYS;
+  return send_reply(pmesg,  sizeof(Provide) -sizeof(long), mqid);
 };
 
 static int do_admin(void * mp)

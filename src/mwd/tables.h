@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/09/04 07:13:31  eggestad
+ * mwd now sends an event on service (un)provide
+ *
  * Revision 1.5  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -68,7 +71,7 @@ int delclient(CLIENTID cid);
 
 SERVICEID addlocalservice(SERVERID srvid, char * name, int type);
 SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type);
-int delservice(SERVICEID svcid, SERVERID srvid);
+int delservice(SERVICEID svcid);
 int delallservices(SERVERID srvid);
 
 serverentry *  _mw_get_server_byid(SERVERID);

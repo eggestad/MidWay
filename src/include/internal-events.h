@@ -23,28 +23,28 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.2  2002/09/04 07:13:31  eggestad
+ * Revision 1.1  2002/09/04 07:13:31  eggestad
  * mwd now sends an event on service (un)provide
  *
- * Revision 1.1  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
+ * 
  */
 
-#ifndef _EVENTS_C
-#define _EVENTS_C
+/*
+ * there are some internal events used within an instance that passes a binary struct.
+ */
 
-#include <MidWay.h>
-#include <ipcmessages.h>
+/*
+ * add service  and remove service events are sent by  mwd (to the gw,
+ * but  anyone may receive them  ) evy time  a server do a  provide or
+ * unprovide.  */
 
-int event_subscribe(char * pattern, MWID id, int subid, int flags);
-int event_unsubscribe(int subid, MWID id);
-void event_clear_id(MWID id);
+#define NEWSERVICEEVENT ".mwprovide"
+#define DELSERVICEEVENT ".mwunprovide"
 
-int event_ack(Event * evmsg) ;
-int internal_event_enqueue(char * event, void * data, int datalen, char * user, char * client);
+struct _mwprovideevent {
+  char name[MWMAXSVCNAME];
+  MWID provider;
+  SERVICEID svcid;
+};
 
-int event_enqueue(Event * evmsg);
-int do_events(void);
-
-#endif // _EVENTS_C
+typedef struct _mwprovideevent mwprovideevent;

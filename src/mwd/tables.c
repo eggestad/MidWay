@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2002/09/04 07:13:31  eggestad
+ * mwd now sends an event on service (un)provide
+ *
  * Revision 1.7  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -63,8 +66,10 @@
 #include <MidWay.h>
 #include <osdep.h>
 #include <ipcmessages.h>
+#include <internal-events.h>
 #include "tables.h"
 #include "mwd.h"
+#include "events.h"
 
 cliententry  * clttbl  = NULL;
 serverentry  * srvtbl  = NULL;
@@ -358,6 +363,8 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
  * belonging to this server are deleted.
  * Returns NULL when there are no more services.
  */
+
+/*
 static serviceentry * get_service_bysrv(SERVERID srvid)
 {
   ipcmaininfo * ipcmain;
@@ -378,7 +385,8 @@ static serviceentry * get_service_bysrv(SERVERID srvid)
   }
   return NULL;
 }
-	
+*/
+
 int delclient(CLIENTID cid)
 {
   cliententry * clttbl = NULL;
@@ -444,6 +452,7 @@ SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
   int svcidx;
   serviceentry * svctbl;
   serverentry * srvent;
+  mwprovideevent evdata;
 
   /* We skip test on ipcmain eq to NULL, that really can't happen */
 
@@ -460,6 +469,11 @@ SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
   svctbl[svcidx].server = srvid;
   svctbl[svcidx].location = GWLOCAL;
 
+  strncpy(evdata.name, name, MWMAXSVCNAME);
+  evdata.provider = SRVID2MWID(srvid);
+  evdata.svcid = svcidx;
+  internal_event_enqueue(NEWSERVICEEVENT, &evdata, sizeof(mwprovideevent), NULL, NULL);
+
   DEBUG2("service index = %d srvid = %x type = %d location = %d", 
 	svcidx,  svctbl[svcidx].server, svctbl[svcidx].type, svctbl[svcidx].location);
 
@@ -470,7 +484,7 @@ SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
 SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type)
 {
   int svcidx;
-
+  mwprovideevent evdata;
   serviceentry * svctbl;
   gatewayentry * gwent;
 
@@ -489,6 +503,11 @@ SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type)
   svctbl[svcidx].gateway = gwid;
   svctbl[svcidx].location = GWREMOTE;
 
+  strncpy(evdata.name, name, MWMAXSVCNAME);
+  evdata.provider = GWID2MWID(gwid);
+  evdata.svcid = svcidx;
+  internal_event_enqueue(NEWSERVICEEVENT, &evdata, sizeof(mwprovideevent), NULL, NULL);
+
   DEBUG2("service index = %d gwid = %x type = %d location = %d", 
 	svcidx,  svctbl[svcidx].gateway, svctbl[svcidx].type, svctbl[svcidx].location);
   
@@ -496,26 +515,36 @@ SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type)
   return svcidx;
 };
 
-int delservice(SERVICEID svcid, SERVERID srvid)
+int delservice(SERVICEID svcid)
 {
   int idx;
+  mwprovideevent evdata;
   serviceentry * svctbl = NULL;
   ipcmaininfo * ipcmain = NULL;
   ipcmain = getipcmaintable();
 
-  svctbl = getserviceentry(0);
-  idx = svcid & MWINDEXMASK;
-  
-  if ((srvid != UNASSIGNED) && (srvid != svctbl[idx].server)) {
-    DEBUG("server %#x is not the owner of service %#x", 
-	  srvid, svcid);
-    return -EPERM;
-  };
 
-  DEBUG("Deleting service %#x, name = %s, on server %#x",
-	svcid, svctbl[idx].servicename, svctbl[idx].server);
+  svctbl = getserviceentry(0);
+  idx = MWID2SVCID(svcid);
+
+  evdata.svcid  = idx;
+  strncpy(evdata.name, svctbl[idx].mwname, MWMAXSVCNAME);
+  if (svctbl[idx].server != UNASSIGNED)
+    evdata.provider = svctbl[idx].server;
+  else if (svctbl[idx].gateway) 
+    evdata.provider = svctbl[idx].gateway;
+  else {
+    Error("delservice on a service with both serverid and gatewayid == UNASSIGNED");
+    evdata.provider = UNASSIGNED;
+  };
+  internal_event_enqueue(DELSERVICEEVENT, &evdata, sizeof(mwprovideevent), NULL, NULL);
+
+  DEBUG("Deleting service %#x, name = %s, on server %#x or gateway %#x",
+	svcid, svctbl[idx].servicename, svctbl[idx].server, svctbl[idx].gateway);
   svctbl[idx].type = UNASSIGNED;
   svctbl[idx].server = UNASSIGNED;
+  svctbl[idx].server = UNASSIGNED;
+  svctbl[idx].gateway = UNASSIGNED;
   memset(svctbl[idx].servicename, '\0', MWMAXSVCNAME);
   memset(svctbl[idx].mwname, '\0', MWMAXNAMELEN);
 
@@ -538,7 +567,7 @@ int delallservices(SERVERID srvid)
 
   for (idx = 0; idx < ipcmain->svctbl_length; idx++) {
     if (svctbl[idx].server ==  srvid) {
-      delservice(idx | MWSERVICEMASK, srvid);
+      delservice(idx | MWSERVICEMASK);
       n++;
     };
   }
@@ -626,7 +655,7 @@ static int signallist[5] = { SIGTERM, SIGHUP, SIGQUIT, SIGKILL, 0 };
 
 int kill_all_servers(void)
 {
-  int npidlist, n, i, j, rc; 
+  int n, i, j, rc; 
   pid_t * pidlist;
   if (ipcmain == NULL) return -ENOTCONN;
 
@@ -707,7 +736,7 @@ int check_tables()
 	  Info("Server %d pid=%d has died, cleaning up", i, srvtbl[i].pid);
 	  msgctl(srvtbl[i].mqid, IPC_RMID, NULL);
 	  delserver(MWSERVERMASK | i); 
-	  delallservices(MWSERVERMASK | i);
+	  delallservices(SRVID2MWID(i));
 	};
       }
   };
@@ -718,10 +747,7 @@ int check_tables()
 	si = MWINDEXMASK&svctbl[i].server;
 	if (srvtbl[si].pid == UNASSIGNED) {
 	  Info("Service %d without server, cleaned up", i);
-	  svctbl[i].type = UNASSIGNED;
-	  svctbl[i].location = UNASSIGNED;
-	  svctbl[i].server = UNASSIGNED;
-	  svctbl[i].gateway = UNASSIGNED;
+	  delservice(si);
 	};
       }
   };

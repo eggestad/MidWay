@@ -20,6 +20,10 @@
 
 /*
  * $Log$
+ * Revision 1.10  2002/11/18 00:22:16  eggestad
+ * - added clean up function for all imp/exp belonging to a peer, to be
+ *   called when peers are disconnected.
+ *
  * Revision 1.9  2002/10/22 21:58:21  eggestad
  * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
  *
@@ -68,7 +72,6 @@
 
 
 static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$";
 
 static Export * exportlist = NULL;
 static Import * importlist = NULL;
@@ -238,6 +241,50 @@ int importservice(char * service, int cost, struct gwpeerinfo * peerinfo)
   UNLOCKMUTEX(impmutex);
   return 0;
 };
+
+static void impcleanuppeer(struct gwpeerinfo * pi)
+{
+  Import * imp, **pimp;
+  peerlink ** ppl, * pl;
+
+  LOCKMUTEX(impmutex);
+
+  impdumplist();
+
+  for (pimp = &importlist; *pimp != NULL; *pimp = (*pimp)->next) {
+    imp = *pimp;
+    DEBUG(" pimp = %p *pimp = %p imp = %p service %s ", pimp, *pimp, imp, imp->servicename);
+
+    for(ppl =  &imp->peerlist; *ppl != NULL; ppl = &(*ppl)->next) {
+      pl = * ppl;
+      if ( pl->peer != pi) continue;
+      
+      DEBUG("found the peerlist element, removing");
+
+      if (pl->svcid != UNASSIGNED) 
+	_mw_ipcsend_unprovide_for_id (pl->peer->gwid, imp->servicename, pl->svcid);
+      
+      *ppl = pl->next;
+      free(pl);
+      
+      if (imp->peerlist != NULL)  {
+	DEBUG("Not the last peer to provide %s, not sending unprovide to mwd", imp->servicename); 
+	// TODO: recalc cost
+	break;
+      };
+            
+      DEBUG("now we must remove the  Import element from the importlist %p", importlist);
+      *pimp = imp->next;
+      free(imp);
+      break;
+    }; 
+    if (*pimp == NULL) break;
+  };
+
+  impdumplist();
+  UNLOCKMUTEX(impmutex);
+  return;
+}  
 
 int unimportservice(char * service, struct gwpeerinfo * pi)
 {
@@ -457,6 +504,43 @@ static void unexportservice(char * servicename)
     DEBUG("unexport complete");
 };
 
+static void expcleanuppeer(struct gwpeerinfo * pi)
+{
+  Export * exp;
+  peerlink * pl, **ppl;
+
+  expdumplist();
+
+  for (exp = exportlist; exp != NULL; exp = exp->next) {
+    DEBUG(" export = %s", exp->servicename);
+    for (ppl = &exp->peerlist; *ppl != NULL; ppl = &(*ppl)->next) {
+      pl = *ppl;
+      DEBUG("  peerlink %p pi = %p", pl->peer, pi);
+      if (pl->peer != pi) continue;
+      
+      *ppl = pl->next;
+      free(pl);
+      break;
+    };
+  };  
+
+  expdumplist();
+  DEBUG("unexport complete");  
+};
+
+/**********************************************************************************/
+
+void impexp_cleanuppeer(struct gwpeerinfo * pi)
+{
+  DEBUG("Cleanimg up after GW %#x hostname = %s instance %s @ %s", 
+	 pi->gwid, 
+	 pi->hostname, 
+	 pi->instance, 
+	 pi->conn->peeraddr_string);
+
+  expcleanuppeer(pi);
+  impcleanuppeer(pi);
+};
 
 /* called when we get ab newprovire event from mwd */
 void doprovideevent(char * service)

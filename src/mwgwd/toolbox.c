@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.5  2002/12/11 17:03:46  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.4  2002/11/19 12:43:55  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -107,7 +110,7 @@ static void printlist(char ** list)
 };
 #else 
 #define printlist(x)
-#define memprint(x)
+#define memprint(x, y)
 #endif
 
 /* this  is a function  that create a  list of strings, but  the char*

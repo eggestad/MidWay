@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/12/11 17:03:46  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.6  2002/11/19 12:43:55  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -100,7 +103,7 @@ int main(int argc, char ** argv)
 #ifdef DEBUGGING
   loglevel = MWLOG_DEBUG2;
 #else 
-  loglevel = MWLOG_INFO
+  loglevel = MWLOG_INFO;
 #endif
 
   while ((option = getopt(argc, argv, "l:L:s:A:")) != EOF) {

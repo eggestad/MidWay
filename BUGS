@@ -14,6 +14,9 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 
 (shutdown command, OK) * we need at all ends to handle disappearing
   message queues. (probably server only.)  mwd fixed
+  
+* addtitonal fixup, have now created a shutdown task, but still need
+  to look at the correct sequencing.
 
 * mwadm don't detach ipc when issuing a shutdown command.
 
@@ -27,9 +30,9 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 
 * _mwrealloc() handles malloc() buffers, it shouldn't. (??)
   
-* I question the way I get ipcmain info. I call _mw_ipcmaininfo() in
-  every function where it's needed. I really should have a global var.
-  (maybe a macro?)
+(non issue!) * I question the way I get ipcmain info. I call
+  _mw_ipcmaininfo() in every function where it's needed. I really
+  should have a global var.  (maybe a macro?)
 
 * completion in mwadm is incomplete, works only on the command verb.
   Need to do port to readlin4 anyway. 
@@ -200,7 +203,7 @@ FIXED * handling of accidental deletion of shm segments. On HP-UX key
 (FIXED, thru -D or mwadm) * mwd should go into daemon state after
   boot.
 
-(PARTIAL) * mwd need to accept a shutdown command somehow.
+(FIXED) * mwd need to accept a shutdown command somehow.
 
 (FIXED) * mwadm need shutdown and boot commands.
 

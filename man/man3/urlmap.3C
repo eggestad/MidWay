@@ -1,0 +1,139 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 2000 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH URLMAP 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
+.SH NAME
+urlmap \- Introduction to operations on an URL encoded field list
+.SH SYNOPSIS
+.B #include <urlencode.h>
+.sp
+.BI "urlmap * urlmapdecode (char * " list ");"
+.br
+.BI "char * urlmapencode (urlmap * " map ");"
+.br
+.BI "int urlmapnencode (char * " list ", int " len, " urlmap * " map ");"
+.br
+.BI "void urlmapfree (urlmap * " map ");"
+.sp
+.BI "int urlmapnset (urlmap * " map ", char * " key ", void * " value ", int " len ");" 
+.br
+.BI "int urlmapset (urlmap * " map ", char * " key ", char * " value ");"  
+.br
+.BI "int urlmapget (urlmap * " map ", char * " key ");"   
+.sp
+.BI "urlmap * urlmapnadd (urlmap * " map ", char * " key ", void * " value ", int " len ");"
+.br
+.BI "urlmap * urlmapadd (urlmap * " map ", char * " key ", char * " value ");"
+.br
+.BI "urlmap * urlmapaddi (urlmap * " map ", char * " key ", int " value ");"
+.br
+.BI "int urlmapdel (urlmap * " map ", char * " key ");"
+
+.SH DESCRIPTION
+When deciding that 
+.B MidWay (7) 
+should not have a data presentation, it was with the understanding
+that different applications have very diffrent need here. It would be
+nice however to support a simple, common way of passing data.
+
+Some users
+of MidWay may choose to send C structs, but they are definitly not
+platform indpendent. Some may choose to use xdr or even ASN.1. More
+likely some may use XML, which is probably a very good idea. 
+
+HTML/HTTP has proven beyond a doubt that encoding a field list
+key1=value1&key2=value2 is a platform independent way of passing
+data. THis is formally known as MIME type application/x-url-encoded.
+
+I came to like the HTTP URL way of encode a set of name/value
+pairs. It has the nice quality that you don't have to deal with fields
+you don't know or understand, thus eliminating any need of an IDL
+(interface Definition Language).
+
+The primary reason for choosing URL encoding over XML, is that XML is
+not yet fully proven, and that URL is very proven. Two other reason is
+that XML really need a DTD, which tastes too much like a IDL.
+
+As a side note Tuxedo(tm) has a similar library called FML (Field
+Manipulation Language), that DO require an IDL, and all fields must be
+known at compile time, and the fields are typed.
+
+Another cool thing this way on encoding allows is nesting. 
+
+This library transforms an URL encoded list into a map. It breaks up
+the keys and values and unescapes nonprintable characters in the keys
+and values. 
+
+The urlmap structure is defines as follows:
+.nf
+.sp
+struct urlmap{
+   char * key;
+   char * value;
+   int valuelen;
+} ;
+.fi
+
+Note that the urlmap add functions that operate on the array, may
+resize it by
+.BR realloc (). 
+
+The key and value escaping, uses % escape of all bytes containing
+anything other than alpha numeric. That means that the value string
+may contain NULL if %00 was in the list. 
+
+Note that %00 is effectivly illegal in the key in this library, so is
+duplicate keys.
+
+.SH WARNINGS
+This library uses 
+.BR malloc () 
+and 
+.BR free ()
+to allocate the space for the map array, key and value buffers. If you
+assign them to fixed data or use
+.B new 
+in C++ and call 
+.BR urlmapfree (), 
+bad things will happen. Usually free causes a core dump.
+
+.SH EXAMPLES
+for example wi have a liste like this:
+.br
+.BI firstname = Joe & lastname = Doe & age = 19 & address = 4242%20something%20street%0aSpringfield
+
+
+.nf
+urlmap * map;
+
+map = urldecode("address=4242%20something%20street%0aSpringfield");
+index = urlmapget(map, "address");
+printf("%*.*s", map[index].valuelen, map[index].valuelen, 
+       map[index].value); 
+.I " => 4242 something street"
+.I "    Springfield"
+urlmapfree(map);
+.fi
+.SH BUGS 
+
+.SH NOTES
+The urlencode library is not within the MidWay namespace, nor is it
+neccessary to include the library when compiling a MidWay client or
+server. It is provided since many of these functions are used in the
+MidWay libraries, and are used extensivly within MidWay to implement
+the SRB protocol.
+
+.SH "SEE ALSO"
+.BR urlmapdecode (3C), urlmapencode (3C), urlmapnencode (3C), 
+.BR urlmapfree (3C), urlmapnset (3C), urlmapset (3C), 
+.BR urlmapget (3C), urlmapnadd (3C), urlmapadd (3C), 
+.BR urlmapaddi (3C), urlmapdel (3C)
+
+RFC2616 - Hypertext Transfer Protocol -- HTTP/1.1
+
+.SH STANDARDS
+NONE

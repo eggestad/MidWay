@@ -1,0 +1,75 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 2000 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH URLENCODE 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
+.SH NAME
+urlmapencode, urlmapnencode,urlmapdecode \- Encode and decode of an
+URL encoded field list
+.SH SYNOPSIS
+.B #include <urlencode.h>
+.sp
+.BI "int urlmapnset (urlmap * " map ", char * " key ", void * " value ", int " len ");" 
+.br
+.BI "int urlmapset (urlmap * " map ", char * " key ", char * " value ");"  
+.br
+.BI "int urlmapget (urlmap * " map ", char * " key ");"   
+
+.SH DESCRIPTION
+The 
+.BR urlmapget ()
+returns the index into the map array where the key is equal to 
+.IR key .
+
+The set functions set a value to a given key. The key must already exists. 
+.BR urlmapset ()
+takes the key and value as NULL terminated strings, while 
+.BR urlmapnset ()
+takes a pointer to 
+.I len 
+bytes, that may contain '\0';
+
+
+.SH "RETURN VALUES"
+On success, the index into the map. -1 and errno of failure. 
+
+.SH "ERRORS"
+.TP
+.B ENOENT
+There are no entry in 
+.I map 
+with 
+.IR key .
+.TP 
+.B EINVAL
+Either 
+.IR map or key
+are NULL.
+
+.SH WARNINGS
+
+.SH EXAMPLES
+
+.SH BUGS 
+
+.SH NOTES
+The urlencode library is not within the MidWay namespace, nor is it neccessary to include 
+the library when compiling a MidWay client or server. It is provided since many of 
+these functions are used in the MidWay libraries, and are used extensivly within
+MidWay to implement the SRB protocol. 
+
+.SH "SEE ALSO"
+.BR urlmapdecode (3C), 
+.BR urlmapencode (3C), 
+.BR urlmapnencode (3C), 
+.BR urlmapfree (3C), 
+.BR urlmapnadd (3C), 
+.BR urlmapadd (3C), 
+.BR urlmapaddi (3C), 
+.BR urlmapdel (3C)
+
+.SH STANDARDS
+NONE

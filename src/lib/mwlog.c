@@ -24,6 +24,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2002/10/03 21:10:42  eggestad
+ * - switchlog() didn't switch log on mwsetlogprefix()
+ *
+ * (still not quite happy on default logfiles)
+ *
  * Revision 1.7  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -74,6 +79,7 @@ char *levelheader[] = { "FATAL: ", "ERROR: ", "Warning: ", "ALERT:", "info: ",
 
 static FILE *log = NULL;
 static int loglevel = MWLOG_INFO;
+static int _force_switchlog = 0;
 static char * logprefix = NULL;
 static char * progname = NULL;
 static FILE * copy_on_FILE = NULL;
@@ -121,12 +127,23 @@ switchlog (void)
   char newsuffix[100];
   char filename[256];
 
+  TIMEPEG();
+
   if (logprefix == NULL) return ;
 
+  /* if an openlog call has been made in between, we swichlog even if not at the end of day */ 
   gettimeofday(&tv,NULL);
-  strftime(newsuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
-  if (strcmp(newsuffix, timesuffix) == 0) return;
-
+ 
+  if (_force_switchlog) {
+    _force_switchlog = 0;
+  } else {
+    strftime(newsuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
+    if (strcmp(newsuffix, timesuffix) == 0) {
+      TIMEPEG();
+      return;
+    };
+  };
+  
   strftime(timesuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
 
   if (logprefix != NULL) {
@@ -141,10 +158,11 @@ switchlog (void)
     mwlog(MWLOG_INFO, "Switching to New Log %s", filename);
     fclose(log);
   };
-
+  
   log = fopen(filename,"a");
-
+  
   mwlog(MWLOG_INFO, "Switched to New Log %s", filename);
+  TIMEPEG();
   return;
 }
 
@@ -167,7 +185,7 @@ _mw_vlogf(int level, char * format, va_list ap)
     fprintf(log,"[%5d] [%c]: ",getpid(), levelprefix[level]);
     vfprintf(log, format, ap);
     fputc('\n',log);
-
+    
     fflush(log);
   } 
 
@@ -226,7 +244,8 @@ void mwsetlogprefix(char * lfp)
 
 void mwopenlog(char * prog, char * lfp, int level)
 {
-  
+  /* set flag for switchlog() to switch logs even if not at the endof day. */
+  _force_switchlog = 1;
   mwsetlogprefix(lfp);
   mwsetloglevel(level);
 

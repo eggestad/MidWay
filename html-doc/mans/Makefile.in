@@ -1,5 +1,6 @@
-
-
+srcdir = @srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
 
 
 all:	
@@ -12,3 +13,5 @@ distclean:
 	rm -f Makefile *~
 
 install:
+
+uninstall:

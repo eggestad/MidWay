@@ -43,6 +43,17 @@ traces all SRB messages the mwbd receives and sends to
 .BR MidWay (7),  mwd (1), mwgwd (1)
 
 .SH WARNINGS
+We inherit the umask form the shell from where it was started, unless
+overridden in the config. umask property to the mwd tag. The normal
+shell umask is 0644, which is OK if you want other user than the owner
+to attach with IPC. Note that this is the mask that is used for the
+shared memory tables, with one exeption, the buffer area that must be
+writeable for all tah may attach. That means access bit 0666 if you
+let mask be 022. For a more secure setup set mask to 066 which only
+allow access by the owner and nobody else. There are infact only three
+recommended settings, umask=022, umask = 026, and umask = 066. The
+first allows abarybody to attach, the other allow only thr group, and
+the last only the owner.
 
 .SH BUGS
 If the unix socket is rm'ed the broker must be restarted. It really

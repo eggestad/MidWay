@@ -71,6 +71,7 @@ rm -f /usr/lib/libMidWay.so
 /usr/man/man8/*
 
 %files devel
+%defattr(-,root,root)
 /usr/man/man3/*
 /usr/include/MidWay.h
 /usr/lib/libMidWay.a

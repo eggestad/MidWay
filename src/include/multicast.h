@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.2  2001/10/03 22:57:00  eggestad
+ * added missing prototype
+ *
  * Revision 1.1  2001/09/15 23:40:09  eggestad
  * added the broker daemon
  *
@@ -42,5 +45,6 @@
 int _mw_setmcastaddr(void);
 int _mw_initmcast(int s);
 int _mw_sendmcast (int s, char * payload, int plen);
+int _mw_getmcastreply(int s, instanceinfo * reply, float timeout);
 
 #endif //_MULTICAST_H

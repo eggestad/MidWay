@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/09/04 07:19:12  eggestad
+ * mwd now sends an event on service (un)provide
+ *
  * Revision 1.5  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -68,7 +71,6 @@ void _mw_copy_on_stdout(int flag);
 static int go_on_patrol(void)
 {
   struct timeval tm;
-  int npids, * pids;
 
   gettimeofday(&tm, NULL);
 

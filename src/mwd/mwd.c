@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2002/09/04 07:19:12  eggestad
+ * mwd now sends an event on service (un)provide
+ *
  * Revision 1.9  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -908,7 +911,7 @@ static void mainloop(void)
   /* clean up provided services, completly redundant, but clean code
      is clean code! */
   _mw_popservice(serviceid_srvmgr);
-  delservice(serviceid_srvmgr, _mw_get_my_serverid());
+  delservice(serviceid_srvmgr);
 
 };
 

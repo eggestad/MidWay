@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2002/09/26 22:34:34  eggestad
+ * added cost to the debug dump of provide message
+ *
  * Revision 1.12  2002/09/22 23:01:16  eggestad
  * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
  *
@@ -206,9 +209,11 @@ void  _mw_dumpmesg(void * mesg)
           SERVICEID   svcid              =  %#x\n\
           GATEWAYID    gwid              =  %#x\n\
           char        svcname            =  %.32s\n\
+          int         cost               =  %d\n\
           int         flags              =  %#x\n\
           int         returncode         =  %d", 
-	  pm->mtype, pm->srvid, pm->svcid, pm->gwid, pm->svcname, pm->flags, pm->returncode);
+	   pm->mtype, pm->srvid, pm->svcid, pm->gwid, 
+	   pm->svcname, pm->cost, pm->flags, pm->returncode);
     return;
   case SVCCALL:
   case SVCFORWARD:

@@ -1,3 +1,9 @@
+2003-09-25  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* A serious bug in SRB if multiple messages was fetched and left
+	in the connection inbound buffer, resulting in lost messages. 
+	* loglevel env vars now accept levels as a string
+
 2003-08-07  Terje Eggestad  <terje.eggestad@iname.com>
 
 	* There was a critical bug in client SRB buffering of incomming

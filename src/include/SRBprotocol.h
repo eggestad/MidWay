@@ -194,7 +194,7 @@ void _mw_srb_delfield   (SRBmessage * srbmsg, char * key);
 
 /* encode decode */
 SRBmessage * _mw_srbdecodemessage(Connection * conn, char * message);
-SRBmessage * _mw_srb_recvmessage(Connection * conn, int blocking);
+SRBmessage * _mw_srb_recvmessage(Connection * conn, int flags);
 
 int _mw_srbsendmessage(Connection * conn, SRBmessage * srbmsg);
 int _mw_srbencodemessage(SRBmessage * srbmsg, char * buffer, int buflen);

@@ -21,6 +21,10 @@
 
 /*
  * $Log$
+ * Revision 1.12  2003/09/25 19:36:17  eggestad
+ * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
+ * - also improved logic in blocking/nonblocking of reading on Connection objects
+ *
  * Revision 1.11  2003/08/06 23:16:18  eggestad
  * Merge of client and mwgwd recieving SRB messages functions.
  *
@@ -448,7 +452,7 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
    alarm(10);
    /* read SRB READY */
    DEBUG3("_mwattach_srb: awaiting a srb ready message, blocking mode, 10 sec deadline.");
-   srbmsg = _mw_srb_recvmessage(&cltconn, 1);
+   srbmsg = _mw_srb_recvmessage(&cltconn, 0);
    alarm (0);
 
    if (srbmsg == NULL) {
@@ -486,7 +490,7 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
    /* get reply */
    alarm(10);
    DEBUG3("_mwattach_srb: awaiting a srb init reply, blocking mode, 10 sec deadline.");
-   srbmsg = _mw_srb_recvmessage(&cltconn, 1);
+   srbmsg = _mw_srb_recvmessage(&cltconn, 0);
    alarm (0);
 
    if ( (srbmsg  == NULL) || (srbmsg->command == NULL) || (srbmsg->map == NULL) ) {
@@ -573,9 +577,12 @@ static urlmap * _mw_read_svcreply(int flags)
 
       DEBUG3("_mwfetch_srb: at top of drain loop about to call _mw_srb_recvmessage(%s)", 
 	     blocking ? "blocking":"nonblocking");
+
       /* if we have call reply to return we don't block, nor if NOBLOCK flag is set '*/
+
       errno = 0;
-      srbmsg = _mw_srb_recvmessage(&cltconn, blocking);
+
+      srbmsg = _mw_srb_recvmessage(&cltconn, flags);
 
       if (srbmsg == NULL) {
 	 DEBUG1("_mwfetch_srb: readmessage failed with errno=%d", errno);
@@ -594,7 +601,7 @@ static urlmap * _mw_read_svcreply(int flags)
 	    };
 	    
 	 default:  	    
-	    Warning("_mwfetch_srb: got an incomprehensible SRB message");
+	    Warning("_mwfetch_srb: got an incomprehensible SRB message errno%d", errno);
 	    /* we should reject it */
 	    continue;	    
 	 };

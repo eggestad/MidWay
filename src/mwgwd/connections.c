@@ -20,6 +20,10 @@
 
 /*
  * $Log$
+ * Revision 1.21  2003/09/25 19:36:17  eggestad
+ * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
+ * - also improved logic in blocking/nonblocking of reading on Connection objects
+ *
  * Revision 1.20  2003/08/06 23:16:19  eggestad
  * Merge of client and mwgwd recieving SRB messages functions.
  *
@@ -805,14 +809,90 @@ static void copy_fd_set(fd_set * copy, fd_set * orig, int n)
   memcpy(copy, orig, sizeof(fd_set));
 };
 
+////////////////////////////////////////////////////////////////////////
+
+/* the read fifo is a poll/select queue of connections that has data,
+   probably a completemessage in the receive buffer. conn_select will
+   attempt to dequeue here before doing select. */
+
+static Connection * read_pending_fifo_head = NULL;
+static Connection * read_pending_fifo_tail = NULL;
+static Connection * write_pending_fifo = NULL;
+
+void conn_read_fifo_print(void)
+{
+   Connection * this;
+   Connection * head = read_pending_fifo_head;
+   Connection * tail = read_pending_fifo_tail;
+   
+   DEBUG2("fifo HEAD = %p", head);
+   for (this = head; this != NULL; this = this->read_fifo_next) {
+      DEBUG2 ("     conn = %p <fd=%-4d next=%p prev=%p leftover=%d", 
+	      this, this->fd, this->read_fifo_next, this->read_fifo_prev, this->leftover);
+   };
+   DEBUG2("fifo TAIL = %p", tail);
+};
 
 
-/* 
-  int conn_write(Connection * conn, char * buffer, int len);
-*/
+void conn_read_fifo_enqueue(Connection *conn)
+{
+   Assert (conn);
+   Assert (conn->read_fifo_prev == NULL);
+   Assert (conn->read_fifo_next == NULL);
+
+   if (read_pending_fifo_head == NULL) {
+      DEBUG("fifo empty inserting %p", conn);
+      read_pending_fifo_head = read_pending_fifo_tail = conn;
+      conn->read_fifo_prev = conn->read_fifo_next = NULL;
+      conn_read_fifo_print();
+      return;
+   };
+
+   DEBUG("fifo not empty inserting %p", conn);
+   read_pending_fifo_head->read_fifo_prev = conn;
+   conn->read_fifo_next = read_pending_fifo_head;
+   read_pending_fifo_head = conn;
+   conn_read_fifo_print();
+   return;
+};
+
+Connection * conn_read_fifo_dequeue(void) 
+{
+   Connection * conn;
+   conn_read_fifo_print();
+   
+   if (read_pending_fifo_head == NULL) {
+      DEBUG("fifo empty");
+      assert (read_pending_fifo_tail == NULL);
+      return NULL;
+   };
+
+   if (read_pending_fifo_head == read_pending_fifo_tail) {
+      conn = read_pending_fifo_head;
+      DEBUG("fifo has only one element: %p", conn);
+      conn->read_fifo_prev = conn->read_fifo_next = NULL;
+      read_pending_fifo_head = read_pending_fifo_tail = NULL;      
+      return conn;
+   };
+   
+   conn = read_pending_fifo_tail;
+   DEBUG("dequeuing last element: %p", conn);
+   conn->read_fifo_prev->read_fifo_next = NULL;
+   read_pending_fifo_tail = conn->read_fifo_prev;
+   conn->read_fifo_prev = NULL;
+
+   return conn;
+};
+   
+   
+   
+void conn_write_pending(Connection *);
+Connection * conn_next_write(void);
+
+
 DECLAREEXTERNMUTEX(bigmutex);
 
-int conn_select(int * cause, time_t deadline)
+int conn_select(Connection ** pconn, int * cause, time_t deadline)
 {
   static fd_set rfds, wfds, errfds;
   static int lastret = 0;
@@ -820,8 +900,11 @@ int conn_select(int * cause, time_t deadline)
   static struct timeval tv, * tvp;
   int  i, fd;
   int now;
+  Connection * conn;
+
 
   DEBUG2("Beginning conn_select() select version");    
+  *pconn = NULL;
 
   if (deadline >= 0) {
     now = time(NULL);
@@ -837,6 +920,18 @@ int conn_select(int * cause, time_t deadline)
     tvp = &tv;
   } else {
     tvp = NULL;
+  };
+
+  conn = conn_read_fifo_dequeue();
+  if (conn) {
+     // we do a biglock unlock/lock to let the ipcmain do something between our processing
+     UNLOCK_BIGLOCK();
+     DEBUG("Connection %p fd=%d has dat ain buffer leftover=%d", conn, conn->fd, conn->leftover);
+     LOCK_BIGLOCK();
+     
+     *pconn = conn;
+     *cause = COND_READ;
+     return conn->fd;
   };
 
   /* we only call select if we've returned all the fd's returned by
@@ -867,6 +962,7 @@ int conn_select(int * cause, time_t deadline)
     TIMEPEGNOTE("start TCP");
     TIMEPEGNOTE("start");
 
+    	  
     if (n == -1) {
       DEBUG("select returned with failure %s", 
 	    strerror(errno));
@@ -910,6 +1006,8 @@ int conn_select(int * cause, time_t deadline)
     if (*cause != 0) {
       lastret = fd;
       n--;
+      conn = fd2conn(fd);
+      *pconn = conn;
       return fd;
     };
   };

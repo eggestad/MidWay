@@ -21,6 +21,10 @@
 
 /*
  * $Log$
+ * Revision 1.16  2003/09/25 19:36:20  eggestad
+ * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
+ * - also improved logic in blocking/nonblocking of reading on Connection objects
+ *
  * Revision 1.15  2003/08/06 23:16:19  eggestad
  * Merge of client and mwgwd recieving SRB messages functions.
  *
@@ -302,7 +306,7 @@ static void gwreadmessage(Connection * conn)
   TIMEPEGNOTE("begin");
 
   errno = 0;
-  srbmsg = _mw_srb_recvmessage(conn, CONN_NONBLOCKING);
+  srbmsg = _mw_srb_recvmessage(conn, MWNOBLOCK);
   TIMEPEG();
 
   DEBUG2("read a message from fd=%d returned %p errno=%d", conn->fd,  srbmsg, errno);
@@ -439,7 +443,7 @@ int tcp_do_read_condiion(Connection * conn)
     conn = tcpnewconnection(conn);
   };
   
-  DEBUG("doing readmessage on fd %d", conn->fd);
+  DEBUG("doing gwreadmessage on fd %d", conn->fd);
   TIMEPEG();
   gwreadmessage(conn);
   return 0;
@@ -520,26 +524,27 @@ void * tcpservermainloop(void * param)
     errno = 0;
     DEBUG2("%s", conn_print());
  
-    fd = conn_select(&cond, timeout);
-    DEBUG2("conn_select returned %d errno=%d", fd, errno);
+    conn = NULL;
+    rc= conn_select(&conn, &cond, timeout);
+    DEBUG2("conn_select returned %d errno=%d", rc, errno);
 
     TIMEPEG();
-    if (fd < 0) {
-      if (fd == -ETIME) {
+    if (rc < 0) {
+      if (rc == -ETIME) {
 	timer_task();
 	continue;
-      } else if (fd == -EINTR) {
+      } else if (rc == -EINTR) {
 	continue;
       };
       
-      Error("conn_select returned error %d, shutingdown", fd);
+      Error("conn_select returned error %d, shutingdown", rc);
       globals.shutdownflag = 1;
       continue;
     }
     TIMEPEG();
-    conn = conn_getentry(fd);
+    Assert (conn);
     DEBUG("conn info fd=%d listen=%d broker=%d cond=%#x", 
-	  fd, conn->type == CONN_TYPE_LISTEN, conn->type == CONN_TYPE_BROKER, cond);
+	  conn->fd, conn->type == CONN_TYPE_LISTEN, conn->type == CONN_TYPE_BROKER, cond);
     TIMEPEG();
     if (cond & COND_ERROR) {
       rc = tcp_do_error_condiion(conn);

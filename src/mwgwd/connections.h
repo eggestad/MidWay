@@ -22,6 +22,10 @@
 
 /*
  * $Log$
+ * Revision 1.7  2003/09/25 19:36:19  eggestad
+ * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
+ * - also improved logic in blocking/nonblocking of reading on Connection objects
+ *
  * Revision 1.6  2003/08/06 23:16:19  eggestad
  * Merge of client and mwgwd recieving SRB messages functions.
  *
@@ -72,9 +76,17 @@ Connection * conn_getmcast(void);
 Connection * conn_getgateway(GATEWAYID gwid);
 Connection * conn_getclient(CLIENTID cid);
 
-int conn_select(int * cause, time_t timeout);
+void conn_read_fifo_enqueue(Connection *conn);
+Connection * conn_read_fifo_dequeue(void);
+
+int conn_select(Connection ** pconn, int * cause, time_t timeout);
+
+
 
 char * conn_print(void);
 
 void unpoll_write(int fd);
 void poll_write(int fd);
+
+
+

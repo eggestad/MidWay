@@ -21,6 +21,10 @@
 
 /*
  * $Log$
+ * Revision 1.2  2003/09/25 19:36:17  eggestad
+ * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
+ * - also improved logic in blocking/nonblocking of reading on Connection objects
+ *
  * Revision 1.1  2003/08/07 11:19:55  eggestad
  * Merge of client and mwgwd recieving SRB messages functions.
  *
@@ -88,7 +92,7 @@ int _mw_conn_write(Connection * conn, char * msg, int mlen, int flags)
    int rc;
    int socketflags = MSG_NOSIGNAL;
 
-   if (flags & CONN_NONBLOCKING) socketflags |= MSG_DONTWAIT;
+   if (flags & MWNOBLOCK) socketflags |= MSG_DONTWAIT;
 
    if (!conn) return -EINVAL;
 

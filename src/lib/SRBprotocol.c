@@ -21,6 +21,10 @@
 
 /*
  * $Log$
+ * Revision 1.11  2003/09/25 19:36:17  eggestad
+ * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
+ * - also improved logic in blocking/nonblocking of reading on Connection objects
+ *
  * Revision 1.10  2003/08/06 23:16:18  eggestad
  * Merge of client and mwgwd recieving SRB messages functions.
  *
@@ -465,18 +469,28 @@ SRBmessage * _mw_srbdecodemessage(Connection * conn, char * message)
   return srbmsg;
 }
 
+void conn_read_fifo_enqueue(Connection *conn);
+#pragma weak conn_read_fifo_enqueue
+
+void conn_read_fifo_enqueue(Connection *conn)
+{
+   return;
+};
 /**********************************************************************
  * Function for receiving messages 
  **********************************************************************/
 
-SRBmessage * _mw_srb_recvmessage(Connection * conn, int blocking)
+SRBmessage * _mw_srb_recvmessage(Connection * conn, int flags)
 {  
    int i, n, end, start = 0;
    int eof = 0, err = 0;
    char * msgptr;
    SRBmessage * srbmsg;
-
+   int blocking, recurse;
    
+   blocking = !(flags & MWNOBLOCK);
+   recurse = 0;
+
    TIMEPEGNOTE("begin");
    DEBUG3("starting conn=%p blocking=%d", conn, blocking);
    if (!conn) {
@@ -485,7 +499,16 @@ SRBmessage * _mw_srb_recvmessage(Connection * conn, int blocking)
    };
    if (conn->messagebuffer == NULL) {
       conn->messagebuffer = malloc(SRBMESSAGEMAXLEN+8);
+      conn->possible_message_in_buffer = 0;
+      conn->leftover = 0;
    };
+
+   if (blocking && (conn->possible_message_in_buffer)) {
+      DEBUG3("blockng but there may be a message in buffer, doing non block, and recurse");
+      blocking = 0;
+      recurse = 1;
+   };
+
    n = _mw_conn_read(conn, blocking);
 
    TIMEPEG();
@@ -538,12 +561,15 @@ SRBmessage * _mw_srb_recvmessage(Connection * conn, int blocking)
 
 	 if (start == end) { 
 	    conn->leftover = 0;
+	    conn->possible_message_in_buffer= 0;
 	 } else {
 	    conn->leftover = end - start;
+	    conn->possible_message_in_buffer= 1;
 	    DEBUG2("memcpy %d leftover %p => %p", 
 		   conn->leftover, msgptr,conn->messagebuffer);
 	    memcpy(conn->messagebuffer, msgptr, conn->leftover);	    
 	    msgptr[conn->leftover] = '\0';
+	    conn_read_fifo_enqueue(conn);
 	 };
 
 	 if (err) {
@@ -552,7 +578,7 @@ SRBmessage * _mw_srb_recvmessage(Connection * conn, int blocking)
 	    TIMEPEGNOTE("end error");
 	    return NULL;
 	 };
-	 	 
+
 	 /* if inline data we must do something to get it now */
 	 TIMEPEGNOTE("end msg");
 	 DEBUG3("good end");
@@ -560,13 +586,23 @@ SRBmessage * _mw_srb_recvmessage(Connection * conn, int blocking)
 	 
       };
    }
+   DEBUG3("no message in the %d bytes in message buffer", conn->leftover);
+
+   conn->possible_message_in_buffer= 0;
    if (eof)
       errno = EPIPE;
    else
       errno = EAGAIN;
-   
+
+   if (recurse) {
+      TIMEPEGNOTE("end recurse");
+      DEBUG3("end recurse");
+      return _mw_srb_recvmessage(conn, flags);
+   };
+
    TIMEPEGNOTE("end no msg");
    DEBUG3("end no message");
+
    return NULL;
 };
 
@@ -643,7 +679,7 @@ int _mw_srbsendmessage(Connection * conn, SRBmessage * srbmsg)
 
   TIMEPEG();  
   errno = 0;
-  len = _mw_conn_write(conn, _mw_srbmessagebuffer, len, CONN_BLOCKING);
+  len = _mw_conn_write(conn, _mw_srbmessagebuffer, len, 0);
   TIMEPEGNOTE("just did write(2)");
   DEBUG3("_mw_srbsendmessage: write returned %d errno=%d", len, errno);
   /* MUTEX ENDS */

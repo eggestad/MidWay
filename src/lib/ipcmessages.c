@@ -21,6 +21,10 @@
 /*
  * 
  * $Log$
+ * Revision 1.26  2003/09/25 19:36:17  eggestad
+ * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
+ * - also improved logic in blocking/nonblocking of reading on Connection objects
+ *
  * Revision 1.25  2003/07/20 23:12:06  eggestad
  * - in acall, corrected handling of data ptr to offset and buffer alloc
  * - added usleep() loop if no buffers are available
@@ -337,8 +341,61 @@ static char * strdata(int dataoff, int len)
    data[i] = '\0'; 
    return data;
 };
+
+////////////////////////////////////////////////////////////////////////
+
 	  
 /* for debugging purposes: */
+
+static const char * messagetype(int mtype)
+{
+   
+   switch (mtype) {
+
+   case ATTACHREQ:
+      return "Attach Request";
+   case ATTACHRPL:
+      return "Attach Reply";
+   case DETACHREQ:
+      return "Detach Request";
+   case DETACHRPL:
+      return "Detach Reply";
+      
+   case PROVIDEREQ:
+      return "Provide Request";
+   case PROVIDERPL:
+      return "Provide Reply";
+   case UNPROVIDEREQ:
+      return "Unprovide Request";
+   case UNPROVIDERPL:
+      return "Unprovide Reply";
+      
+   case SVCCALL:
+      return "Service Call";
+   case SVCFORWARD:
+      return "Call Forward";
+   case SVCREPLY:
+      return "Call Reply";
+      
+   case EVENT:
+      return "Event";
+   case EVENTACK:
+      return "Event Ack";
+      
+   case EVENTSUBSCRIBEREQ:
+      return "Subscribe Request";
+   case EVENTSUBSCRIBERPL:
+      return "Subscribe Reply";
+   case EVENTUNSUBSCRIBEREQ:
+      return "Unsubscribe  Request";
+   case EVENTUNSUBSCRIBERPL:
+      return "Unsubscribe Reply";
+
+  default:
+      return "????";
+   };
+};
+
 void  _mw_dumpmesg(void * mesg)
 {
   long * mtype;
@@ -355,7 +412,7 @@ void  _mw_dumpmesg(void * mesg)
   case DETACHREQ:
   case DETACHRPL:
     am = (Attach * ) mesg;
-    DEBUG1("ATTACH MESSAGE: %#x\n\
+    DEBUG1("%s MESSAGE: %#x\n\
           int         ipcqid             =  %d\n\
           pid_t       pid                =  %d\n\
           int         server             =  %d\n\
@@ -367,7 +424,7 @@ void  _mw_dumpmesg(void * mesg)
           GATEWAYID   gwid               =  %#x\n\
           int         flags              =  %#x\n\
           int         returncode         =  %d", 
-	  am->mtype, am->ipcqid, am->pid, 
+	  messagetype(am->mtype), am->mtype, am->ipcqid, am->pid, 
 	  am->server, am->srvname, am->srvid, 
 	  am->client, am->cltname, am->cltid, 
 	  am->gwid, am->flags, am->returncode);
@@ -378,7 +435,7 @@ void  _mw_dumpmesg(void * mesg)
   case UNPROVIDEREQ:
   case UNPROVIDERPL:
     pm = (Provide * ) mesg;
-    DEBUG1("PROVIDEMESSAGE: %#x\n\
+    DEBUG1("%s MESSAGE: %#x\n\
           SERVERID    srvid              =  %#x\n\
           SERVICEID   svcid              =  %#x\n\
           GATEWAYID    gwid              =  %#x\n\
@@ -386,14 +443,14 @@ void  _mw_dumpmesg(void * mesg)
           int         cost               =  %d\n\
           int         flags              =  %#x\n\
           int         returncode         =  %d", 
-	   pm->mtype, pm->srvid, pm->svcid, pm->gwid, 
+	   messagetype(pm->mtype), pm->mtype, pm->srvid, pm->svcid, pm->gwid, 
 	   pm->svcname, pm->cost, pm->flags, pm->returncode);
     return;
   case SVCCALL:
   case SVCFORWARD:
   case SVCREPLY:
     rm = (Call * )  mesg;
-    DEBUG1("CALL/FRD/REPLY MESSAGE: %#x\n\
+    DEBUG1("%s MESSAGE: %#x\n\
           int         handle             = %d\n\
           CLIENTID    cltid              = %#x\n\
           SERVERID    srvid              = %#x\n\
@@ -412,7 +469,7 @@ void  _mw_dumpmesg(void * mesg)
           int         flags              = %#x\n\
           char        domainname         = %.64s\n\
           int         returncode         = %d", 
-	   rm->mtype, rm->handle, 
+	   messagetype(rm->mtype), rm->mtype, rm->handle, 
 	   rm->cltid, rm->srvid, rm->svcid, rm->gwid, 
 	   rm->callerid,
 	   rm->forwardcount, rm->service, rm->origservice, 
@@ -426,7 +483,7 @@ void  _mw_dumpmesg(void * mesg)
   case EVENT:
   case EVENTACK:
     ev = (Event *) mesg;
-    DEBUG1("EVENT/EVENTACK MESSAGE: %#x\n"
+    DEBUG1("%s MESSAGE: %#x\n"
 	   "          event                          = %.64s\n"
 	   "          MWID        eventid            = %#x\n"
 	   "          MWID        subscriptionid     = %d\n"
@@ -440,7 +497,7 @@ void  _mw_dumpmesg(void * mesg)
 	   "          char        username           = %.64s\n"
 	   "          char        clientname         = %.64s\n"
 	   "          int         flags              = %#x\n",
-	   ev->mtype, ev->event, 
+	   messagetype(ev->mtype), ev->mtype, ev->event, 
 	   ev->eventid,
 	   ev->subscriptionid,
 	   ev->senderid,
@@ -461,7 +518,7 @@ void  _mw_dumpmesg(void * mesg)
   case EVENTUNSUBSCRIBEREQ:
   case EVENTUNSUBSCRIBERPL:
     ev = (Event *) mesg;
-    DEBUG1(" EVENT(UN)SUBSCRIBE[REQ|RPL] MESSAGE: %#x\n"
+    DEBUG1("%s MESSAGE: %#x\n"
 	   " event                          = %.64s\n"
 	   " MWID        subscriptionid     = %d\n"
 	   " MWID        senderid           = %#x\n"
@@ -473,7 +530,7 @@ void  _mw_dumpmesg(void * mesg)
 	   " int         datalen            = %d\n"
 	   " int         flags              = %#x\n"
 	   " int         returncode         = %d\n",
-	   ev->mtype,  
+	   messagetype(ev->mtype), ev->mtype,  
 	   ev->event,
 	   ev->subscriptionid,
 	   ev->senderid,

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2003/09/25 19:36:17  eggestad
+ * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
+ * - also improved logic in blocking/nonblocking of reading on Connection objects
+ *
  * Revision 1.5  2003/08/06 23:16:18  eggestad
  * Merge of client and mwgwd recieving SRB messages functions.
  *
@@ -72,7 +76,9 @@ union _SockAddress {
 
 typedef union _SockAddress SockAddress;
 
-typedef struct {
+typedef struct Connection Connection;
+
+struct Connection {
   int fd;
   int role;
   int version;
@@ -83,8 +89,10 @@ typedef struct {
   int    mtu;
   int 	 rejects;
   char * domain;
+
   char * messagebuffer;
   int    leftover;  
+  int    possible_message_in_buffer;
 
   /* the latter is used by the gateway only */
   int connectionid;
@@ -98,7 +106,14 @@ typedef struct {
   time_t lastrx;
   int    reverse;  
   void * peerinfo;
-} Connection;
+
+   /* a read fifo and write fifo pointers. Used in mwgwd/connections.c
+      to maintain lists of connections that have pending reads and
+      writes. */
+   Connection * read_fifo_prev, * read_fifo_next;
+   Connection * write_fifo_prev, * write_fifo_next;
+
+} ;
 
 /* type parm to conn_add, all possible types of sockets (peers) */
 #define CONN_TYPE_CLIENT  'C'
@@ -115,10 +130,6 @@ enum {  CONNECT_STATE_CONNWAIT = 1,
 	CONNECT_STATE_INITWAIT, 
 	CONNECT_STATE_UP, 
 	CONNECT_STATE_CLOSING };
-
-
-#define CONN_BLOCKING      0x0000
-#define CONN_NONBLOCKING   0x0001
 
 
 #endif // _CONNECTION_H

@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.16  2003/03/26 01:59:33  cstup
+ * Another fix to the same DEBUG line.
+ *
  * Revision 1.15  2003/03/25 02:29:52  cstup
  * Fixed DEBUG statement in _mw_attach_ipc()
  *
@@ -172,7 +175,7 @@ int _mw_attach_ipc(key_t key, int type)
 	  ipcmain->clttbl_ipcid, strerror(errno));
     return -errno;
   };
-  DEBUG1("client table attached at 0x%x 0x%x ",clttbl);
+  DEBUG1("client table attached at 0x%x",clttbl);
   
   srvtbl = shmat(ipcmain->srvtbl_ipcid, NULL, readonly);
   if (srvtbl == (void *) -1) {

@@ -1,3 +1,6 @@
+srcdir = @srcdir@
+VPATH = @srcdir@
+prefix = @prefix@
 
 @SET_MAKE@
 
@@ -6,7 +9,8 @@ SUBDIRS = man1 man3 man7
 
 all: 
 	@ for dir in $(SUBDIRS); do\
-	(cd $$dir; $(MAKE) $@)\
+	(cd $$dir; $(MAKE) $@);\
+	if [[ $$? -ne 0 ]]; then exit 3; fi\
 	done;
 
 clean:
@@ -21,6 +25,12 @@ distclean:: clean
 	rm -f Makefile *~
 
 install::
+	@ for dir in $(SUBDIRS); do\
+	(cd $$dir; $(MAKE) $@);\
+	if [[ $$? -ne 0 ]]; then exit 3; fi\
+	done;
+
+uninstall::
 	@ for dir in $(SUBDIRS); do\
 	(cd $$dir; $(MAKE) $@)\
 	done;

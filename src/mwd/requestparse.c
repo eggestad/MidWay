@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2002/09/29 17:39:50  eggestad
+ * improved the _mw_get[client|server|service|gateway]entry functions and removed duplicates in mwd.c
+ *
  * Revision 1.9  2002/09/22 23:01:16  eggestad
  * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
  *
@@ -342,7 +345,7 @@ static int do_unprovide(void * mp)
   DEBUG("Got an unprovide request from server %#x or gateway %#x for service \"%s\" (%#x)", 
 	pmesg->srvid, pmesg->gwid, pmesg->svcname, pmesg->svcid);
 
-  svcent = getserviceentry(SVCID(pmesg->svcid));
+  svcent = _mw_getserviceentry(SVCID(pmesg->svcid));
 
   if (svcent == NULL) {
     Error("unable to get service tbl entry for %d", SVCID(pmesg->svcid));

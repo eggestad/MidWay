@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2002/09/29 17:39:50  eggestad
+ * improved the _mw_get[client|server|service|gateway]entry functions and removed duplicates in mwd.c
+ *
  * Revision 1.10  2002/09/22 23:01:16  eggestad
  * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
  *
@@ -182,7 +185,7 @@ SERVERID addserver(char * name, int mqid, pid_t pid)
     Error("No ipcmain table available");
     return -EUCLEAN;
   };
-  srvtbl = getserverentry(0);
+  srvtbl = _mw_getserverentry(0);
   DEBUG("address of server table is %#X %#x", srvtbl, srvtbl);
 
   for (i = nextidx; i < ipcmain->srvtbl_length; i++) {
@@ -257,7 +260,7 @@ int delserver(SERVERID sid)
 
   event_clear_id(sid);
 
-  srvtbl = getserverentry(0);
+  srvtbl = _mw_getserverentry(0);
   srvidx = SRVID2IDX(sid); 
 
   srvtbl[srvidx].status = UNASSIGNED;
@@ -290,7 +293,7 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
     Error("No ipcmain table available");
     return -EUCLEAN;
   };
-  clttbl = getcliententry(0);    
+  clttbl = _mw_getcliententry(0);    
   DEBUG("address of client table is %#X %#x", clttbl, clttbl);
 
   /* 
@@ -405,7 +408,7 @@ int delclient(CLIENTID cid)
 
   event_clear_id(cid);
 
-  clttbl = getcliententry(0);
+  clttbl = _mw_getcliententry(0);
   cltidx = CLTID2IDX(cid);
   
   clttbl[cltidx].type = UNASSIGNED;
@@ -431,7 +434,7 @@ static SERVICEID addservice(char * name, int type)
 
   /* we go thru the service table starting with the nest after the
      last one we returned to find the first available entry.*/
-  svctbl = getserviceentry(0);
+  svctbl = _mw_getserviceentry(0);
   for (i = 0; i < ipcmain->svctbl_length; i++) {
     svcidx = (nextidx + i) % ipcmain->svctbl_length;
     if (svctbl[svcidx].type == UNASSIGNED) {
@@ -464,7 +467,7 @@ SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
 
   if (SRVID(srvid) == UNASSIGNED) return UNASSIGNED;
 
-  srvent = getserverentry(srvid);
+  srvent = _mw_getserverentry(srvid);
   if (srvent == NULL) return UNASSIGNED;
 
   if (srvent->status == UNASSIGNED) {
@@ -472,7 +475,7 @@ SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
     return -EINVAL;
   };
 
-  svctbl = getserviceentry(0);
+  svctbl = _mw_getserviceentry(0);
   svcidx = addservice(name, type);
   if (svcidx < 0) return svcidx;
 
@@ -503,13 +506,13 @@ SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type)
 
   /* We skip test on ipcmain eq to NULL, that really can't happen */
 
-  gwent = getgatewayentry(gwid);
+  gwent = _mw_getgatewayentry(gwid);
   if (gwent->status == UNASSIGNED) {
     Error("got a request to assign a service to gateway %#x which is nott attached", gwid);
     return -EINVAL;
   };
   
-  svctbl = getserviceentry(0);
+  svctbl = _mw_getserviceentry(0);
   svcidx = addservice(name, type);
   if (svcidx < 0) return svcidx;
 
@@ -538,7 +541,7 @@ int delservice(SERVICEID svcid)
 
   if (SVCID(svcid) == UNASSIGNED) return UNASSIGNED;
 
-  svctbl = getserviceentry(0);
+  svctbl = _mw_getserviceentry(0);
   idx = SVCID2IDX(svcid);
 
   evdata.svcid  = idx;
@@ -575,7 +578,7 @@ int delallservices(SERVERID srvid)
 
   ipcmain = getipcmaintable();
   if (ipcmain == NULL) return -1;
-  svctbl = getserviceentry(0); 
+  svctbl = _mw_getserviceentry(0); 
 
 
   for (idx = 0; idx < ipcmain->svctbl_length; idx++) {

@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2002/09/29 17:37:54  eggestad
+ * improved the _mw_get[client|server|service|gateway]entry functions and removed duplicates in mwd.c
+ *
  * Revision 1.10  2002/09/22 22:49:23  eggestad
  * Added new function that return list of all providers of a service
  *
@@ -292,44 +295,52 @@ ipcmaininfo * _mw_ipcmaininfo()
 {
   return ipcmain;
 };
+
 cliententry * _mw_getcliententry(int i)
 {
   if (clttbl == NULL) return NULL;
-  i &= MWINDEXMASK;
-  if ( (i >= 0) && (i <= ipcmain->clttbl_length) )
-    return & clttbl[i];
-  else 
-    return NULL;
+  if (i != 0) {
+    i =  CLTID2IDX(i);
+    if (i == UNASSIGNED) return NULL;
+    if (i > ipcmain->clttbl_length) return NULL;
+  };
+  return & clttbl[i];
 };
+
 serverentry * _mw_getserverentry(int i)
 {
   if (srvtbl == NULL) return NULL;
-  i &= MWINDEXMASK;
-  if ( (i >= 0) && (i <= ipcmain->srvtbl_length) )
-    return & srvtbl[i];
-  else 
-    return NULL;
+  if (i != 0) {
+    i =  SRVID2IDX(i);
+    if (i == UNASSIGNED) return NULL;
+    if (i > ipcmain->srvtbl_length) return NULL;
+  };
+  return & srvtbl[i];
 };
+
 serviceentry * _mw_getserviceentry(int i)
 {
   if (svctbl == NULL) return NULL;
-
-  i = SVCID(i);
-
-  if ( (i >= 0) && (i <= ipcmain->svctbl_length) )
-    return & svctbl[i];
-  else 
-    return NULL;
+  if (i != 0) {
+    i =  SVCID2IDX(i);
+    if (i == UNASSIGNED) return NULL;
+    if (i > ipcmain->svctbl_length) return NULL;
+  };
+  return & svctbl[i];
 };
+
 gatewayentry * _mw_getgatewayentry(int i)
 {
   if (gwtbl == NULL) return NULL;
-  i &= MWINDEXMASK;
-  if ( (i >= 0) && (i <= ipcmain->gwtbl_ipcid) )
-    return & gwtbl[i];
-  else 
-    return NULL;
+  if (i != 0) {
+    i =  GWID2IDX(i);
+    if (i == UNASSIGNED) return NULL;
+    if (i > ipcmain->gwtbl_length) return NULL;
+  };
+  return & gwtbl[i];
 };
+
+#ifdef CONV
 conv_entry * _mw_getconv_entry(int i)
 {
   if (convtbl == NULL) return NULL;
@@ -339,6 +350,7 @@ conv_entry * _mw_getconv_entry(int i)
   else 
     return NULL;
 };
+#endif
 
 /*
   Lookup functions to shmtables for info about other members 

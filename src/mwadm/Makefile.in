@@ -16,7 +16,7 @@ LIBS =  -L../lib @readlinelib@ -lMidWay
 LIB = @LIBS@
 LDFLAGS = $(LIBS) 
 
-OBJ = mwadm.o commands.o
+OBJ = mwadm.o commands.o dtbl.o
 
 EXE = mwadm
 

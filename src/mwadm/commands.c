@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.16  2003/07/06 18:59:56  eggestad
+ * introduced a table api for commands.c to return data in
+ *
  * Revision 1.15  2002/11/19 12:43:54  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -101,6 +104,9 @@
 #include <address.h>
 #include <multicast.h>
 
+#include "dtbl.h"
+#include "commands.h"
+
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
@@ -119,618 +125,715 @@ extern int extended;
 */
 
 char * location[5] = { 
-  [GWLOCAL]   "Local   ", 
-  [GWPEER]    "PeerDom ", 
-  [GWREMOTE]  "Foreign ", 
-  [GWCLIENT]  "Client  ", 
-  NULL};
+   [GWLOCAL]   "Local   ", 
+   [GWPEER]    "PeerDom ", 
+   [GWREMOTE]  "Foreign ", 
+   [GWCLIENT]  "Client  ", 
+   NULL};
 
 char * status_by_name[7] = {
-  [MWREADY]    "Ready", 
-  [MWSHUTDOWN] "Shutdown", 
-  [MWBOOTING]  "Booting", 
-  [MWBUSY]     "Busy", 
-  [MWDEAD]     "Dead", 
-  [MWBLOCKED]  "Blocked", 
-  NULL};
+   [MWREADY]    "Ready", 
+   [MWSHUTDOWN] "Shutdown", 
+   [MWBOOTING]  "Booting", 
+   [MWBUSY]     "Busy", 
+   [MWDEAD]     "Dead", 
+   [MWBLOCKED]  "Blocked", 
+   NULL};
 
-int info(int argc, char ** argv)
+#define DATESTR "%a, %e %b %Y %H:%M:%S  %Z"
+
+int do_info(int argc, char ** argv, DTable dtbl , char ** errstr)
 {
-  if (ipcmain == NULL) {
-    printf ("We are not connected to a MidWay system\n");
-    return -1;
-  };
+   char date[64];
+   if (ipcmain == NULL) {
+      if (errstr)
+	 *errstr = "We are not connected to a MidWay system";
+      return -1;
+   };
+   
+   dtbl_title(dtbl, "MidWay system Informaton");
+   
+   dtbl_style(dtbl, DTBL_STYLE_SIDE);
+   dtbl_newrow(dtbl, NULL);
+   dtbl_setfield(dtbl, -1, 0, "version");
+   dtbl_setfield(dtbl, -1, 1, "%d.%d.%d", 
+		 ipcmain->vermajor, ipcmain->verminor, ipcmain->patchlevel);
+   
+   
+   dtbl_newrow(dtbl, NULL);
+   dtbl_setfield(dtbl, -1, 0, "instance name");
+   dtbl_setfield(dtbl, -1, 1, "%s", ipcmain->mw_instance_name); 
 
-  printf ("MidWay system has version %d.%d.%d\n", 
-	  ipcmain->vermajor, ipcmain->verminor, ipcmain->patchlevel);
-  printf ("  %20s = %s\n", 
-	  "instance name", 
-	  ipcmain->mw_instance_name); 
+   dtbl_newrow(dtbl, NULL);
+   dtbl_setfield(dtbl, -1, 0, "instance id");	
+   dtbl_setfield(dtbl, -1, 1, "%s", ipcmain->mw_instance_id);
 
-  printf ("  %20s = %s\n", 
-	  "instance id",	  
-	  ipcmain->mw_instance_id);
+   dtbl_newrow(dtbl, NULL);
+   dtbl_setfield(dtbl, -1, 0,  "mwd ProcessId"); 
+   dtbl_setfield(dtbl, -1, 1, "%d", ipcmain->mwdpid);
 
-  printf ("  %20s = %d\n", 
-	  "master Processid", 
-	  ipcmain->mwdpid);
+   dtbl_newrow(dtbl, NULL);
+   dtbl_setfield(dtbl, -1, 0,  "mwd Watchdog ProcessId"); 
+   dtbl_setfield(dtbl, -1, 1, "%d", ipcmain->mwwdpid);
 
-  printf ("  %20s = %s\n", 
-	  "status", 
-	  status_by_name[ipcmain->status]);
+   dtbl_newrow(dtbl, NULL);
+   dtbl_setfield(dtbl, -1, 0,  "mwd Message queue id"); 
+   dtbl_setfield(dtbl, -1, 1, "%d", ipcmain->mwd_mqid);
 
-  printf ("  %20s = %s", 
-	  "boottime", 
-	  ctime(&ipcmain->boottime));
-  
-  printf ("  %20s = %s\n", 
-	  "Home directory", 
-	  ipcmain->mw_homedir);
-  return 0;
+   dtbl_newrow(dtbl, NULL);
+   dtbl_setfield(dtbl, -1, 0,  "mwd last active"); 
+   strftime(date, 64, DATESTR, localtime(&ipcmain->lastactive));
+   dtbl_setfield(dtbl, -1, 1, "%s", date);
+
+   dtbl_newrow(dtbl, NULL);
+   dtbl_setfield(dtbl, -1, 0, "status"); 
+   dtbl_setfield(dtbl, -1, 1, "%s", status_by_name[ipcmain->status]);
+
+   dtbl_newrow(dtbl, NULL);
+   strftime(date, 64, DATESTR, localtime(&ipcmain->boottime));
+   dtbl_setfield(dtbl, -1, 0, "boottime"); 
+   dtbl_setfield(dtbl, -1, 1, "%s", date);
+
+   if (ipcmain->configlastloaded) {
+      dtbl_newrow(dtbl, NULL);
+      dtbl_setfield(dtbl, -1, 0,  "configlastloaded"); 
+      strftime(date, 64, DATESTR, localtime(&ipcmain->configlastloaded));
+      dtbl_setfield(dtbl, -1, 1, "%s", date);
+   };
+   if (ipcmain->shutdowntime) {
+      dtbl_newrow(dtbl, NULL);
+      dtbl_setfield(dtbl, -1, 0,  "shutdowntime"); 
+      strftime(date, 64, DATESTR, localtime(&ipcmain->shutdowntime));
+      dtbl_setfield(dtbl, -1, 1, "%s", date);
+   };
+   dtbl_newrow(dtbl, NULL);
+   dtbl_setfield(dtbl, -1, 0, "Home directory"); 
+   dtbl_setfield(dtbl, -1, 1, "%s", ipcmain->mw_homedir);
+   return 0;
 };
 
 static const char * clienttypestring(int type) 
 {
-  switch(type) {
+   switch(type) {
 
-  case MWIPCCLIENT:
-  case MWNETCLIENT:
-    return "Client";
-  case MWIPCSERVER:
-    return "Server";
-  default:
-    return "      ";
-  };
+   case MWIPCCLIENT:
+   case MWNETCLIENT:
+      return "Client";
+   case MWIPCSERVER:
+      return "Server";
+   default:
+      return "      ";
+   };
 };
 
-int clients(int argc, char ** argv)
+int do_clients(int argc, char ** argv, DTable dtbl, char ** retstr)
 {
-  int i, count = 0;
-  cliententry * cltent;
-  char * loc = "N/A     ";
+   int i, count = 0;
+   cliententry * cltent;
+   char * loc = "N/A     ";
 
-  if (ipcmain == NULL) {
-    printf ("We are not connected to a MidWay system\n");
-    return -1;
-  };
+   if (ipcmain == NULL) {
+      if (retstr)
+	 *retstr = "We are not connected to a MidWay system";
+      return -1;
+   };
   
-  printf ("Client table:\n");
-  cltent = _mw_getcliententry(0);
-  /*if (extended) printf ("table address %#x \n", 
-    (long)cltent); */
-  printf ("ClientID Type   Location Pid    msgqid Clientname address\n");
-  for (i = 0; i < ipcmain->clttbl_length; i++) {
-    if (cltent[i].status != UNASSIGNED) {
-      count ++;
-      if (cltent[i].location == GWLOCAL)  loc = "LocalIPC";
-      if (cltent[i].location == GWCLIENT) loc = "Network ";
-      /*      if (extended) printf ("@ %#x ", &cltent[i]); */
-      printf ("%8d %-6s %-8s %-6d %-6d %s %s\n", 
-	      i,  
-	      clienttypestring(cltent[i].type), 
-	      loc, 
-	      cltent[i].pid, 
-	      cltent[i].mqid, 
-	      cltent[i].clientname, 
-	      cltent[i].addr_string);
-    };
-  }
-  printf ("\n %d/%d (%5.3f%%) entries used\n", count,i, 
-	    (float) count*100 / (float) i);
-  return 0;
+   dtbl_title(dtbl, "Client table:");
+
+   cltent = _mw_getcliententry(0);
+
+   /*if (extended) printf ("table address %#x \n", 
+     (long)cltent); */
+   dtbl_headers (dtbl, 
+		 "ClientID", "Type", "Location", "Pid", "msgqid", "Clientname", "address", 
+		 NULL);
+   dtbl_col_format(dtbl, 0, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 3, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 4, DTBL_ALIGN_RIGHT, -1);
+
+   for (i = 0; i < ipcmain->clttbl_length; i++) {
+      if (cltent[i].status != UNASSIGNED) {
+	 count ++;
+	 dtbl_newrow(dtbl, NULL);
+	 dtbl_setfield(dtbl, -1, 0, "%d", i);
+
+	 dtbl_setfield(dtbl, -1, 1, "%s", clienttypestring(cltent[i].type));
+
+	 if (cltent[i].location == GWLOCAL)  loc = "LocalIPC";
+	 if (cltent[i].location == GWCLIENT) loc = "Network ";
+      
+	 dtbl_setfield(dtbl, -1, 2, "%s", loc);
+      
+	 dtbl_setfield(dtbl, -1, 3, "%d", cltent[i].pid);
+	 dtbl_setfield(dtbl, -1, 4, "%d", cltent[i].mqid);
+	 dtbl_setfield(dtbl, -1, 5, "%s", cltent[i].clientname);
+	 dtbl_setfield(dtbl, -1, 6, "%s", cltent[i].addr_string);
+
+      };
+   }
+   dtbl_subtext (dtbl, "%d/%d (%5.3f%%) entries used", count,i, 
+		 (float) count*100 / (float) i);
+   return 0;
 }
 
-int servers(int argc, char ** argv)
+int do_servers(int argc, char ** argv, DTable dtbl , char ** errstr)
 {
-  serverentry * srvent;
-  serviceentry * svcent;
-  int i, count = 0;
+   serverentry * srvent;
+   serviceentry * svcent;
+   int i, count = 0;
    
-  if (ipcmain == NULL) {
-    printf ("We are not connected to a MidWay system\n");
-    return -1;
-  };
+   if (ipcmain == NULL) {
+      if (errstr)
+	 *errstr = "We are not connected to a MidWay system";
+      return -1;
+   };
 
-  printf ("Server table:\n");
-  srvent = _mw_getserverentry(0);
-  svcent = _mw_getserviceentry(0);
+   dtbl_title(dtbl, "Server table:");
+   srvent = _mw_getserverentry(0);
+   svcent = _mw_getserviceentry(0);
   
-  /*  if (extended) printf ("table address %#x \n", 
-      (long)srvent);*/
-  printf ("ServerID    Pid msgqid block Status Service\n");
-  for (i = 0; i < ipcmain->srvtbl_length; i++) {
-    if (srvent[i].status != UNASSIGNED) {
-      count ++;
-      /*if (extended) printf ("@ %#x ", &srvent[i]);*/
-      /*	if (srvent[i].nowserving == UNASSIGNED) servicename = "(IDLE)";
+   /*  if (extended) printf ("table address %#x \n", 
+       (long)srvent);*/
+
+   dtbl_headers (dtbl, "ServerID", "Pid", "msgqid", "block", "Status", "Service", NULL);
+
+   dtbl_col_format(dtbl, 0, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 1, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 2, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 3, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 4, DTBL_ALIGN_RIGHT, -1);
+
+   for (i = 0; i < ipcmain->srvtbl_length; i++) {
+      if (srvent[i].status != UNASSIGNED) {
+	 count ++;
+	 dtbl_newrow(dtbl, NULL);
+	 /*if (extended) printf ("@ %#x ", &srvent[i]);*/
+	 /*	if (srvent[i].nowserving == UNASSIGNED) servicename = "(IDLE)";
 		else svcent[srvent[i].nowserving & MWINDEXMASK].servicename;*/
-      printf ("%8d %6d %6d %5d %6d %.32s\n", i, srvent[i].pid, 
-	      srvent[i].mqid, srvent[i].mwdblock, srvent[i].status, 
-	      srvent[i].statustext);
-    };
-  }
-  printf ("\n %d/%d (%5.3f%%) entries used\n", count,i, 
-	  (float) count*100 / (float) i);
-  return 0 ;
+
+	 dtbl_setfield(dtbl, -1, 0, "%d", i);
+	 dtbl_setfield(dtbl, -1, 1, "%d", srvent[i].pid);
+	 dtbl_setfield(dtbl, -1, 2, "%d", srvent[i].mqid); 
+	 dtbl_setfield(dtbl, -1, 3, "%d", srvent[i].mwdblock);
+	 dtbl_setfield(dtbl, -1, 4, "%d", srvent[i].status);
+	 dtbl_setfield(dtbl, -1, 5, "%s", srvent[i].statustext);
+
+      };
+   }
+   dtbl_subtext (dtbl, "%d/%d (%5.3f%%) entries used", count,i, 
+		 (float) count*100 / (float) i);
+   return 0 ;
 };
 
-int services(int argc, char ** argv)
+int do_services(int argc, char ** argv, DTable dtbl , char ** errstr)
 {
-  int i, count = 0, provider;
-  serviceentry * svcent;
+   int i, count = 0, provider;
+   serviceentry * svcent;
 
-  printf ("Services table:\n");
-  svcent = _mw_getserviceentry(0);
-  /*  if (extended) printf ("table address %#x \n", 
-      (long)svcent);*/
-  printf ("ServiceID type Location cost Srv/GWID Service\n");
-  for (i = 0; i < ipcmain->svctbl_length; i++) {
-    if (svcent[i].type != UNASSIGNED) {
-      count ++;
+   if (ipcmain == NULL) {
+      if (errstr)
+	 *errstr = "We are not connected to a MidWay system";
+      return -1;
+   };
 
-      if (svcent[i].location == GWLOCAL) 
-	provider = SRVID2IDX(svcent[i].server);
-      else 
-	provider = GWID2IDX(svcent[i].gateway);
+   dtbl_title(dtbl, "Services table:");
+   svcent = _mw_getserviceentry(0);
+   /*  if (extended) printf ("table address %#x \n", 
+       (long)svcent);*/
+
+   dtbl_headers (dtbl, "ServiceID", "type", "Location", "cost", "Srv/GWID", "Service", NULL);
+
+   dtbl_col_format(dtbl, 0, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 1, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 3, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 4, DTBL_ALIGN_RIGHT, -1);
+
+   for (i = 0; i < ipcmain->svctbl_length; i++) {
+      if (svcent[i].type != UNASSIGNED) {
+	 count ++;
+	 dtbl_newrow(dtbl, NULL);
+
+	 if (svcent[i].location == GWLOCAL) 
+	    provider = SRVID2IDX(svcent[i].server);
+	 else 
+	    provider = GWID2IDX(svcent[i].gateway);
  
-      /* if (extended) printf ("@ %#x ", &svcent[i]);*/
-      printf ("%9d %4d %-8s %4d %8d %s\n", i, svcent[i].type, 
-	      location[svcent[i].location], 
-	      svcent[i].cost, 
-	      provider, 
-	      svcent[i].servicename);
-    };
-  }
-  printf ("\n %d/%d (%5.3f%%) entries used\n", count,i, 
-	  (float) count*100 / (float) i);
-  return 0 ;
+	 /* if (extended) printf ("@ %#x ", &svcent[i]);*/
+
+	 dtbl_setfield(dtbl, -1, 0, "%d", i);
+	 dtbl_setfield(dtbl, -1, 1, "%d", svcent[i].type);
+	 dtbl_setfield(dtbl, -1, 2, "%s", location[svcent[i].location]);
+	 dtbl_setfield(dtbl, -1, 3, "%d", svcent[i].cost);
+	 dtbl_setfield(dtbl, -1, 4, "%d", provider);
+	 dtbl_setfield(dtbl, -1, 5, "%s", svcent[i].servicename);
+      };
+   }
+   dtbl_subtext (dtbl, "%d/%d (%5.3f%%) entries used", count,i, 
+		 (float) count*100 / (float) i);
+   return 0 ;
 };
 
-int gateways(int argc, char ** argv)
+int do_gateways(int argc, char ** argv, DTable dtbl , char ** errstr)
 {
-  int i, count = 0;
-  gatewayentry * gwent;
-  char * roles[5] = { "NONE", "Clients", "Gateways", "All", NULL};
+   int i, count = 0;
+   gatewayentry * gwent;
+   char * roles[5] = { "NONE", "Clients", "Gateways", "All", NULL};
 
-  printf ("Gateways table:\n");
-  gwent = _mw_getgatewayentry(0);
-  /*  if (extended) printf ("table address %#x \n", 
-      (long)svcent);*/
-  printf ("GWID Domain           location peer-roles pid    mqid status instance peeraddr\n");
-  for (i = 0; i < ipcmain->gwtbl_length; i++) {
-    if (gwent[i].pid != UNASSIGNED) {
-      count ++;
-      /* if (extended) printf ("@ %#x ", &svcent[i]);*/
-      printf ("%4d %-16.32s %8s %10s %5d %5d %6d %-.32s %s\n", 
-	      i, 
-	      gwent[i].domainname, 
-	      location[gwent[i].location], 
-	      roles[gwent[i].srbrole], 
-	      gwent[i].pid, 
-	      gwent[i].mqid, 
-	      gwent[i].status,
-	      gwent[i].instancename, gwent[i].addr_string);
-      
-    };
-  }
-  printf ("\n %d/%d (%5.3f%%) entries used\n", count,i, 
-	  (float) count*100 / (float) i);
-  return 0 ;
+   if (ipcmain == NULL) {
+      if (errstr)
+	 *errstr = "We are not connected to a MidWay system";
+      return -1;
+   };
+
+   dtbl_title(dtbl, "Gateways table:\n");
+   gwent = _mw_getgatewayentry(0);
+   /*  if (extended) printf ("table address %#x \n", 
+       (long)svcent);*/
+
+   dtbl_headers (dtbl, "GWID", "Domain", "Location", "peer-roles", "Pid", "mqid", "Status", 
+		 "Instance", "Peer Address", NULL);
+
+   dtbl_col_format(dtbl, 0, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 4, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 5, DTBL_ALIGN_RIGHT, -1);
+   dtbl_col_format(dtbl, 6, DTBL_ALIGN_RIGHT, -1);
+
+   for (i = 0; i < ipcmain->gwtbl_length; i++) {
+      if (gwent[i].pid != UNASSIGNED) {
+	 count ++;
+	 dtbl_newrow(dtbl, NULL);
+
+	 /* if (extended) printf ("@ %#x ", &svcent[i]);*/
+
+	 dtbl_setfield(dtbl, -1, 0, "%d", i); 
+	 dtbl_setfield(dtbl, -1, 1, "%s", gwent[i].domainname);
+	 dtbl_setfield(dtbl, -1, 2, "%s", location[gwent[i].location]);
+	 dtbl_setfield(dtbl, -1, 3, "%s", roles[gwent[i].srbrole]);
+	 dtbl_setfield(dtbl, -1, 4, "%d", gwent[i].pid);
+	 dtbl_setfield(dtbl, -1, 5, "%d", gwent[i].mqid);
+	 dtbl_setfield(dtbl, -1, 6, "%d", gwent[i].status);
+	 dtbl_setfield(dtbl, -1, 7, "%s", gwent[i].instancename);
+	 dtbl_setfield(dtbl, -1, 8, "%s", gwent[i].addr_string);      
+      };
+   }
+   dtbl_subtext (dtbl, "%d/%d (%5.3f%%) entries used", count,i, 
+		 (float) count*100 / (float) i);
+   return 0 ;
 };
 
 
 int heapinfo(int argc, char ** argv) 
 {
-  extern struct segmenthdr * _mwHeapInfo;
-  unsigned short semarray[BINS];
-  int i, rc;
+   extern struct segmenthdr * _mwHeapInfo;
+   unsigned short semarray[BINS];
+   int i, rc;
 
-  if (_mwHeapInfo == NULL) {
-    printf("shm head not attached\n");
-    return -1;
-  };
-  printf ("magic %x segnment size %ld semid %ld\n", 
-	  _mwHeapInfo->magic, _mwHeapInfo->segmentsize, _mwHeapInfo->semid);
-  printf (" Basechunksize %ld chunkspersize %d Bins %d\n", 
-	  _mwHeapInfo->basechunksize, _mwHeapInfo->chunkspersize, BINS);
-  printf (" Chunks inuse=%d highwater=%d average=%d avgcount=%d\n", 
-	  _mwHeapInfo->inusecount, _mwHeapInfo->inusehighwater, 
-	  _mwHeapInfo->inuseaverage, _mwHeapInfo->inuseavgcount );
+   if (_mwHeapInfo == NULL) {
+      printf("shm head not attached\n");
+      return -1;
+   };
+   printf ("magic %x segnment size %ld semid %ld\n", 
+	   _mwHeapInfo->magic, _mwHeapInfo->segmentsize, _mwHeapInfo->semid);
+   printf (" Basechunksize %ld chunkspersize %d Bins %d\n", 
+	   _mwHeapInfo->basechunksize, _mwHeapInfo->chunkspersize, BINS);
+   printf (" Chunks inuse=%d highwater=%d average=%d avgcount=%d\n", 
+	   _mwHeapInfo->inusecount, _mwHeapInfo->inusehighwater, 
+	   _mwHeapInfo->inuseaverage, _mwHeapInfo->inuseavgcount );
 
 
-  rc = semctl(_mwHeapInfo->semid,BINS, GETALL, semarray);
-  if (rc != 0) {
-    printf ("semctl() failed, rc = %d reason %d\n",rc, errno);
-    return -errno;
-  };
-  printf ("Chunksize freecount locked\n");
-  for (i = 0; i < BINS; i++) {
-    printf(" %8ld  %8d   %s\n", 
-	   (1<<i) * _mwHeapInfo->basechunksize, 
-	   _mwHeapInfo->freecount[i], 
-	   semarray[i] ? "no " : "yes");
-  };
-  return 0;
+   rc = semctl(_mwHeapInfo->semid,BINS, GETALL, semarray);
+   if (rc != 0) {
+      printf ("semctl() failed, rc = %d reason %d\n",rc, errno);
+      return -errno;
+   };
+   printf ("Chunksize freecount locked\n");
+   for (i = 0; i < BINS; i++) {
+      printf(" %8ld  %8d   %s\n", 
+	     (1<<i) * _mwHeapInfo->basechunksize, 
+	     _mwHeapInfo->freecount[i], 
+	     semarray[i] ? "no " : "yes");
+   };
+   return 0;
 };
 
 int query(int argc, char ** argv) 
 {
-  int s, rc;
-  char addr[INET_ADDRSTRLEN+1];
-  struct sockaddr_in * inaddr;
-  instanceinfo reply;
-  char * domain = NULL, * instance = NULL;
+   int s, rc;
+   char addr[INET_ADDRSTRLEN+1];
+   struct sockaddr_in * inaddr;
+   instanceinfo reply;
+   char * domain = NULL, * instance = NULL;
   
-  if (argc == 2) {
-    domain = argv[1];
-  } 
+   if (argc == 2) {
+      domain = argv[1];
+   } 
 
-  s = socket(AF_INET, SOCK_DGRAM, 0);
-  if (s == -1) return -errno;
+   s = socket(AF_INET, SOCK_DGRAM, 0);
+   if (s == -1) return -errno;
 
-  rc = _mw_sendmcastquery(s, domain, instance);
-  if (rc == -1) {
-    close(s);
-    return rc;
-  };
+   rc = _mw_sendmcastquery(s, domain, instance);
+   if (rc == -1) {
+      close(s);
+      return rc;
+   };
 
-  printf("Domain               Instance             Version  Address\n");
+   printf("Domain               Instance             Version  Address\n");
 
-  rc = 0;
-  /* we wait for 2-3 secs on replies */
-  while (rc == 0) { 
-    memset(&reply, '\0', sizeof(instanceinfo));
-    rc =  _mw_getmcastreply(s, &reply, 2.0);
+   rc = 0;
+   /* we wait for 2-3 secs on replies */
+   while (rc == 0) { 
+      memset(&reply, '\0', sizeof(instanceinfo));
+      rc =  _mw_getmcastreply(s, &reply, 2.0);
     
-    if (rc == -1) {
-      switch (errno) {
-      case EBADMSG:
-	rc = 0;
+      if (rc == -1) {
+	 switch (errno) {
+	 case EBADMSG:
+	    rc = 0;
+	 };
+	 continue;	  
       };
-      continue;	  
-    };
 
-    addr[0] = '\0';
-    inaddr = (struct sockaddr_in *) &reply.address;
-    inet_ntop(AF_INET, 
-	      &inaddr->sin_addr, 
-	      addr, INET_ADDRSTRLEN);
-    printf("%-20s %-20s %7s  AF_INET:%s:%d\n", 
-	   reply.domain,
-	   reply.instance,
-	   reply.version,
-	   addr, ntohs(inaddr->sin_port));          
-  }
+      addr[0] = '\0';
+      inaddr = (struct sockaddr_in *) &reply.address;
+      inet_ntop(AF_INET, 
+		&inaddr->sin_addr, 
+		addr, INET_ADDRSTRLEN);
+      printf("%-20s %-20s %7s  AF_INET:%s:%d\n", 
+	     reply.domain,
+	     reply.instance,
+	     reply.version,
+	     addr, ntohs(inaddr->sin_port));          
+   }
 
-  close(s);
-  return 0;
+   close(s);
+   return 0;
 };
  
 
 int boot(int argc, char ** argv)
 {
-  pid_t pid1, pid2;
-  int status, rc;
-  int fds[2], c, n;
-  FILE * sin;
+   pid_t pid1, pid2;
+   int status, rc;
+   int fds[2], c, n;
+   FILE * sin;
 
-  pid1 = fork ();
-  if (pid1 == 0) {
-    close(0);
-    close(1);
-    rc = pipe(fds);
-    if (rc != 0) {
-      fprintf(stderr, "boot failed because: %s\n", strerror(errno));
-      return -errno;
-    };
-    printf ("child 1\n");
-    fflush(stdout);
-    pid2 = fork();
-    if (pid2 == 0) {
-      printf("child 2 about to reassign stdout\n");
+   pid1 = fork ();
+   if (pid1 == 0) {
+      close(0);
+      close(1);
+      rc = pipe(fds);
+      if (rc != 0) {
+	 fprintf(stderr, "boot failed because: %s\n", strerror(errno));
+	 return -errno;
+      };
+      printf ("child 1\n");
+      fflush(stdout);
+      pid2 = fork();
+      if (pid2 == 0) {
+	 printf("child 2 about to reassign stdout\n");
 
-      close(fds[0]);
-      /*stdout = fdopen(fds[1], "w");*/
-      if (stdout == NULL) {
-	 fprintf(stderr,"reasignment failed reason: %s", strerror(errno));
-	 exit(-1);
+	 close(fds[0]);
+	 /*stdout = fdopen(fds[1], "w");*/
+	 if (stdout == NULL) {
+	    fprintf(stderr,"reasignment failed reason: %s", strerror(errno));
+	    exit(-1);
+	 };
+	 rc = printf("child 2 reassignment complete\n");
+	 fprintf(stderr,"wrote %d bytes on new stdout, should be %d\n", 
+		 rc, strlen("child 2 reassignment complete\n"));
+	 argv[0] = "-mwd";  
+	 execvp("mwd", argv); 
+	 fclose(stdout);
+	 sleep(10);
+	 fprintf(stderr,"boot failed, reason exec of mwd failed with: %s\n", strerror(errno)); 
+	 exit(0);
+      } else {
+	 printf ("child 1 reading\n");
+	 n = 0;
+	 close(fds[1]);
+	 sin = fdopen(fds[0], "r");
+	 while(!feof(sin)) {
+	    c = fgetc(sin);
+	    /*	printf("got a char from sin %d\n", c);*/
+	    n++;
+	    if (c != EOF) {
+	       fputc(c, stderr);
+	       fflush(stderr);
+	    };
+	 };
+	 printf("sin empty after %d bytes\n",n);
+	 exit(0);
       };
-      rc = printf("child 2 reassignment complete\n");
-      fprintf(stderr,"wrote %d bytes on new stdout, should be %d\n", 
-	      rc, strlen("child 2 reassignment complete\n"));
-      argv[0] = "-mwd";  
-      execvp("mwd", argv); 
-      fclose(stdout);
-      sleep(10);
-      fprintf(stderr,"boot failed, reason exec of mwd failed with: %s\n", strerror(errno)); 
-      exit(0);
-    } else {
-      printf ("child 1 reading\n");
-      n = 0;
-      close(fds[1]);
-      sin = fdopen(fds[0], "r");
-      while(!feof(sin)) {
-	c = fgetc(sin);
-	/*	printf("got a char from sin %d\n", c);*/
-	n++;
-	if (c != EOF) {
-	  fputc(c, stderr);
-	  fflush(stderr);
-	};
-      };
-      printf("sin empty after %d bytes\n",n);
-      exit(0);
-    };
-  } 
-  wait(&status);
-  return 0;
+   } 
+   wait(&status);
+   return 0;
 };
 
 int cmd_shutdown (int argc, char ** argv)
 {
-  Administrative admmesg;
-  int rc;
+   Administrative admmesg;
+   int rc;
 
-  admmesg.mtype = ADMREQ;
-  admmesg.opcode = ADMSHUTDOWN;
-  admmesg.delay = 0;
-  admmesg.cltid = _mw_get_my_clientid();
+   admmesg.mtype = ADMREQ;
+   admmesg.opcode = ADMSHUTDOWN;
+   admmesg.delay = 0;
+   admmesg.cltid = _mw_get_my_clientid();
   
-  rc = _mw_ipc_putmessage(0, (char *) &admmesg, sizeof(Administrative), 0);
-  if (rc != 0) fprintf(stderr, "shutdown failed, reason %d", rc);
-  return rc;
+   rc = _mw_ipc_putmessage(0, (char *) &admmesg, sizeof(Administrative), 0);
+   if (rc != 0) fprintf(stderr, "shutdown failed, reason %d", rc);
+   return rc;
 };
 
 int dumpipcmain(int argc, char ** argv)
 {
-  cliententry  * clttbl  = NULL;
-  serverentry  * srvtbl  = NULL;
-  serviceentry * svctbl  = NULL;
-  gatewayentry * gwtbl   = NULL;
-  conv_entry   * convtbl = NULL;
+   cliententry  * clttbl  = NULL;
+   serverentry  * srvtbl  = NULL;
+   serviceentry * svctbl  = NULL;
+   gatewayentry * gwtbl   = NULL;
+   conv_entry   * convtbl = NULL;
 
-  if (ipcmain == NULL) {
-    printf ("\n ipcmain struct (shared memory) is not attached\n");
-    return -1;
-  };
+   if (ipcmain == NULL) {
+      printf ("\n ipcmain struct (shared memory) is not attached\n");
+      return -1;
+   };
 
-  clttbl  = _mw_getcliententry(0);
-  srvtbl  = _mw_getserverentry(0);
-  svctbl  = _mw_getserviceentry(0);
-  gwtbl   = _mw_getgatewayentry(0);
+   clttbl  = _mw_getcliententry(0);
+   srvtbl  = _mw_getserverentry(0);
+   svctbl  = _mw_getserviceentry(0);
+   gwtbl   = _mw_getgatewayentry(0);
 #ifdef CONV
-  convtbl = _mw_getconv_entry(0);
+   convtbl = _mw_getconv_entry(0);
 #endif
 
-  printf ("\nIPCMAIN struct is located at %p\n", ipcmain);
+   printf ("\nIPCMAIN struct is located at %p\n", ipcmain);
   
-  printf ("Magic                = %-8s\n", ipcmain->magic);
-  printf ("Versions             = %d.%d.%d\n", 
-	  ipcmain->vermajor, 
-	  ipcmain->verminor, 
-	  ipcmain->patchlevel);
-  printf ("master mwd pid       = %d\n", ipcmain->mwdpid);
-  printf ("Watchdog pid         = %d\n", ipcmain->mwwdpid);
-  printf ("Mwds Message queueid = %d\n", ipcmain->mwd_mqid);
-  printf ("MW System name       = %s\n", ipcmain->mw_instance_name);
-  printf ("MW System ID         = %s\n", ipcmain->mw_instance_id);
-  printf ("Home Directory       = %s\n", ipcmain->mw_homedir);
+   printf ("Magic                = %-8s\n", ipcmain->magic);
+   printf ("Versions             = %d.%d.%d\n", 
+	   ipcmain->vermajor, 
+	   ipcmain->verminor, 
+	   ipcmain->patchlevel);
+   printf ("master mwd pid       = %d\n", ipcmain->mwdpid);
+   printf ("Watchdog pid         = %d\n", ipcmain->mwwdpid);
+   printf ("Mwds Message queueid = %d\n", ipcmain->mwd_mqid);
+   printf ("MW System name       = %s\n", ipcmain->mw_instance_name);
+   printf ("MW System ID         = %s\n", ipcmain->mw_instance_id);
+   printf ("Home Directory       = %s\n", ipcmain->mw_homedir);
 
 
-  printf ("Status               = (%d)%s\n", 
-	  ipcmain->status, status_by_name[ipcmain->status]);
-  printf ("Boottime             = %s", ctime(&ipcmain->boottime));
-  printf ("lastactive           = %s", ctime(&ipcmain->lastactive));
-  printf ("configlastloaded     = %s", ctime(&ipcmain->configlastloaded));
-  printf ("shutdown time        = %s", ctime(&ipcmain->shutdowntime));
+   printf ("Status               = (%d)%s\n", 
+	   ipcmain->status, status_by_name[ipcmain->status]);
+   printf ("Boottime             = %s", ctime(&ipcmain->boottime));
+   printf ("lastactive           = %s", ctime(&ipcmain->lastactive));
+   printf ("configlastloaded     = %s", ctime(&ipcmain->configlastloaded));
+   printf ("shutdown time        = %s", ctime(&ipcmain->shutdowntime));
 
-  printf("\n");
-  printf ("Heap ipcid          = %d\n", ipcmain->heap_ipcid);
-  printf ("Client  table ipcid = %d length = %7d at address %p\n", 
-	  ipcmain->clttbl_ipcid, ipcmain->clttbl_length, clttbl);
-  printf ("Server  table ipcid = %d length = %7d at address %p\n", 
-	  ipcmain->srvtbl_ipcid, ipcmain->srvtbl_length, srvtbl);
-  printf ("Service table ipcid = %d length = %7d at address %p\n", 
-	  ipcmain->svctbl_ipcid, ipcmain->svctbl_length, svctbl);
-  printf ("Gateway table ipcid = %d length = %7d at address %p\n", 
-	  ipcmain->gwtbl_ipcid,  ipcmain->gwtbl_length,  gwtbl);
-  printf ("Convers table ipcid = %d length = %7d at address %p\n", 
-	  ipcmain->convtbl_ipcid, ipcmain->convtbl_length, convtbl);
-  return 0 ;
+   printf("\n");
+   printf ("Heap ipcid          = %d\n", ipcmain->heap_ipcid);
+   printf ("Client  table ipcid = %d length = %7d at address %p\n", 
+	   ipcmain->clttbl_ipcid, ipcmain->clttbl_length, clttbl);
+   printf ("Server  table ipcid = %d length = %7d at address %p\n", 
+	   ipcmain->srvtbl_ipcid, ipcmain->srvtbl_length, srvtbl);
+   printf ("Service table ipcid = %d length = %7d at address %p\n", 
+	   ipcmain->svctbl_ipcid, ipcmain->svctbl_length, svctbl);
+   printf ("Gateway table ipcid = %d length = %7d at address %p\n", 
+	   ipcmain->gwtbl_ipcid,  ipcmain->gwtbl_length,  gwtbl);
+   printf ("Convers table ipcid = %d length = %7d at address %p\n", 
+	   ipcmain->convtbl_ipcid, ipcmain->convtbl_length, convtbl);
+   return 0 ;
 }
 
 int event(int argc, char ** argv)
 {
-  int c, rc;
-  char * username = NULL;
-  char * clientname = NULL;
-  char * data = NULL;
-  char * eventname = NULL;
-  if (ipcmain == NULL) {
-    printf ("We are not connected to a MidWay system\n");
-    return -1;
-  };
+   int c, rc;
+   char * username = NULL;
+   char * clientname = NULL;
+   char * data = NULL;
+   char * eventname = NULL;
+   if (ipcmain == NULL) {
+      printf ("We are not connected to a MidWay system\n");
+      return -1;
+   };
 
-  optind = 0;
-  while( (c = getopt(argc, argv, "u:c:")) != -1) {
-    switch(c) {
-    case 'c':
-      clientname = optarg;
+   optind = 0;
+   while( (c = getopt(argc, argv, "u:c:")) != -1) {
+      switch(c) {
+      case 'c':
+	 clientname = optarg;
+	 break;
+      case 'r':
+	 username = optarg;
+	 break;
+      };
+   };
+
+   switch (argc - optind) {
+
+   case 2:
+      data = argv[optind+1];
+   case 1:
+      eventname = argv[optind];
       break;
-    case 'r':
-      username = optarg;
-      break;
-    };
-  };
 
-  switch (argc - optind) {
+   default:
+      goto usage;
+   };
 
-  case 2:
-    data = argv[optind+1];
-  case 1:
-    eventname = argv[optind];
-    break;
+   rc = mwevent(eventname, data, 0, username, clientname);
+   return rc ;
 
-  default:
-    goto usage;
-  };
-
-  rc = mwevent(eventname, data, 0, username, clientname);
-  return rc ;
-
-  usage:
-  fprintf(stderr, 
-	  "error in event: wrong number of args event [-u username] [-c clientname] eventname [data]\n");
-  return 0;
+ usage:
+   fprintf(stderr, 
+	   "error in event: wrong number of args event [-u username] [-c clientname] eventname [data]\n");
+   return 0;
 };
 
 static void event_handler(char * event, char * data, int datalen)
 {
-  printf("  EVENT: %s data:%*.*s(%d)\n", event, datalen, datalen, data, datalen);
-  return;
+   printf("  EVENT: %s data:%*.*s(%d)\n", event, datalen, datalen, data, datalen);
+   return;
 };
 
 int sceleton(int argc, char ** argv) 
 {
-  int c;
+   int c;
 
-  optind = 0;
-  while( (c = getopt(argc, argv, "grR")) != -1) {
-    switch(c) {
-    case 'g':
-      break;
-    case 'r':
-      break;
-    case 'R':
-      break;
-    };
-  };
-  if ( (argc - optind) != 1) {
-    fprintf(stderr, "error in ?? wrong number of args \n");
-    return 0;
-  };
+   optind = 0;
+   while( (c = getopt(argc, argv, "grR")) != -1) {
+      switch(c) {
+      case 'g':
+	 break;
+      case 'r':
+	 break;
+      case 'R':
+	 break;
+      };
+   };
+   if ( (argc - optind) != 1) {
+      fprintf(stderr, "error in ?? wrong number of args \n");
+      return 0;
+   };
 
-  return 0;
+   return 0;
 };
 
 
 int subscribe(int argc, char ** argv)
 {
-  int c, rc;
-  int flags = 0;
+   int c, rc;
+   int flags = 0;
 
-  optind = 0;
-  while( (c = getopt(argc, argv, "grR")) != -1) {
-    switch(c) {
-    case 'g':
-      flags = MWEVGLOB;
-      break;
-    case 'r':
-      flags = MWEVREGEXP;
-      break;
-    case 'R':
-      flags = MWEVEREGEXP;
-      break;
-    };
-  };
-  if ( (argc - optind) != 1) {
-    fprintf(stderr, "error in subscribe wrong number of optind = %d args %d\n", optind, argc);
-    return 0;
-  };
+   optind = 0;
+   while( (c = getopt(argc, argv, "grR")) != -1) {
+      switch(c) {
+      case 'g':
+	 flags = MWEVGLOB;
+	 break;
+      case 'r':
+	 flags = MWEVREGEXP;
+	 break;
+      case 'R':
+	 flags = MWEVEREGEXP;
+	 break;
+      };
+   };
+   if ( (argc - optind) != 1) {
+      fprintf(stderr, "error in subscribe wrong number of optind = %d args %d\n", optind, argc);
+      return 0;
+   };
 
-  rc = mwsubscribeCB(argv[optind], flags, event_handler);
-  printf ("mwsubscribe returned %d\n", rc);
-  return 0;
+   rc = mwsubscribeCB(argv[optind], flags, event_handler);
+   printf ("mwsubscribe returned %d\n", rc);
+   return 0;
 
 };
 
 int unsubscribe(int argc, char ** argv)
 {
-  int rc;
+   int rc;
 
-  if (argc != 2) {
-    fprintf(stderr, "error in %s wrong number of args\n", __FUNCTION__);
-    return 0;
-  };
+   if (argc != 2) {
+      fprintf(stderr, "error in %s wrong number of args\n", __FUNCTION__);
+      return 0;
+   };
 
-  rc = mwunsubscribe(atoi(argv[1]));
-  printf ("mwsubscribe returned %d\n", rc);
-  return 0;
+   rc = mwunsubscribe(atoi(argv[1]));
+   printf ("mwsubscribe returned %d\n", rc);
+   return 0;
 };
 
 int call(int argc, char ** argv) 
 {
-  int i, j, len, apprc = 0, rc;
-  char * data, * rdata = NULL;
-  struct timeval start, end;
-  //  long long llstart, llend;
-  double secs;
+   int i, j, len, apprc = 0, rc;
+   char * data, * rdata = NULL;
+   struct timeval start, end;
+   //  long long llstart, llend;
+   double secs;
 
-  if ( (argc <= 1) || (argv[1] == NULL) ) {
-    return -1;
-  }
+   if ( (argc <= 1) || (argv[1] == NULL) ) {
+      return -1;
+   }
 
-  if (argc > 2) {
-    len = strlen(argv[2]);
-    data = (char *) malloc(len);
-    j = 0;
-    for (i = 0; i < len; i++) {
-      if (argv[2][i] == '%') {
-	/* simlified, we accept only %UL where H is the high nibble
-	   and L is teh lower nibble. Thus a char in hex.
-	   fortunalty the lowe niddle in an ascii hex reprenentation
-	   is the binary value */
-	if ((i + 2) < len) {
-	  data[j++] = argv[2][++i] & 0x0f << 4
-	    + argv[2][++i] & 0x0f;
-	} 
-      } else {
-	data[j++] = argv[2][i];
+   if (argc > 2) {
+      len = strlen(argv[2]);
+      data = (char *) malloc(len);
+      j = 0;
+      for (i = 0; i < len; i++) {
+	 if (argv[2][i] == '%') {
+	    /* simlified, we accept only %UL where H is the high nibble
+	       and L is teh lower nibble. Thus a char in hex.
+	       fortunalty the lowe niddle in an ascii hex reprenentation
+	       is the binary value */
+	    if ((i + 2) < len) {
+	       data[j++] = argv[2][++i] & 0x0f << 4
+		  + argv[2][++i] & 0x0f;
+	    } 
+	 } else {
+	    data[j++] = argv[2][i];
+	 }
       }
-    }
-    data[j] = '\0';
-  } else {
-    data = NULL;
-    j = 0;
-  };
-  DEBUG("about to call(%s, %s, %d, ...)", argv[1], data, j);
-  gettimeofday(&start, NULL); 
-  rc = mwcall(argv[1], data, j, &rdata, &len, &apprc, 0);
-  gettimeofday(&end, NULL); 
+      data[j] = '\0';
+   } else {
+      data = NULL;
+      j = 0;
+   };
+   DEBUG("about to call(%s, %s, %d, ...)", argv[1], data, j);
+   gettimeofday(&start, NULL); 
+   rc = mwcall(argv[1], data, j, &rdata, &len, &apprc, 0);
+   gettimeofday(&end, NULL); 
 
-  secs = end.tv_usec - start.tv_usec;
-  secs /= 1000000;
-  secs += end.tv_sec - start.tv_sec;
+   secs = end.tv_usec - start.tv_usec;
+   secs /= 1000000;
+   secs += end.tv_sec - start.tv_sec;
 
-  if ( (rdata != NULL) && (len > 0) ) {
-    data = NULL;
-    data = realloc(data,len*3);
-    j = 0;
-    for (i = 0; i < len; i++) {
-      if ( (!isprint(rdata[i])) || (rdata[i] == '%') ) {
-	sprintf(&data[j], "%%%2.2x", (unsigned char) rdata[i]);
-	j += 3;
-      } else {
-	data[j++] = rdata[i];
+   if ( (rdata != NULL) && (len > 0) ) {
+      data = NULL;
+      data = realloc(data,len*3);
+      j = 0;
+      for (i = 0; i < len; i++) {
+	 if ( (!isprint(rdata[i])) || (rdata[i] == '%') ) {
+	    sprintf(&data[j], "%%%2.2x", (unsigned char) rdata[i]);
+	    j += 3;
+	 } else {
+	    data[j++] = rdata[i];
+	 };
       };
-    };
     
     
-    data[j] = '\0';
-    printf ("Call to \"%s\" returned %d(%s), with data \"%.*s\" %d bytes\n",  
-	    argv[1], rc, rc==MWFAIL?"failed":rc==MWSUCCESS?"succeded":"mwmore", j, data, len);
-  } else {
-    printf ("Call to \"%s\" returned %d(%s), without data\n",  
-	    argv[1], rc, rc?"fail":"success");    
-  };
-  printf ("  with application return code %d in %12.6f secs \n", apprc, secs);
+      data[j] = '\0';
+      printf ("Call to \"%s\" returned %d(%s), with data \"%.*s\" %d bytes\n",  
+	      argv[1], rc, rc==MWFAIL?"failed":rc==MWSUCCESS?"succeded":"mwmore", j, data, len);
+   } else {
+      printf ("Call to \"%s\" returned %d(%s), without data\n",  
+	      argv[1], rc, rc?"fail":"success");    
+   };
+   printf ("  with application return code %d in %12.6f secs \n", apprc, secs);
 
-  DEBUG("call to %s returned %s len %d bytes rc = %d apprc=%d in %12.6f secs\n", 
-	argv[1], data, len, rc, apprc, secs);
+   DEBUG("call to %s returned %s len %d bytes rc = %d apprc=%d in %12.6f secs\n", 
+	 argv[1], data, len, rc, apprc, secs);
 
-  mwfree(rdata);
+   mwfree(rdata);
 
-  return rc;
+   return rc;
 };
 
 

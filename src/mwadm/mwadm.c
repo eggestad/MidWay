@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2003/07/06 18:59:56  eggestad
+ * introduced a table api for commands.c to return data in
+ *
  * Revision 1.9  2003/06/12 07:22:55  eggestad
  * fix for loglevel option
  *
@@ -71,6 +74,9 @@
 #include <MidWay.h>
 #include <ipctables.h>
 
+#include "dtbl.h"
+#include "commands.h"
+
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
@@ -80,41 +86,12 @@ static int extended = 0;
 #define NORMALPROMPT "MWADM> "
 #define EXTDPROMPT   "MWADM+> "
 static char * prompt = NORMALPROMPT;
-static int echo = 1;
+static int echo = 0;
 static int autorepeat = 0;
 
 static int sigflag = 0;
 
 static char * url = NULL;
-
-/* the functions that implement the commands. They calling convention is based on 
-   The UNIC convention from exec() to programs.
-   The basis is for this use is:
-   - other programs than mwadm may call them
-   - it is simple to convert a commandline from readlin() to thsi by filling inn \0 for 
-   white space, and just adding a pointer array.
-   - a single command can be given on mwadm arguments.
-*/
-int info(int, char **);
-int boot(int, char **);
-int clients(int, char **);
-int servers(int, char **);
-int services(int, char **);
-int gateways(int, char **);
-int heapinfo(int, char **);
-int dumpipcmain(int, char **);
-int call(int, char **);
-int event(int, char **);
-int subscribe(int, char **);
-int unsubscribe(int, char **);
-int quit(int, char **);
-int query(int, char **);
-int toggleRandD(int, char **);
-int attach(int, char **);
-int detach(int, char **);
-int help(int, char **);
-int cmd_shutdown(int, char **);
-
 
 int usage(char *);
 
@@ -124,6 +101,127 @@ struct command {
   int extended;
   char * usage;
   char * doc;
+};
+
+
+int quit          (int argc, char ** argv);
+int attach        (int argc, char ** argv);
+int detach        (int argc, char ** argv);
+int toggleRandD   (int argc, char ** argv);
+int help          (int argc, char ** argv);
+static int info          (int argc, char ** argv);
+int boot          (int argc, char ** argv);
+static int clients       (int argc, char ** argv);
+static int servers       (int argc, char ** argv);
+static int services      (int argc, char ** argv);
+static int gateways      (int argc, char ** argv);
+int heapinfo      (int argc, char ** argv);
+int dumpipcmain   (int argc, char ** argv);
+int call          (int argc, char ** argv);
+int event         (int argc, char ** argv);
+int subscribe     (int argc, char ** argv);
+int unsubscribe   (int argc, char ** argv);
+int query         (int argc, char ** argv);
+int cmd_shutdown  (int argc, char ** argv);
+
+int clients       (int argc, char ** argv)
+{
+   DTable dt;
+   char * errstr;
+   int rc;
+
+   dt = dtbl_new(0);
+   
+   rc = do_clients(argc, argv, dt, &errstr);
+   if (rc < 0) {
+      printf ("%s\n", errstr);
+      return rc;
+   };
+
+   dtbl_printf(dt, stdout);
+
+   dtbl_delete(dt);
+   return rc;
+};
+
+int servers(int argc, char ** argv)
+{
+   DTable dt;
+   char * errstr;
+   int rc;
+
+   dt = dtbl_new(0);
+   
+   rc = do_servers(argc, argv, dt, &errstr);
+   if (rc < 0) {
+      printf ("%s\n", errstr);
+      return rc;
+   };
+
+   dtbl_printf(dt, stdout);
+
+   dtbl_delete(dt);
+   return rc;
+};
+
+int services(int argc, char ** argv)
+{
+   DTable dt;
+   char * errstr;
+   int rc;
+
+   dt = dtbl_new(0);
+   
+   rc = do_services(argc, argv, dt, &errstr);
+   if (rc < 0) {
+      printf ("%s\n", errstr);
+      return rc;
+   };
+
+   dtbl_printf(dt, stdout);
+
+   dtbl_delete(dt);
+   return rc;
+};
+
+int gateways(int argc, char ** argv)
+{
+   DTable dt;
+   char * errstr;
+   int rc;
+
+   dt = dtbl_new(0);
+   
+   rc = do_gateways(argc, argv, dt, &errstr);
+   if (rc < 0) {
+      printf ("%s\n", errstr);
+      return rc;
+   };
+
+   dtbl_printf(dt, stdout);
+
+   dtbl_delete(dt);
+   return rc;
+};
+
+int info(int argc, char ** argv)
+{
+   DTable dt;
+   char * errstr;
+   int rc;
+
+   dt = dtbl_new(2);
+   
+   rc = do_info(argc, argv, dt, &errstr);
+   if (rc < 0) {
+      printf ("%s\n", errstr);
+      return rc;
+   };
+
+   dtbl_printf(dt, stdout);
+
+   dtbl_delete(dt);
+   return rc;
 };
 
 struct command  commands[] = 
@@ -229,10 +327,9 @@ int toggleRandD(int argc, char **argv)
 int attach(int argc, char ** argv)
 {
   int rc;
-  char durl [1024];
     
   rc = mwattach(url, "mwadm", NULL, NULL, 0 );
-  printf("mwattach on url %s returned %d\n", url, rc);
+  DEBUG("mwattach on url %s returned %d", url, rc);
   if (rc == 0) {
     ipcmain = _mw_ipcmaininfo();
   } else {
@@ -322,7 +419,7 @@ int parse_commandline(char *arglist)
     }
     len++;
   };
-  printf("commandline is %d bytes long and has %d args\n", len, argc);
+  DEBUG("commandline is %d bytes long and has %d args", len, argc);
 
   argv = malloc((argc+1)*sizeof(char *));
   intoken = 0;
@@ -331,7 +428,7 @@ int parse_commandline(char *arglist)
     if ((!intoken) && (arglist[i] != '\0')) {
       argv[tokencount++] = &arglist[i];
       intoken = 1;
-      printf (" arg %d: %s\n", tokencount-1, &arglist[i]);
+      DEBUG (" arg %d: %s", tokencount-1, &arglist[i]);
       continue;
     };
     if (intoken && (arglist[i] == '\0')) {
@@ -391,16 +488,16 @@ int main(int argc, char ** argv)
 
   attach(0, NULL);
   
-  printf ("optind = %d argc = %d\n", optind, argc);
+  DEBUG ("optind = %d argc = %d", optind, argc);
   for (i = optind; i < argc; i++) {
-    printf("argv[%d] = \"%s\"\n", i, argv[i]);
+     DEBUG("argv[%d] = \"%s\"", i, argv[i]);
   };
 
   if (optind < argc) {
-    fprintf(stderr, "got an commandline command, not running interactivly\n");
-    rc = exec_command(argc - optind, &argv[optind]); 
-    detach(0, NULL);
-    exit(rc);
+     DEBUG("got an commandline command, not running interactivly\n");
+     rc = exec_command(argc - optind, &argv[optind]); 
+     detach(0, NULL);
+     exit(rc);
   }
   /* if interactive */
   init_readline();
@@ -422,8 +519,10 @@ int main(int argc, char ** argv)
     };
 
     if (echo)
-      printf ("%s\n", thiscommand);
-    
+       printf ("%s\n", thiscommand);
+    else 
+       printf("\n");
+
     parse_commandline(thiscommand);
 
     if (sigflag) {

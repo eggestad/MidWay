@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2002/09/22 22:51:04  eggestad
+ * query now return replies immediately, not after the timeout
+ *
  * Revision 1.9  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -79,6 +82,7 @@
 #include <ipcmessages.h>
 #include <shmalloc.h>
 #include <address.h>
+#include <multicast.h>
 
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
@@ -300,33 +304,55 @@ int heapinfo(int argc, char ** argv)
 
 int query(int argc, char ** argv) 
 {
-  int i;
+  int s, rc;
   char addr[INET_ADDRSTRLEN+1];
   struct sockaddr_in * inaddr;
-  instanceinfo * replies;
+  instanceinfo reply;
   char * domain = NULL, * instance = NULL;
   
   if (argc == 2) {
     domain = argv[1];
   } 
-  
-  printf("Domain               Instance             Version  Address\n");
-  replies = mwbrokerquery(domain, instance);
-  if (replies) {
-    for (i = 0; replies[i].version[0] != '\0'; i++) {
-      addr[0] = '\0';
-      inaddr = (struct sockaddr_in *) &replies[i].address;
-      inet_ntop(AF_INET, 
-		&inaddr->sin_addr, 
-		addr, INET_ADDRSTRLEN);
-      printf("%-20s %-20s %7s  AF_INET:%s:%d\n", 
-	     replies[i].domain,
-	     replies[i].instance,
-	     replies[i].version,
-	     addr, ntohs(inaddr->sin_port));      
-    }
+
+  s = socket(AF_INET, SOCK_DGRAM, 0);
+  if (s == -1) return -errno;
+
+  rc = _mw_sendmcastquery(s, domain, instance);
+  if (rc == -1) {
+    close(s);
+    return rc;
   };
-  return i;
+
+  printf("Domain               Instance             Version  Address\n");
+
+  rc = 0;
+  /* we wait for 2-3 secs on replies */
+  while (rc == 0) { 
+    memset(&reply, '\0', sizeof(instanceinfo));
+    rc =  _mw_getmcastreply(s, &reply, 2.0);
+    
+    if (rc == -1) {
+      switch (errno) {
+      case EBADMSG:
+	rc = 0;
+      };
+      continue;	  
+    };
+
+    addr[0] = '\0';
+    inaddr = (struct sockaddr_in *) &reply.address;
+    inet_ntop(AF_INET, 
+	      &inaddr->sin_addr, 
+	      addr, INET_ADDRSTRLEN);
+    printf("%-20s %-20s %7s  AF_INET:%s:%d\n", 
+	   reply.domain,
+	   reply.instance,
+	   reply.version,
+	   addr, ntohs(inaddr->sin_port));          
+  }
+
+  close(s);
+  return 0;
 };
  
 

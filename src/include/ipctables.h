@@ -175,7 +175,7 @@ struct ipcmaininfo
   int vermajor, verminor, patchlevel;
   pid_t mwdpid, mwwdpid;
   int mwd_mqid;
-  char mw_system_name[MWMAXNAMELEN];
+  char mw_instance_name[MWMAXNAMELEN];
   char mw_homedir[256];
 
   int status; /* BOOTING, RUNNING, SHUTDOWN*/

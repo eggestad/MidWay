@@ -1,3 +1,14 @@
+2004-12-29  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* Large data protocol fix up
+	* srb/ipc handle datatype fixup
+
+2004-12-14  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* src/lib/shmalloc.c (getchunksizebyadr): 
+	mwalloc() returned wrong size buffer, too small when requested size was less than 
+	one baszechunksize larger than the nearests smaller buffer. 
+
 2004-11-26  Terje Eggestad  <te@pc-31.office.scali.no>
 
 	* added mutex to Connection
@@ -7,6 +18,21 @@
 	* added a utility function _mw_irand() as a wrapper to random functions
 	* began on enabling PIE in configure
 	
+2004-11-17  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* run with valgrind and cleaned up a number of leaks and alloc
+	bugs, particular in mwgwd.
+
+	* expanded the buffers command in mwadm to show buffers in use,
+	and optionally the data in the buffer.
+
+	* IPC large buffers now seem to work OK. 
+	
+2004-11-03  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* fix for proper detection of eth device, a primary IP address was
+	not always found
+
 2004-07-13  Terje Eggestad  <te@pc-16.office.scali.no>
 
 	RELEASE 0.14.0

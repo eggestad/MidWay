@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.2  2003/07/09 11:52:10  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.1  2003/07/06 18:59:56  eggestad
  * introduced a table api for commands.c to return data in
  *
@@ -227,9 +230,10 @@ dtbl * dtbl_new(int cols)
 
 void dtbl_delete(dtbl * dt)
 {
-   ENTER();
    int c, r;
 
+   ENTER();
+   
    if (dt->title) {
       free (dt->title);
       dt->title = NULL;

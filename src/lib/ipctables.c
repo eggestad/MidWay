@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2000/09/21 18:36:36  eggestad
+ * server crashed if IPC client dissapeared while service call was prosessed.
+ *
  * Revision 1.3  2000/08/31 21:50:48  eggestad
  * DEBUG level set propper.
  *
@@ -537,14 +540,22 @@ int _mw_get_mqid_by_mwid(int dest)
 
   if (dest & MWSERVERMASK) {
     srvent = _mw_get_server_byid(dest);
-    if (srvent == NULL) return -ENOENT;
-    qid = srvent->mqid;
+    if (srvent) 
+      qid = srvent->mqid;
+    else 
+      qid = -1;
   } else if (dest & MWCLIENTMASK) {
     cltent = _mw_get_client_byid(dest);
-    qid = cltent->mqid;
+    if (cltent)
+      qid = cltent->mqid;
+    else 
+      qid = -1;
   } else if (dest & MWGATEWAYMASK) {
     gwent = _mw_get_gateway_byid(dest);
-    qid = gwent->mqid;
+    if (gwent)
+      qid = gwent->mqid;
+    else 
+      qid = -1;
   } else if (dest == 0) {
     /* 0 means mwd. */
     qid = _mw_mwd_mqid();

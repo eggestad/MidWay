@@ -20,6 +20,7 @@ tags:
 	@ for dir in $(DIRS); do\
 	(cd $$dir; make $@)\
 	done;
+	etags -a -o TAGS include/*.h
 
 
 depend:

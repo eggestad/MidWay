@@ -1,0 +1,464 @@
+.\" .ig
+.\".pl 10.0i
+.\".po 0
+.\".ll 7.2i
+.\".lt 7.2i
+.\".nr LL 7.2i
+.\".nr LT 7.2i
+.\" ..
+.ds LF Eggestad
+.ds RF PUTFFHERE[Page %]
+.ds CF
+.ds LH RFC nnnn
+.ds RH 1 April 2000
+.ds CH Service Request Broker Protocol
+.hy 0
+.ad l
+.in 0
+Network Working Group                                     Terje Eggestad
+Request for Comments: nnnn                                          NONE
+                                                           22 June  2000
+
+
+.ce
+Service Request Broker Protocol Version 1.0
+
+.ti 0
+Status of this Memo
+
+.fi
+.in 3
+This memo describes a Service Request Broker (SRB) protocol, and
+implemented by MidWay.  This memo is under development and MUST be
+regarded as an experimental, not recommended standard.  Distribution
+of this memo is unlimited.
+
+.ti 0
+Overview and Rational
+ 
+This is the description of the TCP/IP protocol.
+
+keywords are to be interpreted as described in RFC 2119.
+
+.ti 0
+Discussion
+
+We use the same protocol for gateways and clients, but some parameters
+are different on some commands.
+
+This protocol is loosely based on http[1] and URI[2], or is inspired by
+these, depending of your point of view.
+
+We require a reliable connection to implement the protocol over.
+It may or may not be a a octet stream (TCP), but it must be in sequence (!?!)
+
+Service calls shall only be passed in the same direction as the TCP
+sessions was established, unless calling side passes REVERSE=YES in SRB INIT.
+
+.ti 0
+Large Amount of Data
+
+In the case where a service call or event send a lot of data, it must
+be chunked, or it will interfere with the transmission time of other
+calls. Just imagine a 10 Mbyte data block. An implementation should
+make sure that SVCDATA messages are interleaved with other traffic.
+
+I've specified that a DATA field shall not exceed 3000 token, which
+may be as long as 9000 octets, if every token is url escaped. With the
+other fields in SVCCALL leaves a max message size of about
+10000. Since many TCP implementation has a send/receive queue of 16k,
+we don't want to get near that.
+
+Then the DATA to to big to send complete with the SVCCALL message, the
+DATACHUNKS filed shall be set, and its value shall be the number of
+SVCDATA messages that will follow. The SVCDATA must come in sequence,
+and ech will also have the DATACHUNKS field set, and the last one
+shall have it set to 0.
+
+Alert readers may realize that requiring to know the number of chunks
+prior to the SVCCALL message prevents starting to send anything before
+the call data is complete. It is tempting to do this in order to start
+the server early. However this is a pitfall, by doing so the server
+may be standing idle while waiting for more data, and you are in
+reality hoging the server. It is a major effect of an SRB to prevent
+this type of behavior, and the SRB would just queue up the data until
+complete anyway.  Allowing early send, just uses memory on the server,
+who's memory is more precious that the clients. It also increases the
+risk of memory leak on the server.  Note that there are no provision
+in the protocol to recall messages, again deliberatlu so.  Consider
+what happens is the client encounters an error after sending only
+partly the data. SVCDATA messages exist only as a mean to interleave
+large data with other traffic.
+
+It is recommended that an implementation do a MTU discovery on the
+interface for TCP, and select a datachunk size (in bytes) that ensures
+that the message fits in a single IP packet. That will ensures that
+the message is not just to big and causes the TCP stack to chop it
+into a large and a very small packet. This is only a performance
+issue.
+
+.ti Handles
+A handle is a reference number used in order to link messages
+together, such as with SVCCALL and SVCDATA. In the case of gateways,
+where a SVCCALL is received from one gateway and retransmitted to
+another, a gateway may replace the handle. There is a possibility that
+a gateway could receive two SVCCALL from two different gateways or
+clients with the same handle.  The gateway would then send two
+SVCCALLs with identical handles to a next gateway (or internally to a
+server)..
+
+
+A general message is described by the ABNF spec:
+
+.TS
+center, tab(;);
+l l
+l l.
+message =; command marker 
+; [parameter 
+;  [ *parameterseparator 
+;    *parameter]] 
+;CRLF
+command =; "SRB INIT" 
+;| "SRB READY" 
+;| "SVCCALL" 
+;| "SVCDATA" 
+;| "TERM" 
+;| "PROVIDE" 
+;| "UNPROVIDE"
+;| "HELLO"
+;| "EVENT"
+;| "SUBSCRIBE"
+;| "UNBSCRIBE"
+;| "REJECT"
+marker = ;requestmarker 
+;| responsemarker 
+;| notificationmarker
+requestmarker =; "?"
+responsemarker =; "."
+notificationmarker =; "!"
+parameter =; parametername "=" [ parametervalue ]
+parameterseparator =; "&"
+parametername =; "AGENT"
+;| "AGENTVERSION"
+;| "APPLICATIONRC"
+;| "AUTHENTICATION"
+;| "CAUSE"
+;| "CAUSEFIELD"
+;| "CAUSEVALUE"
+;| "CLIENTNAME"
+;| "CONVERSATIONAL"
+;| "DATA"
+;| "DATACHUNKS"
+;| "DOMAIN"
+;| "EVENTNAMEEVENTID"
+;| "GLOBALTRANID"
+;| "GRACE"
+;| "HANDLE"
+;| "HOPS"
+;| "INSTANCE"
+;| "LOCALTIME"
+;| "MAXHOPS"
+;| "MESSAGE"
+;| "MORE"
+;| "MULTIPLE"
+;| "NAME"
+;| "NOREPLY"
+;| "OFFSET"
+;| "OS"
+;| "PASSWORD"
+;| "REASON"
+;| "REASONCODE"
+;| "REJECTS"
+;| "REMOTETIME"
+;| "RETURNCODE"
+;| "REVERSE"
+;| "SECTOLIVE"
+;| "SVCNAME"
+;| "TYPE"
+;| "UNIQUE"
+;| "USER"
+;| "VERSION"
+parametervalue =; 1*token
+token =; ALPHA | DIGIT | escapedoctet
+escapedoctet =; "%" 2HEXDIG
+.TE
+.fi
+.in 3
+
+Legal parameter names and values are dependent on command and given in
+separate tables.
+
+parameters not described here are sliently ignored.
+
+
+.ti 1
+SRB INIT 
+Request/Response ?.
+
+Must be the first message, is either rejected or accepted.
+
+.TS
+box, tab(;);
+l | l | l | l | l |
+-----
+l | l | l | l | l |.
+Parameter name;value ABNF;req;rpy;comment
+VERSION;1*DIGIT "%2E" 1*DIGIT;m;;"1%2E0" (1.0) 
+DOMAIN;1*64token;o;;
+TYPE;"client"|"gateway";m; 
+NAME;1*64token;m;;Client name if 
+;;;;type = client, 
+;;;;instancename if 
+;;;;type = gateway
+REVERSE;"yes"|"NO";o;;Allow reverse 
+;;;;calls
+REJECTS;"YES"|"no";o;;No error handling
+AUTHENTICATION;"NONE"|"unix"|"x509";o;;
+USER;1*token;;;if auth!=NONE
+PASSword;1*token;;;
+AGENT;1*token;oi;; e.g. "MidWay"
+AGENTVERSION;1*token;oi;;
+OS;1*token;oi;
+RETURNCODE;1*3digit;n/a;m   
+CAUSE;1*token;n/a;oi  
+CAUSEFIELD;1*token;n/a;o;parameter name 
+;;;;that cause RC!=0
+.TE
+
+
+.ti 0
+SRB READY
+event !
+
+Only used by a SRB server which SHALL write this message out at the
+time the TCP connection is established.
+
+.TS
+box, tab(;);
+l | l | l | l | l |
+-----
+l | l | l | l | l |.
+Parameter name;value ABNF;req;rpy;comment
+VERSION;DIGIT "%2E" DIGIT;m;;"1.0" 
+DOMAIN;1*64token;o;;
+AGENT;1*64token;oi;;e.g. "MidWay"         
+AGENTVERSION;1*64token;oi;;
+.TE
+
+
+TERM
+Request/Response ?.
+
+Implicit UNPROVIDE for everything. Called side replies when alle call
+request are accounted for.  (!!)
+
+.TS
+box, tab(;);
+l | l | l | l | l |
+-----
+l | l | l | l | l |.
+Parameter name;value ABNF;req;rpy;comment
+GRACE;1*DIGIT;m;;
+.TE
+
+PROVIDE
+event !
+Shall not be sent to clients.
+
+.TS
+box, tab(;);
+l | l | l | l | l |
+-----
+l | l | l | l | l |.
+Parameter name;value ABNF;req;rpy;comment
+SVCNAME;1*32token;m;;
+INSTANCE;1*64token;m;;See **
+CONVERSATIONAL;"yes""NO";o;;Reserved Future use
+DOMAIN;1*64token;o;;(??)
+UNIQUE;"yes"|"NO";o;;
+.TE
+
+UNPROVIDE
+event !
+
+same as PROVIDE
+
+
+HELLO  
+Request/Response ?.
+
+Used as a ping, shall not be be sent to clients.
+
+.TS
+box, tab(;);
+l | l | l | l | l |
+-----
+l | l | l | l | l |.
+Parameter name;value ABNF;req;rpy;comment
+INSTANCE;1*64token;m;;See **
+DOMAIN;1*64token;o;;
+LOCALTIME;1*DIGIT "." 6DIGIT;r;;
+REMOTETIME;1*DIGIT "." 6DIGIT;o;r;
+.TE
+
+
+
+SVCCALL
+Request/Response ?.
+
+.TS
+box, tab(;);
+l | l | l | l | l |
+-----
+l | l | l | l | l |.
+Parameter name;value ABNF;req;rpy;comment
+SVCNAME;1*32token;m;m;
+DATA;1*3000token;o;o;
+DATACHUNKS;1*DIGIT;o;o;See large 
+;;;;amount of data.
+INSTANCE;1*64token;m;m;See **
+DOMAIN;1*64token;o;n/a;
+CLIENTNAME;1*64token;oi;n/a;
+HANDLE;8HEXDIG;o;m;
+NOREPLY;"yes"|"NO";o;n/a;
+MULTIPLE;"yes"|"NO";o;n/a;
+MORE;"yes"|"NO";n/a;o;Used only if 
+;;;;MULTIPLE was set 
+;;;;and server may 
+;;;;execute multiple 
+;;;;mwreply().
+HOPS;1*10DIGIT;m;m;Used to prevent 
+;;;;looping
+MAXHOPS;1*10DIGIT;o;n/a;---- || ----
+SECTOLIVE;1*10DIGIT;o;o;dft 0 (infinite)
+GLOBALTRANID;1*DIGIT;o;o;Reserver for 
+;;;;future use (XA)
+RETURNCODE;3DIGIT;n/a;m;
+APPLICATIONRC;1*10DIGIT;n/a;m;
+.TE
+
+
+SVCDATA
+event !
+used in the case DATACHUNKS is set in SVCCALL, this is the way we 
+send large amount of data.
+
+.TS
+box, tab(;);
+l | l | l | l | l |
+-----
+l | l | l | l | l |.
+Parameter name;value ABNF;req;rpy;comment
+SVCNAME;1*32token;m;m;
+DATA;1*3000token;o;o;
+DATACHUNKS;1*DIGIT;o;o;See large 
+;;;;amount of data.
+INSTANCE;1*64token;m;m;See **
+HANDLE;8HEXDIG;o;m;optional only if
+;;;;NOREPLY=YES
+.TE
+
+
+SUBSCRIBE
+event !
+Subscribe to an event with given regexp, shall not be sent to clients.
+
+.TS
+box, tab(;);
+l | l | l | l | l |
+-----
+l | l | l | l | l |.
+Parameter name;value ABNF;req;rpy;comment
+NAME;1*token;m;;regexp for a event name
+DOMAIN;1*64token;o;;from which domain
+.TE
+
+UNSUBSCRIBE
+event!
+
+same as SUBSCRIBE
+
+
+
+EVENT  
+event !
+
+.TS
+box, tab(;);
+l | l | l | l | l |
+-----
+l | l | l | l | l |.
+Parameter name;value ABNF;req;rpy;comment
+NAME;1*64token;m;;
+INSTANCE;1*64token;m;;See **
+EVENTID;8HEXDIG;m;;
+DATA;1*3000token;o;;
+DOMAIN;1*64token;o;;(??)
+.TE
+
+
+REJECT
+event !
+
+If there is a message that is completely unreadable, sendit back
+completey and complain.  Unless REJECT=NO in SRB INIT.
+
+.TS
+box, tab(;);
+l | l | l | l | l |
+-----
+l | l | l | l | l |.
+Parameter name;value ABNF;req;rpy;comment
+REASONCODE;3DIGIT;m;;
+REASON;1*64token;oi;;
+OFFSET;*DIGIT;m;;must come before MESSAGE
+MESSAGE;1*1000token;m;;all or just beginning?? 
+;;;;(offset + 10?)
+CAUSEFIELD;1*token;o;;
+CAUSEVALUE;1*token;o;;
+.TE
+
+
+.ti 0
+Security Considerations
+
+.ti 0
+Full Copyright Statement
+
+Copyright (C) The Internet Society (1997).  All Rights Reserved.
+
+This document and translations of it may be copied and furnished to
+others, and derivative works that comment on or otherwise explain it
+or assist in its implmentation may be prepared, copied, published and
+distributed, in whole or in part, without restriction of any kind,
+provided that the above copyright notice and this paragraph are
+included on all such copies and derivative works.  However, this
+document itself may not be modified in any way, such as by removing
+the copyright notice or references to the Internet Society or other
+Internet organizations, except as needed for the purpose of developing
+Internet standards in which case the procedures for copyrights defined
+in the Internet Standards process must be followed, or as required to
+translate it into languages other than English.
+
+The limited permissions granted above are perpetual and will not be
+revoked by the Internet Society or its successors or assigns.
+
+This document and the information contained herein is provided on an
+"AS IS" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING
+TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION HEREIN
+WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
+MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE."
+
+.ti 0
+References
+
+[1] RFC 2616
+
+[2] RFC 2396
+
+.ti 0
+Author's Address
+
+

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/10/17 22:19:12  eggestad
+ * added impfindpeerconn()
+ *
  * Revision 1.4  2002/10/03 21:22:37  eggestad
  * - changed beh so that a service is importet to IPC table for each peer, thus svcid++ moved from Import to _peerlink
  * - impsetsvcid() needed gwid (reason in line above)
@@ -70,6 +73,8 @@ typedef struct _Export Export;
 int importservice(char *, int, struct gwpeerinfo *);
 int unimportservice(char *, struct gwpeerinfo *);
 void impsetsvcid(char * service, SERVICEID svcid, GATEWAYID gwid);
+
+Connection * impfindpeerconn(char * service, SERVICEID svcid);
 
 int exportservicetopeer(char *, struct gwpeerinfo * );
 //int exportservice(char *);

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.7  2002/10/17 22:19:12  eggestad
+ * added impfindpeerconn()
+ *
  * Revision 1.6  2002/10/06 23:58:35  eggestad
  * _mw_get_services_byname() has a new prototype
  *
@@ -294,6 +297,36 @@ int unimportservice(char * service, struct gwpeerinfo * pi)
   UNLOCKMUTEX(impmutex);
   return error;
 };
+
+/* for a given service and serviceid, (service is just for perf only */
+Connection * impfindpeerconn(char * service, SERVICEID svcid)
+{
+  Import * imp;
+  peerlink * pl;
+  Connection * rconn = NULL;
+
+  LOCKMUTEX(impmutex);
+  for (imp = importlist; imp != NULL; imp = imp->next) {
+    if (strcmp(service, imp->servicename) != 0) continue;
+
+    for (pl = imp->peerlist; pl != NULL; pl = pl->next) {
+      if (pl->svcid == svcid) {
+	rconn = pl->peer->conn;
+	goto out;
+      };
+    };
+  };  
+
+ out:
+  UNLOCKMUTEX(impmutex);
+  return rconn;
+};
+
+/************************************************************************
+ *
+ * Export related functions
+ *
+ ************************************************************************/
 
 /* add service to Export list if it's isn't there already, else return old
    entry. send a provide to mwd if it was there from before.  */

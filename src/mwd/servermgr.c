@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2003/06/12 07:31:31  eggestad
+ * - added trigger_watchdog() after every server exit
+ * - special handling of dying watchdog
+ *
  * Revision 1.6  2003/06/05 21:56:04  eggestad
  * environment var fixes
  *
@@ -65,6 +69,7 @@
 #include "mwd.h"
 #include "execvpe.h"
 #include "servermgr.h"
+#include "watchdog.h"
 
 
 static char * RCSId UNUSED = "$Id$";
@@ -105,8 +110,8 @@ static int sigchldcount = 0;
 static int killwaits = 0;
 
 
-static int getuserenv(void);
 /* 
+static int getuserenv(void);
    For future reference, getting login env, NOTE all envs in
    environ(5) must be set first. see jim.
 
@@ -851,6 +856,8 @@ struct Server *  smgrServerFuneral(pid_t pid)
 	S->activelist[S->active].pid  = -1;
       };
       DEBUG("Funeral good end AS=%p", S->activelist);
+      // force watchdog to do a ipc clean
+      trigger_watchdog();
       return S;
     };
   }
@@ -881,7 +888,12 @@ int smgrDoWaitPid(void)
 
   errno = 0;
   while( (pid = waitpid(-1, &status, WNOHANG)) > 0)  {
-    
+
+     if (pid == ipcmain->mwwdpid) {
+	Error ("Watchdog died");
+	continue;
+     };
+
     /* since sigs aren't queued we may get "merged" sigs */
     if (sigchldcount > 0)
       sigchldcount--;

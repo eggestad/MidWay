@@ -21,6 +21,11 @@
 /*
  * 
  * $Log$
+ * Revision 1.23  2003/07/06 22:11:40  eggestad
+ * - added timepegs
+ * - added debuggig
+ * - added data in dump of messages
+ *
  * Revision 1.22  2003/06/26 17:03:53  eggestad
  * - reworked the call request queue to FIFO
  *  - added data contents in message dump
@@ -111,6 +116,7 @@
 #include <sys/msg.h>
 #include <errno.h>
 #include <string.h>
+#include <ctype.h>
 
 #include <sys/time.h>
 #include <unistd.h>
@@ -301,7 +307,7 @@ static char * popReplyQueueByHandle(long handle)
 };
 #endif
 
-static char * data(int dataoff, int len)
+static char * strdata(int dataoff, int len)
 {
    static char data[80];
    char * rdata;
@@ -532,6 +538,8 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
   int rc; 
   int qid;
 
+  TIMEPEG();
+
   if (len > MWMSGMAX) {
     Error("_mw_ipc_putmessage: got a to long message %d > %d", len, MWMSGMAX);
     return -E2BIG;
@@ -543,11 +551,16 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
     return qid;
   };
 
+  TIMEPEG();
   DEBUG1("_mw_ipc_putmessage: got a request to send a message to  %#x on mqueue %d", dest, qid);
   
   len -= sizeof(long);
+  TIMEPEG();
   _mw_dumpmesg((void *) data);
+  TIMEPEG();
   rc = msgsnd(qid, data, len, flags);
+  TIMEPEG();
+
   DEBUG1("_mw_ipc_putmessage: msgsnd(dest=%d, msglen=%d, flags=%#x) returned %d", 
 	dest, len, flags, rc);
   /*
@@ -564,6 +577,8 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
     Warning("msgrcv in _mw_ipc_putmessage returned error %d", errno);
     return -errno;
   };
+
+  TIMEPEG();
 
   return 0;
 };
@@ -1002,7 +1017,9 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
 
   if (data != NULL) {
     dataoffset = _mwshmcheck(data);
+    DEBUG1("dataoffset = %d", dataoffset);
     if (dataoffset == -1) {
+       DEBUG1("data buffer is not in heap, getting a buffer in the heap");
       dbuf = _mwalloc(datalen);
       if (dbuf == NULL) {
 	Error("mwalloc(%d) failed reason %d", datalen, (int) errno);
@@ -1010,6 +1027,7 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
       };
       memcpy(dbuf, data, datalen);
       dataoffset = _mwshmcheck(dbuf);
+      DEBUG1("dataoffset = %d", dataoffset);
     };
   } else {
     dataoffset = 0;
@@ -1093,6 +1111,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
   char * buffer;
   struct timeval tv;
   Call * callmesg;
+  MWID id;
 
   /*  if (handle == 0) return -NMWNYI;*/
   
@@ -1150,10 +1169,17 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
      If fastpath we return pointers to the shm area, 
      else we copy to private heap.
   */
+
+  id = 0;
+  _mwshmgetowner(callmesg->data, &id);
+  DEBUG1("owner id of data is %d", id);
+
   if (! _mw_fastpath_enabled()) {
     if (*data != NULL) free (*data);
-    *data = malloc(callmesg->datalen);
+    DEBUG3("copying data to local byffer, freeing shm buffer");
+    *data = malloc(callmesg->datalen+1);
     memcpy(*data, _mwoffset2adr(callmesg->data), callmesg->datalen);
+    data[callmesg->datalen] = '\0';
     _mwfree(_mwoffset2adr(callmesg->data));
   } else {
     *data = _mwoffset2adr(callmesg->data);

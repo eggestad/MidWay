@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.6  2002/09/22 22:58:50  eggestad
+ * prototype fixup
+ *
  * Revision 1.5  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -96,9 +99,10 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo);
 void gw_connectpeers(void);
 int gw_peerconnected(char * instance, char * peerdomain, Connection * conn);
 void gw_provideservices_to_peer(GATEWAYID gwid);
-void gw_provideservices_to_peers(void);
+void gw_provideservice_to_peers(char * service);
 void gw_closegateway(GATEWAYID gwid);
 int gw_getcostofservice(char * service);
+void gw_setipc(struct gwpeerinfo * pi);
 
 #endif
 

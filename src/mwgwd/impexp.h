@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.2  2002/09/22 22:59:26  eggestad
+ * prototype fixup
+ *
  * Revision 1.1  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -61,4 +64,6 @@ int importservice(char *, int, struct gwpeerinfo *);
 int unimportservice(char *, char *);
 int exportservicetopeer(char *, struct gwpeerinfo * );
 //int exportservice(char *);
-int unexportservice(char *);
+//int unexportservice(char *);
+void doprovideevent(char * servicename);
+void dounprovideevent(char * servicename);

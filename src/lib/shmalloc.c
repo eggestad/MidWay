@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.20  2004/12/14 19:06:48  eggestad
+ * mwalloc() returned wrong size buffer in some cases
+ *
  * Revision 1.19  2004/11/17 20:58:08  eggestad
  * Large data buffers for IPC
  *
@@ -446,7 +449,7 @@ static size_t getchunksizebyadr(void * adr, seginfo_t * si)
    if ( (!adr) || (!si)) {
       return -1;
    };
-   DEBUG3("si->segmentid = %d size = %d", si->segmentid, pCHead->size);
+   DEBUG3("si->segmentid = %d size = %lld", si->segmentid, pCHead->size);
    if (si->segmentid == 0) {
       return  pCHead->size * _mwHeapInfo->basechunksize;
    };
@@ -725,10 +728,30 @@ static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount, seginfo_
  };
 
 
+static int find_bin(size_t size, seginfo_t * si)
+{
+   int bin;
+   float f;
+   int chksize;
+   if (si->segmentid > LOW_LARGE_BUFFER_NUMBER) {
+      return 0;
+   };
+   
+   f = size;
+   f /= _mwHeapInfo->basechunksize;
+   chksize = ceilf(f);
+   
+   f = log(chksize) / log(2);
+   bin = ceilf(f);
+   
+   DEBUG1("alloc size %d, size in chunks = %d, bin = %d", size, chksize, bin);
+   return bin;
+};
+
 void * _mwalloc(size_t size)
 {
    chunkhead *pCHead;
-   int chksize, bin, i, rc;
+   int bin, i, rc;
    seginfo_t * si;
    
    if (size <= 0) {
@@ -746,15 +769,12 @@ void * _mwalloc(size_t size)
     n is the number of basesizes needed to hold the requested size.
  
   */
-  chksize =  (size / _mwHeapInfo->basechunksize)+1;
-  bin = log(chksize) / log(2);
-  DEBUG1("alloc size %d, size in chunks = %d, bin = %d", size, chksize, bin);
+  si = findsegment_byid(0); // 0 is the ipcshm heap. 
+  bin = find_bin(size, si);
   for (i = bin; i < _mwHeapInfo->numbins; i++) {
 
-     si = findsegment_byid(0); // 0 is the ipcshm heap. 
-
     /* there are no free chunk at the right size, we try the larges ones. */
-    if (_mwHeapInfo->freecount[i] > 0) {
+     if (_mwHeapInfo->freecount[i] > 0) {
  
       rc = lock(i);
       if (rc < 0) {
@@ -899,7 +919,7 @@ static int _mwfree0(seginfo_t * si, void * adr)
 
    // blacvk out buffer
    s = _mwHeapInfo->basechunksize * pCHead->size;
-   DEBUG1("Clearinbg buffer %d bytes", s);
+   DEBUG1("Clearinbg buffer %ld bytes", s);
    memset(adr, 0, s);
    
    d = log(pCHead->size) / log(2);

@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.15  2002/10/06 23:54:15  eggestad
+ * - updated  mwacall so  we  also call  gateways.  We now  also try  all
+ *   services  with given service  name. We  don't favour  local services
+ *   over remote, something for the future
+ *
  * Revision 1.14  2002/10/03 21:04:03  eggestad
  * - split  up ipc_(un)provide()  and  created ipc_(un)provide_for_id  so
  *   gateways can send (un)provides on behalf on foreign gateways
@@ -734,35 +739,19 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid)
 /* the IPC implementation of mwacall() */
 int _mwacallipc (char * svcname, char * data, int datalen, int flags)
 {
-  int svcid, dest; 
+  int dest; 
   int rc;
-  int hdl, dataoffset;
+  int hdl, dataoffset, n, idx;
   char * dbuf;
   Call calldata;
   struct timeval tm;
   float timeleft;
-
+  SERVICEID * svclist;
+  
   memset (&calldata, '\0', sizeof(Call));
   errno = 0;
-  svcid = _mw_get_service_byname(svcname,flags&MWCONV);
-  if (svcid < 0) {
-    Warning("call to service %s failed reason %d",
-	  svcname,svcid);
-    return svcid;
-  };
-  dest = _mw_get_server_by_serviceid (svcid);
-  if (dest < 0) {
-    Warning("mw(a)call(): getting the serverid for serviceid %#x(%s) failed reason %d",
-	  svcid, svcname, dest);
-    return dest;
-  };
 
-  /* should this be a sequential number for each server(thread) */
-  hdl = _mw_nexthandle();
-
-  DEBUG1(	"Doing mwacall() to service %s service id %#x with handle %d",
-	svcname, svcid, hdl);
-  
+  /* set up the message */  
   gettimeofday(&tm, NULL);
   calldata.issued = tm.tv_sec;
   calldata.uissued = tm.tv_usec;
@@ -787,6 +776,29 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags)
      the other neccessary data.
      since shmat on Linux do not always reurn tha same address for a given shm segment
      we must operate on offset into the segment (se shmalloc.c) */
+  
+  calldata.mtype = SVCCALL;
+  calldata.cltid = _mw_get_my_clientid();
+  calldata.gwid = _mw_get_my_gatewayid();
+
+  if (calldata.cltid == -1) {
+    Error("Failed to get my own clientid! This can't happen.");
+    return -EFAULT;
+  };
+
+  calldata.srvid = UNASSIGNED;
+  strncpy (calldata.service, svcname, MWMAXSVCNAME);
+  strncpy (calldata.origservice, svcname, MWMAXSVCNAME);
+  calldata.forwardcount = 0;
+
+  /* should this be a sequential number for each server(thread) */
+  hdl = _mw_nexthandle();
+
+  /* when properly implemented some flags will be used in the IPC call */
+  calldata.handle = hdl;
+  calldata.flags = flags;
+  calldata.appreturncode = 0;
+  calldata.returncode = 0;
 
   if (data != NULL) {
     dataoffset = _mwshmcheck(data);
@@ -806,36 +818,44 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags)
   /* else 
      we really should check to see if datalen is longe that buffer 
   */
-  
-  calldata.mtype = SVCCALL;
+
   calldata.data = dataoffset;
   calldata.datalen = datalen;
-  calldata.cltid = _mw_get_my_clientid();
-  calldata.gwid = _mw_get_my_gatewayid();
 
-  if (calldata.cltid == -1) {
-    _mwfree(dbuf);
-    Error("Failed to get my own clientid! This can't happen.");
-    return -EFAULT;
+  svclist = _mw_get_services_byname(svcname, &n, flags&MWCONV);
+  if (svclist == NULL) return -ENOENT;
+
+  while(n > 0) {
+    
+    idx = (rand() % n);
+    DEBUG1("selecting %d of %d = %d", idx, n, SVCID2IDX(svclist[idx]));
+    calldata.svcid = svclist[idx];
+    
+    dest = _mw_get_provider_by_serviceid (calldata.svcid);
+    if (dest < 0) {
+      Warning("mw(a)call(): getting the serverid for serviceid %#x(%s) failed reason %d",
+	      calldata.svcid, svcname, dest);
+      continue;
+    };
+ 
+    DEBUG1("Sending a ipcmessage to serviceid %#x service %s on server %#x my clientid %#x buffer at offset%d len %d ", 
+	   calldata.svcid, calldata.service, dest, calldata.cltid, calldata.data, calldata.datalen);
+
+    rc = _mw_ipc_putmessage(dest, (char *) &calldata, sizeof (Call), 0);
+    
+    DEBUG1("_mw_ipc_putmessage returned %d handle is %d", rc, hdl);
+    if (rc >= 0) {
+      rc = hdl;
+      goto out;
+    };
+
+    /* if we got here, there was a failure, remove the svcid we just tried from the svclist, end we retry */
+    n--;
+    svclist[idx] = svclist[n];
   };
-  calldata.srvid = UNASSIGNED;
-  calldata.svcid = svcid;
-  strncpy (calldata.service, svcname, MWMAXSVCNAME);
-  strncpy (calldata.origservice, svcname, MWMAXSVCNAME);
-  calldata.forwardcount = 0;
-
-  /* when properly implemented some flags will be used in the IPC call */
-  calldata.handle = hdl;
-  calldata.flags = flags;
-  calldata.appreturncode = 0;
-  calldata.returncode = 0;
+ out:
+  free(svclist);
   
-  DEBUG1("Sending a ipcmessage to serviceid %#x service %s on server %#x my clientid %#x buffer at offset%d len %d ", svcid, calldata.service, dest, calldata.cltid, calldata.data, calldata.datalen);
-
-  rc = _mw_ipc_putmessage(dest, (char *) &calldata, sizeof (Call), 0);
-  
-  DEBUG1("_mw_ipc_putmessage returned %d handle is %d", rc, hdl);
-  if (rc >= 0) return hdl;
   return rc;
 };
     

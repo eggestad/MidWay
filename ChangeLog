@@ -1,3 +1,12 @@
+2004-04-08  Terje Eggestad  <terje.eggestad@iname.com>
+
+	* introduced a struct with pointers to the functions implementing
+	the client midway functions for a given protocol (as in SRB, ipc,
+	(+future http etc)).  This is in preparation for be able to do
+	configure with/without spesific protocolst o build ipc only or
+	srbp only libraries/distros. This creates a new internal API each
+	protocol must addhere to.
+
 2004-03-12  Terje Eggestad  <te@pc-16.office.scali.no>
 
 	* added a mwevent client, a utility for posting events from commandline.  

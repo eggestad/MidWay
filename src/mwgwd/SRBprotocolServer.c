@@ -21,6 +21,10 @@
 
 /*
  * $Log$
+ * Revision 1.16  2003/01/07 08:27:40  eggestad
+ * * Major fixes to get three mwgwd working correctly with one service
+ * * and other general fixed for suff found on the way
+ *
  * Revision 1.15  2002/11/19 12:43:55  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -284,7 +288,7 @@ static void srbready(Connection * conn, SRBmessage * srbmsg)
   int rc;
   struct gwpeerinfo * peerinfo;
   // if multicast reply, this must actually be a reply
-  if (conn->type & CONN_TYPE_MCAST) {
+  if (conn->type == CONN_TYPE_MCAST) {
     DEBUG("Got a ready message on the multicast socket");
 
     if (srbmsg->marker != SRB_RESPONSEMARKER) return;
@@ -311,7 +315,7 @@ static void srbready(Connection * conn, SRBmessage * srbmsg)
   };
   
   /* this the welcome from a just connected GW */
-  if (conn->type & CONN_TYPE_GATEWAY) {
+  if (conn->type == CONN_TYPE_GATEWAY) {
     int l;
     if (srbmsg->marker != SRB_NOTIFICATIONMARKER) {
       goto error;
@@ -574,8 +578,6 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
 
   TIMEPEG();
 
-  /* I don't like having to hardcode the offset into the fields in the
-     message like this, but is quite simple... */
   conn_getinfo(conn->fd, &mwid, NULL, NULL, NULL);
   if (mwid == UNASSIGNED) {
     Warning("Got a SVCCALL before SRB INIT cltid=%d gwid=%d", CLTID(mwid), GWID(mwid));
@@ -630,7 +632,7 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
     if (!(tmp =         szGetReqField(conn, srbmsg, SRB_HANDLE))) {
       return;
     };
-    if ( (tmp == NULL) || (sscanf(tmp,"%x", &handle) != 1) ) {
+    if ( (tmp == NULL) || (sscanf(tmp,"%lx", &handle) != 1) ) {
       _mw_srbsendreject(conn, srbmsg, SRB_HANDLE, tmp, SRB_PROTO_ILLEGALVALUE);
       return;
     };
@@ -670,7 +672,13 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
     if (srbmsg->marker == SRB_REQUESTMARKER) 
       storeLockCall();
     TIMEPEG();
-      
+
+    // TODO: (?)
+    // We do actually send to ourselves if we're the only one
+    // providing the service. It's inefficient, but clean, and it's
+    // only _mwacallipc() theat do the _mw_get_services_byname() call
+    // which is heavy.
+
     rc = _mwacallipc (svcname, data, datalen, flags, mwid, instance, domain, callerid, hops);
     TIMEPEG();
     if (rc > 0) {
@@ -832,6 +840,8 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
 	rc = rc | MWCLIENTMASK;
 	conn->role = role;
 	conn_set(conn, SRB_ROLE_CLIENT, CONN_TYPE_CLIENT);
+	conn->state = CONNECT_STATE_UP;
+	conn_setpeername(conn);
       } else {
 	rc = _mw_errno2srbrc(-rc);
 	szptr = _mw_srb_reason(rc);
@@ -846,7 +856,7 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
       if (!(peerdomain   = szGetReqField(conn, srbmsg, SRB_PEERDOMAIN))) break;
       
       if (strcmp(instance, globals.myinstance)  != 0) {
-	Error("Hmm got an INIT from another gateway but it tried to " 
+	Error("Hmm got an INIT from another gateway, but it tried to " 
 	      "connect to instance %s and I'm %s, looks like a broker problem", 
 	      instance, globals.myinstance);
 	_mw_srbsendinitreply(conn, srbmsg, SRB_PROTO_GATEWAY_ERROR, NULL);
@@ -866,7 +876,10 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
       conn->state = CONNECT_STATE_UP;
       conn_setpeername(conn);
       _mw_srbsendinitreply(conn, srbmsg, 0, NULL);      
-      gw_provideservices_to_peer(conn->gwid);     
+
+      if (conn->type == CONN_TYPE_GATEWAY)
+	gw_provideservices_to_peer(conn->gwid);     
+
       break;
 
     } else {
@@ -880,7 +893,9 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
     if (rc == 0) {
       conn->state = CONNECT_STATE_UP;
       conn_setpeername(conn);
-      gw_provideservices_to_peer(conn->gwid);
+
+      if (conn->type == CONN_TYPE_GATEWAY)
+	gw_provideservices_to_peer(conn->gwid);     
     } else 
       gw_closegateway(conn->gwid);
     
@@ -931,7 +946,7 @@ int srbDoMessage(Connection * conn, char * message)
   srbmsg.marker = *ptr;
   TIMEPEG();
   srbmsg.map = urlmapdecode(message+commandlen+1);
-    TIMEPEG();
+  TIMEPEG();
 
   DEBUG2("srbDoMessage: command=%*.*s marker=%c on fd=%d", 
 	commandlen, commandlen, message, *ptr, conn->fd);
@@ -1046,10 +1061,6 @@ int _mw_srbsendinitreply(Connection * conn, SRBmessage * srbmsg, int rcode, char
   
   rc = _mw_srbsendmessage (conn, srbmsg);
 
-  /* if an error we donæt send provides */
-  if (!( (rc <= 0) || (rcode != 0) ))   
-    gw_provideservices_to_peer(conn->gwid);
-  
   return rc;;
 };
 

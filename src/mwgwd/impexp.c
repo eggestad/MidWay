@@ -20,6 +20,10 @@
 
 /*
  * $Log$
+ * Revision 1.11  2003/01/07 08:28:01  eggestad
+ * * Major fixes to get three mwgwd working correctly with one service
+ * * and other general fixed for suff found on the way
+ *
  * Revision 1.10  2002/11/18 00:22:16  eggestad
  * - added clean up function for all imp/exp belonging to a peer, to be
  *   called when peers are disconnected.
@@ -251,7 +255,7 @@ static void impcleanuppeer(struct gwpeerinfo * pi)
 
   impdumplist();
 
-  for (pimp = &importlist; *pimp != NULL; *pimp = (*pimp)->next) {
+  for (pimp = &importlist; *pimp != NULL; pimp = &(*pimp)->next) {
     imp = *pimp;
     DEBUG(" pimp = %p *pimp = %p imp = %p service %s ", pimp, *pimp, imp, imp->servicename);
 
@@ -388,19 +392,13 @@ static Export *  condnewexport(char * service)
   Export * exp, **prevexp;
   
   /* special case: empty list */
+  prevexp = &exportlist;
+ 
   if (exportlist == NULL) {
-
     DEBUG("primed the Export list with the service %s", service);
-    exp = malloc(sizeof(Export));
-    exp->next = NULL;
-    exp->peerlist = NULL;
-    strncpy(exp->servicename, service, MWMAXSVCNAME);
-
-    exportlist = exp;
-    return exp;
+    goto addandinit;
   };
   
-  prevexp = &exportlist;
   for (exp = exportlist; exp != NULL; prevexp = &exp->next, exp = exp->next) 
     if (strcmp(exp->servicename, service) == 0) break;
   
@@ -415,6 +413,9 @@ static Export *  condnewexport(char * service)
   };
 
   DEBUG("adding service %s to the end of exportlist", service);
+
+ addandinit:
+
   exp = malloc(sizeof(Export));
   exp->next = NULL;  
   exp->cost = -1;  
@@ -532,7 +533,7 @@ static void expcleanuppeer(struct gwpeerinfo * pi)
 
 void impexp_cleanuppeer(struct gwpeerinfo * pi)
 {
-  DEBUG("Cleanimg up after GW %#x hostname = %s instance %s @ %s", 
+  DEBUG("Cleaning up after GW %#x hostname = %s instance %s @ %s", 
 	 pi->gwid, 
 	 pi->hostname, 
 	 pi->instance, 
@@ -548,12 +549,17 @@ void doprovideevent(char * service)
   Export * exp;
   int cost; 
 
+  DEBUG("service %s", service);
   exp = condnewexport(service);
 
   cost = gw_getcostofservice(service);
   DEBUG2("cost of %s is %d", service, cost);
   if (cost == -1) unexportservice(service);
 
+  DEBUG2("cost = %d, already exported cost = %d", cost, exp->cost);
+
+  // we use the exp->cost flags to see if we' done a general provide before.
+  // if teh cost changes, we must do a general provide 
   if (cost != exp->cost) {
     exp->cost = cost;
     gw_provideservice_to_peers(service);

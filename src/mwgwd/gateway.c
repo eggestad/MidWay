@@ -20,6 +20,10 @@
 
 /*
  * $Log$
+ * Revision 1.17  2003/01/07 08:27:56  eggestad
+ * * Major fixes to get three mwgwd working correctly with one service
+ * * and other general fixed for suff found on the way
+ *
  * Revision 1.16  2002/11/19 12:43:55  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -249,6 +253,8 @@ static void do_event_message(char * message, int len)
   Warning("Ignoring event we never (should have) subscribed to");
 };
 
+static void do_svcreply(Call * cmsg, int len);
+
 static void do_svccall(Call * cmsg, int len)
 {
   SRBmessage srbmsg;
@@ -257,19 +263,49 @@ static void do_svccall(Call * cmsg, int len)
   void * data;
   int rc, l;
 
+  TIMEPEGNOTE("enter do_svccall");
   if (cmsg == NULL) {
     Error("Internal Error: do_svccall called with NULL pointer, this can't happen");
     return;
   };
-  
+
+  DEBUG("got a call to service %s svcid %#x", cmsg->service, cmsg->svcid);
   conn = impfindpeerconn(cmsg->service, cmsg->svcid);
+
+  TIMEPEG();
+
   if (conn == NULL) {
     Warning("Hmm got a svccall for service %s svcid %#x, but I've got no such import, returning error", 
 	    cmsg->service, cmsg->svcid);
     cmsg->returncode = -ENOENT;
-    _mw_ipc_putmessage(cmsg->cltid, (char *) cmsg, len, 0);
+    if (cmsg->gwid != UNASSIGNED) {
+      // if we ourselves managed to send this, we shut cut the reply,
+      // or else we get an infinite loop. We do actually send to
+      // ourselves if we're the only one providing the service. It's
+      // inefficient, but clean, and it's only _mwacallipc() theat do
+      // the _mw_get_services_byname() call which is heavy.
+      if (cmsg->gwid == _mw_get_my_gatewayid()) {
+	do_svcreply(cmsg, len);
+	return;
+      };
+      _mw_ipc_putmessage(cmsg->gwid, (char *) cmsg, len, 0);
+    } else {
+      _mw_ipc_putmessage(cmsg->cltid, (char *) cmsg, len, 0);
+    };
     return;
   };
+
+
+  DEBUG("service is on connection with fd=%d at %s, gwid=%d", 
+	conn->fd, conn->peeraddr_string, GWID2IDX(conn->gwid));
+
+  if (conn->peerinfo) {
+    Connection * pconn;
+    pconn = ((struct gwpeerinfo *) conn->peerinfo)->conn;
+    Assert(conn == pconn);
+  }
+
+  TIMEPEG();
 
   // TODO: handle arbitrary long data
   if (cmsg->datalen != 0) {
@@ -279,6 +315,8 @@ static void do_svccall(Call * cmsg, int len)
 	    cmsg->data);
       return;
     };
+
+    TIMEPEG();
 
     l = _mwshmcheck(data);
     if ( (l < 0) || (l < cmsg->datalen)) {
@@ -293,11 +331,14 @@ static void do_svccall(Call * cmsg, int len)
   else 
     marker = SRB_REQUESTMARKER;
 
+  TIMEPEG();
+
   _mw_srb_init(&srbmsg, SRB_SVCCALL, marker, 
 	       SRB_SVCNAME, cmsg->service, 
 	       SRB_INSTANCE, globals.myinstance, 
 	       SRB_DOMAIN, globals.mydomain, 
 	       NULL, NULL);
+  TIMEPEG();
 
   if (data != NULL) {
     _mw_srb_nsetfield(&srbmsg, SRB_DATA, data, cmsg->datalen);
@@ -310,9 +351,13 @@ static void do_svccall(Call * cmsg, int len)
 
   _mw_srb_setfieldx(&srbmsg, SRB_HANDLE, cmsg->handle);
 
+  TIMEPEG();
   rc = _mw_srbsendmessage(conn, &srbmsg);
+
+  TIMEPEG();
   
   urlmapfree(srbmsg.map);
+  TIMEPEGNOTE("nornal leave do_svccall");
   return;
   
 };
@@ -434,7 +479,7 @@ int ipcmainloop(void)
   while(!globals.shutdownflag) {
     len = MWMSGMAX;
 
-    TIMEPEG();
+    TIMEPEGNOTE("end ipc");
     timepeg_log();
     DEBUG( "/\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ ");
     DEBUG("doing _mw_ipc_getmessage()");
@@ -443,7 +488,7 @@ int ipcmainloop(void)
     DEBUG( "_mw_ipc_getmessage() returned %d", rc);
     TIMEPEGNOTE("startipc");
     TIMEPEGNOTE("start");
-
+    
     if (rc == -EIDRM) {
       globals.shutdownflag = TRUE;
       break;
@@ -512,9 +557,9 @@ int ipcmainloop(void)
 
       _mw_srbsendinitreply(conn, &srbmsg, SRB_PROTO_OK, NULL);
       urlmapfree(srbmsg.map);
-
+      
       break;
-
+      
     case DETACHRPL:
       /* do I really care? */
       break;
@@ -535,7 +580,7 @@ int ipcmainloop(void)
          later accept reconfig, and connect/disconnect gateways. */
       if (admmsg->opcode == ADMSHUTDOWN) {
 	Info("Received a shutdown command from clientid=%d", 
-	      admmsg->cltid&MWINDEXMASK);
+	      CLTID2IDX(admmsg->cltid));
 	return 2; /* going down on command */
       }; 
       break;
@@ -601,10 +646,10 @@ int gwattachclient(Connection * conn, char * cname, char * username, char * pass
   mesg.flags = 0;
   mesg.ipcqid = _mw_my_mqid();
 
-  rc = _mw_ipc_putmessage(0, (void *) &mesg, sizeof(mesg) ,0);
+  rc = _mw_ipc_putmessage(MWD_ID, (void *) &mesg, sizeof(mesg) ,0);
 
   if (rc != 0) {
-    Error(	   "gwattachclient()=>%d failed with error %d(%s)", 
+    Error("gwattachclient()=>%d failed with error %d(%s)", 
 	   rc, errno, strerror(errno));
     return -errno;
   };
@@ -624,7 +669,7 @@ int gwdetachclient(int cltid)
      first. */
     
   conn_getclientpeername(cltid, buff, 128);
-  DEBUG("gwdetachclient(clientid=%d) (%s)", MWINDEXMASK& cltid, buff);
+  DEBUG("gwdetachclient(clientid=%d) (%s)", CLTID2IDX(cltid), buff);
 
   memset (&mesg, '\0', sizeof(Attach));
 
@@ -637,10 +682,10 @@ int gwdetachclient(int cltid)
   mesg.flags = MWFORCE;
   mesg.ipcqid = _mw_my_mqid();
 
-  rc = _mw_ipc_putmessage(0, (void *) &mesg, sizeof(mesg) ,0);
+  rc = _mw_ipc_putmessage(MWD_ID, (void *) &mesg, sizeof(mesg) ,0);
 
   if (rc != 0) {
-    Error(	   "gwdetachclient() putmessage =>%d failed with error %d(%s)", 
+    Error("gwdetachclient() putmessage =>%d failed with error %d(%s)", 
 	   rc, errno, strerror(errno));
     return -errno;
   };
@@ -649,6 +694,7 @@ int gwdetachclient(int cltid)
 
 #define LOCK -1
 #define UNLOCK 1
+
 static int lockgwtbl(int lock_unlock)
 {
   struct sembuf sop[1];
@@ -869,7 +915,7 @@ int gw_addknownpeer(char * instance, char * domain,
 	goto out;
       };
     };    
-    knownGWs = realloc(knownGWs, sizeof(struct gwpeerinfo) * GWcount++);
+    knownGWs = realloc(knownGWs, sizeof(struct gwpeerinfo) * ++GWcount);
   };
   
   knownGWs[GWcount-1] = peer;
@@ -916,6 +962,7 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
       if (knownGWs[i].conn != NULL) {
 	Warning("Got a connection from peer %s in domain %s, but is already conneced!", 
 		instance, peerdomain);
+	UNLOCKMUTEX(peersmutex);
 	errno = EISCONN;
 	return -1;
       } else {
@@ -951,8 +998,8 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
   pi->conn = conn;
   pi->gwid = conn->gwid = gwid;
 
-  DEBUG( "got a peer %s on domainid %d, gwid = %d", 
-	instance, pi->domainid, gwid&MWINDEXMASK);
+  DEBUG( "got a peer %s on domainid %d, gwid = %d conn = %p fd=%d", 
+	 instance, pi->domainid, GWID2IDX(gwid), pi->conn, pi->conn->fd);
   gw_setipc(pi);
 
   return 0;
@@ -992,7 +1039,7 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
   serviceentry * svctbl = _mw_getserviceentry(0);
   int i, n;
   char ** svcnamelist = NULL;
-  DEBUG( "Checking to see if we need to send provide or unprovide to GW %d", gwid&MWINDEXMASK);
+  DEBUG( "Checking to see if we need to send provide or unprovide to GW %d", GWID2IDX(gwid));
 
   LOCKMUTEX(peersmutex);
 
@@ -1006,7 +1053,7 @@ void gw_provideservices_to_peer(GATEWAYID gwid)
   UNLOCKMUTEX(peersmutex);
 
   if (pi == NULL) {
-    Fatal("Internal error: could not find a gwpeerinfo entry for gwid %d", gwid&MWINDEXMASK);
+    Fatal("Internal error: could not find a gwpeerinfo entry for gwid %d", GWID2IDX(gwid));
   };
   
   /* get an unique list off all services  */
@@ -1081,7 +1128,7 @@ void gw_closegateway(GATEWAYID gwid)
 {
   Connection * conn;
   int i;
-  DEBUG( "cleaning up after gwid %d", gwid & MWINDEXMASK);
+  DEBUG( "cleaning up after gwid %d", GWID2IDX(gwid));
 
   if (gwid == -1) {
     Error("called to clean up after GWID == -1!");
@@ -1096,8 +1143,10 @@ void gw_closegateway(GATEWAYID gwid)
     /* TODO: first of all we must unprovde all services importet from peer. */
     impexp_cleanuppeer(&knownGWs[i]);
 
-    knownGWs[i].gwid = UNASSIGNED;
     conn = knownGWs[i].conn;
+    DEBUG2("conn = %p", conn);
+
+    knownGWs[i].gwid = UNASSIGNED;
     knownGWs[i].conn = NULL;
   } else {
     conn = conn_getgateway(gwid);
@@ -1105,7 +1154,7 @@ void gw_closegateway(GATEWAYID gwid)
   
   freegwid(gwid);
 
-  // we clear the connetions entry.
+  // we clear the connections entry.
   if (conn != NULL) {
     DEBUG( "gw has a connection entry fd=%d", conn->fd);
     conn->gwid = UNASSIGNED;
@@ -1263,8 +1312,11 @@ static int gw_getknownpeer_bygwid(GATEWAYID gwid)
   int i; 
   
   for (i = 0; i < GWcount; i++) {
-    if (knownGWs[i].gwid == gwid) 
+    DEBUG2(" testing knownGWs[%d].gwid=%#x  ?= gwid=%#x", i, knownGWs[i].gwid, gwid);
+    if (knownGWs[i].gwid == gwid) {
+      DEBUG2("returning %d", i);
       return i;
+    };
   }
   return -1;
 };

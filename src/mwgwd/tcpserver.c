@@ -21,6 +21,10 @@
 
 /*
  * $Log$
+ * Revision 1.11  2003/01/07 08:28:06  eggestad
+ * * Major fixes to get three mwgwd working correctly with one service
+ * * and other general fixed for suff found on the way
+ *
  * Revision 1.10  2002/10/22 21:58:21  eggestad
  * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
  *
@@ -217,9 +221,9 @@ void tcpcloseconnection(Connection * conn)
   DEBUG("tcpcloseconnection on  fd=%d", conn->fd);
   if (conn->cid != UNASSIGNED) 
     gwdetachclient(conn->cid);
-  else if (conn->type & CONN_TYPE_BROKER) {
+  else if (conn->type == CONN_TYPE_BROKER) {
     reconnect_broker = 1;   
-  } else if (conn->type & CONN_TYPE_GATEWAY) {
+  } else if (conn->type == CONN_TYPE_GATEWAY) {
     gw_closegateway(conn->gwid);
     return;
   };
@@ -290,8 +294,8 @@ static void gwreadmessage(Connection * conn)
   };
 
   end = conn->leftover + n;
-  DEBUG("readmessage(fd=%d) read %d bytes + %d leftover buffer now:%.*s", 
-	conn->fd, n, conn->leftover, end, conn->messagebuffer);
+  DEBUG2("readmessage(fd=%d) read %d bytes + %d leftover buffer now:%.*s", 
+	 conn->fd, n, conn->leftover, end, conn->messagebuffer);
 
   TIMEPEG();
   /* we start at leftover since there can't be a \r\n in what was
@@ -306,7 +310,7 @@ static void gwreadmessage(Connection * conn)
       TIMEPEG();
       DEBUG2("read a message from fd=%d, about to process with srbDomessage", conn->fd);
 
-      _mw_srb_trace(SRB_TRACE_IN, conn, conn->messagebuffer, i);
+      _mw_srb_trace(SRB_TRACE_IN, conn, conn->messagebuffer+start, i);
 
       conn->lastrx = time(NULL);
       TIMEPEG();
@@ -366,11 +370,11 @@ int tcp_do_error_condiion(Connection * conn)
   
   DEBUG("error condition on fd=%d", conn->fd);
 
-  if (conn->type & CONN_TYPE_LISTEN) {
+  if (conn->type == CONN_TYPE_LISTEN) {
     Error("a listen socket (fd=%d) has dissapeared, really can't happen.",
 	   conn->fd);
     sig_initshutdown(0);
-  } else if (conn->type & CONN_TYPE_BROKER) {
+  } else if (conn->type == CONN_TYPE_BROKER) {
     tcpcloseconnection(conn);
     conn_del(conn->fd);
     reconnect_broker = 1;
@@ -383,7 +387,7 @@ int tcp_do_error_condiion(Connection * conn)
 int tcp_do_write_condiion(Connection * conn)
 {
   DEBUG("write condition on fd=%d", conn->fd);
-  if (conn->type & CONN_TYPE_GATEWAY) {
+  if (conn->type == CONN_TYPE_GATEWAY) {
     /* the other side shall send an SRB READY, we son't send an INIT
        until that is received, thus the task of sending an INIT falls
        on dosrbready() not here. We just set eth state and unpoll from write events.*/
@@ -404,7 +408,7 @@ int tcp_do_read_condiion(Connection * conn)
   fd = conn->fd;
   DEBUG("read condition on fd=%d", conn->fd);
   /* new connection from broker */
-  if (conn->type & CONN_TYPE_BROKER) {
+  if (conn->type == CONN_TYPE_BROKER) {
     msg = malloc(SRBMESSAGEMAXLEN+1);
     len = read_with_fd(fd, msg, SRBMESSAGEMAXLEN, &c_fd);
     
@@ -443,7 +447,7 @@ int tcp_do_read_condiion(Connection * conn)
     return 0;
   };
       
-  if (conn->type & CONN_TYPE_LISTEN) {
+  if (conn->type == CONN_TYPE_LISTEN) {
     DEBUG("new connection on listen socket");
     conn = tcpnewconnection(conn);
   };
@@ -520,6 +524,7 @@ void * tcpservermainloop(void * param)
 
   while(! globals.shutdownflag) {
 
+    errno = 0;
     DEBUG2("%s", conn_print());
  
     fd = conn_select(&cond, timeout);
@@ -541,7 +546,7 @@ void * tcpservermainloop(void * param)
     TIMEPEG();
     conn = conn_getentry(fd);
     DEBUG("conn info fd=%d listen=%d broker=%d cond=%#x", 
-	  fd, conn->type & CONN_TYPE_LISTEN, conn->type & CONN_TYPE_BROKER, cond);
+	  fd, conn->type == CONN_TYPE_LISTEN, conn->type == CONN_TYPE_BROKER, cond);
     TIMEPEG();
     if (cond & COND_ERROR) {
       rc = tcp_do_error_condiion(conn);

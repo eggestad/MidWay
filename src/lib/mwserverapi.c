@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2000/11/29 23:18:01  eggestad
+ * - Added two support function for Perl native module\n- Fixed some statitics bugs
+ *
  * Revision 1.5  2000/09/24 14:06:00  eggestad
  * Fixed core dumo in a warning message
  *
@@ -73,6 +76,15 @@ static char buffer[MWMSGMAX];
 static Call * callmesg = (Call *) buffer;
 
 static int provided = 0;
+
+void _mw_incprovided(void)
+{
+  provided++;
+};
+void _mw_decprovided(void)
+{
+  provided--;
+};
 
 /*
   We have an internal list for holding the pionter ro the functioon to
@@ -220,11 +232,10 @@ int mwprovide(char * service, int (*svcfunc) (mwsvcinfo*), int flags)
     return -1;
   };
 
-  /* instead of an index internally here, by storing tha addres of the ServiceFuncEntry
-     object in the service entry in the SHM Tables. It must be searched anyway
-     by the client or gateway process.
-     Likewise we can from say Perl store a reference here.
-  */
+  /* instead of an index internally here, by storing tha addres of the
+     ServiceFuncEntry object in the service entry in the SHM
+     Tables. It must be searched anyway by the client or gateway
+     process.  Likewise we can from say Perl store a reference here.  */
   svcent->svcfunc = (void *) pushservice (svcid, svcfunc);
   provided++;
 
@@ -343,12 +354,15 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
 	callmesg->cltid, callmesg->returncode);
 
   /* if the more flag is set, and multiple flag in the callmesg is
-     set, do not clear pending flag. */
-  if (! (flags & MWMORE))
-    _mw_requestpending = 0;
-  
-  gettimeofday(&endtv, NULL);
-  completeStats();
+     set, do not clear pending flag.
+
+     We only update stats on service call completion.
+  */
+  if (! (flags & MWMORE)) {
+    _mw_requestpending = 0;  
+    gettimeofday(&endtv, NULL);
+    completeStats();
+  };
   return rc;
 };
 

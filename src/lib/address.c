@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2000/09/21 18:26:59  eggestad
+ * - plugged a memory leak of mwadr
+ * - cleared regexp matches at beginning, and reset
+ *
  * Revision 1.3  2000/08/31 21:47:42  eggestad
  * Major rework for SRB
  *
@@ -331,7 +335,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
     return -1;
   };
   mwlog(MWLOG_DEBUG3, "ipaddress %s => hostname %s type = %d, addr = %#X", 
-	ipaddress, hent->h_addrtype, * (int *) hent->h_addr_list[0]);
+	ipaddress, hent->h_name, hent->h_addrtype, * (int *) hent->h_addr_list[0]);
   if (hent->h_length != 4) {
     mwlog(MWLOG_ERROR, "Failed to resolve hostname, address length %d != 4", 
 	  hent->h_length );
@@ -359,7 +363,10 @@ mwaddress_t * _mwdecode_url(char * url)
   regmatch_t match[MAXMATCH]; 
   int rc;
 
+  memset (match, '\0', sizeof(regmatch_t) * MAXMATCH);
+
   if (url == NULL) {    
+    mwlog(MWLOG_DEBUG1,  "_mwdecode_url: Attempting to get the URL form Env var MWURL");
     /* if url is not set, check MWURL or MWADDRESS */
     url = getenv ("MWURL");
     if (url == NULL) url = getenv ("MWADDRESS");
@@ -371,16 +378,29 @@ mwaddress_t * _mwdecode_url(char * url)
     /* We assume IPC, and use UID as key */
     mwadr->sysvipckey = getuid();
     mwadr->protocol = MWSYSVIPC;
+    mwlog(MWLOG_DEBUG1,  "_mwdecode_url: we have no url, assuming ipc:%d", mwadr->sysvipckey);
     return mwadr;
   };
-  
+
+  mwlog(MWLOG_DEBUG1,  "_mwdecode_url: url = %s", url);
+
   mwadr->protocol =  -1;
   if ( regcomp( & allexp, RE_ALLPROTO, REG_EXTENDED|REG_ICASE) != 0) {
     //  if ( regcomp( & testexp, exp, 0) != 0) 
     mwlog(MWLOG_ERROR, "error on compiling regex %s errno=%d\n", RE_ALLPROTO,  errno);
+    free(mwadr);
     return NULL;
   };
-  
+  rc = regexec (&allexp, url, MAXMATCH, match,0);
+  mwlog(MWLOG_DEBUG3, "regexec IPC returned %d on %-40s: ",rc, url);
+  if (rc != 0) {
+    regerror( rc, &allexp, url , 255);
+    mwlog(MWLOG_DEBUG1, "regexec of \"%s\" failed on %s, ", RE_ALLPROTO, url);
+    free(mwadr);
+    return NULL;
+  }
+
+
   /* here we get the url protocol header 
      protocol: 
      

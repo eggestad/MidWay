@@ -42,8 +42,6 @@
 
 typedef int MWID;
 
-#define PTASKMAGIC 0x00effe00
-
 /*
  * I tried for a  while to keep the SERVICE/SERVER/CLIENT/GATEWAYID to
  * be the index, without the  flags set, and introduce a MWID where we
@@ -154,12 +152,6 @@ static inline void debug_free(char * file, int line, void *ptr)
 
 // timepegs which are defined in lib/utils.c
 
-#ifndef TIMEPEGS
-#ifdef DEBUGGINGX
-#define TIMEPEGS
-#endif
-#endif
-
 #ifdef TIMEPEGS
 
 #define TIMEPEGNOTE(note) __timepeg(__FUNCTION__, __FILE__, __LINE__, note)
@@ -204,6 +196,13 @@ int * _mwgetloglevel(void);
 
 static int * debuglevel = NULL;
 int _mwstr2loglevel(char *);
+
+#define PRINTF_ATTR __attribute__ ((format (printf, 5, 6)))
+#ifndef PRINTF_ATTR
+#define PRINTF_ATTR
+#endif
+
+static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, ...) PRINTF_ATTR;
 
 static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, ...)
 {

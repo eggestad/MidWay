@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2003/06/12 07:22:19  eggestad
+ * fix for negative size
+ *
  * Revision 1.11  2002/11/19 12:43:54  eggestad
  * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
  *
@@ -457,6 +460,12 @@ void * _mwalloc(int size)
     errno = -rc;
     return NULL;
   };
+
+  if (size <= 0) {
+     errno = ENOMEM;
+     return NULL;
+  };
+
 
   /*
     now we need to know how many base chunks we need.

@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/10/03 21:22:37  eggestad
+ * - changed beh so that a service is importet to IPC table for each peer, thus svcid++ moved from Import to _peerlink
+ * - impsetsvcid() needed gwid (reason in line above)
+ *
  * Revision 1.3  2002/09/29 17:44:02  eggestad
  * added unproviding over srb
  *
@@ -37,6 +41,8 @@
 
 struct _peerlink {
   struct gwpeerinfo * peer;
+  SERVICEID svcid;
+  int cost;
   struct _peerlink * next;
 };
 
@@ -44,8 +50,6 @@ typedef struct _peerlink peerlink;
 
 struct _Import {
   char servicename[MWMAXSVCNAME];
-  SERVICEID svcid;
-  int cost;
   peerlink * peerlist;
   struct _Import * next;
 };
@@ -65,7 +69,7 @@ typedef struct _Export Export;
 
 int importservice(char *, int, struct gwpeerinfo *);
 int unimportservice(char *, struct gwpeerinfo *);
-void impsetsvcid(char * service, SERVICEID svcid);
+void impsetsvcid(char * service, SERVICEID svcid, GATEWAYID gwid);
 
 int exportservicetopeer(char *, struct gwpeerinfo * );
 //int exportservice(char *);

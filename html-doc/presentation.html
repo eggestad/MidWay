@@ -22,7 +22,7 @@ discussion on <A HREF="osistack.html">the OSI reference mode</A>l.
 The short version is that in the OSI model, you've a specific
 software layer that handle how data are to be presented. HTML is one
 example of a data presentation standard. ASN.1 is another. In data
-presentation you deal with issues like, how is an INTEGER encode.
+presentation you deal with issues like, how is an INTEGER encoded.
 Different machines may be MSB (Most Significant Bit First) or LSB
 (Least). The equivalent of deciding if your machine writes from left
 to right, or right to left. Are INTEGER unsigned, or signed, if
@@ -69,20 +69,19 @@ other languages has an integer associated with the string to specify
 length, Perl does this for example. 
 </P>
 
-<P>Data encoding is pretty much a field of science all by itself. 
+<P>Data encoding is pretty much a field of science all by itself.
 There has been many attempt to find general solutions to this
 problem. ASN.1 is one, the OSI had quite a few chapters on this, and
-OSI used this as the main critique of TCP/IP. TCP/IP only specify
-that in TCP you have a stream of octets, and in UDP, a block of
-octets. IP only make sure that MSB and LSB of each octet are handled
-correctly. Despite attempt, a true general way to to datatype
-encoding has ever succeeded. I believe that TCP/IP succeeded to
-become a standard not <U>despite</U> the lack of data presentation,
-but <U><I>because</I></U>
-the lack of one. Same thing with the popularity of Perl, TCL/TK,
-Pyton, and PHP that has only one atomic data type, the scalar (really
-strings). HTML too has only strings, and love and behold, the world
-embraced it. 
+OSI used this as the main critique of TCP/IP. TCP/IP only specify that
+in TCP you have a stream of octets, and in UDP, a block of octets. IP
+only make sure that MSB and LSB of each octet are handled
+correctly. Despite heroic attempts, a true general way to to datatype
+encoding has never succeeded. I believe that TCP/IP succeeded to
+become a standard not <U><I>despite</I></U> the lack of data
+presentation, but <U><I>because</I></U> the lack of one. Same thing
+with the popularity of Perl, TCL/TK, Pyton, and PHP that has only one
+atomic data type, the scalar (really strings). HTML too has only
+strings, and love and behold, the world embraced it.
 </P>
 
 <p>The cost difference of translation an integer to a string and back
@@ -103,7 +102,7 @@ them all are no small task. I've participated in a couple of projects
 where changes on this scale has been necessary, and a couple where we
 used Tuxedo, and either replaced the servers with new version that
 could handle old and new clients, or added new servers that very used
-for the new clients. Phased migration are the key. Remember that in
+for the new clients. Phased migration is the key. Remember that in
 24-7 systems all changes must be reversible.
 </P>
 

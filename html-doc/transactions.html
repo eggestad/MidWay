@@ -17,15 +17,16 @@
 <hr>
 
 <h1>Transactions</h1>
-<P>The term transaction monitor stems from the earlier
-days since this technology was developed on mainframes to do vast
-number of transactions per seconds. The most famous of these are
-CICS. Since it was seemingly pointless to have a mainframe without a
-database there was a close integration between the transaction
-monitor and the database. Once simple since there was no many options
-when it came to selection a database. However the functionality was
-to have a database transaction span across several services. The
-function passing was just a mean to achieve this. 
+
+<P>The term transaction monitor stems from the earlier days since this
+technology was developed on mainframes to do vast number of
+transactions per seconds. The most famous of these are CICS. Since it
+was seemingly pointless to have a mainframe without a database there
+was a close integration between the transaction monitor and the
+database. It was simple since there was not many options when it came
+to selection a database. However the functionality was to have a
+database transaction span across several services. The function
+passing was just a mean to achieve this.
 </P>
 
 <P>The concept of transactions used here is exactly the same as used
@@ -44,7 +45,7 @@ Every thing between the begin and commit are atomic. This is exactly
 the same as begin, abort and commit on SQL. Transaction is by RDBMS
 (Database monitors) to be a fairly advanced concepts. Commercial
 level RDBMS's has such as Oracle, Sybase, DB2, etc do for course have
-it. Postgres has it, while MySQL, and mSQL do not. For a RDBMS or
+it. PostgresSQL has it, while MySQL, and mSQL do not. For a RDBMS or
 another resource to cooperate with a TP monitor, it has to support
 two-phase commits. TP monitors tend to have a Transaction monitor
 that know about all the transaction capable resources and coordinate
@@ -66,12 +67,9 @@ here means any resource such as RDBMS, file system, persistent queue,
 etc. 
 </P>
 
-<P>Corba by the way defines an OTB (Object Transaction Broker). I've
-never checked out if the Linux version of Oracle support XA, but
-Oracle do support XA , so it seem a safe bet. The Linux version of
-Oracle seem pretty complete. THis is a rather advanced feature, and
-since I'm not really a DB person I'll exclude myself in the
-implementation of anything XA'ish in MidWay. 
+<P>This is a rather advanced feature, and since I'm not really a DB
+person I'll exclude myself in the implementation of anything XA'ish in
+MidWay.
 </P>
 
 <hr>

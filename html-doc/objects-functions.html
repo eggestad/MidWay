@@ -1,6 +1,6 @@
 <HTML>
 <HEAD>
-<TITLE>Scaleability - Objects and Functions</TITLE>
+<TITLE>Scalability - Objects and Functions</TITLE>
 <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
 <meta name="AUTHOR" content="Terje Eggestad">
 </HEAD>
@@ -17,12 +17,15 @@
 <hr>
 
 <H1><FONT SIZE=4>Objects brokers and Function brokers</FONT></H1>
-<P>MidWay is a functions broker, as opposed to an Object broker such as CORBA,
-and DCOM. The main difference is the statelessness of functions. Many may
-wonder why MidWay makes a point of being less than CORBA, or way I didn't use
-CORBA instead of making MidWay.</P>
-<P>On occasion when I talk to Object Orientation (OO) evangelists, I get the
-feeling that they think that:
+
+<P>MidWay is a service (function) broker, as opposed to an object
+(method) broker such as CORBA, and DCOM. The main difference is the
+statelessness of functions. Many may wonder why MidWay makes a point
+of being less than CORBA, or why I didn't use CORBA instead of making
+MidWay.</P> 
+
+<P>On occasion when I talk to Object Orientation (OO) evangelists, I
+get the feeling that they think that:
 
 <ul>
 <li>Objects didn't exists until OO was invented.</li>
@@ -34,14 +37,16 @@ feeling that they think that:
 <P>I love OO as well, and when the part of reality you're working on models
 nicely with OO, life is sweet. However OO do have some problems with respect
 to scaling.</P>
+
 <P><A HREF="objects-functions.html#statelessness">Objects are not stateless
 </A></P>
-<P><A HREF="objects-functions.html#forking">There are overheads with object
-creation, and destruction</A>.</P>
-<P>Objects require several several request/response between the client and the
-ORB/Object. A minimum of assigning an object (1) calling a method(2) and
-unassigning the object (3).<BR>
-&nbsp;</P>
+
+<P><A HREF="objects-functions.html#forking">There are overheads with
+object creation, and destruction</A>.</P> 
+
+<P>Objects require several request/response between the client
+and the ORB/Object. A minimum of assigning an object (1) calling a
+method (2) and unassigning the object (3).<BR> &nbsp;</P>
 
 <H2><A NAME="statelessness"></A><FONT SIZE=4>Statelessness</FONT></H2>
 
@@ -50,15 +55,15 @@ functions, we here consider functions, procedures and <I>services</I>
 to be identical. In order to be statefull both/all parties to the
 object must know that the relationship exists. I modern ORBs such as
 CORBA and DCOM this is done by having a socket connection, usually
-over TCP/IP. While the CORBA crew has flagged with possibility of
+over TCP/IP. While the CORBA crew has bragged with possibility of
 millions of objects on an ORB, you can't have millions of sockets on a
-single hosts.</P>
+single hosts, see <A HREF="funneling">funneling.</P>
 
 <p>Another problem is that having methods invite you to think that
 there is no overhead in method calls. Using IPC the overhead with
 MidWay is 2-10 ms. Assuming that CORBA and it likes have the same and
 you need to do 10 method calls, you may have 1/10 of a second
-overhead. These days 1ms is a timeslice scheduling wise and enought
+overhead. These days 1ms is a timeslice scheduling wise and enough
 time for the CPU to do 1000000 instructions.
 
 Service calls are <i>not</i> API calls, and their number should be
@@ -66,7 +71,7 @@ kept as low as possible. They should be a complete high level
 operation.
 
 <P>Mainframe evangelists claim, rightfully, that you can never have as
-many users (with telnet) as you can on a mainframe. Consider unix
+many users (with telnet) as you can on a mainframe. Consider Unix
 processes to be objects, every user has a minimum of one object that
 they interact with (the shell). The shell has state by userid,
 groupid, umask, cwd, env vars and private (shell) vars. It provide
@@ -74,12 +79,12 @@ methods to alter this state, newgrp, umask, cd, setenv etc. as well as
 providing an anonymous method for creating new objects. You see here
 just the 1:1 ration problem eating away RAM and the kernel
 housekeeping task grows proportionally to the number of processes.
-Remember that with the more and more processes you have (that do work)
-each must do a smaller and smaller slice for you to avoid spending all
-your CPU resources. However with each process doing smaller and
-smaller piece each the amount of work needed for scheduling
-calculations grow until the OS is spending the majority of CPU
-resource on scheduling. Classical thrashing.
+Remember that with the more and more active processes you have
+(e.g. that do work) each must do a smaller and smaller slice if the
+CPU load is to remain the same.  However with each process doing
+smaller and smaller piece each the amount of work needed for
+scheduling calculations grow until the OS is spending the majority of
+CPU resource on scheduling. Classical thrashing.
 </P>
 
 <P>Another point made by mainframe evangelists are that is it
@@ -89,14 +94,17 @@ clients are sent both key-press and key-release events, and may ask
 for a storm of pointer (mouse) movements events.
 </P>
 
-<P>The reason the mainframe could in the 70's handle a couple of thousand
-attached terminals, was that each 3270 terminal are loaded with a form, and
-handle all fill out for form fields, only send the completed form when you hit
-the send button. A web browser has deliberately copied this, and this is
-exactly the way a html form work. You only send the filled in form to a CGI
-program. Here we see the difference in the server side. On the mainframe the
-form is sent to a service in a TP monitor like CICS. On Unix the approach has
-been to create a new process to handle the form data that terminate after completion.
+<P>The reason the mainframe could in the 70's handle a couple of
+thousand attached terminals, was that each 3270 terminal are loaded
+with a form, and handle all fill out for form fields, only send the
+completed form when you hit the send button. 
+
+<p>A web browser has copied this, and this is exactly the way a html
+form work. The copying of the mainframe was quite deliberate. You only
+send the filled in form to a CGI program. Here we see the difference
+in the server side. On the mainframe the form is sent to a service in
+a TP monitor like CICS. On Unix the approach has been to create a new
+process to handle the form data that terminate after completion.
 </P>
 
 <H2><A NAME="forking"></A><FONT SIZE=4>The CGI problem</FONT></H2>
@@ -109,25 +117,25 @@ interpreter in apache and thus avoid forks.</P>
 
 <P>The extra overhead with forking are dismissed by some web
 developers by the argument that it depends on the ration between
-initial and termination work to the amount of real work.</P>
-<P><IMG SRC="nintyten.png"></P>
-
-<P>This is true but a html form or &quot;screen&quot; should contain
-relatively few fields. This a user friendliness issue, a form with to
-many fields become crowded and cluttered. Normally the actual work is
-quite small to the startup cost.</P>
+initial and termination work to the amount of real work.</P> <P><IMG
+SRC="nintyten.png"> This is true but a html form or &quot;screen&quot;
+should contain relatively few fields. This a user friendliness issue,
+a form with to many fields become crowded and cluttered. The last time
+I checked the best number of widgets on a form should be
+seven. Normally the actual work is quite small to the startup
+cost.</P>
 
 <P>Consider what the cost of forks and execs really are. On fork the
 OS must either created or copied data measured in kbytes, pretty fast,
 but keep it in mind. My 450 Mhz K2 running Linux does 800000 forks() a
-second. This has a lot to do with Linux doing copy-on-write on the
-memory pages, on other Un*xes the entire data area is copied on
+second. This has a lot to do with Linux doing copy-on-write with the
+virtual memory pages, on other Un*xes the entire data area is copied on
 fork. However if you are working on a web server that can have 1000
 hits a second, you're spending 0.2% in fork alone. If you're working
 on system that must do a 1000 hits a second, every % count, a lot.</P>
 
 <P>Exec's are much worse. On my machine described above it maxes out
-on 150 execs a second, on e smallest possible program, and 54 execs on
+on 150 execs a second, on the smallest possible program, and 54 execs on
 a perl process with nothing to do. Try the following on you machine:
 
 <pre>
@@ -191,8 +199,8 @@ eggis1 terje ~/test 97>
 </pre>
 
 <p>The primary cause we actually see here; it is the page faults. Page
-faults occur even if the programm is cache is memory. The reason being
-that the newly created process has not yet mapped its memory space to
+faults occur even if the program is cached in memory. The reason being
+that the newly created process has not yet mapped its virtual memory table to
 the cached pages in memory. 
 
 <p>In real life programs the problems becomes even bigger since
@@ -209,17 +217,18 @@ FACE="fixed">i<FONT SIZE=2>nt i = </FONT><U><FONT
 SIZE=2>9</FONT></U>;</FONT> or <FONT SIZE=2><FONT FACE="fixed">printf(
 <U>&quot;string&quot;</U>)</FONT></FONT>; in C/C++. The thing is that
 on exec, the initialized data must be fetched from disk, of copied
-from disk cache, of the program is there. For reasonable large
+from disk cache, if the program is in cached in RAM. For reasonable large
 programs this quickly becomes megabytes. In fact gcc tries to make
 code rather than initialized data in order to avoid this as much as
-possible, or at least avoid it until needed.  Interpreters like perl
+possible, or at least avoid it until needed.  Interpreters like perl and emacs
 usually has large initialized data segments.</P>
 
-<P>They key is to have the program handling the request up and running and
-ready to handle the request when it comes, and that it will handle more than
-one request in its lifetime (It should handle infinite request in theory.).
-MidWay provide this, in a very general approach in that the services may be
-used from WIN32 apps, gnome apps, tcl/tk, as well as in plain html.</P>
+<P>They key is to have the program handling the request up and running
+and ready to handle the request when it comes, and let it will handle
+more than one request in its lifetime (It should handle infinite
+request in theory.).  MidWay provide the framework to do this, and in a
+very general approach in that the services may be used from WIN32
+apps, gnome apps, tcl/tk, as well as in plain html.</P>
 
 <P>Another strange speedup you get when using a SRB is that the average
 response time is halved. Consider an example where we have n=5 CGI requests,
@@ -241,10 +250,10 @@ Average response time is now <TT><FONT FACE="courier, courier new">rt = s*n/2
 <P>This is actually a classical OS scheduling problem. My professor in
 Operating Systems did make this argument to show that preemptive round robin
 was not the optimal scheduling tactic. At the time I closed my ears and
-considered that anything but preemptive was unacceptable, and historic. I
+considered that anything but preemptive was unacceptable, and archaic. I
 think most of my fellow students did too.</P>
 
-<P>It is this statelessness that makes it scalable. The CORBA camp has come to
+<P>It is this statelessness that makes it scalable. The CORBA camp too has come to
 the conclusion that while CORBA does what it was intended to do, it scales
 poorly. A function passing TP monitor is the tested and tried, it scales, and
 since html/CGI is also stateless, it integrates better to web solutions.

@@ -20,7 +20,7 @@
 
 This is a brief description of the API, the full details are in the man
 pages. Note that MidWay consider everything that begins with mw, _mw, __mw
-it own private name space.
+its own private name space.
 <br>&nbsp;
 <table BORDER NOSAVE >
 <tr NOSAVE>
@@ -230,6 +230,15 @@ mwfetch() return when their request expire.</td>
 
 <td>Specifies how much logging this process should do. From only errors
 to full debug.</td>
+
+<td>Yes</td>
+</tr>
+<tr>
+<td>mwopenlog()</td>
+
+<td>both</td>
+
+<td>Intended to replace mwsetlogprefix and mwsetloglevel. Modeled on openlog(3)/syslog(3) </td>
 
 <td>Yes</td>
 </tr>

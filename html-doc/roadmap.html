@@ -36,7 +36,7 @@ In order to define what servers that should be booted automatically</li>
 define authentication schemes.</li>
 
 <li>
-define gateways to other MidWay instances</li>
+define gateways to other MidWay instances (Begun) </li>
 </ul>
 and more....
 
@@ -53,7 +53,7 @@ servers.
 a GNOME version of mwadm</h2>
 <dd>
 <dt>
-A module for Apache
+A module for Apache (Begun) 
 <dd>Both for doing CGI call directly&nbsp; to a service, and as a http protocol
 provider for clients.
 <dt>
@@ -65,7 +65,7 @@ Language bindings for perl
 <dd>
 I consider his to be urgent, the DBI module for Perl makes Perl possibly
 a very important language to write services in.
-
+(A Client only SRBP module is completed).
 <dt>
 Language bindings for Tcl/Tk
 <dd>
@@ -95,14 +95,6 @@ Implement the TCP/IP client API in Java.
 <dd>
 I don't know about the IPC API. I haven't yet looked much at servlets, 
 it might have a need for the server API. We'll see how servlets catches on.
-
-<dt>
-Define a native midway TCP/IP protocol
-<dd>
-This is absolute a requirement for adding transactions support, events,
-queues, and gateways. Clients and gateways need a bit different things
-in this protocol, I <i><u>really</u></i> want only one protocol. This protocol
-must be SSL, and TLS'able, add that at the same time.
 
 <dt>
 Transactions support, two phase commit, XA style

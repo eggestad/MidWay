@@ -17,23 +17,25 @@
 <hr>
 
 <h1>
-<font size=+1>Exactly what is MidWay anyway?</font></h1>
-MidWay is formally a <i>Service Request Broker</i> (SRB). MidWay is the
-first Open Source Software implementation (at least know to me) of a very
-old idea that originated on the Mainframe. The biggest of these is CICS,
-on Unix <a href="tuxedo.html">Tuxedo&reg;</a> is dominant. SRB's are for
-historical reasons known as <i>TP Monitors, </i>or <i>Middleware</i>. The
-name MidWay is a pun on middleware. TP monitors have a very advanced <a href="transactions.html">transaction</a> concept,
-this is planned for MidWay in some future, (<b>BIG</b> project.)
-<p>Middleware is today a really bloated term, that are used on a whole
-range of different technologies, I'm not going to elaborate on this here.
-There is an excellent book on most types of client/server technologies
-called "
-<i>Client/Server Survival Guide</i>" by Orfali, Harkey, and Edwards.
-The differences between TP monitors and other types of client/server technologies
-are explained in a lot of details in the survival guide. I'm going to limit
-myself here to what MidWay can do.&nbsp; You use MidWay or another middleware
-for any or all of a number of reason.
+<font size=+1>Exactly what is MidWay anyway?</font></h1> MidWay is
+formally a <i>Service Request Broker</i> (SRB). MidWay is the first
+Open Source Software implementation (at least know to me) of a very
+old idea that originated on the Mainframe. The biggest of these is
+CICS. On Unix <a href="tuxedo.html">Tuxedo&reg;</a> is dominant. SRB's
+are for historical reasons known as <i>TP Monitors, </i>or
+<i>Middleware</i>. The name MidWay is a pun on middleware. TP monitors
+have a very advanced <a href="transactions.html">transaction</a>
+concept, this is planned for MidWay in some future. 
+
+ <p>Middleware is today a really bloated term, that are used on a
+whole range of different technologies, I'm not going to elaborate on
+this here.  There is an excellent book on most types of client/server
+technologies called " <i>Client/Server Survival Guide</i>" by Orfali,
+Harkey, and Edwards.  The differences between TP monitors and other
+types of client/server technologies are explained in a lot of details
+in the survival guide. I'm going to limit myself here to what MidWay
+can do.&nbsp; You use MidWay or another middleware for any or all 
+these reasons:
 <ol>
 <li>
 Scalability</li>
@@ -64,11 +66,13 @@ even 90's Unix servers have trouble with a thousand concurrent telnet users.
 The Web uses http specifically in order to achieve the needed scalability
 to serve the world. The key is <a href="objects-functions.html#statelessness">statelessness
 </a>.
+
 <p>MidWay work by having servers processes that provides a <i>service</i>.
 A server may provide many services, and many servers may provide the same
 service. When a client call a service, it is load, and randomness that
 determine which server that actually handle the request. The components
 of a MidWay instance are shown here (only one server and one client.)
+
 <p><img SRC="Intro-arch.gif" ALT="Intro-arch.gif" height=340 width=688 align=TEXTTOP><br>
 <br>
 A service is mapped onto a subroutine or function. Unlike CORBA or
@@ -77,39 +81,44 @@ fact, the only thing you may send to a service, and the only thing you
 can send back from the service, is a buffer of <i>n</i> octets(bytes),
 like a Perl scalar. I've very specific <a
 href="presentation.html">reasons for not doing any data
-presentation</a>.
+presentation</a>.If you are familiar with the <a
+href="osistack.html">OSI reference model,</a> MidWay is exclusively on
+layer 5 the <i>session</i> layer. The encoding of the data is entirely
+up to you. In many cases you would just pass a C struct, my
+recommendation is to encode as URI fields (how html form data is
+normally encode): <tt><font face="courier, courier
+new">field1=value&amp;field2=value.</font></tt>
 
-If you are familiar with the <a href="osistack.html">OSI reference
-model,</a> MidWay is exclusively on layer 5 the <i>session</i>
-layer. The encoding of the data is entirely up to you. In many cases
-you would just pass a C struct, my recommendation is to encode as URI
-fields (how html form data is normally encode): <tt><font
-face="courier, courier new">field1=value&amp;field2=value.</font></tt>
-<p>In the current version of MidWay there are limitations of how big
-<i>n </i>can be, but this is planned to be removed. However, in order
-to maintain scalability, keep this as low as possible. 1 Mb is
-becoming ridicules, you can usually keep this below 10k.  <p>Another
-very important feature in a SRB is the ability to issue multiple
-requests without waiting for the responses, as well as issue request
-that shall not be replied to.  <p>3 tier applications are almost a
-given when using a SRB. The first tier is the MidWay client, it
-provides the user interface. The second tier is the MidWay server, and
-it is usually a database client. The third tier is then the database
-it self. Normally the second and third tier are sunning on the
-database server, while the first tier is running os a workstation.
+Another great way to format the query string is to use XML. <a
+href="http://www.xml-rpc.org">XML-RPC </a> have made a spesification
+on how to do this.  <p>In the current version of MidWay there are
+limitations of how big <i>n </i>can be, but this is planned to be
+removed. However, in order to maintain scalability, keep this as low
+as possible. 1 Mb is becoming ridicules, you can usually keep this
+below 10k.
+
+<p>Another very important feature in a SRB is the ability to issue
+multiple requests without waiting for the responses, as well as issue
+request that shall not be replied to.
+
+<p>3 tier applications are almost a given when using a SRB. The first
+tier is the MidWay client, it provides the user interface. The second
+tier is the MidWay server, and it is usually a database client. The
+third tier is then the database it self. Normally the second and third
+tier are sunning on the database server, while the first tier is
+running os a workstation.
+
 <p>Security is here almost implicit,and is provided by the second
 tier.  If user authentication is required, MidWay can do it. (Not yet
 implemented).  More importantly, only the operations programmed into
 the second tier are possible, no matter what userid and password the
-user may have on the database (third tier).  <p>The ability to stop
-and start servers dynamically make it easy to make a backup or limited
-functionality server. When you take you database of line for backup,
-upgrades and such, and the users need to use at least a core set of
-operations you can put in an offline service that do simplified
-processing. This is much used with bank and credit cards when the
-banking system is offline, it is called STIP (STand In
-Processing). The STIP services will usually say OK under a certain
-amount and if the card is not stopped.  Almost all 24-7 has some sort
+user may have on the database (third tier).
+
+<p>The ability to stop and start servers dynamically make it easy to
+make a backup or limited functionality server. When you take you
+database of line for backup, upgrades and such, and the users need to
+use at least a core set of operations you can put in an offline
+service that do simplified processing. Almost all 24-7 has some sort
 of backup/emergency processing. Just in case you miss out on the term
 24-7, 24 hours 7 seven days a week availability.  Another term that is
 coming up is "24 forever".
@@ -118,14 +127,14 @@ coming up is "24 forever".
 To do a fast example, in the client you would do:
 <br>&nbsp;
 <blockquote>
-<div STYLE="margin-left: 0.79in"><tt><font face="courier, courier new">#include
-&lt;MidWay.h</font></tt></div>
+<tt><font face="courier, courier new">#include
+&lt;MidWay.h</font></tt>
 
-<p><br><tt><font face="courier, courier new">char * buffer;</font></tt>
+<p><br><tt><font face="courier, courier new">  char * buffer;</font></tt>
 <br><tt><font face="courier, courier new">int rc, apprcode, bufferlen,
 flags = 0;</font></tt>
 <br><tt><font face="courier, courier new">rc = </font></tt><a href="http://mwattach.3.html/">mwattach
-</a><tt><font face="courier, courier new">("ipc://",
+</a><tt><font face="courier, courier new">("ipc:",
 "test client", userid, password, flags); /* connect to a running instance
 */</font></tt>
 <br><tt><font face="courier, courier new">/* do the request and get the
@@ -145,7 +154,7 @@ logic" */</font></tt>
 <br><tt><font face="courier, courier new">int servicehandler(mwsvcinfo
 * si)</font></tt>
 <br><tt><font face="courier, courier new">{</font></tt>
-<br><tt><font face="courier, courier new">if (strcmp("si-data", "Hello
+<br><tt><font face="courier, courier new">if (strcmp("si->data", "Hello
 Server") == 0) {</font></tt>
 <br><a href="http://mwreply.3.html/">mwreply</a><tt><font face="courier, courier new">("Hello
 Client", 0, MWSUCCESS, appreturncode);</font></tt>

@@ -20,6 +20,9 @@
 <hr>
 
 <h1>The OSI reference model.</h1>
+
+This chapter is historical background information only. 
+
 During the 1980 ISO, the International Standards Organization, defined
 a packet network standard, called the Open Systems Interconnect, OSI. ISO
 is a committee organization and their work is heavily influence of this.
@@ -42,8 +45,8 @@ among them cabling and plugging, such as V.24 (*almost* RS232, think of
 it as European RS232) V.35 (Used much on telco modems above 64 kbit/s).
 More importantly they defined two communication standards called X.21 and
 X.25. (Actually they made a lot of other standards around these too.).
-X.11 is a line switching (dialup) protocol with digital signaling. X.25
-is a packet switching network, which originally was intended to use X.11
+X.21 is a line switching (dialup) protocol with digital signaling. X.25
+is a packet switching network, which originally was intended to use X.21
 between X.25 nodes. (In OSI model terms, V24 and V.25 is layer 1, X.21
 is layer 2 and X.25 is layer 3.) Linux users might be amused to know that
 the MIDI standard which is a standard for connecting music equipment together
@@ -52,7 +55,7 @@ digitally is modified X.21. Linux users may also may have heard about ax.25
 boxes. X.25 was designed for error rates in the order of one error in 10<sup>5
 </sup>errors, with made it ideal for make a packet network on amateur radio
 bands which is rather noisy. However in the OSI network, CCITT envisioned
-using X.21 and X.25 as the link (2) and packet (3) layers.
+using X.21 and X.25 as the link (2) and packet (3) layers, respectively.
 
 <p>OSI was also a response to TCP/IP which was during the 80 regarded somewhere
 between a worthy research test-bed and a toy. The main criticism of TCP/IP

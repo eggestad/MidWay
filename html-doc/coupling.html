@@ -22,45 +22,49 @@
 <H1>Loose and tight coupled programs.</H1>
 
 <P>MidWay and it's other TP monitor cousins are designed foremost for
-speed and scaleability, however they do have a place in loosly coupled
+speed and scalability, however they do have a place in loosely coupled
 programs. In order to define what I mean by &quot;loosely
-coupled&quot; it can be look at degrees of coupling. The most tigthly
-coupled program are assembly programs with no OS, running straight on
-the CPU. No memory protection, or defined interfaces.
+coupled&quot; it can be look at degrees of coupling. The most tightly
+coupled programs would be threads. Another example if tight coupling
+are those that used shared memory to communicate. ORB's are looser
+yet, and beyond MidWay you've got programs that communicate thru SMTP,
+ftp, etc. The loosely-Ness is directly related to the degree of
+communication/collaboration between the programmers on the two programs.
 </P>
 
 <P>However consider this rule: <B><U>The more disjoint the programmers
 are the smaller and simpler the interfaces must be</U></B>. Or to make
-a collorary to Murphy's law; Any API description that may be
-misunderstood or misused, <i>will</i>.  (Ask Microosoft API developers
+a correlation to Murphy's law; "Any API description that may be
+misunderstood or misused, <i>will</i>".  (Ask Microsoft API developers
 that, especially about the Windows 3.5 to 3.51 upgrade.)
 </P>
 
-<h2>IDL</h2>
-<P>It is not enough to define data types in
-an interface, since specific values in one may change the legal
-values in another. Consider printf(3), where even the first argument
-changes the number of required arguments, not to mention their types.
-See discussion of OSI layers.</P>
+<h2>IDL</h2> 
 
-<P>Now I',m gonna say something that is
-going to be a bit controversial: <B><U>An object oriented interface
-is by definition more complex than a functional one.</U></B></P>
+<P>It is not enough to define data types in an interface, since
+specific values in one may change the legal values in
+another. Consider printf(3), where even the first argument changes the
+number of required arguments, not to mention their types.  See
+discussion of OSI layers.</P>
+
+<P>Now I'm going to say something that will be a bit controversial:
+<B><U>An object oriented interface is by definition more complex than
+a functional one.</U></B></P>
 
 <P> Consider Corba, in the heart
 of Corba you have a IDL (Interface Definition Language). You can't
 even compile you program without having defined it's interfaces. If
 other objects you use changes their interfaces, you must recompile.
-The  later will normally hold true for MidWay applicatios as well,
+The  later will normally hold true for MidWay applications as well,
 but you can exchange data encoded like web browsers encode HTML forms
 data: <B><FONT FACE="courier, monospace">fieldname1=value&amp;fieldname2=value</FONT></B>
-etc. Then your server may not even know about all the arguents sent
+etc. Then your server may not even know about all the arguments sent
 it, nor care about them. It allows you to have a much less rigid
 regime in maintaining versions of all your components. 
 </P>
 
 <P>BTW: I'm not saying that object orientation of your programs is
-wrong, nor that Corba and it's likes are wrong, quite the contrary,
+wrong, nor that Corba and it's likes are wrong, quite the contrary!
 I'm just saying that they are better suited for more tightly coupled
 systems.</P>
 
@@ -71,18 +75,18 @@ HREF="objects-functions.html#forking">forking</A>.
 <h2>Robustness</h2> In order to be robust we must have a plan for what
 happen when things go wrong. In this world of having Inter Program
 Communication, one program may disappear for some reason. It may do
-down on command, intentionally or not, it may core dump, or its host
+down on command intentionally or not, it may core dump, or its host
 may crash or be subject to something as mundane as a power failure.
 
-<p>Consider what happens when your application shoudl do if it was in
-the middle of talking to an object, when it just dissapeared. It is
-the very nature with a SRB that you don't know which server handling
-your request are, or where it is. If one server failes, there may be
-backup servers somewhere else, but you can't switch to a backup object
-on the fly because it will not have the same state.
+<p>Consider what your application should do if it was in the middle of
+talking to an object, when it just disappeared. It is the very nature
+with a SRB that you don't know which server handling your request are,
+or where it is. If one server fails, there may be backup servers
+somewhere else, but you can't switch to a backup <I>object<I> on the
+fly because it will not have the same state.
 
 This is why SRBs are better suited for 24x7 systems and
-interapplication communication. ORBs are better suited for making
+inter-application communication. ORBs are better suited for making
 really large applications.
 
 <hr>

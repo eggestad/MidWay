@@ -1,7 +1,7 @@
 <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
 <HTML>
 <HEAD>
-	<TITLE>Scaleability - Parallelism</TITLE>
+	<TITLE>Scalability - Parallelism</TITLE>
 	<META NAME="GENERATOR" CONTENT="StarOffice/5.1 (Linux)">
 	<META NAME="AUTHOR" CONTENT="Terje Eggestad">
 	<META NAME="CREATED" CONTENT="20000109;15351500">
@@ -9,23 +9,27 @@
 	<META NAME="CHANGED" CONTENT="20000109;23213300">
 </HEAD>
 <BODY>
-<P STYLE="margin-top: 0.17in; page-break-after: avoid"><FONT FACE="Times New Roman, serif"><FONT SIZE=4>Parallelism</FONT></FONT></P>
-<P>There are two types of parallelism you can do with MidWay, fan-out
-and pipeline.</P>
+<P STYLE="margin-top: 0.17in; page-break-after: avoid"><FONT
+FACE="Times New Roman, serif"><FONT
+SIZE=4>Parallelism</FONT></FONT></P> <P>There are two types of
+parallelism you can do with MidWay, fan-out and pipeline.</P>
+
 <P>In fan-out you call multiple services simultaneously. This is
-asynchronous request/response. In order do this, we use the <A HREF="http://mwcall.3.html/">mwacall</A>()
-to issue the request and <A HREF="http://mwcall.3.html/">mwfetch</A>()
-to get the response later.</P>
-<P><IMG SRC="fanout.gif" NAME="FanOut" ALIGN=LEFT WIDTH=602 HEIGHT=430 BORDER=0><BR CLEAR=LEFT>In
-order to do pipelineing you use <A HREF="http://mwforward.3.html/">mwforward</A>()
-in the server to pass the request onto another service. 
+asynchronous request/response. In order do this, we use the <A
+HREF="http://mwcall.3.html/">mwacall</A>() to issue the request and <A
+HREF="http://mwcall.3.html/">mwfetch</A>() to get the response
+later.</P>
+
+<P><IMG SRC="fanout.gif" NAME="FanOut" ALIGN=LEFT WIDTH=602 HEIGHT=430
+BORDER=0><BR CLEAR=LEFT>In order to do pipelining you use <A
+HREF="http://mwforward.3.html/">mwforward</A>() in the server to pass
+the request onto another service.
 </P>
+
 <P><IMG SRC="pipeline.gif" NAME="Pipeline" ALIGN=LEFT WIDTH=654 HEIGHT=579 BORDER=0><BR CLEAR=LEFT>The
 first service may do something like user authentication, the second
-format checking, the third the actual DB interface, and the third
-formatting of reply. Since we don't have implemented transaction
-support in MidWay, the first and last could be transaction begin, and
-commit. 
+format checking, the third the actual DB interface, and the fourth
+formatting of reply. 
 </P>
 <HR>
 <P>Top</P>

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.9  2002/10/03 21:01:38  eggestad
+ * - new prototypes for (un)provide_for_id()
+ *
  * Revision 1.8  2002/09/22 23:01:16  eggestad
  * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
  *
@@ -280,8 +283,11 @@ int _mw_ipcsend_attach(int att_type, char * name, int flags);
 int _mw_ipcsend_detach(int force);
 int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force);
 
+int _mw_ipcsend_provide_for_id(MWID mwid, char * servicename, int cost, int flags);
 int _mw_ipcsend_provide(char * servicename, int cost, int flags);
 SERVICEID _mw_ipc_provide(char * servicename, int flags);
+
+int _mw_ipcsend_unprovide_for_id(MWID mwid, char * servicename,  SERVICEID svcid);
 int _mw_ipcsend_unprovide(char * servicename, int flags);
 int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid);
 

@@ -173,6 +173,18 @@ typedef struct {
 /*extern char _mw_srbmessagebuffer;*/
 #endif
 
+/* these functions deal vith manipulation of SRBmessages */
+void _mw_srb_init (SRBmessage * srbmsg, char * command, char marker, ...);
+SRBmessage * _mw_srb_create (char * command, char marker, ...);
+void _mw_srb_destroy (SRBmessage * srbmsg); 
+
+void _mw_srb_setfield   (SRBmessage * srbmsg, char * key, char * value); 
+void _mw_srb_nsetfield  (SRBmessage * srbmsg, char * key, void * value, int vlen); 
+void _mw_srb_setfieldi  (SRBmessage * srbmsg, char * key, int value); 
+char * _mw_srb_getfield (SRBmessage * srbmsg, char * key);
+void _mw_srb_delfield   (SRBmessage * srbmsg, char * key); 
+
+/* encode decode */
 SRBmessage * _mw_srbdecodemessage(char * message);
 int _mw_srbsendmessage(int fd, SRBmessage * srbmsg);
 int _mw_srbencodemessage(SRBmessage * srbmsg, char * buffer, int buflen);
@@ -190,16 +202,17 @@ int _mw_srbsendinit(int fd, char * user, char * password,
 int _mw_get_returncode(urlmap * map);
 int _mw_srb_checksrbcall(int fd, SRBmessage * srbmsg) ;
 
+/* tracing API */
 int _mw_srb_traceonfile(FILE * fp);
 int _mw_srb_traceon(char * path);
 int _mw_srb_traceoff(void );
-
 
 #define SRB_TRACE_IN 1
 #define SRB_TRACE_OUT 0
 
 void _mw_srb_trace(int dir_in, int fd, char * message, int messagelen);
 
+/* conversion func between SRBP error codes, and errno */
 char * _mw_srb_reason(int rc);
 int _mw_errno2srbrc(int err);
 

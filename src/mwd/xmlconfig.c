@@ -570,6 +570,12 @@ static int ParseMWDTag(xmlNodePtr node)
     mwdSetIPCparam(MASTERIPCKEY, atoi(propvalue));
   };
 
+  propvalue = xmlGetProp(node, "umask");
+  if (propvalue) {
+    DEBUG("umask = %#o", atoi(propvalue));
+    mwdSetIPCparam(UMASK, atoi(propvalue));
+  };
+
   propvalue = xmlGetProp(node, "basebuffersize");
   if (propvalue) {
     DEBUG("basebuffersize = %d", atoi(propvalue));

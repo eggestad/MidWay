@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.20  2004/11/17 20:35:23  eggestad
+ * Fix for a segfault due to an illegal cid in delclient().
+ * The fix is to prevent lookup if the cid if invalid.
+ *
  * Revision 1.19  2004/04/12 23:02:29  eggestad
  * - added missing server name to server table
  *
@@ -395,39 +399,9 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
   return cltidx;
 };
 
-  
-/*
- * used when deleting a server to ensure that all service entries 
- * belonging to this server are deleted.
- * Returns NULL when there are no more services.
- */
-
-/*
-static serviceentry * get_service_bysrv(SERVERID srvid)
-{
-  ipcmaininfo * ipcmain;
-  serviceentry * svctbl;
-  int i;
-
-  ipcmain = getipcmaintable();
-  if (ipcmain == NULL) {
-    Error("No ipcmain table available");
-    return NULL;
-  };
-  svctbl = getserviceentry(0);
-  for (i = 0; i < ipcmain->svctbl_length; i++) {
-    if ( (svctbl[i].type != UNASSIGNED) &&
-	 (svctbl[i].server == srvid) ) {
-      return & svctbl[i];
-    };
-  }
-  return NULL;
-}
-*/
-
 int delclient(CLIENTID cid)
 {
-  cliententry * clttbl = NULL;
+  cliententry * cltent = NULL;
   int cltidx;
 
   if (ipcmain == NULL) {
@@ -438,16 +412,20 @@ int delclient(CLIENTID cid)
   event_clear_id(cid);
   event_unsubscribe(UNASSIGNED, cid);
 
-  clttbl = _mw_getcliententry(0);
-  cltidx = CLTID2IDX(cid);
-  
-  clttbl[cltidx].type = UNASSIGNED;
-  clttbl[cltidx].mqid = UNASSIGNED;
-  clttbl[cltidx].pid  = UNASSIGNED;
-  clttbl[cltidx].status = UNASSIGNED;
-  clttbl[cltidx].clientname[0] = '\0';
-  clttbl[cltidx].username[0] = '\0';
-  clttbl[cltidx].addr_string[0] = '\0';
+  cltent = _mw_getcliententry(cid);
+  if (cltent == NULL) {
+     cltidx = CLTID2IDX(cid);
+     Error("failed to lookup clt table entry for index %d (cid=%x)", cltidx, cid);
+     return -EINVAL;
+  }
+   
+  cltent->type = UNASSIGNED;
+  cltent->mqid = UNASSIGNED;
+  cltent->pid  = UNASSIGNED;
+  cltent->status = UNASSIGNED;
+  cltent->clientname[0] = '\0';
+  cltent->username[0] = '\0';
+  cltent->addr_string[0] = '\0';
   return 0;
 };
 

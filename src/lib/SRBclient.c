@@ -24,6 +24,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.3  2000/09/21 18:21:55  eggestad
+ * Major work, added acall/fetch and got it to work
+ *
  * Revision 1.2  2000/08/31 21:46:51  eggestad
  * Major rework
  *
@@ -83,6 +86,7 @@ static void nonblockingmode(int fd)
 
 static void cltcloseconnect(void)
 {
+  mwlog(MWLOG_DEBUG1, "client close connection");
   connectionstate.fd = -1;
   if (connectionstate.domain != NULL) {
     free(connectionstate.domain);
@@ -227,6 +231,10 @@ static char * recvbuffer = NULL;
 static int recvbufferoffset = 0;
 static int recvbufferend = 0;
 
+/* the logic in this function is a bit confusing. The reason is that
+   we try to get as much as possible from the TCP queue into the
+   recvbuffer before returning. THis is just to be nice to the
+   mwgwd.*/
 static SRBmessage * readmessage(int blocking)
 {
   int rc; 
@@ -237,19 +245,28 @@ static SRBmessage * readmessage(int blocking)
   if (recvbuffer == NULL) recvbuffer = malloc(SRBMESSAGEMAXLEN);
   if (recvbuffer == NULL) return NULL;
 
+  mwlog(MWLOG_DEBUG3, "client readmessage: STARTING count=%d recvbufferoffset=%d recvbufferend=%d",
+	count, recvbufferoffset,  recvbufferend);
   szTmp = recvbuffer+recvbufferoffset;
   mwlog(MWLOG_DEBUG1, "client readmessage(%s)", blocking?"blocking":"nonblocking");
 
+  /* we're called blocking and there is atleast a message in the
+     buffer, switch to non blocking. If we didn't we would be blocking
+     in read() while the message we're seeking is in the buffer. (I
+     just spent 2 hours last night trying to figure that one out (HEY!
+     is was 1 am!) */
+  if ((count > 0) && (blocking)) blocking = 0;
   if (blocking) blockingmode(connectionstate.fd);
 
   /* while there is more to come, we set rc = 1 to "fake" that we just
      read somthing */
   rc = 1;
   while (rc > 0) {
-    mwlog(MWLOG_DEBUG3, "client readmessage: calling read() with %d bytes in the buffer",
-	  recvbufferend-recvbufferoffset);
+    mwlog(MWLOG_DEBUG3, "client readmessage: calling read(fd=%d) with %d bytes in the buffer",
+	  connectionstate.fd, recvbufferend-recvbufferoffset);
+
     rc = read(connectionstate.fd, 
-	      recvbuffer+recvbufferend, 
+	      recvbuffer+recvbufferend,
 	      9000-recvbufferend);
     if (rc == -1) {
       if (errno == EINTR) break;
@@ -269,13 +286,22 @@ static SRBmessage * readmessage(int blocking)
     if (rc > 0)
       recvbufferend += rc;
 
-    /* count all new message terminators */
-    while( (szTmp = strstr(szTmp, "\r\n")) != 0) count++;
-	  
+    /* count all *new* message terminators */
+    while( (szTmp = strstr(szTmp, "\r\n")) != 0) {
+      mwlog(MWLOG_DEBUG3, "found a message terminator at %d", 
+	    (int)szTmp - (int)(recvbuffer)); 
+      szTmp += 2;
+      count++;
+    };
+    if (count == 0) mwlog(MWLOG_DEBUG3, "No complete message, blocking = %d", blocking);
+
     /* if blocking eq 0, get all, and we're happy with none, if !0, get
        atleast one, */
-    if (blocking && !count) {
-      rc = 1;
+    mwlog(MWLOG_DEBUG3, "(blocking = %d && count=%d) == %d", 
+	  blocking, count, (blocking && !count));
+    if (blocking && count) {
+      mwlog(MWLOG_DEBUG3, "blocking mode and %d messages, breaking out", count);
+      rc = 0;
     };
     
     /* if buffer is full, and no complete message. */
@@ -299,9 +325,12 @@ static SRBmessage * readmessage(int blocking)
       };
     };
   };
-  
+
   if (blocking) nonblockingmode(connectionstate.fd);
-  mwlog(MWLOG_DEBUG3, "client readmessage: has %s messages ready", count);
+
+  mwlog(MWLOG_DEBUG3, "client readmessage: has %d messages ready", count);
+
+  /* now if we have messages in the buffer */
   if (count) {
     mwlog(MWLOG_DEBUG3, "client readmessage: picking message, offset = %d, end = %d",
 	  recvbufferoffset, recvbufferend);
@@ -311,10 +340,15 @@ static SRBmessage * readmessage(int blocking)
 
     _mw_srb_trace(1, connectionstate.fd, recvbuffer + recvbufferoffset, 0);
     srbmsg = _mw_srbdecodemessage(recvbuffer + recvbufferoffset);
-    recvbufferoffset += (int)szTmp - (int)recvbuffer + 2;
+    count--;
+    mwlog(MWLOG_DEBUG3, "client readmessage: recvbufferoffset = szTmp - recvbuffer + 2: %d = %d - %d +2 (=%d)", 
+	  recvbufferoffset, szTmp, recvbuffer, (int)szTmp - (int)recvbuffer + 2);
+    recvbufferoffset = (int)szTmp - (int)recvbuffer + 2;
     if (recvbufferoffset == recvbufferend) {
       recvbufferoffset = recvbufferend = 0;
-      mwlog(MWLOG_DEBUG3, "client readmessage: recvbuffer now empty");
+      recvbuffer[0] = '\0';
+      mwlog(MWLOG_DEBUG3, "client readmessage: recvbuffer now empty with count = %d", count);
+      count = 0; /* just in case */
     };
   }
   return srbmsg ;
@@ -339,18 +373,19 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
 	    errno);
       return -errno;
     };
-    connectionstate.fd = connect(s,mwadr->ipaddress_v4, 
+    rc = connect(s,mwadr->ipaddress_v4, 
 				 sizeof(struct sockaddr_in));
-    if (connectionstate.fd == -1) {
+    if (rc == -1) {
       mwlog(MWLOG_ERROR, "_mwattach_srb: TCP/IP socket connect failed with errno=%d", 
 	    errno);
       return -errno;
     };
+    connectionstate.fd = s;
   } else {
     mwlog(MWLOG_ERROR, "_mwattach_srb: unsupported IP version");
     return -EPROTONOSUPPORT;
   };
-  
+  mwlog(MWLOG_DEBUG, "_mwattach_srb: socket connection filedesc = %d", connectionstate.fd);
   if (connectionstate.domain != NULL) free(connectionstate.domain);
   connectionstate.domain = mwadr->domain;
   
@@ -366,7 +401,7 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
 
   alarm(10);
   /* read SRB READY */
-  mwlog(MWLOG_DEBUG3, "_mwattach_srb: receiving a srb ready message, blocking mode, 10 sec deadline.");
+  mwlog(MWLOG_DEBUG3, "_mwattach_srb: awaiting a srb ready message, blocking mode, 10 sec deadline.");
   srbmsg = readmessage(1);
   alarm (0);
 
@@ -392,7 +427,7 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
 
   /* send init */  
   rc = _mw_srbsendinit(connectionstate.fd, username, password, name, connectionstate.domain);
-  if (rc != 0){
+  if (rc <= 0){
     mwlog(MWLOG_ERROR, "_mwattach_srb: send srb init failed rc=%d", rc);
     cltcloseconnect();
     return rc;
@@ -400,7 +435,7 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
 
   /* get reply */
   alarm(10);
-  mwlog(MWLOG_DEBUG3, "_mwattach_srb: receiving a srb init reply, blocking mode, 10 sec deadline.");
+  mwlog(MWLOG_DEBUG3, "_mwattach_srb: awaiting a srb init reply, blocking mode, 10 sec deadline.");
   srbmsg = readmessage(1);
   alarm (0);
   if (rc < 1) {
@@ -435,7 +470,7 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
   
 };
 
-int _mwdetach_srb()
+int _mwdetach_srb(void)
 {
   if (connectionstate.fd == -1) return -ENOTCONN;
 
@@ -445,8 +480,212 @@ int _mwdetach_srb()
   return 0;
 };
 
-  
-int _mwacall_srb(int fd, int handle, char * svcname, char * data, int datalen, int flags)
+int _mwacall_srb(char * svcname, char * data, int datalen, int flags)
 {
+  int handle;
+  float timeleft;
+  int timeout;
+  int rc; 
+
+  handle = _mw_nexthandle();  
+  mwlog(MWLOG_DEBUG1, "_mwacall_srb: got handle=%#x", handle);
+  rc = _mw_srbsendcall(connectionstate.fd, handle, svcname, data, datalen, 
+		  flags);
+  if (rc < 0) {
+    mwlog(MWLOG_DEBUG1, "_mwacall_srb: _mw_srbsendcall returned errno=%d", -rc);
+    return rc;
+  };
+  mwlog(MWLOG_DEBUG1, "_mwacall_srb: _mw_srbsendcall returned %d, returning handle=%#x", 
+	rc, handle);
+  return handle;
+};
   
-int _mwfetch_srb(int handle, char ** data, int * len, int * appreturncode, int flags) 
+int _mwfetch_srb(int handle, char ** data, int * len, int * appreturncode, int flags)
+{
+  SRBmessage * srbmsg = NULL;
+  urlmap * mapFetched = NULL;
+  char szHdl[9];
+  int queueempty = 0;
+  int idx= -1, rc;
+
+  /* first of we check to see if a reply with the handle exists in the
+     CR queue already */
+
+  sprintf (szHdl, "%8.8x", handle);
+  
+  if (handle == 0)
+    mapFetched = popCRqueue(NULL);
+  else {
+    mapFetched = popCRqueue(szHdl);
+  };
+  
+  mwlog(MWLOG_DEBUG1, "_mwfetch_srb: pop in the CR queue for handle \"%s\"(%d) %s", 
+	szHdl, handle, mapFetched?"found a match":"had no match");
+
+  /* we drain of all the messages in the TCP queue */
+  do {
+    mwlog(MWLOG_DEBUG3, "_mwfetch_srb: at top of drain loop about to call readmessage(%s)", 
+	  (!mapFetched | (flags&MWNOBLOCK)) ? "blocking":"nonblocking");
+    /* if we have call reply to return we don't block, nor if NOBLOCK flag is set '*/
+    srbmsg = readmessage(!mapFetched | (flags&MWNOBLOCK)); 
+    if (srbmsg == NULL) {
+      mwlog(MWLOG_DEBUG1, "_mwfetch_srb: readmessage failed with errno=%d", errno);
+      switch (errno) {
+	
+      case EAGAIN:
+	mwlog(MWLOG_DEBUG1, "_mwfetch_srb: nothing left to read in the TCP queue");
+	queueempty = 1;
+	break;
+      case EINTR:
+	if (flags & MWSIGRST)
+	  continue;
+	else {
+	  mwlog(MWLOG_DEBUG1, "_mwfetch_srb: returning due to interrupt");
+	  return -errno;
+	};
+       
+      default:
+	mwlog(MWLOG_DEBUG1, "_mwfetch_srb: returning due to unexpected error=%d", errno);
+	return -errno;
+      };
+    };
+    
+    if (srbmsg != NULL) {
+      /* if a reject fro the peer, ignore it. */
+      if (srbmsg->marker == SRB_REJECTMARKER) { 
+	mwlog(MWLOG_ERROR, "_mwfetch_srb: got a rejected message");
+	urlmapfree(srbmsg->map);
+	free(srbmsg);
+	srbmsg = NULL;
+	continue;/* do loop */
+      };
+
+      /* special handling of svccall replies */
+      if (strcmp(srbmsg->command, SRB_SVCCALL) == 0) {
+	mwlog(MWLOG_DEBUG1, "_mwfetch_srb: got a SRBCALL message\"%s%c\"",  
+	      srbmsg->command, srbmsg->marker);
+	if (srbmsg->marker != SRB_RESPONSEMARKER) {
+	  mwlog(MWLOG_ERROR, "_mwfetch_srb: got a call request in TCP queue");
+	  /* should we send a reject? */
+	  urlmapfree(srbmsg->map);
+	  free(srbmsg);
+	  srbmsg = NULL;
+	  continue; /* do loop */
+	};
+	
+	/* format check on the SVCCALL */
+	if (!_mw_srb_checksrbcall(connectionstate.fd, srbmsg)) {
+	  urlmapfree(srbmsg->map);
+	  free(srbmsg);
+	  srbmsg = NULL;
+	  continue; /* do loop */
+	};
+
+	idx = urlmapget(srbmsg->map, SRB_HANDLE);
+	/* in case we're still waiting see if we are to return this one.*/
+	if (mapFetched == NULL) {
+	  mwlog(MWLOG_DEBUG1, "_mwfetch_srb: we're still looking to a reply, testing is this one match");
+	  if (handle != 0) {
+	    mwlog(MWLOG_DEBUG1, "_mwfetch_srb: checking to see if handle %s == %s", 
+		  srbmsg->map[idx].value, szHdl);
+	    if (strcasecmp(srbmsg->map[idx].value, szHdl) == 0) {
+	      mwlog(MWLOG_DEBUG1, "_mwfetch_srb: returning  available call reply in TCP queue with handle %s", szHdl);
+	      mapFetched = srbmsg->map;
+	      free(srbmsg);
+	      srbmsg = NULL;
+	    } 
+	  } else {
+	    /* handle == 0, thus get the first available */
+	    mwlog(MWLOG_DEBUG1, "_mwfetch_srb: returning first available call reply in TCP queue");
+	    mapFetched = srbmsg->map;
+	    free(srbmsg);
+	    srbmsg = NULL;
+	  }
+	};
+	
+	/* we got a svccall reply message we were not awaiting, queue
+           it in the CR queue */
+	if (srbmsg != NULL) {	
+	  mwlog(MWLOG_DEBUG1, "queueing srvreply with handle=%s", srbmsg->map[idx].value);
+	  pushCRqueue(srbmsg->map);
+	  free(srbmsg);
+	  srbmsg = NULL;
+	};
+      } 
+      /* this is a message other than SVCCALL, the only one we
+	 recognize is TERM */
+      else if (strcmp(srbmsg->command, SRB_TERM) == 0) {
+	mwlog(MWLOG_DEBUG1, "_mwfetch_srb: got a TERM message\"%s\"",  srbmsg->command);
+	cltcloseconnect();
+	queueempty = 1;
+      } else {
+	mwlog(MWLOG_WARNING, "_mwfetch_srb: got an unexpected SRB message\"%s\"", srbmsg->command);
+	/* we should reject it */
+	urlmapfree(srbmsg->map);
+	free(srbmsg);
+	srbmsg = NULL;
+      };
+    } 
+  } while (!queueempty);
+
+  /* now mapFetched MUST be not NULL */
+  if (mapFetched == NULL) {
+    mwlog(MWLOG_DEBUG1, "_mwfetch_srb: no SVCCALL with right handle waiting and MWNORPELY=%d",
+	  (flags&MWNOBLOCK));
+    return -EAGAIN;
+  };
+
+  
+  rc = _mw_get_returncode(mapFetched);
+
+  mwlog(MWLOG_DEBUG1, "_mwfetch_srb: RETURNCODE=%d", rc);
+  
+  switch(rc) {
+  case -1:
+    rc = -EUCLEAN;
+    break;
+  case SRB_PROTO_NO_SUCH_SERVICE:
+    rc = -ENOENT;
+    break;
+  case SRB_PROTO_SERVICE_FAILED:
+    rc = -EFAULT;
+    break;      
+  case 0:
+    rc = 0;
+    break;
+  default:
+    rc = -EPROTO;
+    break;
+  };
+
+  /* now return the data, and RC's */
+  mwlog(MWLOG_DEBUG1, "_mwfetch_srb: about to return data and RC's");
+
+  if (rc != 0) return rc;
+
+  idx = urlmapget(mapFetched, SRB_DATA);
+  if (idx != -1) {
+    *data = mapFetched[idx].value;
+    mapFetched[idx].value = NULL;
+    *len = mapFetched[idx].valuelen;
+    mapFetched[idx].valuelen = 0;
+  } else {
+    *data = NULL;
+    *len = 0;
+  };
+
+  idx = urlmapget(mapFetched, SRB_APPLICATIONRC);
+  if (idx != -1) {
+    /* negative?? */
+    *appreturncode = atoi(mapFetched[idx].value);
+  };
+
+  idx = urlmapget(mapFetched, SRB_MORE);
+  if (idx != -1) {
+    if (strcasecmp(mapFetched[idx].value , SRB_YES) == 0)
+      return 1;
+  };
+ 
+  return rc; 
+};
+  

@@ -24,6 +24,11 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.2  2000/09/21 18:24:25  eggestad
+ * - added _mw_srb_checksrbcall()
+ * - deadline now set correctly in srbsendcall()
+ * - A few other minor bug fixed
+ *
  * Revision 1.1  2000/08/31 19:37:30  eggestad
  * This file is used for implementing SRB client side
  *
@@ -43,6 +48,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <SRBprotocol.h>
 #include <version.h>
 #include <urlencode.h>
+#include <mwclientapi.h>
 
 int trace = 1;
 
@@ -189,13 +195,13 @@ int _mw_srbsendmessage(int fd, SRBmessage * srbmsg)
   if (len < SRBMESSAGEMAXLEN - 2)
     len += sprintf(_mw_srbmessagebuffer+len, "\r\n");
   else {
-    errno = E2BIG;
     /* MUTEX ENDS */
-    return -1;
+    return -E2BIG;
   };
-
+  errno = 0;
   len = write(fd, _mw_srbmessagebuffer, len);
-    /* MUTEX ENDS */
+  mwlog(MWLOG_DEBUG3, "_mw_srbsendmessage: write returned %d errno=%d", len, errno);
+  /* MUTEX ENDS */
   if (len == -1) 
     return -errno;
   return len;
@@ -253,10 +259,11 @@ int _mw_srbsendterm(int fd, int grace)
 {
   int rc;
   SRBmessage srbmsg;
+  srbmsg.map = NULL;
 
   strncpy(srbmsg.command, SRB_TERM, MWMAXSVCNAME);
   if (grace == -1) {
-    srbmsg.marker = SRB_NOTIFICATIONMARKER;
+    srbmsg.marker = SRB_NOTIFICATIONMARKER;    
   } else {
     srbmsg.marker = SRB_REQUESTMARKER;
     srbmsg.map = urlmapaddi(srbmsg.map, SRB_GRACE, grace);
@@ -278,7 +285,8 @@ int _mw_srbsendinit(int fd, char * user, char * password,
   };
 
   strncpy(srbmsg.command, SRB_INIT, MWMAXSVCNAME);
-  srbmsg.marker = SRB_RESPONSEMARKER;
+  srbmsg.marker = SRB_REQUESTMARKER;
+  srbmsg.map = NULL;
 
   /* mandatory felt */
   srbmsg.map = urlmapadd(srbmsg.map, SRB_VERSION, SRBPROTOCOLVERSION);
@@ -305,19 +313,26 @@ int _mw_srbsendinit(int fd, char * user, char * password,
 };
 
 int _mw_srbsendcall(int fd, int handle, char * svcname, char * data, int datalen, 
-		    int noreply, int multiple)
+		    int flags)
 {
   char hdlbuf[9];
   int rc;
   SRBmessage srbmsg;
-  
+  int noreply, multiple;
+  float timeleft;
+
+  noreply = flags & MWNOREPLY;
+  mwlog(MWLOG_DEBUG1, "_mw_srbsendcall: begins");
+
   /* input validation done before in mw(a)call:mwclientapi.c */
   strncpy(srbmsg.command, SRB_SVCCALL, MWMAXSVCNAME);
+  srbmsg.map = NULL;
+
   if (noreply) {
     srbmsg.marker = SRB_NOTIFICATIONMARKER;
   } else {
     srbmsg.marker = SRB_REQUESTMARKER;
-    sprintf(hdlbuf, "%X", (unsigned int) handle);
+    sprintf(hdlbuf, "%8.8X", (unsigned int) handle);
     srbmsg.map = urlmapnadd(srbmsg.map, SRB_HANDLE, hdlbuf, 8);
   };
   srbmsg.map = urlmapadd(srbmsg.map, SRB_SVCNAME, svcname);
@@ -333,10 +348,15 @@ int _mw_srbsendcall(int fd, int handle, char * svcname, char * data, int datalen
     srbmsg.map = urlmapnadd(srbmsg.map, SRB_DATA, data, datalen);
   };
   
+  if ( _mw_deadline(NULL, &timeleft)) {
+    srbmsg.map = urlmapaddi(srbmsg.map, SRB_SECTOLIVE, (int) timeleft);
+  };
+
   srbmsg.map = urlmapaddi(srbmsg.map, SRB_HOPS, 0);
   
   rc = _mw_srbsendmessage(fd, &srbmsg);
   urlmapfree(srbmsg.map);
+  mwlog(MWLOG_DEBUG1, "_mw_srbsendcall: returns normally with rc=%d", rc);
   return rc;
 };
 
@@ -367,4 +387,53 @@ int _mw_get_returncode(urlmap * map)
   };
 };
 
+/**********************************************************************
+ * now we must verify that the messages has a propper format
+ * i.e. field checks
+ **********************************************************************/
+int _mw_srb_checksrbcall(int fd, SRBmessage * srbmsg) 
+{
+  int idx;
 
+  idx = urlmapget(srbmsg->map, SRB_HANDLE);
+  /* if a SVCCALL mesg don't have a handle, reject it */
+  if (idx == -1) {
+    mwlog(MWLOG_ERROR, "_mw_srb_checksrbcall: got a call reply without a handle");
+    _mw_srbsendreject(fd, srbmsg, SRB_HANDLE, NULL, 
+		      SRB_PROTO_FIELDMISSING);
+    return 0;
+  };
+  
+  idx = urlmapget(srbmsg->map, SRB_RETURNCODE);
+  if (idx == -1) { 
+    mwlog(MWLOG_ERROR, "_mw_srb_checksrbcall: RETURNCODE missing in SRBCALL: ");
+    _mw_srbsendreject(fd, srbmsg, SRB_RETURNCODE, NULL, 
+		      SRB_PROTO_FIELDMISSING);
+    return 0;
+  } 
+
+  if ( (srbmsg->map[idx].valuelen == 1) && isdigit(srbmsg->map[idx].value[0]) )
+    ; /* OK */
+  else if ((srbmsg->map[idx].valuelen == 3) 
+	   && isdigit(srbmsg->map[idx].value[0])
+	   && isdigit(srbmsg->map[idx].value[1])
+	   && isdigit(srbmsg->map[idx].value[2])) 
+    ; /* OK */
+  else {
+    mwlog(MWLOG_ERROR, "_mw_srb_checksrbcall: Illegal format of RETURNCODE in SRBCALL: \"%s\"(%d)",
+	  srbmsg->map[idx].value, srbmsg->map[idx].valuelen);
+    _mw_srbsendreject(fd, srbmsg, SRB_RETURNCODE, srbmsg->map[idx].value, 
+		      SRB_PROTO_ILLEGALVALUE);
+    return 0;
+  };
+
+  idx = urlmapget(srbmsg->map, SRB_APPLICATIONRC);
+  if (idx == -1) { 
+    mwlog(MWLOG_ERROR, "_mw_srb_checksrbcall: APPLICATIONRC missing in SRBCALL: ");
+    _mw_srbsendreject(fd, srbmsg, SRB_APPLICATIONRC, NULL, 
+		      SRB_PROTO_FIELDMISSING);
+    return 0;
+  } 
+
+  return 1;
+};

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2001/08/29 17:57:59  eggestad
+ * had declared a shutdown() function that collided with the syscall, renamed to cmd_shutdown
+ *
  * Revision 1.4  2001/05/12 17:57:08  eggestad
  * call didn't print return buffer on failed service
  *
@@ -297,7 +300,7 @@ int boot(int argc, char ** argv)
   return 0;
 };
 
-int shutdown (int argc, char ** argv)
+int cmd_shutdown (int argc, char ** argv)
 {
   Administrative admmesg;
   int rc;

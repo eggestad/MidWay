@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2001/08/29 17:57:59  eggestad
+ * had declared a shutdown() function that collided with the syscall, renamed to cmd_shutdown
+ *
  * Revision 1.2  2000/07/20 19:50:19  eggestad
  * prototype fixup.
  *
@@ -62,7 +65,6 @@ int delservice(SERVICEID svcid, SERVERID srvid);
 
 serverentry *  _mw_get_server_byid(SERVERID);
 
-int shutdown(void);
 int kill_all_members(void);
 int check_tables(void);
 int get_pids(int *, int **);

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2001/08/29 17:57:59  eggestad
+ * had declared a shutdown() function that collided with the syscall, renamed to cmd_shutdown
+ *
  * Revision 1.3  2000/11/29 23:32:04  eggestad
  * mwadm created it own default ipc url
  *
@@ -91,7 +94,7 @@ int toggleRandD(int, char **);
 int attach(int, char **);
 int detach(int, char **);
 int help(int, char **);
-int shutdown(int, char **);
+int cmd_shutdown(int, char **);
 
 
 int usage(char *);
@@ -111,7 +114,7 @@ struct command  commands[] =
   { "servers",  servers,     0, "servers", "Lists attached servers" },
   { "services", services,    0, "services", "List provided services." },
   { "boot",     boot,        0, "boot  [-- [any used for mwd]]", "Boot the mwd" },
-  { "shutdown", shutdown,    0, "shutdown", "Shutdown the mwd" },
+  { "shutdown", cmd_shutdown,    0, "shutdown", "Shutdown the mwd" },
   { "buffers",  heapinfo,    1, "buffers",    "prints out info on the shm buffer area"},
   { "help",     help,        0, "help [command]", 
     "list available commands and gives online help on spesific commands"},

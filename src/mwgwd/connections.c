@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.9  2002/10/03 21:15:34  eggestad
+ * - conn_select now return -errno on error, not -1 with errno set.
+ *
  * Revision 1.8  2002/09/26 22:38:19  eggestad
  * we no longer listen on the standalone  port (11000) for clients as default. Default is now teh broker.
  *
@@ -595,8 +598,7 @@ int conn_select(int * cause, time_t deadline)
     /* if already expired */
     if (deadline <= now) {
       DEBUG("deadline expired (%d <= %d)", deadline, now);    
-      errno = ETIME;
-      return -1;;
+      return -ETIME;;
     };
 
     tv.tv_sec = deadline - now;
@@ -620,20 +622,18 @@ int conn_select(int * cause, time_t deadline)
       if (FD_ISSET(i, &rfds)) printf("waiting on %d\n", i);
 #endif
     
-    errno = 0;
     n = select(maxsocket+1, &rfds, NULL, &errfds, tvp);
     
     if (n == -1) {
       DEBUG("select returned with failure %s", 
 	    strerror(errno));
-      return n;
+      return -errno;
     };
   };
 
   /* if timeout */
   if (n == 0) {
-    errno = ETIME;
-    return -1;
+    return -ETIME;
   };
 
   DEBUG("vvvvvvvvvv There are %d sockets that need attention", n);    

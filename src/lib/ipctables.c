@@ -24,6 +24,12 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.19  2004/04/08 10:34:06  eggestad
+ * introduced a struct with pointers to the functions implementing the midway functions
+ * for a given protocol.
+ * This is in preparation for be able to do configure with/without spesific protocol.
+ * This creates a new internal API each protocol must addhere to.
+ *
  * Revision 1.18  2003/12/11 14:18:03  eggestad
  * added mwlistsvc for IPC
  *
@@ -619,7 +625,7 @@ int _mw_list_services_byglob (char * glob, char *** plist, int inflags)
    int * namelens;
    char ** list, ** rlist;
    char * svcname, * tmp;
-   int type, i, index, n = 0, l, x, rc;
+   int i, index, n = 0, l, x, rc;
    int flags = FNM_PERIOD;
   
    if (ipcmain == NULL) { 

@@ -23,6 +23,12 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2004/04/08 10:34:06  eggestad
+ * introduced a struct with pointers to the functions implementing the midway functions
+ * for a given protocol.
+ * This is in preparation for be able to do configure with/without spesific protocol.
+ * This creates a new internal API each protocol must addhere to.
+ *
  * Revision 1.12  2004/02/16 07:27:56  eggestad
  * - fix for '-' in host names
  * - default post is broker not mwgwd private
@@ -425,9 +431,8 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
 };
 
 /* the only exported function from this module. */
-mwaddress_t * _mwdecode_url(char * url)
+int _mwdecode_url(char * url, mwaddress_t * mwadr)
 {
-  mwaddress_t * mwadr;
   regex_t allexp; 
   regmatch_t match[MAXMATCH]; 
   int rc;
@@ -445,31 +450,27 @@ mwaddress_t * _mwdecode_url(char * url)
     url = getenv ("MWURL");
   } 
 
-  mwadr = malloc(sizeof(mwaddress_t));
   if (url == NULL) {
     /* We assume IPC, and use UID as key */
     mwadr->sysvipckey = getuid();
     mwadr->protocol = MWSYSVIPC;
     DEBUG1("_mwdecode_url: we have no url, assuming ipc:%d", mwadr->sysvipckey);
-    return mwadr;
+    return 0;
   };
 
   DEBUG1("_mwdecode_url: url = %s", url);
 
-  mwadr->protocol =  -1;
   if ( regcomp( & allexp, RE_ALLPROTO, REG_EXTENDED|REG_ICASE) != 0) {
     //  if ( regcomp( & testexp, exp, 0) != 0) 
     Error("error on compiling regex %s errno=%d\n", RE_ALLPROTO,  errno);
-    free(mwadr);
-    return NULL;
+    return -EINVAL;
   };
   rc = regexec (&allexp, url, MAXMATCH, match,0);
   DEBUG3("regexec IPC returned %d on %-40s: ",rc, url);
   if (rc != 0) {
     regerror( rc, &allexp, url , 255);
     DEBUG1("regexec of \"%s\" failed on %s, ", RE_ALLPROTO, url);
-    free(mwadr);
-    return NULL;
+    return -EINVAL;
   }
 
 
@@ -481,26 +482,23 @@ mwaddress_t * _mwdecode_url(char * url)
   if (0 == strncasecmp("ipc", url+match[1].rm_so, 3)) {
     mwadr->protocol = MWSYSVIPC;
     rc = url_decode_ipc(mwadr, url);
-    if (rc != 0) return NULL;
-    else return mwadr;
+    return rc;
   };
   
   if (0 == strncasecmp("srbp", url+match[1].rm_so, 4)) {
     mwadr->protocol = MWSRBP;
     rc = url_decode_srbp(mwadr, url);
-    if (rc != 0) return NULL;
-      else return mwadr;
+    return rc;
   };
   if (0 == strncasecmp("http", url+match[1].rm_so, 4)) {
     mwadr->protocol = MWHTTP;
     rc = url_decode_srbp(mwadr, url);
-    if (rc != 0) return NULL;
-    else return mwadr;
+    return rc;
   };
   
-  Error(	"Unknown protocol %s in the URL \"%s\" for MidWay instance, error %d", 
+  Error("Unknown protocol %s in the URL \"%s\" for MidWay instance, error %d", 
 	url+match[1].rm_so, url, mwadr->protocol);
-  return NULL;
+  return -EPROTONOSUPPORT;
 };
 
 #ifdef OBSOLETE

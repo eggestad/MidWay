@@ -23,6 +23,12 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.15  2004/04/08 10:34:06  eggestad
+ * introduced a struct with pointers to the functions implementing the midway functions
+ * for a given protocol.
+ * This is in preparation for be able to do configure with/without spesific protocol.
+ * This creates a new internal API each protocol must addhere to.
+ *
  * Revision 1.14  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -102,12 +108,14 @@ static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 */
 
-
-int _mwattachipc(int type, char * name, int key)
+int _mwattachipc(int type,  mwaddress_t * mwadr, char * name, mwcred_t * cred, int flags)
 {
   int rc;
-  
-  if (key <= 0) return -EINVAL;
+  int key;
+
+  if (!mwadr) return -EINVAL;
+
+  key = mwadr->sysvipckey;
 
   DEBUG3("_mwattachipc: Attaching to IPC with key %d", key);
   rc = _mw_attach_ipc(key, type);
@@ -141,8 +149,6 @@ int _mwdetachipc(void)
 
 
 
- /* this really shoud bw in mwclientipcapi.c, but we need acces to the
-   subscription list */
 
 void _mw_do_ipcevent(Event * ev)
 {
@@ -212,6 +218,23 @@ int _mwacall_ipc(char * svcname, char * data, int datalen, int flags)
 
   return _mwacallipc (svcname, data, datalen,  flags| MWMULTIPLE, UNASSIGNED, NULL, NULL, UNASSIGNED, 0);
 }
+
+////////////////////////////////////////////////////////////////////////
+
+void _mwipcprotosetup(mwaddress_t * mwadr)
+{
+   mwadr->proto.attach = _mwattachipc;
+   mwadr->proto.detach = _mwdetachipc;
+
+   mwadr->proto.acall = _mwacall_ipc;
+   mwadr->proto.fetch = _mwfetchipc;
+   mwadr->proto.listsvc = _mw_list_services_byglob;
+
+   mwadr->proto.event = _mw_ipcsend_event;
+   mwadr->proto.recvevents = _mw_doipcevents;
+   mwadr->proto.subscribe = _mw_ipcsend_subscribe;
+   mwadr->proto.unsubscribe = _mw_ipcsend_unsubscribe;
+};
 
 
 

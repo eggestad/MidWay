@@ -23,6 +23,12 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2004/04/08 10:34:05  eggestad
+ * introduced a struct with pointers to the functions implementing the midway functions
+ * for a given protocol.
+ * This is in preparation for be able to do configure with/without spesific protocol.
+ * This creates a new internal API each protocol must addhere to.
+ *
  * Revision 1.6  2002/09/05 23:25:33  eggestad
  * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
  * MWURL is now used in addition to MWADDRESS
@@ -54,27 +60,9 @@
 #ifndef _ADDRESS_H
 #define _ADDRESS_H
 
-#include <netinet/in.h>
+#include <mwclientapi.h>
 
-/* protocol types */
-#define MWSYSVIPC  1
-#define MWPOSIXIPC 2
-#define MWSRBP     3
-#define MWHTTP     4
-
-typedef struct {
-  int protocol ;
-  int sysvipckey ;
-  char * domain;
-  char * posixipcpath ;
-  union _ipaddress {
-    struct sockaddr * sa;
-    struct sockaddr_in * sin4;
-    struct sockaddr_in6 * sin6;  
-  } ipaddress ;
-} mwaddress_t;
-
-mwaddress_t * _mwdecode_url(char * url);
+int _mwdecode_url(char * url, mwaddress_t * mwaddr);
 const char * _mw_sprintsa(struct sockaddr * sa, char * buffer);
 
 #endif

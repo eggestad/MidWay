@@ -23,6 +23,12 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2004/04/08 10:34:05  eggestad
+ * introduced a struct with pointers to the functions implementing the midway functions
+ * for a given protocol.
+ * This is in preparation for be able to do configure with/without spesific protocol.
+ * This creates a new internal API each protocol must addhere to.
+ *
  * Revision 1.4  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -41,6 +47,8 @@
  */
 
 #include <address.h>
+
+void _mwsrbprotosetup(mwaddress_t * mwadr);
 
 int _mwattach_srb(mwaddress_t *mwadr, char * name, 
 		  char * username, char * password, int flags);

@@ -21,6 +21,12 @@
 
 /*
  * $Log$
+ * Revision 1.16  2004/04/08 10:34:05  eggestad
+ * introduced a struct with pointers to the functions implementing the midway functions
+ * for a given protocol.
+ * This is in preparation for be able to do configure with/without spesific protocol.
+ * This creates a new internal API each protocol must addhere to.
+ *
  * Revision 1.15  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -425,8 +431,7 @@ static SRBmessage * readmessage(Connection * conn, int blocking)
 /**********************************************************************
  * PUBLIC API
  **********************************************************************/
-int _mwattach_srb(mwaddress_t *mwadr, char * name, 
-		  char * username, char * password, int flags)
+int _mwattach_srb(int type, mwaddress_t *mwadr, char * name, mwcred_t * cred, int flags)
 {
    int s, rc;
    int val = 1, len;
@@ -492,7 +497,7 @@ int _mwattach_srb(mwaddress_t *mwadr, char * name,
     
  
    /* send init */  
-   rc = _mw_srbsendinit(&cltconn, username, password, name, cltconn.domain);
+   rc = _mw_srbsendinit(&cltconn, cred, name, cltconn.domain);
    if (rc <= 0){
       Error("_mwattach_srb: send srb init failed rc=%d", rc);
       cltcloseconnect();
@@ -573,7 +578,7 @@ int _mwacall_srb(char * svcname, char * data, int datalen, int flags)
 };
 
 
-void process_event(urlmap * map)
+static void process_event(urlmap * map)
 {
    char * name, * data;
    int datalen;
@@ -808,7 +813,7 @@ int _mwfetch_srb(int *hdl, char ** data, int * len, int * appreturncode, int fla
 
 };
 
-int _mwevent_srb(char * evname, char * data, int datalen, char * username, char * clientname)
+int _mwevent_srb(char * evname, char * data, int datalen, char * username, char * clientname, MWID fromid, int remoteflag)
 {
    return _mw_srbsendevent(&cltconn, evname, data, datalen, username, clientname);
 };
@@ -821,4 +826,25 @@ int _mwsubscribe_srb(char * pattern, int id, int flags)
 int _mwunsubscribe_srb(int id) 
 {
    return _mw_srbsendunsubscribe(&cltconn, id);
+};
+
+void _mwrecvevens_srb(void)
+{
+   _mw_drain_socket(MWNOBLOCK);
+};
+
+
+void _mwsrbprotosetup(mwaddress_t * mwadr)
+{
+   mwadr->proto.attach = _mwattach_srb;
+   mwadr->proto.detach = _mwdetach_srb;
+
+   mwadr->proto.acall = _mwacall_srb;
+   mwadr->proto.fetch = _mwfetch_srb;
+   mwadr->proto.listsvc = _mw_notimp_listsvc;
+
+   mwadr->proto.event = _mwevent_srb;
+   mwadr->proto.recvevents = _mwrecvevens_srb;
+   mwadr->proto.subscribe = _mwsubscribe_srb;
+   mwadr->proto.unsubscribe = _mwunsubscribe_srb;
 };

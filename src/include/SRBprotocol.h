@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <urlencode.h>
 
+#include <mwclientapi.h>
+
 #define SRBPROTOCOLVERSION 	"0.9"
 
 #define SRBMESSAGEMAXLEN 	3500
@@ -214,7 +216,7 @@ int _mw_srbsendreject(Connection * conn, SRBmessage * srbmsg,
 		       int rc);
 int _mw_srbsendreject_sz(Connection * conn, char *message, int offset) ;
 int _mw_srbsendterm(Connection * conn, int grace);
-int _mw_srbsendinit(Connection * conn, char * user, char * password, 
+int _mw_srbsendinit(Connection * conn, mwcred_t * cred,
 		    char * name, char * domain);
 
 int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, int datalen, 

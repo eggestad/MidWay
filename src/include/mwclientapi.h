@@ -18,11 +18,115 @@
   Boston, MA 02111-1307, USA. 
 */
 
+/*
+ * $Id$
+ * $Name$
+ * 
+ *  $Log$
+ *  Revision 1.4  2004/04/08 10:34:05  eggestad
+ *  introduced a struct with pointers to the functions implementing the midway functions
+ *  for a given protocol.
+ *  This is in preparation for be able to do configure with/without spesific protocol.
+ *  This creates a new internal API each protocol must addhere to.
+ *
+ *
+ */
+
+#ifndef _MWCLIENTAPI_H
+#define _MWCLIENTAPI_H
+
+#include <netinet/in.h>
+
+struct _mwcred_t {
+   int authtype;
+   char * username;
+   union  {
+      char * password;
+      void * data;
+   } cred;
+};
+
+typedef struct _mwcred_t mwcred_t;
+
+typedef struct _mwaddress_t mwaddress_t;
+
+// to find the functions that will be assigned to these, look in
+// mwclientapi.c for notconnected and not implemeted dummies. There is
+// a _mwipcprotosetup() in mwclientipcapi.c for sysvipc funcs, and
+// _mwsrbprotosetup() in SRBclient.c
+
+struct mwprotocol {
+   int (*attach)(int type, mwaddress_t * mwadr, char * cname, mwcred_t * cred, int flags);
+   int (*detach)(void);
+
+   int (*acall) (char * svcname, char * data, int datalen, int flags);
+   int (*fetch) (int *hdl, char ** data, int * len, int * appreturncode, int flags);
+   int (*listsvc) (char * glob, char *** list, int flags);
+   
+   int (*event) (char * evname, char * data, int datalen, char * username, char * clientname, 
+		 MWID fromid, int remoteflag);
+   void (*recvevents) (void);
+   int (*subscribe) (char * pattern, int id, int flags);
+   int (*unsubscribe) (int id); 
+};
+
+
+/* protocol types */
+#define MWNOTCONN  0
+#define MWSYSVIPC  1
+#define MWPOSIXIPC 2
+#define MWSRBP     3
+#define MWHTTP     4
+
+struct _mwaddress_t {
+  int protocol ;
+  struct mwprotocol proto;
+  int sysvipckey ;
+  char * domain;
+  char * posixipcpath ;
+  union _ipaddress {
+    struct sockaddr * sa;
+    struct sockaddr_in * sin4;
+    struct sockaddr_in6 * sin6;  
+  } ipaddress ;
+};
+
+#endif
+
+mwaddress_t * _mw_get_mwaddress(void);
+void _mw_clear_mwaddress(void);
 
 int _mw_deadline(struct timeval * tv_deadline, float * ms_deadlineleft);
 int _mw_isattached(void);
 int _mw_fastpath_enabled(void);
 int _mw_nexthandle(void);
-int _mw_isattached(void);
 
 void _mw_doevent(int subid, char * event, char * data, int datalen);
+
+int _mw_notimp_attach (int type, mwaddress_t * mwadr, char * cname, mwcred_t * cred, int flags);
+int _mw_notimp_detach(void);
+
+int _mw_notimp_acall (char * svcname, char * data, int datalen, int flags);
+int _mw_notimp_fetch (int *hdl, char ** data, int * len, int * appreturncode, int flags);
+int _mw_notimp_listsvc (char *glob, char *** list, int flags);
+
+int _mw_notimp_event (char * evname, char * data, int datalen, char * username, char * clientname, 
+		 MWID fromid, int remoteflag);
+void _mw_notimp_recvevents(void);
+int _mw_notimp_subscribe (char * pattern, int id, int flags);
+int _mw_notimp_unsubscribe (int id); 
+
+
+int _mw_notconn_attach (int type, mwaddress_t * mwadr, char * cname, mwcred_t * cred, int flags);
+int _mw_notconn_detach (void);
+
+int _mw_notconn_acall (char * svcname, char * data, int datalen, int flags);
+int _mw_notconn_fetch (int *hdl, char ** data, int * len, int * appreturncode, int flags);
+int _mw_notconn_listsvc (char *glob, char *** list, int flags);
+
+int _mw_notconn_event (char * evname, char * data, int datalen, char * username, char * clientname, 
+		 MWID fromid, int remoteflag);
+void _mw_notconn_recvevents(void);
+int _mw_notconn_subscribe (char * pattern, int id, int flags);
+int _mw_notconn_unsubscribe (int id); 
+

@@ -1,8 +1,14 @@
-
+// -*- c -*-
 /* */ 
 #define USE_MULTICAST 0
 
 /* */ 
 #define USE_BROADCAST 0
 
+/* */ 
+#undef TIMEPEGS
 
+/* in the future we'll allow configure to deselect protocols*/
+#define SRBPROTO 1
+#define SYSVIPCPROTO 1
+ 

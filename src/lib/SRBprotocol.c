@@ -21,6 +21,12 @@
 
 /*
  * $Log$
+ * Revision 1.14  2004/04/08 10:34:06  eggestad
+ * introduced a struct with pointers to the functions implementing the midway functions
+ * for a given protocol.
+ * This is in preparation for be able to do configure with/without spesific protocol.
+ * This creates a new internal API each protocol must addhere to.
+ *
  * Revision 1.13  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -884,7 +890,7 @@ int _mw_srbsendterm(Connection * conn, int grace)
   return rc;
 };
 
-int _mw_srbsendinit(Connection * conn, char * user, char * password, 
+int _mw_srbsendinit(Connection * conn, mwcred_t *cred, 
 			   char * name, char * domain)
 {
   int  rc;
@@ -900,13 +906,13 @@ int _mw_srbsendinit(Connection * conn, char * user, char * password,
 	       SRB_NAME, name, 
 	       NULL);
   /* optional */
-  if (user != NULL) {
+  if (cred && cred->username != NULL) {
     auth = SRB_AUTH_PASS;
-    _mw_srb_setfield(&srbmsg, SRB_USER, user);
+    _mw_srb_setfield(&srbmsg, SRB_USER, cred->username);
   };
 
-  if (password != NULL)
-    _mw_srb_setfield(&srbmsg, SRB_PASSWORD, password);
+  if (cred && cred->cred.password != NULL)
+    _mw_srb_setfield(&srbmsg, SRB_PASSWORD, cred->cred.password);
 
   if (domain != NULL)
     _mw_srb_setfield(&srbmsg, SRB_DOMAIN, domain);

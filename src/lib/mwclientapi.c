@@ -23,6 +23,12 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.17  2004/04/08 10:34:06  eggestad
+ * introduced a struct with pointers to the functions implementing the midway functions
+ * for a given protocol.
+ * This is in preparation for be able to do configure with/without spesific protocol.
+ * This creates a new internal API each protocol must addhere to.
+ *
  * Revision 1.16  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -100,10 +106,128 @@
 
 static char * RCSId UNUSED = "$Id$";
 
+// all the not conncected and not implemeted versions of the client calls:
+
+
+int _mw_notimp_attach (int type, mwaddress_t * mwadr, char * cname, mwcred_t * cred, int flags)
+{
+   return -ENOSYS;
+};
+int _mw_notimp_detach(void)
+{
+   return -ENOSYS;
+};
+
+int _mw_notimp_acall (char * svcname, char * data, int datalen, int flags)
+{
+   return -ENOSYS;
+};
+int _mw_notimp_fetch (int *hdl, char ** data, int * len, int * appreturncode, int flags)
+{
+   return -ENOSYS;
+};
+int _mw_notimp_listsvc (char *glob, char *** list, int flags)
+{
+   return -ENOSYS;
+};
+   
+int _mw_notimp_event (char * evname, char * data, int datalen, char * username, char * clientname, 
+		 MWID fromid, int remoteflag)
+{
+   return -ENOSYS;
+};
+void _mw_notimp_recvevents(void)
+{
+   return;
+};
+int _mw_notimp_subscribe (char * pattern, int id, int flags)
+{
+   return -ENOSYS;
+};
+int _mw_notimp_unsubscribe (int id)
+{
+   return -ENOSYS;
+};
+
+int _mw_notconn_attach (int type, mwaddress_t * mwadr, char * cname, mwcred_t * cred, int flags)
+{
+   return -ENOTCONN;
+};
+int _mw_notconn_detach (void)
+{
+   return -ENOTCONN;   
+};
+int _mw_notconn_acall (char * svcname, char * data, int datalen, int flags)
+{
+   return -ENOTCONN;
+};
+int _mw_notconn_fetch (int *hdl, char ** data, int * len, int * appreturncode, int flags)
+{
+   return -ENOTCONN;
+};
+int _mw_notconn_listsvc (char *glob, char *** list, int flags)
+{
+   return -ENOTCONN;
+};
+
+int _mw_notconn_event (char * evname, char * data, int datalen, char * username, char * clientname, 
+		 MWID fromid, int remoteflag)
+{
+   return -ENOTCONN;
+};
+void _mw_notconn_recvevents(void)
+{
+   return;
+};
+int _mw_notconn_subscribe (char * pattern, int id, int flags)
+{
+   return -ENOTCONN;
+};
+int _mw_notconn_unsubscribe (int id)
+{
+   return -ENOTCONN;   
+};
+
+
+
 static struct timeval deadline = {0, 0};
 
-static mwaddress_t * _mwaddress;
+static mwaddress_t _mwaddress = {
+   .protocol = MWNOTCONN,
+   .proto.attach      = _mw_notconn_attach,
+   .proto.detach      = _mw_notconn_detach,
+   .proto.acall       = _mw_notconn_acall,
+   .proto.fetch       = _mw_notconn_fetch,
+   .proto.listsvc     = _mw_notconn_listsvc,
+   .proto.event       = _mw_notconn_event,
+   .proto.recvevents  = _mw_notconn_recvevents,
+   .proto.subscribe   = _mw_notconn_subscribe,
+   .proto.unsubscribe = _mw_notconn_unsubscribe,
+   .domain            = NULL };
+   
+void _mw_clear_mwaddress(void)
+{
+   _mwaddress.protocol = MWNOTCONN;
+   _mwaddress.proto.attach      = _mw_notconn_attach;
+   _mwaddress.proto.detach      = _mw_notconn_detach;
+   _mwaddress.proto.acall       = _mw_notconn_acall;
+   _mwaddress.proto.fetch       = _mw_notconn_fetch;
+   _mwaddress.proto.listsvc     = _mw_notconn_listsvc;
+   _mwaddress.proto.event       = _mw_notconn_event;
+   _mwaddress.proto.recvevents  = _mw_notconn_recvevents;
+   _mwaddress.proto.subscribe   = _mw_notconn_subscribe;
+   _mwaddress.proto.unsubscribe = _mw_notconn_unsubscribe;
+   _mwaddress.domain            = NULL;
+};
 
+mwaddress_t * _mw_get_mwaddress(void)
+{
+   return &_mwaddress;
+};
+
+static mwcred_t credentials = { 0 };
+
+/************************************************************************/
 
 int _mw_deadline(struct timeval * tv_deadline, float * ms_deadlineleft)
 {
@@ -130,8 +254,8 @@ int _mw_deadline(struct timeval * tv_deadline, float * ms_deadlineleft)
 };
 
 int _mw_isattached(void)
-{
-  if (_mwaddress == NULL) return 0;
+{   
+  if (_mwaddress.protocol == MWNOTCONN) return 0;
   return 1;
 };
 
@@ -167,7 +291,7 @@ int mwattach(char * url, char * name,
   int rc;
 
   /* if we're already connected .... */
-  if (_mwaddress != NULL) 
+  if (_mwaddress.protocol != MWNOTCONN) 
     return -EISCONN;;
 
   rc = _mwsystemstate();
@@ -176,8 +300,9 @@ int mwattach(char * url, char * name,
   if (rc != -ENAVAIL) return rc;
 
   errno = 0;
-  _mwaddress = _mwdecode_url(url);
-  if (_mwaddress == NULL) {
+  rc = _mwdecode_url(url, &_mwaddress);
+  if (rc != 0) {
+     DEBUG1("_mwdecode_url(%s, ...) returned %d", url, rc);
     if (errno == ETIME) {
       return -EHOSTDOWN;
     };
@@ -197,13 +322,16 @@ int mwattach(char * url, char * name,
     };
   };
     
-  if ( (flags & MWSERVER) && (_mwaddress->protocol != MWSYSVIPC) ) {
-    Error("Attempting to attach as a server on a protocol other than IPC.");
-      return -EINVAL;
+  if ( (flags & MWSERVER) && (_mwaddress.protocol != MWSYSVIPC) ) {
+     Error("Attempting to attach as a server on a protocol other than IPC.");
+     return -EINVAL;
   };
 
+#ifdef SYSVIPCPROTO
   /* protocol is IPC */
-  if (_mwaddress->protocol == MWSYSVIPC) {
+  if (_mwaddress.protocol == MWSYSVIPC) {
+
+     _mwipcprotosetup(&_mwaddress);
 
     type = 0;
     if (flags & MWSERVER)       type |= MWIPCSERVER;
@@ -211,74 +339,41 @@ int mwattach(char * url, char * name,
     if ((type < 1) || (type > 3)) return -EINVAL;
 
     DEBUG("attaching to IPC name=%s, IPCKEY=0x%x type=%#x", 
-	  name, _mwaddress->sysvipckey, type);
-    rc = _mwattachipc(type, name, _mwaddress->sysvipckey);
+	  name, _mwaddress.sysvipckey, type);
+    rc = _mwaddress.proto.attach(type, &_mwaddress, name, NULL, 0);
     if (rc != 0) {
       DEBUG("attaching to IPC failed with rc=%d",rc);
-      free(_mwaddress);
-      _mwaddress = NULL;
+      _mw_clear_mwaddress();
     };
     return rc;
   }
+#endif
 
+#ifdef SRBPROTO
   /* protocol is SRB */
-  if (_mwaddress->protocol == MWSRBP) {
-    return _mwattach_srb(_mwaddress, name, username, password, flags);
+  if (_mwaddress.protocol == MWSRBP) {
+     
+     _mwsrbprotosetup(&_mwaddress);
+     return _mwaddress.proto.attach(MWCLIENT, &_mwaddress, name, &credentials, flags);
   };
-  free(_mwaddress);
-  _mwaddress = NULL;
+#endif
+
+  _mw_clear_mwaddress();
   return -EINVAL;
 };
 
 int mwdetach()
 {
-  int proto;
+  DEBUG1("mwdetach: %s", _mwaddress.protocol?"detaching":"not attached");
 
-  DEBUG1("mwdetach: %s", _mwaddress?"detaching":"not attached");
+  _mwaddress.proto.detach();
 
-  /* If we're not attached */  
-  if (_mwaddress == NULL) return 0;
-
-  proto = _mwaddress->protocol;
-  free(_mwaddress);
-  _mwaddress = NULL;
- 
-  switch (proto) {
-    
-  case MWSYSVIPC:
-
-    return _mwdetachipc();
-    
-  case MWSRBP:
-    return _mwdetach_srb();
-  };
-  Error("mwdetach: This can't happen unknown protocol %d", proto);
-
+  _mw_clear_mwaddress();
 };
 
 int mwlistsvc(char * glob, char *** list, int flags)
 {
-  int proto;
-
-  /* If we're not attached */  
-  if (_mwaddress == NULL) return 0;
-
-  if (!_mwaddress) {
-    DEBUG1("not attached");
-    return -ENOTCONN;
-  };
-
-  switch (_mwaddress->protocol) {
-    
-  case MWSYSVIPC:
-
-    return _mw_list_services_byglob(glob, list, flags);
-    
-  case MWSRBP:
-    return -ENOSYS;
-  };
-  Error("mwlistsvc: This can't happen unknown protocol %d", proto);
-
+  return _mwaddress.proto.listsvc (glob, list, flags);
 };
 
 int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flags) 
@@ -291,7 +386,7 @@ int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flag
 
   DEBUG1("mwfetch called handle = %d", *handle);
 
-  if (!_mwaddress) {
+  if (_mwaddress.protocol == MWNOTCONN) {
     DEBUG1("not attached");
     return -ENOTCONN;
   };
@@ -308,23 +403,9 @@ int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flag
     * len = 0;
 
     do {
-      switch (_mwaddress->protocol) {
-	
-      case MWSYSVIPC:
-	
-	rc = _mwfetchipc(handle, &pdata, &pdatalen, appreturncode, flags);
-	break;
+       rc = _mwaddress.proto.fetch(handle, &pdata, &pdatalen, appreturncode, flags);
 
-      case MWSRBP:
-	rc = _mwfetch_srb(handle, &pdata, &pdatalen, appreturncode, flags);
-	break;
-
-      default:
-	Error("mwfetch: This can't happen unknown protocol %d", 
-	      _mwaddress->protocol);
-	return -EINVAL;
-      };
-      DEBUG1("protocol level fetch returned %d datalen = %d", rc, pdatalen);
+       DEBUG1("protocol level fetch returned %d datalen = %d", rc, pdatalen);
 
       /* if error */
       if (rc == MWFAIL) {
@@ -357,24 +438,10 @@ int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flag
   };
 
   DEBUG1("MWMULTIPLE flags set");      
+
   /* multiple replies handeled in user code, we return the first reply */
-  switch (_mwaddress->protocol) {
-      
-  case MWSYSVIPC:
-     rc = _mwfetchipc(handle, data, len, appreturncode, flags);
-    break;
-    
-  case MWSRBP:
-    rc = _mwfetch_srb(handle, data, len, appreturncode, flags);
-    break;
+  rc = _mwaddress.proto.fetch(handle, data, len, appreturncode, flags);
 
-  default:
-  Error("mwfetch: This can't happen unknown protocol %d", 
-	_mwaddress->protocol);
-
-  return -EFAULT;
-
-  };
   TIMEPEGNOTE("returning fetch");
   timepeg_log();
   return rc;
@@ -408,34 +475,11 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
   /* datalen may be zero if data is null terminated */
   if ( (data != NULL ) && (datalen == 0) ) datalen = strlen(data);
 
-  if (!_mwaddress) {
-    DEBUG1("not attached");
-    rc = -ENOTCONN;
-    goto out;
-  };
-
   handle = _mw_nexthandle();
-  switch (_mwaddress->protocol) {
-    
-  case MWSYSVIPC:
-
-     rc = _mwacall_ipc(svcname, data, datalen, flags);
-     TIMEPEGNOTE("end acall");
-     timepeg_log();
-     break;
-    
-  case MWSRBP:
-     rc = _mwacall_srb(svcname, data, datalen, flags);
-     TIMEPEGNOTE("end acall");
-     timepeg_log();
-     break;
-     
-  default:
-     Error("mwacall: This can't happen unknown protocol %d", 
-	   _mwaddress->protocol);
-     rc = -EPROTONOSUPPORT;
-  };
-
+  rc =  _mwaddress.proto.acall(svcname, data, datalen, flags);
+  TIMEPEGNOTE("end acall");
+  timepeg_log();
+  
  out:
   DEBUG1("returning %d", rc);
   return rc;
@@ -530,8 +574,7 @@ int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char
   int rc;
 
   DEBUG1("SUBSCRIBE %d %x", pattern, flags);
-  if (_mwaddress == NULL) return -ENOTCONN;
-
+  if (_mwaddress.protocol == MWNOTCONN) return -ENOTCONN;
   if (pattern == NULL) return -EINVAL;
   if (func == NULL) return -EINVAL;
   
@@ -547,29 +590,7 @@ int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char
   se->callback = func;
   se->subscriptionid = get_subscriptionid();
   
-  if (!_mwaddress) {
-    Error("not attached");
-    error = -ENOTCONN;
-    goto errout;
-  };
-
-  
-  switch (_mwaddress->protocol) {
-    
-  case MWSYSVIPC:
-    rc =  _mw_ipc_subscribe(pattern, se->subscriptionid, flags);
-    break;
-
-  case MWSRBP:
-     rc = _mwsubscribe_srb(pattern, se->subscriptionid, flags);
-     break;
-    
-  default:
-    Error("mwevent: This can't happen unknown protocol %d", 
-	  _mwaddress->protocol);
-    error = -EFAULT;
-    goto errout;
-  };
+  rc =  _mwaddress.proto.subscribe(pattern, se->subscriptionid, flags);
   
   if (rc >= 0) {
     DEBUG1("subscription OK");
@@ -577,7 +598,6 @@ int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char
   };
   error = rc;
 
- errout:
   LOCKMUTEX(eventmutex);
   subscription_count--;
   UNLOCKMUTEX(eventmutex);
@@ -605,29 +625,8 @@ int mwunsubscribe(int subid)
     goto errout;
   };
 
-  if (!_mwaddress) {
-    Error("not attached, but still have a subscription, this can't happen");
-    error = -ENOTCONN;
-    goto errout;
-  };
-
   DEBUG1("UNSUBSCRIBE %d", se->subscriptionid);
-  switch (_mwaddress->protocol) {
-    
-  case MWSYSVIPC:
-    rc =  _mw_ipc_unsubscribe(se->subscriptionid);
-    break;
-
-  case MWSRBP:
-     rc = _mwunsubscribe_srb(se->subscriptionid);
-     break;
-    
-  default:
-    Error("mwevent: This can't happen unknown protocol %d", 
-	  _mwaddress->protocol);
-    error = -EFAULT;
-    goto errout;
-  };
+  rc =  _mwaddress.proto.unsubscribe(se->subscriptionid);
 
   free(se->pattern);
   if (rc >= 0) {
@@ -654,40 +653,13 @@ int mwevent(char * event, char * data, int datalen, char * username, char * clie
   /* datalen may be zero if data is null terminated */
   if ( (data != NULL ) && (datalen == 0) ) datalen = strlen(data);
 
-  if (!_mwaddress) {
-    DEBUG1("not attached");
-    return -ENOTCONN;
-  };
-
-  switch (_mwaddress->protocol) {
-    
-  case MWSYSVIPC:
-    return _mw_ipcsend_event(event, data, datalen, username, clientname, UNASSIGNED, 0);
-    
-  case MWSRBP:
-     return _mwevent_srb(event, data, datalen, username, clientname);
-  };
-  Error("mwevent: This can't happen unknown protocol %d", 
-	_mwaddress->protocol);
-
-  return -EFAULT;
+  return _mwaddress.proto.event(event, data, datalen, username, clientname, UNASSIGNED, 0);
 };
 
 void mwrecvevents(void)
 {
-  if (!_mwaddress) return;
-
-  switch (_mwaddress->protocol) {
+   _mwaddress.proto.recvevents();
     
-  case MWSYSVIPC:
-    _mw_doipcevents();
-    break;  
-    
-  case MWSRBP:
-     _mw_drain_socket(MWNOBLOCK);
-    break;
-  };
-
   return;
 };
 
@@ -766,7 +738,7 @@ void * mwalloc(int size)
    DEBUG3("size = %d", size);
    if (size < 1) return NULL;
 
-   if ( !_mwaddress || (_mwaddress->protocol != MWSYSVIPC)) {
+   if (_mwaddress.protocol != MWSYSVIPC) {
       DEBUG3("mwalloc: using malloc");
       addr = malloc(size);
    } else {

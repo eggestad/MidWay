@@ -20,6 +20,12 @@
 
 /*
  * $Log$
+ * Revision 1.23  2004/04/08 10:34:06  eggestad
+ * introduced a struct with pointers to the functions implementing the midway functions
+ * for a given protocol.
+ * This is in preparation for be able to do configure with/without spesific protocol.
+ * This creates a new internal API each protocol must addhere to.
+ *
  * Revision 1.22  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -1582,15 +1588,16 @@ int main(int argc, char ** argv)
   /* the address of the mwd: uri is fetched above either from env, or
      arg.  we fail if the address is not a ipc address. connection to
      a srbp address don't make sence. */
-  mwaddress = _mwdecode_url(uri);
+  mwaddress = _mw_get_mwaddress();
+  rc = _mwdecode_url(uri, mwaddress);
   
-  if (mwaddress == NULL) {
+  if (rc != 0) {
     Error("Unable to parse URI %s, expected ipc:12345 " 
 	  "where 12345 is a unique IPC key", uri);
     exit(-1);
   };
 
- if ( (mwaddress != NULL) && (mwaddress->protocol != MWSYSVIPC) ) {
+ if (mwaddress->protocol != MWSYSVIPC) {
     Error("url prefix must be ipc for %s, url=%s errno=%d", argv[0], uri, errno);
     exit(-1);
   };

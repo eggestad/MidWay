@@ -23,6 +23,12 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.18  2004/04/08 10:34:06  eggestad
+ * introduced a struct with pointers to the functions implementing the midway functions
+ * for a given protocol.
+ * This is in preparation for be able to do configure with/without spesific protocol.
+ * This creates a new internal API each protocol must addhere to.
+ *
  * Revision 1.17  2003/09/25 19:33:45  eggestad
  * loglevel fixup
  *
@@ -1308,15 +1314,17 @@ int main(int argc, char ** argv)
   
   Info("MidWay instance URI is %s", uri); 
   errno = 0;
-  mwaddress = _mwdecode_url(uri);
+
+  mwaddress = _mw_get_mwaddress();
+  rc = _mwdecode_url(uri, mwaddress);
   
-  if (mwaddress == NULL) {
+  if (rc != 0) {
     Error("Unable to parse URI %s, expected ipc:12345 " 
 	  "where 12345 is a unique IPC key", uri);
     exit(-1);
   };
 
-  if ( (mwaddress != NULL) && (mwaddress->protocol != MWSYSVIPC) ) {
+  if (mwaddress->protocol != MWSYSVIPC) {
     Error("url prefix must be ipc for mwd, url=%s errno=%d", uri, errno);
     exit(-1);
   };

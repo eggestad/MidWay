@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.5  2002/02/17 14:52:32  eggestad
+ * - added missing includes
+ * - added do_call() that handle all SVCCALL/FORWARD, we can't use the normal _mwGetServiceRequest
+ *
  * Revision 1.4  2001/09/15 23:59:05  eggestad
  * Proper includes and other clean compile fixes
  *
@@ -44,10 +48,13 @@
 #include <sys/msg.h>
 #include <signal.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <MidWay.h> 
 #include <ipcmessages.h>
 #include <ipctables.h>
+#include <mwserverapi.h>
+#include <shmalloc.h>
 #include "mwd.h"
 #include "tables.h"
 
@@ -272,7 +279,7 @@ static int do_provide(void * mp)
   };
   pmesg->returncode = 0;
 
-  /* now we've decided that teh request is OK, creating entries. */
+  /* now we've decided that the request is OK, creating entries. */
   pmesg->svcid = addlocalservice(pmesg->srvid,pmesg->svcname,type);
   if (pmesg->svcid < 0) {
     mwlog(MWLOG_WARNING, "Rejected a provide of service \"%s\" from server %#x reason %d", pmesg->svcname, pmesg->srvid, pmesg->svcid);
@@ -342,10 +349,60 @@ static int do_admin(void * mp)
 
     return 0;
   }
-  mwlog(MWLOG_WARNING, "Got an unknown request code %d on an administrative request from client" , 
+  mwlog(MWLOG_WARNING, 
+	"Got an unknown request code %d on an administrative request from client %d" , 
 	admmsg->opcode, admmsg->cltid & MWINDEXMASK);
   return -EBADRQC;
 };
+
+/* this replaces _mwGetServiceRequest  in a normal server*/
+static int do_call(void * mp)
+{
+  int rc, mwid;
+  Call * callmsg;
+  mwsvcinfo svcinfo;
+  extern int _mw_requestpending;
+
+  if (mp == NULL) return -EINVAL;
+
+  callmsg = mp;
+  _mw_server_set_callbuffer(callmsg);
+
+  mwlog(MWLOG_DEBUG, "do_call starts");
+
+  rc = _mw_set_deadline(callmsg, &svcinfo);
+  if (rc < 0) {
+    mwlog (MWLOG_WARNING, "Got a service request that had already expired by "
+	   "%d milliseconds, replying ETIME", 
+	   -rc);
+    _mw_ipc_putmessage(callmsg->cltid, (char *) callmsg, sizeof(Call), 0);
+    _mw_set_my_status(NULL);
+    errno = ETIME;
+    return -ETIME;
+  };
+
+  svcinfo.cltid = callmsg->cltid;
+  svcinfo.srvid = callmsg->srvid;
+  svcinfo.svcid = callmsg->svcid;
+  svcinfo.flags = callmsg->flags;
+  
+
+  memset(svcinfo.service, 0, MWMAXSVCNAME);
+  strncpy(svcinfo.service, callmsg->service, MWMAXSVCNAME);
+
+  _mw_getbuffer_from_call(&svcinfo, callmsg);
+
+
+  _mw_set_my_status(callmsg->service);
+  if (!(callmsg->flags & MWNOREPLY) )
+    _mw_requestpending = 1;
+
+  mwlog(MWLOG_DEBUG, "calling mwCallCServiceFunction");
+  return _mwCallCServiceFunction(&svcinfo);
+
+};
+
+
 /* possible retrun codes are only errors, or 0.
  * if we retrun EINTR a msgrcv was interrupted. THis should be due
  * one of the signals we can receive and should be considered OK.
@@ -417,6 +474,11 @@ int parse_request(void)
   case ADMREQ:
     if (rc < (sizeof(Administrative) -sizeof(long))) return -EMSGSIZE;
     return do_admin(mesgbuffer);
+
+  case SVCCALL:
+  case SVCFORWARD:
+    if (rc < (sizeof(Call) -sizeof(long))) return -EMSGSIZE;
+    return do_call(mesgbuffer);
 
   };  
   return -EBADMSG;  

@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2002/10/03 21:12:31  eggestad
+ * - clean up of output info, getting closer to a tabular output
+ * - services output better
+ * - gateways output had wrong header
+ *
  * Revision 1.11  2002/09/29 17:45:33  eggestad
  * ifdef'ed ut conv stuff
  *
@@ -111,6 +116,14 @@ char * location[5] = {
   [GWCLIENT]  "Client  ", 
   NULL};
 
+char * status_by_name[7] = {
+  [MWREADY]    "Ready", 
+  [MWSHUTDOWN] "Shutdown", 
+  [MWBOOTING]  "Booting", 
+  [MWBUSY]     "Busy", 
+  [MWDEAD]     "Dead", 
+  [MWBLOCKED]  "Blocked", 
+  NULL};
 
 int info(int argc, char ** argv)
 {
@@ -121,13 +134,28 @@ int info(int argc, char ** argv)
 
   printf ("MidWay system has version %d.%d.%d\n", 
 	  ipcmain->vermajor, ipcmain->verminor, ipcmain->patchlevel);
-  printf ("  instance name \"%s\" id \"%s\"\n",
-	  ipcmain->mw_instance_name==NULL?"(Anonymous)":ipcmain->mw_instance_name,
-	  ipcmain->mw_instance_id==NULL?"(none)":ipcmain->mw_instance_id);
+  printf ("  %20s = %s\n", 
+	  "instance name", 
+	  ipcmain->mw_instance_name); 
 
-  printf ("  master Processid = %d status = %d boottime %s", 
-	  ipcmain->mwdpid, ipcmain->status, ctime(&ipcmain->boottime));
-  printf ("  Home directory=%s\n", 
+  printf ("  %20s = %s\n", 
+	  "instance id",	  
+	  ipcmain->mw_instance_id);
+
+  printf ("  %20s = %d\n", 
+	  "master Processid", 
+	  ipcmain->mwdpid);
+
+  printf ("  %20s = %s\n", 
+	  "status", 
+	  status_by_name[ipcmain->status]);
+
+  printf ("  %20s = %s", 
+	  "boottime", 
+	  ctime(&ipcmain->boottime));
+  
+  printf ("  %20s = %s\n", 
+	  "Home directory", 
 	  ipcmain->mw_homedir);
   return 0;
 };
@@ -213,7 +241,7 @@ int servers(int argc, char ** argv)
 
 int services(int argc, char ** argv)
 {
-  int i, count = 0;
+  int i, count = 0, provider;
   serviceentry * svcent;
 
   printf ("Services table:\n");
@@ -224,12 +252,17 @@ int services(int argc, char ** argv)
   for (i = 0; i < ipcmain->svctbl_length; i++) {
     if (svcent[i].type != UNASSIGNED) {
       count ++;
+
+      if (svcent[i].location == GWLOCAL) 
+	provider = SRVID2IDX(svcent[i].server);
+      else 
+	provider = GWID2IDX(svcent[i].gateway);
+ 
       /* if (extended) printf ("@ %#x ", &svcent[i]);*/
       printf ("%9d %4d %-8s %4d %8d %s\n", i, svcent[i].type, 
 	      location[svcent[i].location], 
 	      svcent[i].cost, 
-	      svcent[i].location?
-	      MWINDEXMASK&svcent[i].gateway : MWINDEXMASK&svcent[i].server, 
+	      provider, 
 	      svcent[i].servicename);
     };
   }
@@ -248,7 +281,7 @@ int gateways(int argc, char ** argv)
   gwent = _mw_getgatewayentry(0);
   /*  if (extended) printf ("table address %#x \n", 
       (long)svcent);*/
-  printf ("GWID Domain           location peer-roles pid   status instance peeraddr\n");
+  printf ("GWID Domain           location peer-roles pid    mqid status instance peeraddr\n");
   for (i = 0; i < ipcmain->gwtbl_length; i++) {
     if (gwent[i].pid != UNASSIGNED) {
       count ++;
@@ -435,8 +468,6 @@ int cmd_shutdown (int argc, char ** argv)
 
 int dumpipcmain(int argc, char ** argv)
 {
-  const char * status_by_name[] = { "RUNNING", "SHUTDOWN", 
-				    "BOOTING", "BUSY", "DEAD", NULL };
   cliententry  * clttbl  = NULL;
   serverentry  * srvtbl  = NULL;
   serviceentry * svctbl  = NULL;
@@ -465,6 +496,7 @@ int dumpipcmain(int argc, char ** argv)
   printf ("Watchdog pid         = %d\n", ipcmain->mwwdpid);
   printf ("Mwds Message queueid = %d\n", ipcmain->mwd_mqid);
   printf ("MW System name       = %s\n", ipcmain->mw_instance_name);
+  printf ("MW System ID         = %s\n", ipcmain->mw_instance_id);
   printf ("Status               = (%d)%s\n", 
 	  ipcmain->status, status_by_name[ipcmain->status]);
   printf ("Boottime             = %s", ctime(&ipcmain->boottime));

@@ -46,9 +46,15 @@ depend:
 	done;
 
 install: all
+	@ /bin/echo 
+	@ /bin/echo "Install begins"
+	@ /bin/echo 
 	@ for dir in $(DIRS); do\
 	(cd $$dir; $(MAKE)  $@)\
 	done;
+	@ /bin/echo 
+	@ echo "Install complete"
+	@ /bin/echo 
 
 uninstall:
 	@ for dir in $(DIRS); do\

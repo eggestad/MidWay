@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2002/09/22 22:49:23  eggestad
+ * Added new function that return list of all providers of a service
+ *
  * Revision 1.9  2002/09/04 07:13:31  eggestad
  * mwd now sends an event on service (un)provide
  *
@@ -277,9 +280,9 @@ GATEWAYID _mw_get_my_gatewayid()
 
 MWID _mw_get_my_mwid(void)
 {
-  if (myclientid != UNASSIGNED) return CLTID2MWID(myclientid);
-  if (myserverid != UNASSIGNED) return CLTID2MWID(myserverid);
-  if (mygatewayid != UNASSIGNED) return CLTID2MWID(mygatewayid);
+  if (myclientid != UNASSIGNED) return myclientid;
+  if (myserverid != UNASSIGNED) return myserverid;
+  if (mygatewayid != UNASSIGNED) return mygatewayid;
   return UNASSIGNED;
 }
 
@@ -311,7 +314,7 @@ serviceentry * _mw_getserviceentry(int i)
 {
   if (svctbl == NULL) return NULL;
 
-  i = MWID2SVCID(i);
+  i = SVCID(i);
 
   if ( (i >= 0) && (i <= ipcmain->svctbl_length) )
     return & svctbl[i];
@@ -399,10 +402,10 @@ serviceentry * _mw_get_service_byid (SERVICEID svcid)
   if (ipcmain == NULL) { 
     return NULL;
   };
-  if (svcid & MWSERVICEMASK != MWSERVICEMASK) {
+  if (SVCID(svcid) == UNASSIGNED) {
     return NULL;
   };
-  index = svcid & MWINDEXMASK;
+  index = SVCID2IDX(svcid);
   if (index >= ipcmain->svctbl_length) 
     return NULL;
   
@@ -432,6 +435,91 @@ SERVERID _mw_get_server_by_serviceid (SERVICEID svcid)
   return 0;
 };
 
+/* return a list of all MWID's (only gateways and servers that provide
+   the given service */
+MWID * _mw_get_service_providers(char * svcname, int convflag)
+{
+  SERVICEID * slist;
+  int index = 0, n;
+  MWID * rlist;
+  
+  if (ipcmain == NULL) { 
+    return NULL;
+  };
+
+  slist = _mw_get_services_byname(svcname, convflag);
+  if (slist == NULL) return NULL;
+
+  rlist = malloc(sizeof(MWID) * (ipcmain->svctbl_length+1)); 
+
+  for (index = 0; index < ipcmain->svctbl_length+1; index++) 
+    rlist[index] = UNASSIGNED;
+
+  while(slist[index] != UNASSIGNED) {
+    
+    if (svctbl[index].location == GWLOCAL) {
+      rlist[n] = IDX2SRVID(svctbl[index].server);
+      n++;
+    } else if (svctbl[index].location == GWPEER) {
+      rlist[n] = IDX2GWID(svctbl[index].gateway);
+      n++;
+    } else if (svctbl[index].location == GWREMOTE) {
+      rlist[n] = IDX2GWID(svctbl[index].gateway);
+      n++;
+    };
+  };
+  
+  if (n != 0) return rlist;
+  
+  Error("we got a list of %d serviceids but no server or gateway that provide any of these services!", index);
+
+  free(rlist);
+  return NULL;  
+};
+
+/* return the list of sericeid's of the given service */
+SERVICEID * _mw_get_services_byname (char * svcname, int convflag)
+{
+  SERVICEID * slist;
+  int type, i, index, n = 0, x;
+
+  if (ipcmain == NULL) { 
+    return NULL;
+  };
+
+  slist = malloc(sizeof(MWID) * (ipcmain->svctbl_length+1)); 
+
+  if (convflag)
+    type = MWCONVSVC;
+  else 
+    type = MWCALLSVC;
+
+  for (index = 0; index < ipcmain->svctbl_length+1; index++) 
+    slist[index] = UNASSIGNED;
+  
+  for (i = 0; i < ipcmain->svctbl_length; i++) {
+
+    /* we begin in  a random place in the table, in  order not to give
+       the first service first in the list every time */
+    x = 1+(rand() % ipcmain->svctbl_length);
+    index = (x + i) % ipcmain->svctbl_length;
+
+    if (svctbl[index].type == UNASSIGNED) continue;
+    if (svctbl[index].type != type) continue;
+
+    if (strncmp(svctbl[index].servicename, svcname, MWMAXSVCNAME) 
+	== 0) {
+      slist[n++] = index;
+    };
+  };
+    
+  if (n != 0) return slist;
+  
+  free(slist);
+  return NULL; 
+};
+
+  /* depreciated */
 SERVICEID _mw_get_service_byname (char * svcname, int convflag)
 {
   int index, type, selectedid = UNASSIGNED;
@@ -439,6 +527,7 @@ SERVICEID _mw_get_service_byname (char * svcname, int convflag)
   int rc, qlen;
   struct msqid_ds this_mq_stat, last_mq_stat;
 #endif
+
   serviceentry * lasttblent = NULL; 
   serverentry * lastsrv = NULL, * thissrv = NULL;
 

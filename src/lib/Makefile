@@ -3,27 +3,29 @@ CC = gcc
  
 INCLUDES = -I../include 
 
-CFLAGS =  $(INCLUDES) -g
+CFLAGS =  $(INCLUDES) -g -Wstrict-prototypes
 
 IPCOBJS = mwclientipcapi.o ipctables.o ipcmessages.o mwserverapi.o shmalloc.o osdep.o
 
+NETOBJS = SRBclient.o
+
 COMMONOBJS = mwlog.o version.o address.o
 
-LIBS = libMWipc.a libMWipc.so
+LIBS = libMidWay.a libMidWay.so
 
 all: $(LIBS) testmidway
 
 clean: 
-	rm $(LIBS) $(IPCOBJS) $(COMMONOBJS) testmidway core 
+	rm -f $(LIBS) $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) testmidway core 
 
 tags:
 	etags -a -o ../TAGS *.c *.h
 
-libMWipc.a: $(IPCOBJS) $(COMMONOBJS)
-	ar qcs $@ $(IPCOBJS) $(COMMONOBJS)
+libMidWay.a: $(IPCOBJS) $(COMMONOBJS) $(NETOBJS)  
+	ar qcs $@ $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
 
-libMWipc.so: $(IPCOBJS) $(COMMONOBJS)
-	gcc -shared -o $@ $(IPCOBJS) $(COMMONOBJS)
+libMidWay.so: $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
+	gcc -shared -o $@ $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
 
 #	ld -Bshareable -g -o $@ $(IPCOBJS) $(COMMONOBJS)
 
@@ -47,9 +49,12 @@ mwclientipcapi.o: ../include/ipctables.h  ../include/ipcmessages.h ../include/ad
 mwserverapi.o: mwserverapi.c ../include/MidWay.h 
 mwserverapi.o: ../include/ipctables.h  ../include/ipcmessages.h 
 
+SRBclient.o: SRBclient.c ../include/MidWay.h ../include/SRBprotocol.h ../include/urlencode.h
+	gcc -o SRBclient-m.o -c SRBclient.c $(CFLAGS) 	
+	ld -i -o SRBclient.o SRBclient-m.o ../liburlencode/liburlencode.a
+
 version.o: version.c
 
-testmidway: testmidway.c ../include/MidWay.h libMWipc.a
-	gcc -o $@ testmidway.c -I../include -L. -lMWipc -lm 
-
+testmidway: testmidway.c ../include/MidWay.h libMidWay.a
+	gcc -o $@ testmidway.c -I../include -L. -lMidWay -lm 
 

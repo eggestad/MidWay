@@ -50,11 +50,42 @@
 #define UNUSED 
 #endif
 
+/* for use with mwlog() */
+#define URLLOG_FATAL     0
+#define URLLOG_ERROR     1
+#define URLLOG_WARNING   2
+#define URLLOG_ALERT     3
+#define URLLOG_INFO      4
+#define URLLOG_DEBUG     5
+#define URLLOG_DEBUG1    6
+#define URLLOG_DEBUG2    7
+#define URLLOG_DEBUG3    8
+#define URLLOG_DEBUG4    9
+
+#ifndef  NDEBUG
+#define debug(m, ...)  mwlog(URLLOG_DEBUG, m, ## __VA_ARGS__)
+#define debug1(m, ...) mwlog(URLLOG_DEBUG1, m, ## __VA_ARGS__)
+#define debug2(m, ...) mwlog(URLLOG_DEBUG2, m, ## __VA_ARGS__)
+#define debug3(m, ...) mwlog(URLLOG_DEBUG3, m, ## __VA_ARGS__)
+#define debug4(m, ...) mwlog(URLLOG_DEBUG4, m, ## __VA_ARGS__)
+
+#else 
+#define debug(...)
+#define debug1(...)
+#define debug2(...)
+#define debug3(...)
+#define debug4(...)
+#endif
+
+#define info(m, ...)    mwlog(URLLOG_INFO, m, ## __VA_ARGS__)
+#define warning(m, ...) mwlog(URLLOG_WARNING, m, ## __VA_ARGS__)
+#define error(m, ...)   mwlog(URLLOG_ERROR, m, ## __VA_ARGS__)
+#define fatal(m, ...)   mwlog(URLLOG_ERROR, m, ## __VA_ARGS__)
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
+   
 /*********************************************************************
  * API for do string (field) en/decode. 
  * they (un)escapes chars illegal in a URL.
@@ -113,6 +144,49 @@ int urlmapdel(urlmap * map, char * key);
 urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len);
 urlmap * urlmapadd(urlmap * map, char * key, char * value);
 urlmap * urlmapaddi(urlmap * map, char * key, int value);
+
+/* for weakmwlog.c, just to be able to use mwlog inside the url
+   lib, which should be independent of libMidWay. */
+int mwsetloglevel(int level);
+
+#ifdef __GNUC__
+/* gcc hack in order to get wrong arg type in mwlog() */
+#define FORMAT_PRINTF __attribute__ ((format (printf, 2, 3)))
+#else
+#define FORMAT_PRINTF 
+#endif
+  void mwlog(int level, char * format, ...) FORMAT_PRINTF;
+
+
+
+// timepegs which are defined in lib/utils.c
+
+#ifdef TIMEPEGS
+
+#define URLTIMEPEGNOTE(note) __timepeg(__FUNCTION__, __FILE__, __LINE__, note)
+#define URLTIMEPEG() __timepeg(__FUNCTION__, __FILE__, __LINE__, NULL)
+void  __timepeg(char * function, char * file, int line, char * note);
+void timepeg_clear(void);
+int timepeg_sprint(char * buffer, size_t size);
+void timepeg_log(void);
+
+void _perf_pause(void);
+void _perf_resume(void);
+#define timepeg_pause() _perf_pause()
+#define timepeg_resume() _perf_resume()
+
+#else
+
+#define URLTIMEPEGNOTE(note)
+#define URLTIMEPEG()
+
+#define timepeg_pause()
+#define timepeg_resume()
+#define timepeg_clear()
+#define timepeg_sprint(a,b)
+#define timepeg_log()
+
+#endif
 
 #ifdef	__cplusplus
 }

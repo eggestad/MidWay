@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.13  2003/09/28 10:45:59  eggestad
+ * duplicate initalizer
+ *
  * Revision 1.12  2003/09/25 19:36:17  eggestad
  * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
  * - also improved logic in blocking/nonblocking of reading on Connection objects
@@ -85,11 +88,10 @@ static char * RCSId UNUSED = "$Id$";
 
 Connection cltconn = { 
    fd:            -1, 
-   rejects:        1,
+   rejects:        0,
    domain:        NULL, 
    version:       0.0, 
    messagebuffer: NULL,
-   rejects:       0,
    role:          -1
 }; 
 

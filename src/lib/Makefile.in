@@ -48,7 +48,7 @@ depend:
 libMidWay.a: $(IPCOBJS) $(COMMONOBJS) $(NETOBJS)  
 	ar qcs $@ $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
 
-libMidWay.so: $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
+libMidWay.so: $(IPCOBJS) $(COMMONOBJS) $(NETOBJS)  ../liburlencode/liburlencode.a
 	$(CC) -shared -Wl,-soname,libMidWay.so.$(MAJOR_LIB_VERSION) -o $@ $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) ../liburlencode/liburlencode.a -lm 
 	@LN_S@ -f  libMidWay.so libMidWay.so.$(MAJOR_LIB_VERSION)
 	@LN_S@ -f  libMidWay.so libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) 

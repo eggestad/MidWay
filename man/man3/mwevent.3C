@@ -59,9 +59,6 @@ implicitly. Clients on the other hand are normally doing something
 else, and never call mw*() functions much. They must call
 mwrecvevents() explicitly.
 
-NB: currently only IPC clients may send or recv events.
-
-
 .SS Flags
 Flags for subscriptions.
 .TP

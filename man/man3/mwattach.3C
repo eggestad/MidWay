@@ -7,12 +7,13 @@
 .\"
 .TH MWATTACH 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwattach, mwdetach \- Attaching to a running MidWay instance
+mwattach, mwdetach, mwsetcred \- Attaching to a running MidWay instance
 .SH SYNOPSIS
 .B #include <MidWay.h>
 .sp
-.BI "int mwattach(char " url ", char * " name ", "
-.BI "char * " username ", char * " password ", int " flags ");"
+.BI "int mwattach(char * " url ", char * " name ", int " flags ");"
+.br
+.BI "int mwsetcred(int " authtype ", char * " username ", ...); "
 .br
 .BI "int mwdetach();"
 .SH DESCRIPTION
@@ -23,7 +24,13 @@ to a running MidWay system. To logoff you then use
 .BR mwdetach ().
 There are two different methods for a program to attach itself to a MidWay instance.
 Either via IPC (sysvipc is currently only supported. Posix IPC is too new.),  via
-http, or a native midway protocol. (none of the two latter are yet implemented). 
+http, or the service request broker protocol (SRBP). (http is not yet implemented). 
+.BR mwsetcred ().
+This call is used to set user credentials/authentication. Since
+authentications is not yet implemented this is a dummy call, and
+exists since the parameters here used to be in the mwattach()
+prototype.
+
 .SS OPTIONS
 .TP
 .I url
@@ -47,13 +54,6 @@ If not set,
 is tried, and finally 
 .BI ipc:// userid
 .TP
-.I username
-Only needed if protocol is other then ipc. For ipc we are always using OS authentication.
-.TP
-.I password
-.BR mwd.conf (4)
-for authentication methods.
-.TP
 .I flags
 If 
 .B MWCLIENT
@@ -64,7 +64,52 @@ you want to attach as both client and server.
 says you want to attach as just a server (mwcall() will then fail). 
 .TP
 .I name
-a member name, may be NULL, at which arg[0] is substituted.
+a MidWay member name, may be NULL, at which arg[0] is substituted.
+.TP
+.I authtype
+A flag indicating what type of authentcation scheme we'll use. Expected allowed types 
+.TP
+.I username
+Only needed if protocol is other then ipc. For ipc we are always using OS authentication.
+.TP
+.I password
+.BR mwd.conf (4)
+for authentication methods.
+
+.SH AUTHENTICATION
+NOTE that authentication is not yet implemented changes to the API may
+still occur. IN particular there is not decided on an scenario where
+you try mwattach first, then it fails with AUTH NEEDED and the client
+must then determine the auth method to use. First time out it's likely
+that the client must always do a mwsetcred prior to mwattach().
+
+The 
+.BR mwsetcred ()
+call was added since different authentication methods require
+different parameters, and there seem no way that the clients can rise
+above having some support for a given authentication mechanism. So far
+the expected authentications methods are:
+
+.TP 
+.I Password
+Plain old plaintext password
+.TP
+.I KRB5
+Kerberos v5
+.TP
+.I X509
+Certificate based authentication as used in SSL and TLS. 
+
+Since these will all have user names, but have different data after
+that, there is natural with a function with variable parameters. I
+prefered not to clobber
+.BR mwattach ()s
+ptrototype with variable parameters.
+
+Since IPC never uses any authentication methods, we uses OS
+credentials, and all servers are IPC, it made sence to take the user
+credentials out of mwattach().
+
 .SH "RETURN VALUES"
 -errno
 .SH "ERRORS"

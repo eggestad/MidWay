@@ -1,19 +1,104 @@
 .\" Hey Emacs! This file is -*- nroff -*- source.
 .\"
-.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" Copyright (c) 2004 Terje Eggestad <terje.eggestad@iname.com>
 .\" May be distributed under the GNU General Public License.
 .\"
-.TH MWCALL 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
+.TH MWTASK 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwaddtask, mwdeltask \- MidWay service calls
-.SH DESCRIPTION
+mwaddtask, mwaddtaskdelayed, mwwaketask, mwsettaskinterval, mwdotasks \- MidWay tasklet API
+.SH SYNOPSIS
+.B #include <MidWay.h>
+.sp
+.BI "PTask mwaddtask(taskproto_t " taskfunction ", int " interval ");"
+.sp
+.BI "PTask mwaddtaskdelayed(taskproto_t " taskfunction ", int " interval ", int " initialdelay ");"
+.sp
+.BI "int mwwaketask(PTask " taskhandle ");"
+.sp
+.BI "int mwsettaskinterval(PTask " taskhandle ", int " interval ");"
+.sp
+.BI "int mwdotasks(void);"
 
-Future functionality.
+.SH DESCRIPTION
+The tasks are primarily intended for servers to provide programmers a
+way to get access to execution outside service calls.  The
+alternatives are having another thread running, or writing your own
+main-loop. The idea is to register a task, done with 
+.BR mwaddtask "(), "
+giving it the pointer to the function to call, and at what interval to
+call it.  
+
+The function, on the interval, will be called until it return FALSE
+(0), at which is not called again until the next interval.  This is to
+allow programmers to briefly return to the main-loop to process
+service calls. This is useful when a task is long, and the task is
+called infrequently. It also allow multiple tasks to be run
+simultaneously in an round robin style.
+
+Tasks may not be run at intervals at all, but explicitly wakened with
+.BR mwwaketask(). 
+This allow your to "spawn off" a low priority task during a service
+call, and let the service call return.
+
+A task is considered suspended when it's interval is set to -1, which
+mean that you suspend/resume a task by using
+.BR mwsettaskinterval().  
+Likewise you can let a task be called only once by setting interval to
+-1 and initial delay > 0. The task interval is changed with
+.BR mwsettaskinterval ().
+
+.BR mwdotask ()
+is is called implicitly by 
+.BR mwMainLoop ()
+and is only needed for clients using the tasks API. 
+.BR mwdotask ()
+will run all tasks that are scheduled to be run, but only once,
+returning the number if task still in runnable state. You should keep
+calling it until it return 0. Not that it will set a timer and you
+need to handle SIGARLM.
+
+This API will not generate any communication with any other MidWay
+processes, but servers will update their statistics in the IPC tables, so you can use 
+.BR mwadm (1)
+to find out how much of the time a server spends in task vs services. 
+
+.SS  Parameters
+.TP
+.I taskproto_t taskfunction
+is a pointer to a function that has the prototype: 
+.I int function(PTask handle)
+. 
+.TP 
+.I PTask taskhandle
+PTask is an opaque handle for the task as returned by mwaddtask. It is
+in fact a long, and it's contents must not be altered.
+.TP
+.IR interval " and " initialdelay
+are both in milliseconds. 
 
 .SH "RETURN VALUES"
+.BR mwaddtask (), 
+.BR mwaddtaskdelayed ()
+return the task handle or error if taskhandle is negative.
+ 
+.BR mwsettaskinterval ()
+return -errno on error, or the old interval. 
+
+.BR mwwaketask ()
+return 0 on success or -errno. 
 
 .SH "ERRORS"
+.TP
+.B EINVAL
+A general error if a function parameter is wrong, like having NULL pointers for functions. 
+.TP
+.B ENOENT
+On operations on an illegal task handle. 
+.TP
+.B EILSEQ
+On operations on a task before any task has been added. 
 
+ 
 .SH WARNINGS
 
 .SH EXAMPLES

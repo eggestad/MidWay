@@ -1,0 +1,80 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MWLISTSVC 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
+.SH NAME
+mwlistsvc \- get the list of services in the MidWay instance we're attached to
+.SH SYNOPSIS
+.B #include <MidWay.h>
+.sp
+.BI "int mwlistsvc(char * " glob ", char *** " servicelist ", int " flags ");"
+.br
+.SH DESCRIPTION
+This function provides a way to find out what services is provided in
+the MidWay instance you're attached to. It return a unique but
+unsorted list. The list is retured via the servicelist parameter and
+the function return the number of entries in the list. (see below)
+
+Services beginning with a periode are ignored by default and can only
+be seen with an explicit glob.
+
+.SS OPTIONS
+.TP
+.I glob
+A globpattern to limit the matches. Maybe NULL, it then defaults to
+"*". Using a correct glob may be a performance boost, especially over
+a SRBP network connection since the glob is sent to the gateway man
+matched there. 
+.TP
+.I servicelist
+A pointer to a char ** variable. 
+.BR mwlistsvc ()
+will alloc a single memory chunk for the array of char pointers and
+the strings themselves, so if must be freed with a single call to
+.BR free ().
+The length or the array ir given as the return from the call, but the
+array is also NULL terminated.
+.TP
+.I flags
+Currently unused. 
+
+.SH "RETURN VALUES"
+On error -errno, or the number of entries in the array of strings, and
+of course 0 if no matches.
+
+.SH ERRORS
+.TP
+.B EINVAL
+if servicelist is NULL
+.TP
+.B EFAULT
+The glob pattern if illegal, see 
+.BR fnmatch (3C). 
+.B ENAVAIL
+You're not attached.
+
+.SH EXAMPLES
+
+.nf 
+   int rc, i; 
+   char ** plist;
+
+   rc = mwlistsvc(NULL, &plist, 0);
+   for (i = 0; i < rc; i++) {
+      printf ("service number %d: %s\n", i, plist[i]);
+   }
+.fi
+	
+.SH BUGS 
+
+.SH "SEE ALSO"
+.BR MidWay "(7), " mwcall (3C)
+
+.BR 
+
+.SH STANDARDS
+NONE

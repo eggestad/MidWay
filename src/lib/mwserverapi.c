@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.16  2004/02/17 07:27:35  eggestad
+ * fix for wrong setting of non blocking flag in mwreply()
+ *
  * Revision 1.15  2003/07/20 23:31:05  eggestad
  * - added an usleep() loop in mwreply() if no shm buffers are immediatly available
  *
@@ -334,6 +337,7 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
 {
   int rc;
   int mwid;
+  int ipcflags = 0; 
 
   /* if we already have completed the replies */
   if (! _mw_requestpending) return -EALREADY;
@@ -375,10 +379,13 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
   callmesg->mtype = SVCREPLY;
   callmesg->srvid = _mw_get_my_serverid();
 
+  /* flags translation, INCOMPLETE */
+  if (flags & MWNOBLOCK) ipcflags |= IPC_NOWAIT;
+
   /* send reply buffer, if gateway id is set, use that, or else used clientid.*/
   if (callmesg->gwid == UNASSIGNED) mwid  = callmesg->cltid;
   else mwid  = callmesg->gwid;
-  rc = _mw_ipc_putmessage(mwid, (char *) callmesg, sizeof(Call), IPC_NOWAIT);
+  rc = _mw_ipc_putmessage(mwid, (char *) callmesg, sizeof(Call), ipcflags);
   if (rc != 0) {
     Warning("Failure on replying to client %#x reason %d", 
 	  callmesg->cltid, errno);

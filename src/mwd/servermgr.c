@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2004/08/11 20:34:43  eggestad
+ * large buffer alloc
+ *
  * Revision 1.7  2003/06/12 07:31:31  eggestad
  * - added trigger_watchdog() after every server exit
  * - special handling of dying watchdog
@@ -680,13 +683,13 @@ int smgrExecServer(struct Server * S)
     envp = dupEnv(S->env);
 
     path = myGetEnv(envp, "PATH");
-    sprintf(tmp, "%s/%s/bin:%s", mwhome, instancename, path);
+    sprintf(tmp, "%s/%s/bin:%s", ipcmain->mw_homedir, instancename, path);
     mySetEnv(&envp, "PATH", tmp);
-    mySetEnv(&envp, "MWHOME", mwhome);
+    mySetEnv(&envp, "MWHOME", ipcmain->mw_homedir);
     mySetEnv(&envp, "MWADDRESS", uri);
     mySetEnv(&envp, "MWINSTANCE", instancename);
 
-    sprintf(tmp, "%s/%s/run", mwhome, instancename);
+    sprintf(tmp, "%s/%s/run", ipcmain->mw_homedir, instancename);
     mySetEnv(&defaultEnv, "PWD", tmp);
 
     DEBUG("Environment:");

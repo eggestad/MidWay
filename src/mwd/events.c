@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2004/08/11 20:34:43  eggestad
+ * large buffer alloc
+ *
  * Revision 1.6  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -198,7 +201,7 @@ static void dumpeventqueue(void)
 		    eventqueuelen);
   ev = eventqueue_root;
   for (i = 0; i < eventqueuelen; i++, ev = ev->next)
-     DEBUG2("   - %5d: @ %p %s [%s sender %#x subid=%d data=%d datalen=%d] next %p", 
+     DEBUG2("   - %5d: @ %p %s [%s sender %#x subid=%d data=%lld datalen=%lld] next %p", 
 	    i, ev, ev->eventname, 
 	    ev->evmsg.event, ev->evmsg.senderid, ev->evmsg.subscriptionid, 
 	    ev->evmsg.data, ev->evmsg.datalen,
@@ -226,7 +229,7 @@ static void dumppendingqueue(void)
   ev = ackqueue_root;
   for (i = 0; i < ackqueuelen; i++) {
      if (ev == NULL) continue;
-    DEBUG2(" - %5d: @%p %s [%s sender %#x subid=%d data=%d datalen=%d acklistlen=%d] next %p", 
+    DEBUG2(" - %5d: @%p %s [%s sender %#x subid=%d data=%lld datalen=%lld acklistlen=%d] next %p", 
 	   i, ev, ev->eventname, 
 	   ev->evmsg.event, ev->evmsg.senderid, ev->evmsg.subscriptionid, ev->evmsg.data, ev->evmsg.datalen,
 	   ev->pending_ack_len, ev->next);
@@ -388,7 +391,7 @@ static int clear_pendingack_byid(MWID id)
       /* if the last pwnding ack, dequeue and free shmbuffer */
       if (ev->pending_acks == 0) {
 	DEBUG("last panding ack, deleting");
-	_mwfree( _mwoffset2adr(ev->evmsg.data));
+	_mwfree( _mwoffset2adr(ev->evmsg.data, NULL));
 	
 	free(ev->pending_ack_ids);
 	*pev = ev->next;
@@ -441,7 +444,7 @@ int event_ack(Event * evmsg)
       /* if the last pwnding ack, dequeue and free shmbuffer */
       if (ev->pending_acks == 0) {
 	DEBUG("last panding ack, deleting");
-	_mwfree( _mwoffset2adr(ev->evmsg.data));
+	_mwfree( _mwoffset2adr(ev->evmsg.data, NULL));
 	
 	free(ev->pending_ack_ids);
 	*pev = ev->next;
@@ -475,14 +478,14 @@ int internal_event_enqueue(char * event, void * data, int datalen, char * user, 
     /* just for safety we make sure there is a trailing \0 */
     dbuf[datalen] = '\0';
     
-    evmsg.data = _mwadr2offset(dbuf);
+    evmsg.data = _mwadr2offset(dbuf, NULL);
     evmsg.datalen = datalen;
   } else {
     evmsg.data = 0;
     evmsg.datalen = 0;
   };
 
-  DEBUG("queueing event %s with %d bytes data user=%s client=%s", 
+  DEBUG("queueing event %s with %lld bytes data user=%s client=%s", 
 	event, evmsg.datalen, user?user:"", client?client:"");
 
   evmsg.senderid = 0;
@@ -704,7 +707,7 @@ static int do_event(void)
        to pass it on to the clients, but'is our resposibility to free
        it. Thus the recipients must ack the event. */
 
-    DEBUG2("ev->evmsg.data = %d, rc = %d", ev->evmsg.data, rc);
+    DEBUG2("ev->evmsg.data=%lld, rc = %d", ev->evmsg.data, rc);
     if (ev->evmsg.data != 0) {
       if (rc == 0) {
 	ev->pending_ack_len++;
@@ -726,7 +729,7 @@ static int do_event(void)
     dumppendingqueue();
   } else {
     // free up if there was no 
-    if (ev->evmsg.data > 0) _mwfree( _mwoffset2adr(ev->evmsg.data));
+    if (ev->evmsg.data > 0) _mwfree( _mwoffset2adr(ev->evmsg.data, NULL));
     free (ev);
   };
   

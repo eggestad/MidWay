@@ -21,8 +21,11 @@
 
 /* 
  * $Log$
+ * Revision 1.5  2003/01/07 08:26:53  eggestad
+ * C99 struct init format and setfd correctly on multicast send trace
+ *
  * Revision 1.4  2002/07/07 22:35:20  eggestad
- * *** empty log message ***
+ * added urlmapdup
  *
  * Revision 1.3  2001/10/09 11:05:47  eggestad
  * Multicast was sendt only on loopbackdevice during attach
@@ -61,12 +64,13 @@ static char * RCSId UNUSED = "$Id$";
 /* some funcs that operation on a Connection * are used with teh UDP
    socket.  we need this peudo var for these calls. */
 Connection pseudoconn = { 
-  fd:            -1, 
-  rejects:        0,
-  domain:        NULL, 
-  version:       0.0, 
-  messagebuffer: NULL,
-  type:          CONN_TYPE_MCAST
+  .fd              = -1, 
+  .rejects         =  0,
+  .domain          =  NULL, 
+  .version         =  0, 
+  .peeraddr_string =  "Multicast send", 
+  .messagebuffer   =  NULL,
+  .type            =  CONN_TYPE_MCAST
 };  
 
 static struct ip_mreq mr;
@@ -113,7 +117,9 @@ int _mw_sendmcast (int s, char * payload)
 
   plen = strlen(payload);
   DEBUG1("_mw_sendmcast on fd=%d", s);
+  pseudoconn.fd = s;
   _mw_srb_trace(SRB_TRACE_OUT, &pseudoconn, payload, plen);
+  pseudoconn.fd = -1;
   rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
 
   DEBUG1("_mw_sendmcast returned %d errno=%d", rc, errno);

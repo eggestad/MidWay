@@ -1,3 +1,12 @@
+2004-11-26  Terje Eggestad  <te@pc-31.office.scali.no>
+
+	* added mutex to Connection
+	* added function attribute depreciated to tag obsolete functions
+	* Yet another function for finding a serviceid from service name
+	  this get an IPC is possible, SRBP otherwise
+	* added a utility function _mw_irand() as a wrapper to random functions
+	* began on enabling PIE in configure
+	
 2004-07-13  Terje Eggestad  <te@pc-16.office.scali.no>
 
 	RELEASE 0.14.0

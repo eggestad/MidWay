@@ -24,6 +24,10 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.2  2000/09/21 18:57:55  eggestad
+ * - Bug fix: had a lot of \n in the end of mwlog()
+ * - Bug fix: srbmsg.map was not inited to NULL many placed, cased core dumps.
+ *
  * Revision 1.1  2000/08/31 19:40:36  eggestad
  * We have quite som changes to mwgwd with the implementation of the SRB client
  * only API in the lib.
@@ -215,7 +219,7 @@ static void srbterm(int fd, SRBmessage * srbmsg)
   case SRB_RESPONSEMARKER:
     
   case SRB_NOTIFICATIONMARKER:
-    mwlog(MWLOG_INFO, "Got a TERM notification from %s, closing\n", 
+    mwlog(MWLOG_INFO, "Got a TERM notification from %s, closing", 
 	  tcpgetconnpeername(fd));
     
     tcpcloseconnection(fd);
@@ -290,14 +294,14 @@ static void srbcall(int fd, SRBmessage * srbmsg)
     
     if (srbmsg->marker == SRB_NOTIFICATIONMARKER) {
       /* noreply  */
-      mwlog(MWLOG_INFO, "Got a SVCCALL notification from %s, NOREPLY\n", 
+      mwlog(MWLOG_INFO, "Got a SVCCALL notification from %s, NOREPLY", 
 	    tcpgetconnpeername(fd));
       flags |= MWNOREPLY;
       noreply = 1;
     }
     
     if (srbmsg->marker == SRB_REQUESTMARKER) {
-      mwlog(MWLOG_INFO, "Got a SVCCALL service=%s from %s\n", 
+      mwlog(MWLOG_INFO, "Got a SVCCALL service=%s from %s", 
 	    svcname, tcpgetconnpeername(fd));
 
       /* handle is optional iff noreply */
@@ -338,22 +342,22 @@ static void srbcall(int fd, SRBmessage * srbmsg)
          we do storeSetIpcCall() */
 
       storeLockCall();
-      storePushCall(cltid, handle, fd, srbmsg->map);
       rc = _mwacallipc (svcname, data, datalen, NULL,  flags);
-      srbmsg->map = NULL;
 
       _mw_set_my_clientid(UNASSIGNED);
       
       if (rc > 0) {
-	 mwlog(MWLOG_DEBUG, "_mwacallipc succeeded");  
-	 if ( ! noreply) {
+	storePushCall(cltid, handle, fd, srbmsg->map);
+	srbmsg->map = NULL;
+	mwlog(MWLOG_DEBUG, "_mwacallipc succeeded");  
+	if ( ! noreply) {
 	  mwlog(MWLOG_DEBUG, 
 		"Storing call fd=%d nethandle=%u clientid=%d ipchandle=%d",
 		fd, handle, cltid&MWINDEXMASK, rc);
 	  
 	  rc = storeSetIPCHandle(cltid, handle, fd, rc);
 	  storeUnLockCall();
-
+	  
 	  mwlog(MWLOG_DEBUG, "storeSetIPCHandle returned %d", rc);
 
 	  mwlog(MWLOG_DEBUG, "srbsvccall returns good");  
@@ -362,7 +366,6 @@ static void srbcall(int fd, SRBmessage * srbmsg)
       } else {
 	mwlog(MWLOG_DEBUG, "_mwacallipc failed with %d ", rc);   
 	_mw_srbsendcallreply(fd, srbmsg, NULL, 0, 0, _mw_errno2srbrc(rc), 0);
-	srbmsg->map = NULL;
       };
       storeUnLockCall();
     };
@@ -377,7 +380,7 @@ static void srbcall(int fd, SRBmessage * srbmsg)
       break;
     };
 
-    mwlog(MWLOG_INFO, "Got a SVCCALL reply from %s, ignoring\n", 
+    mwlog(MWLOG_INFO, "Got a SVCCALL reply from %s, ignoring", 
 	  tcpgetconnpeername(fd));
     
   };
@@ -641,6 +644,8 @@ int _mw_srbsendcallreply(int fd, SRBmessage * srbmsg, char * data, int len,
 {
   int rc;
 
+  mwlog(MWLOG_DEBUG2, "_mw_srbsendcallreply: begins fd=%d appcode=%d, rcode=%d", 
+	fd, apprcode, rcode);
   if (srbmsg == NULL) return -EINVAL;
   if (srbmsg->map == NULL) return -EBADMSG;
 
@@ -674,7 +679,8 @@ int _mw_srbsendcallreply(int fd, SRBmessage * srbmsg, char * data, int len,
   urlmapdel(srbmsg->map, SRB_NOREPLY);
   urlmapdel(srbmsg->map, SRB_MULTIPLE);
   urlmapdel(srbmsg->map, SRB_MAXHOPS);
-  
+
+  mwlog(MWLOG_DEBUG2, "_mw_srbsendcallreply: sends message");
   rc = _mw_srbsendmessage(fd, srbmsg);
   return rc;
 };
@@ -686,6 +692,7 @@ int _mw_srbsendready(int fd, char * domain)
 
   strncpy(srbmsg.command, SRB_READY, 32);
   srbmsg.marker = SRB_NOTIFICATIONMARKER;
+  srbmsg.map = NULL;
 
   srbmsg.map = urlmapadd(srbmsg.map, SRB_VERSION, SRBPROTOCOLVERSION);
   srbmsg.map = urlmapadd(srbmsg.map, SRB_AGENT, "MidWay");

@@ -118,8 +118,8 @@ struct serviceentry
   char mwname[MWMAXNAMELEN];
   int hops;
   int distance;
-  /* the address for the functions does not really belong here
-     But it spares us to have a separate table in privet memory of the 
+  /* the address for the functions does not really belong here But it
+     spares us having a separate table in private memory of the
      server. Of counse it is only valid for location = LOCAL;*/
   void * svcfunc;
   char servicename[MWMAXSVCNAME];
@@ -219,6 +219,9 @@ conv_entry   * _mw_getconv_entry(int);
 
 int  _mw_attach_ipc(key_t, int);
 void _mw_detach_ipc(void);
+void _mw_set_shmadr (ipcmaininfo * im, cliententry * clt, serverentry * srv, 
+		     serviceentry * svc, gatewayentry * gw, conv_entry * conv);
+
 
 void _mw_set_my_serverid(SERVERID);
 void _mw_set_my_clientid(CLIENTID);

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2004/08/11 19:02:10  eggestad
+ * - shm heap is now 32/64 bit interopperable
+ *
  * Revision 1.8  2004/04/12 23:05:24  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -70,8 +73,9 @@ static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 /*
  * this need to change for more segments
  */
-void * pSegmentStart = 0;
+seginfo_t * shmheap = NULL;
 extern struct segmenthdr * _mwHeapInfo;
+
 
 static int formatfreelist(int iStart, int basechunksize, 
 		      int chunksize, int chunks)
@@ -103,7 +107,7 @@ static int formatfreelist(int iStart, int basechunksize,
     
   for (i = 0; i < chunks; i++) {
     iCHead = iStart + i * (iCSize + CHUNKOVERHEAD);
-    pCHead =  _mwoffset2adr(iCHead);
+    pCHead =  _mwoffset2adr(iCHead, shmheap);
     pCHead->ownerid = -1;                  
     pCHead->size = chunksize;
     
@@ -113,21 +117,21 @@ static int formatfreelist(int iStart, int basechunksize,
     pCFoot->next = iCHead + (iCSize + CHUNKOVERHEAD);
     pCFoot->prev = iCHead - (iCSize + CHUNKOVERHEAD);
     
-    DEBUG2("chunk %d: %d octes at %p footer at %p next at %#x prev at %#x", 
+    DEBUG2("chunk %d: %lld octes at %p footer at %p next at %#llxp prev at %#llx", 
 	  i, pCHead->size * _mwHeapInfo->basechunksize,  pCHead, pCFoot, pCFoot->next, pCFoot->prev);
 
   }
   /* end and begining closure, remember this is a ring */
-  pCHead = _mwoffset2adr(iStart);
+  pCHead = _mwoffset2adr(iStart, shmheap);
   pCFoot = _mwfooter(pCHead);
   pCFoot->prev = iStart + (chunks-1) * (iCSize + CHUNKOVERHEAD);
-  DEBUG1("correcting first chunk at %p next at %d prev at %d", 
+  DEBUG1("correcting first chunk at %p next at %lld prev at %lld", 
 	pCHead, pCFoot->next, pCFoot->prev);
       
-  pCHead = _mwoffset2adr(pCFoot->prev);
+  pCHead = _mwoffset2adr(pCFoot->prev, shmheap);
   pCFoot = _mwfooter(pCHead);
   pCFoot->next = iStart;
-  DEBUG1("correcting last chunk at %p next at %d prev at %d", 
+  DEBUG1("correcting last chunk at %p next at %lld prev at %lld", 
 	pCHead, pCFoot->next, pCFoot->prev);
 
   return iStart + (chunks) * (iCSize + CHUNKOVERHEAD);;
@@ -143,19 +147,20 @@ int shmb_format(int mode, long chunksize, long chunkspersize)
   int segmentid;
   long segmentsize;
   unsigned short * semarray;
+  void * pshm;
 
   /*
    * segment size are the size of all chunks minus overheads and header.
    */
   
-  DEBUG("shmhead format with chunksize = %d, chunkspersize %d",
+  DEBUG("shmhead format with chunksize = %ld, chunkspersize %ld",
 	  chunksize, chunkspersize);
   
   segmentsize = sizeof(struct segmenthdr) 
     + 6*chunkspersize*CHUNKOVERHEAD
     + 32*chunksize*chunkspersize + 100000;
 
-  DEBUG("there are %d onesizes, %d chunks per size overhead is %d, total %d",
+  DEBUG("there are %ld onesizes, %ld chunks per size overhead is %lu total %ld",
 	 32*chunkspersize,
 	 chunkspersize,
 	 6*chunkspersize*CHUNKOVERHEAD,
@@ -169,19 +174,22 @@ int shmb_format(int mode, long chunksize, long chunkspersize)
     return -1;
   }
   
-  pSegmentStart = shmat(segmentid,NULL,0);
-  if (pSegmentStart == (void *) -1) {
+  pshm = shmat(segmentid,NULL,0);
+  if (pshm == (void *) -1) {
     shmctl(segmentid,IPC_RMID,NULL);
     Error("Failed to attach shm seg errno=%d",errno);
     return -1;
   };
   
-  DEBUG("Shared memory seg %d attached at %p size %d ends at %p",
-	  segmentid,pSegmentStart, segmentsize, pSegmentStart+segmentsize);
+
+  shmheap = _mw_addsegment(0, -1, pshm, pshm + segmentsize);
+
+  DEBUG("Shared memory seg %d attached at %p size %ld ends at %p",
+	  segmentid, shmheap->start, segmentsize,  shmheap->end);
 
   /* now we have a attached shm segment, formating... */
   
-  _mwHeapInfo = pSegmentStart;
+  _mwHeapInfo = shmheap->start;
 
   /* Magic number is "MW" thus thus 0x4D57 */
   /*_mwHeapInfo->magic = (short) 'M';
@@ -238,10 +246,10 @@ int shmb_info(int chunksize,
 {
   struct segmenthdr * seghdr;
 
-  if (pSegmentStart == NULL) {
+  if ((shmheap == NULL) || (shmheap->start == NULL)) {
     return -EILSEQ;
   };
-  seghdr = pSegmentStart;
+  seghdr = shmheap->start;
 
   switch(chunksize) {
   case 0:
@@ -284,10 +292,10 @@ int shmb_info(int chunksize,
 /* used to clean up IPC from prev instancen, NOT our own! */
 int shm_cleanup(int shmid)  
 {
-  pSegmentStart = shmat(shmid,NULL,0);
-  _mwHeapInfo = pSegmentStart;
+  shmheap->start = shmat(shmid,NULL,0);
+  _mwHeapInfo = shmheap->start;
   semctl(_mwHeapInfo->semid, 0, IPC_RMID, 0);
-  shmdt(pSegmentStart);
+  shmdt(shmheap->start);
 };
 
 int shm_destroy(void)  
@@ -301,7 +309,7 @@ int shm_destroy(void)
   };
   shmdt(_mwHeapInfo);
   _mwHeapInfo = NULL;
-  pSegmentStart = 0;
+  // really a delsegment, but it's never needed, we exit() after this
   return 0;
 };
 

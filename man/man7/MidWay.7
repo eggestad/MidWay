@@ -1,0 +1,174 @@
+.\" Hey Emacs! This file is -*- nroff -*- source.
+.\"
+.\" Copyright (c) 2000 Terje Eggestad <terje.eggestad@iname.com>
+.\" May be distributed under the GNU General Public License.
+.\" $Id$
+.\" $Name$
+.\"
+.TH MidWay 7  DATE "MidWay 1.0" "MidWay Programmer's Manual"
+.SH NAME
+MidWay - A Service Request Broker
+
+.SH INTRODUCTION 
+A service request broker (SRB) basic principle of operation is 
+.IR "function passing" . 
+We have a
+.I service
+that execute a set of work (function or operation), such as a database
+search or update. Semantically it is a function in that it must have a
+name, it is most usually given an argument. and returns data, and a
+return code.  Services are provided by processes we call
+.IR servers .
+A server may provide one or many 
+.IR services , 
+and many 
+.I servers
+may provide the same 
+.IR service.
+A process issuing a 
+.I request 
+to a 
+.I service
+is called a 
+.IR client .
+A server may also issue a service request.
+
+Requests are queued and allow us to have many more clients than servers.
+
+
+A SRB differs most sigificantly from an Object Request Broker in that
+the services are 
+.IR stateless . 
+
+.SH RUNTIME ENVIRONMENT - INSTANCE
+In order to tie all of these processes together we have a runtime daemon
+the MidWay Daemon 
+.BR mwd (1).
+The MidWay daemon creates the need IPC resouces to maintain
+information on all the parsepitating processes, and the buffer heap.
+It also has the capability to manage server processes.
+We refer to a running mwd as an 
+.IR instance .
+ 
+In order to administer a running instance we have a admin client called
+.BR mwadm (1).
+
+.SH ADDRESSING
+There are several addressing modes for the different ways MidWay
+clients can contact a running MidWay instance. This reflect the
+different transport media and protocols. 
+
+The addressing-mode may be either of: 
+.BR IPC ", " SRBP ", and " HTTP .
+Servers and gateways must use IPC. 
+ 
+The address is on the URI format: 
+.IR addressing-mode :// address .
+The address is specific to the addressing mode.
+
+.SS IPC
+The client will attach using Inter Process Communication, either SYSV
+of POSIX. This is the only legal addressing mode for servers.  The
+reason for that it to have a faster signaling on dying servers,
+restarting of servers, and that servers require access to the shared
+memory tables mwd maintains. In fact, server must run with the same
+userid as mwd.
+
+In SYSV IPC there is a number that uniquely identifies an IPC
+resource. In POSIX, a path. That causes the syntaks to be slightly
+confusing. 
+
+The 
+.I address
+can be an IPC key, an IPC path,  a userid, a instancename, or a 
+combination of the two latter (
+.IR instancename @ userid ).
+
+If the case that the mwd has a config file, it is used to generate an unique
+SYSV IPC key using 
+.IR ftok (3), 
+otherwise the UID for the userid is used as a key. If the address is
+all numeric it is assumed to be a IPC key, and tries as it as userid
+second.
+
+In short, the usage of IPC keys and path directly is discouraged.
+
+.SS SRBP
+.I SRBP
+is an abbreviation of Service Request Broker Protocol.
+In the SRBP we have no concept of an instance, only domains.
+The url has the format:
+.IR srbp : [//ipadress[:port]][/domain] .
+Note that "srbp:" alone is illegal, either you use SRBP directly to a
+gateway running on an instance, or to a broker daemon, to which you
+MUST give a domain. Note that when you have specified a domain,
+IP address may be the broadcast address (multicast??) on a IP net, at
+which the MidWay code will attach itself to the best/first broker that
+replies to the broadcast. 
+
+.SS HTTP
+The http mode of addressing for the clients is a spinoff from mapping
+HTTP url to a MidWay service. The MidWay module for apache can attach
+it self to a MidWay instance/domain thru IPC or SRBP, and treat a
+service as a CGI program. This was really intended fro making HTML in
+the service, and just have the CGI program persistent, pretty much the
+same as mod_Perl and PHP are achieving, only that with MidWay the CGI
+program now may reside on another host or under another user.
+However since http is a request/response protocol, it is well suited 
+an a transport protocol for a SRB. 
+
+When configuring mod_MidWay for apache you specify the mime type to be
+either text/html or application/x-octet-stream. You use text/html if
+you expect HTML from the service, and the client is a normal browser.
+
+You specify application/x-octet-stream if the client is a MidWay client.
+
+Http addressing mode has the advantage that you've no domains. The
+clients are not really attached, since http is stateless. Any
+authentication are now handled by Apache, it is Apache that is logged
+on to MidWay as a client. The web server add another level of
+funneling, thus possibly increasing the maximum number of clients 
+(SRBP should not have an upper limit).  However, transactions will
+.I never
+be supported on http, nor will events.
+
+There is another possible reason to use HTTP, and that is the
+filtering on HTTP some firewalls have.
+
+When the MidWay client is given an address such as 
+.I http://localhost/a/b/c
+is will for a service 
+.I SVC1 
+send the request to
+.IR  http://localhost/a/b/c/SVC1 . 
+
+In the case you want to use the MidWay client in http mode against
+something other than MidWay known that it uses http GET if there are
+no data sent to the service.  If the MWNOREPLY flag is used, it uses
+http PUT, and POST otherwise.
+
+.SH TRANSACTIONS
+Traditional SRBs like Tuxedo, MTS and CICS have the ability to do all work within 
+a transaction. This is done by a client issuing a 
+.IR begin .
+Now, all service calls, and any service calls the called service do,
+in fact all derived work are now within the same transaction.
+The client must either 
+.I commit 
+all the work or do a rollback with 
+.IR abort .
+
+This is a very advanced feature, which is not all that difficut to implement 
+when all the parts like RDBMS, filesystem, queues etc are provided from the 
+same manufacturer, like when IBM makes CICS and DB2 for the mainframe, 
+or Microsoft makes mssql and COM+. Tuxedo had a much more difficult time
+and uses an X/Open standard called XA.
+
+MidWay is designed to be ready to do, XA, or somethink like it, but 
+it is way down on the list of features. Partly because that OSS RDBMSs
+like msql, and mysql dont even have transactions internally.
+
+Don't hold your breath.
+
+.SH SEE ALSO
+

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2002/09/22 23:01:16  eggestad
+ * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
+ *
  * Revision 1.8  2002/09/04 07:13:31  eggestad
  * mwd now sends an event on service (un)provide
  *
@@ -339,10 +342,10 @@ static int do_unprovide(void * mp)
   DEBUG("Got an unprovide request from server %#x or gateway %#x for service \"%s\" (%#x)", 
 	pmesg->srvid, pmesg->gwid, pmesg->svcname, pmesg->svcid);
 
-  svcent = getserviceentry(MWID2SVCID(pmesg->svcid));
+  svcent = getserviceentry(SVCID(pmesg->svcid));
 
   if (svcent == NULL) {
-    Error("unable to get service tbl entry for %d", MWID2SVCID(pmesg->svcid));
+    Error("unable to get service tbl entry for %d", SVCID(pmesg->svcid));
     return -ENOENT;
   };
 

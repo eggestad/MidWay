@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2002/09/22 23:01:16  eggestad
+ * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
+ *
  * Revision 1.10  2002/09/04 07:19:12  eggestad
  * mwd now sends an event on service (un)provide
  *
@@ -252,22 +255,27 @@ ipcmaininfo * getipcmaintable()
 };
 cliententry * getcliententry(int i)
 {
+  i &= MWINDEXMASK;
   return & clttbl[i];
 };
 serverentry * getserverentry(int i)
 {
+  i &= MWINDEXMASK;
   return & srvtbl[i];
 };
 serviceentry * getserviceentry(int i)
 {
+  i &= MWINDEXMASK;
   return & svctbl[i];
 };
 gatewayentry * getgatewayentry(int i)
 {
+  i &= MWINDEXMASK;
   return & gwtbl[i];
 };
 conv_entry * getconv_entry(int i)
 {
+  i &= MWINDEXMASK;
   return & convtbl[i];
 };
 

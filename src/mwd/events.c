@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2002/09/22 23:01:16  eggestad
+ * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
+ *
  * Revision 1.2  2002/09/04 07:13:31  eggestad
  * mwd now sends an event on service (un)provide
  *
@@ -108,7 +111,6 @@ static void dumpsubscriptions(void)
 static void dumpeventqueue(void)
 {
   int i;
-  char * buffer, * buff;
   queued_event_t * ev;
 
   if (eventqueuelen == 0) {
@@ -117,22 +119,19 @@ static void dumpeventqueue(void)
     return;
   };
 
-  buffer = buff = malloc(eventqueuelen * 130+1000);
-  buffer += sprintf(buffer, "********************* event queue dump queuelen = %d ***********************\n", 
+  DEBUG2( "********************* event queue dump queuelen = %d ***********************\n", 
 		    eventqueuelen);
   ev = eventqueue_root;
   for (i = 0; i < eventqueuelen; i++)
-    buffer += sprintf(buffer, "      - %5d: @ %p %s [%s sender %#x subid=%d data=%d datalen=%d] next %p\n", 
+    DEBUG2("   - %5d: @ %p %s [%s sender %#x subid=%d data=%d datalen=%d] next %p\n", 
 		      i, ev, ev->eventname, 
 		      ev->evmsg.event, ev->evmsg.senderid, ev->evmsg.subscriptionid, ev->evmsg.data, ev->evmsg.datalen,
 		      ev->next
 		      );
   
-  buffer += sprintf(buffer, "        = eventqueue_tailp = %p *eventqueue_tailp = %p eventqueue_root = %p\n", 
+  DEBUG2("   = eventqueue_tailp = %p *eventqueue_tailp = %p eventqueue_root = %p\n", 
 		    eventqueue_tailp, *eventqueue_tailp, eventqueue_root);
-  buffer += sprintf(buffer, "****************************************************************************");
-  DEBUG2("%s", buff);
-  free(buff);
+  DEBUG2("****************************************************************************");
 };
 
 static void dumppendingqueue(void)
@@ -179,9 +178,9 @@ int event_subscribe(char * pattern, MWID id, int subid, int flags)
   se->id = id;
   se->subscriptionid = subid;
 
-  se->cid = MWID2CLTID(id); 
-  se->sid = MWID2SRVID(id);
-  se->gwid = MWID2GWID(id); 
+  se->cid = CLTID(id); 
+  se->sid = SRVID(id);
+  se->gwid = GWID(id); 
   
   DEBUG("Subscribing to event \"%s\" clientid %d serverid %d gatewayid %d", 
 	pattern, se->cid, se->sid, se->gwid);

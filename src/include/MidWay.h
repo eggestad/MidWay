@@ -41,16 +41,44 @@
 
 typedef int MWID;
 
+/*
+ * I tried for a  while to keep the SERVICE/SERVER/CLIENT/GATEWAYID to
+ * be the index, without the  flags set, and introduce a MWID where we
+ *  checked the mask  to see  what it  was.  (typically  to distiguius
+ * between  server and gateway.   I've however abandoned  that though,
+ * and for all *ID the type mask shall ALWAYS be set. We intruduce the
+ * index  "type" (int)  that are the  unmasked number.  The  safety of
+ * first of all mostly seperate  variables foir the ID, and then check
+ * to verify  that it's the correct type just apeal  to me. THus these
+ * macros are now obsiolete.
+
 #define MWID2CLTID(id)  ((id & MWCLIENTMASK)  >= 0 ? (id&MWINDEXMASK):UNASSIGNED)
 #define MWID2SRVID(id)  ((id & MWSERVERMASK)  >= 0 ? (id&MWINDEXMASK):UNASSIGNED)
 #define MWID2SVCID(id)  ((id & MWSERVICEMASK) >= 0 ? (id&MWINDEXMASK):UNASSIGNED)
 #define MWID2GWID(id)   ((id & MWGATEWAYMASK) >= 0 ? (id&MWINDEXMASK):UNASSIGNED)
-
-#define CLTID2MWID(id)  (id | MWCLIENTMASK)  
+ 
+#define CLTID2MWID(id)  (id | MWCLIENTMASK) 
 #define SRVID2MWID(id)  (id | MWSERVERMASK)  
 #define SVCID2MWID(id)  (id | MWSERVICEMASK) 
-#define GWID2MWID(id)   (id | MWGATEWAYMASK)
+#define GWID2MWID(id) (id | MWGATEWAYMASK) */
 
+/* get the index or unassigned if wrong mask set */
+#define CLTID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWCLIENTMASK)  >= 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+#define SRVID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWSERVERMASK)  >= 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+#define SVCID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWSERVICEMASK) >= 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+#define  GWID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWGATEWAYMASK) >= 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+
+/* filters */
+#define CLTID(id)  ((id & MWCLIENTMASK)  >= 0 ? id : UNASSIGNED)
+#define SRVID(id)  ((id & MWSERVERMASK)  >= 0 ? id : UNASSIGNED)
+#define SVCID(id)  ((id & MWSERVICEMASK) >= 0 ? id : UNASSIGNED)
+#define  GWID(id)  ((id & MWGATEWAYMASK) >= 0 ? id : UNASSIGNED)
+
+/* turn a given idex into a type. */
+#define IDX2CLTID(id)  ((id & MWINDEXMASK) | MWCLIENTMASK)  
+#define IDX2SRVID(id)  ((id & MWINDEXMASK) | MWSERVERMASK)  
+#define IDX2SVCID(id)  ((id & MWINDEXMASK) | MWSERVICEMASK) 
+#define  IDX2GWID(id)  ((id & MWINDEXMASK) | MWGATEWAYMASK) 
 
 /* gcc hack in order to avoid unused warnings (-Wunused) on cvstags */
 #ifdef __GNUC__

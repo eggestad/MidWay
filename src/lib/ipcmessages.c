@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2002/09/22 23:01:16  eggestad
+ * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
+ *
  * Revision 1.11  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -258,10 +261,10 @@ void  _mw_dumpmesg(void * mesg)
 	   ev->eventid,
 	   ev->subscriptionid,
 	   ev->senderid,
-	   MWID2CLTID(ev->senderid),
-	   MWID2SRVID(ev->senderid),
-	   MWID2SVCID(ev->senderid),
-	   MWID2GWID(ev->senderid),
+	   CLTID2IDX(ev->senderid),
+	   SRVID2IDX(ev->senderid),
+	   SVCID2IDX(ev->senderid),
+	   GWID2IDX(ev->senderid),
 	   ev->data, ev->datalen, 
 	   ev->username, 
 	   ev->clientname, 
@@ -289,10 +292,10 @@ void  _mw_dumpmesg(void * mesg)
 	   ev->event,
 	   ev->subscriptionid,
 	   ev->senderid,
-	   MWID2CLTID(ev->senderid),
-	   MWID2SRVID(ev->senderid),
-	   MWID2SVCID(ev->senderid),
-	   MWID2GWID(ev->senderid),
+	   CLTID2IDX(ev->senderid),
+	   SRVID2IDX(ev->senderid),
+	   SVCID2IDX(ev->senderid),
+	   GWID2IDX(ev->senderid),
 	   ev->data, ev->datalen, 
 	   ev->flags, ev->returncode);
     return;
@@ -316,7 +319,7 @@ void  _mw_dumpmesg(void * mesg)
    Anyway these hide the low level IPC calls. POSIX vs SYSV are hidden here.
 */
 
-
+/* return 0 on success or -errno */
 int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
 {
   int rc; 
@@ -349,6 +352,7 @@ int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
   return 0;
 };
 
+/* return 0 on success or -errno */
 int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
 {
   int rc; 
@@ -360,7 +364,8 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
   };
   qid = _mw_get_mqid_by_mwid(dest);
   if (qid < 0) {
-    Error("_mw_ipc_putmessage: got a request to send a message to %#x by not such ID exists, reason %d", dest, qid);
+    Error("_mw_ipc_putmessage: got a request to send a message to %#x by not such ID exists, reason %d", 
+	  dest, qid);
     return qid;
   };
 
@@ -891,8 +896,19 @@ int _mw_ipc_subscribe(char * pattern, int subid, int flags)
 
   rc = _mw_ipcsend_subscribe (pattern, subid, flags);
 
+  if (rc != 0) {
+    Error("_mw_ipcsend_subscribe failed with %d", rc);
+    return rc;
+  };
+
   len = MWMSGMAX;
   rc = _mw_ipc_getmessage((char *) &ev, &len, EVENTSUBSCRIBERPL, 0);
+
+  if (rc != 0) {
+    Error("_mw_ipc_getmessage failed with %d", rc);
+    return rc;
+  };
+
   DEBUG1("got reply for subscribe %s id %d with rcode=%d (rc=%d)", 
 	pattern, subid, ev.returncode, rc);
   

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.7  2002/09/22 23:01:16  eggestad
+ * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
+ *
  * Revision 1.6  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -354,9 +357,9 @@ void conn_getpeername (Connection * conn, char * name, int namelen)
     ipname = hent->h_name;
 
   if (conn->cid != UNASSIGNED) {
-    len = sprintf(name, "client %d at ", conn->cid & MWINDEXMASK);
+    len = sprintf(name, "client %d at ", CLTID2IDX(conn->cid));
   } else if (conn->gwid != UNASSIGNED) {
-    len = sprintf(name, "gateway %d at ", conn->cid & MWINDEXMASK);
+    len = sprintf(name, "gateway %d at ", GWID2IDX(conn->gwid));
   };
 
   sprintf(name+len, "%s (%s) port %d", ipname, ipadr,

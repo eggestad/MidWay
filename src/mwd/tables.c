@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2002/09/22 23:01:16  eggestad
+ * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
+ *
  * Revision 1.9  2002/09/05 23:19:45  eggestad
  * smgrTask() shall not try to start servers in unclean system state
  *
@@ -252,10 +255,10 @@ int delserver(SERVERID sid)
     return -EUCLEAN;
   };
 
-  event_clear_id(CLTID2MWID(sid));
+  event_clear_id(sid);
 
   srvtbl = getserverentry(0);
-  srvidx = sid&MWINDEXMASK; //MWID2SRVID(sid);
+  srvidx = SRVID2IDX(sid); 
 
   srvtbl[srvidx].status = UNASSIGNED;
   srvtbl[srvidx].mqid = UNASSIGNED;
@@ -400,10 +403,10 @@ int delclient(CLIENTID cid)
     return -EUCLEAN;
   };
 
-  event_clear_id(CLTID2MWID(cid));
+  event_clear_id(cid);
 
   clttbl = getcliententry(0);
-  cltidx = cid & MWINDEXMASK;
+  cltidx = CLTID2IDX(cid);
   
   clttbl[cltidx].type = UNASSIGNED;
   clttbl[cltidx].mqid = UNASSIGNED;
@@ -459,7 +462,11 @@ SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
 
   /* We skip test on ipcmain eq to NULL, that really can't happen */
 
-  srvent = getserverentry(srvid & MWINDEXMASK);
+  if (SRVID(srvid) == UNASSIGNED) return UNASSIGNED;
+
+  srvent = getserverentry(srvid);
+  if (srvent == NULL) return UNASSIGNED;
+
   if (srvent->status == UNASSIGNED) {
     Error("got a request to assign a service to server %#x which is nott attached", srvid);
     return -EINVAL;
@@ -473,14 +480,14 @@ SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
   svctbl[svcidx].location = GWLOCAL;
 
   strncpy(evdata.name, name, MWMAXSVCNAME);
-  evdata.provider = SRVID2MWID(srvid);
-  evdata.svcid = svcidx;
+  evdata.provider = srvid;
+  evdata.svcid = IDX2SVCID(svcidx);
   internal_event_enqueue(NEWSERVICEEVENT, &evdata, sizeof(mwprovideevent), NULL, NULL);
 
   DEBUG2("service index = %d srvid = %x type = %d location = %d", 
 	svcidx,  svctbl[svcidx].server, svctbl[svcidx].type, svctbl[svcidx].location);
 
-  svcidx = svcidx | MWSERVICEMASK;
+  svcidx = IDX2SVCID(svcidx);
   return svcidx;
 };
 
@@ -491,9 +498,12 @@ SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type)
   serviceentry * svctbl;
   gatewayentry * gwent;
 
+
+  if (GWID(gwid) == UNASSIGNED) return UNASSIGNED;
+
   /* We skip test on ipcmain eq to NULL, that really can't happen */
 
-  gwent = getgatewayentry(gwid & MWINDEXMASK);
+  gwent = getgatewayentry(gwid);
   if (gwent->status == UNASSIGNED) {
     Error("got a request to assign a service to gateway %#x which is nott attached", gwid);
     return -EINVAL;
@@ -507,14 +517,14 @@ SERVICEID addremoteservice(GATEWAYID gwid, char * name, int type)
   svctbl[svcidx].location = GWREMOTE;
 
   strncpy(evdata.name, name, MWMAXSVCNAME);
-  evdata.provider = GWID2MWID(gwid);
-  evdata.svcid = svcidx;
+  evdata.provider = gwid;
+  evdata.svcid = IDX2SVCID(svcidx);
   internal_event_enqueue(NEWSERVICEEVENT, &evdata, sizeof(mwprovideevent), NULL, NULL);
 
   DEBUG2("service index = %d gwid = %x type = %d location = %d", 
 	svcidx,  svctbl[svcidx].gateway, svctbl[svcidx].type, svctbl[svcidx].location);
   
-  svcidx = svcidx | MWSERVICEMASK;
+  svcidx = IDX2SVCID(svcidx);
   return svcidx;
 };
 
@@ -526,9 +536,10 @@ int delservice(SERVICEID svcid)
   ipcmaininfo * ipcmain = NULL;
   ipcmain = getipcmaintable();
 
+  if (SVCID(svcid) == UNASSIGNED) return UNASSIGNED;
 
   svctbl = getserviceentry(0);
-  idx = MWID2SVCID(svcid);
+  idx = SVCID2IDX(svcid);
 
   evdata.svcid  = idx;
   strncpy(evdata.name, svctbl[idx].servicename, MWMAXSVCNAME);
@@ -545,7 +556,6 @@ int delservice(SERVICEID svcid)
   DEBUG("Deleting service %#x, name = %s, on server %#x or gateway %#x",
 	svcid, svctbl[idx].servicename, svctbl[idx].server, svctbl[idx].gateway);
   svctbl[idx].type = UNASSIGNED;
-  svctbl[idx].server = UNASSIGNED;
   svctbl[idx].server = UNASSIGNED;
   svctbl[idx].gateway = UNASSIGNED;
   memset(svctbl[idx].servicename, '\0', MWMAXSVCNAME);
@@ -570,7 +580,7 @@ int delallservices(SERVERID srvid)
 
   for (idx = 0; idx < ipcmain->svctbl_length; idx++) {
     if (svctbl[idx].server ==  srvid) {
-      delservice(idx | MWSERVICEMASK);
+      delservice(IDX2SVCID(idx));
       n++;
     };
   }
@@ -739,7 +749,7 @@ int check_tables()
 	  Info("Server %d pid=%d has died, cleaning up", i, srvtbl[i].pid);
 	  msgctl(srvtbl[i].mqid, IPC_RMID, NULL);
 	  delserver(MWSERVERMASK | i); 
-	  delallservices(SRVID2MWID(i));
+	  delallservices(IDX2SRVID(i));
 	};
       }
   };
@@ -747,7 +757,7 @@ int check_tables()
     for (i = 0; i< ipcmain->svctbl_length; i++) 
       if (svctbl[i].server > 0) {
 	int si;
-	si = MWINDEXMASK&svctbl[i].server;
+	si = SRVID2IDX(svctbl[i].server);
 	if (srvtbl[si].pid == UNASSIGNED) {
 	  Info("Service %d without server, cleaned up", i);
 	  delservice(si);
@@ -765,7 +775,7 @@ int check_tables()
 	  /* clean up all the network clients handled by this gw */
 	  for (j = 0; j < ipcmain->clttbl_length; j++) {
 	    if (clttbl[j].gwid = i)
-	      delclient(MWCLIENTMASK | j);
+	      delclient(IDX2CLTID(j));
 	  };
 
 	  /* TODO clean up all imported services */

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.8  2002/09/22 23:01:16  eggestad
+ * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
+ *
  * Revision 1.7  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -38,6 +41,8 @@
 #include <unistd.h>
 #include <sys/types.h>
 
+#include <MidWay.h>
+
 /* the message numbers are inspired by ISO8583, it seemed fitting ;) */
 
 #define ATTACHREQ 0x0800
@@ -51,7 +56,7 @@
 #define MWNETCLIENT   0x10
 
 /* flags used in messages */
-#define MWFORCE 0x10
+#define MWFORCE          0x10
 #define MWGATEWAYCLIENT  0x100
 #define MWGATEWAYSERVICE 0x200
 
@@ -211,15 +216,16 @@ typedef struct {
 #define EVENTUNSUBSCRIBEREQ  0x440
 #define EVENTUNSUBSCRIBERPL  0x450
 
-/* in the "normal"  case of an event, the event can't  be "". THe data
-is  however  optional,   and  the  user  and  group   is  optional  as
-well.  (first byte is  \0 if  empty.  flag  is not  used. The  data if
-passed is now owned by mwd, and the event sender must not free it. THe
-mwd will  let it be and send  a event message to  all subscribers, all
-pointing to the  same date buffer. THrefore recipient  of event my ack
-then, while the mwd do not ack to the original sender. */
+/* in the "normal" case of an event, the event cant be "". The data is
+however optional, and the user  and group is optional as well.  (first
+byte is \0  if empty.  flag is  not used. The data, if  passed, is now
+owned by mwd, and the event sender must not free it.  The mwd will let
+it be and send a event message to all subscribers, all pointing to the
+same date buffer.  Therefore recipient  of event must ack in order for
+the mwd to know when it's OK to free the buffer. The mwd do not ack to
+the original sender. */
 
-/* In the case of subscribe  or unsubscribe, A string, glo,b or regexp
+/* In the case of subscribe  or unsubscribe, A string, glob, or regexp
 is passed as the event that the mwd will use to match any event to any
 event.  if  the event is empty, the  mathc string must be  passed in e
 data buffer,  and data may not be  0. Since regexp may  be quite huge,
@@ -259,6 +265,7 @@ typedef union {
 
 #define MWMSGMAX sizeof(_union_ipc_messages)
 
+#define MWD_ID (MWID) 0
 
 /*
  *  lowlevel ipcmsg send & receive

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.7  2002/10/29 23:56:24  eggestad
+ * added peer IP adress to srb trace
+ *
  * Revision 1.6  2002/10/17 22:02:05  eggestad
  * - added _mw_srb_setfieldx()
  * - changed a debug() to Error() (if remote didn't want rejects we now log the reject as error locally)
@@ -143,8 +146,8 @@ void _mw_srb_trace(int dir_in, Connection * conn, char * message, int messagelen
 
   if (tracefile) {
     if (conn->fd > -1) {
-      fprintf (tracefile, "%c%d (%d) %.*s",
-	       dir_in, conn->fd, messagelen, messagelen, message); 
+      fprintf (tracefile, "%c%d %s (%d) %.*s",
+	       dir_in, conn->fd, conn->peeraddr_string, messagelen, messagelen, message); 
     } else {
       fprintf (tracefile, "%c (%d) %.*s", dir_in, messagelen, messagelen, message); 
     };
@@ -158,8 +161,8 @@ void _mw_srb_trace(int dir_in, Connection * conn, char * message, int messagelen
 
   if (mwsetloglevel(-1) >= MWLOG_DEBUG) {
     if (conn->fd > -1) {
-      DEBUG("TRACE %c%d (%d) %.*s",
-	       dir_in, conn->fd, messagelen, messagelen, message); 
+      DEBUG("TRACE %c%d %s (%d) %.*s",
+	       dir_in, conn->fd, conn->peeraddr_string, messagelen, messagelen, message); 
     } else {
       DEBUG("TRACE %c (%d) %.*s", dir_in, messagelen, messagelen, message); 
     };

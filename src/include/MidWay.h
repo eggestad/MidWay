@@ -198,8 +198,10 @@ static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, .
 #define Info(m...)    mwlog(MWLOG_INFO, m)
 #define Warning(m...) mwlog(MWLOG_WARNING, m)
 #define Error(m...)   mwlog(MWLOG_ERROR, m)
-#define Fatal(m...)   do { mwlog(MWLOG_FATAL, m); abort(); } while (0)
 
+#define Fatal(m...)   do { mwlog(MWLOG_FATAL, m); abort(); } while (0)
+#define Assert(test) do { if (!(test)) {mwlog(MWLOG_FATAL, "Internal error: %s fails in %s() %s:%d", \
+#test, __func__, __FILE__, __LINE__); abort(); }} while (0)
 
 /* Mutex  funtions */
 #ifdef HAVE_LIBPTHREAD

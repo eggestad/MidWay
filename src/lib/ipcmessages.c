@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.17  2002/10/20 18:11:25  eggestad
+ * - added instance to the Call struct. Needed later for gateway to gateway calls
+ * - fixup for setting the clientid and gatewayid propperly in Call struct l
+ * - bad bug in copying domain into the Call struct
+ *
  * Revision 1.16  2002/10/17 22:04:46  eggestad
  * - added more field to _mwacallipc() needed for gateway to gateway calls
  * - Call struct now also has callerid and hops fields
@@ -742,10 +747,16 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid)
 
 /* the IPC implementation of mwacall() */
 
-/* the domain, callerid, and hops is only used by mwgwd when one mwgwd
-   is passing a call to another gateway */
+/* the mwid  shall be set to  UNASSIGNED for IPC  clients.  mwgwd sets
+   mwid  for teh srb  client or  gwid for  peer gateway.   the domain,
+   callerid, and hops is only used  by mwgwd when one mwgwd is passing
+   a call to  another gateway callerid is the id  on the peer gateways
+   side. It's must be kept here  since we must passit back to the peer
+   gateway. It's done this way  because the peer gateway don't need to
+   remember the call, and hence reduses the time the peer gateway uses
+   to process the reply (no lookups) */
 int _mwacallipc (char * svcname, char * data, int datalen, int flags, 
-		 char * domain, MWID callerid, int hops)
+		 MWID mwid, char * instance, char * domain, MWID callerid, int hops)
 {
   int dest; 
   int rc;
@@ -786,14 +797,14 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
      we must operate on offset into the segment (se shmalloc.c) */
   
   calldata.mtype = SVCCALL;
-  calldata.cltid = _mw_get_my_clientid();
-  calldata.gwid = _mw_get_my_gatewayid();
 
-  if (calldata.cltid == -1) {
-    Error("Failed to get my own clientid! This can't happen.");
-    return -EFAULT;
-  };
-
+  if (mwid == UNASSIGNED) {
+    calldata.cltid = _mw_get_my_clientid();
+    calldata.gwid = _mw_get_my_gatewayid();
+  } else {
+    calldata.cltid = CLTID(mwid);
+    calldata.gwid = GWID(mwid);
+  } 
   calldata.srvid = UNASSIGNED;
   strncpy (calldata.service, svcname, MWMAXSVCNAME);
   strncpy (calldata.origservice, svcname, MWMAXSVCNAME);
@@ -808,11 +819,18 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   calldata.appreturncode = 0;
   calldata.returncode = 0;
 
+  if (instance) {
+    strncpy(calldata.instance, instance, MWMAXNAMELEN);
+  } else {
+    calldata.instance[0] = '\0';
+  };
+
   if (domain) {
-    strncpy(domain, calldata.domainname, MWMAXNAMELEN);
+    strncpy(calldata.domainname, domain, MWMAXNAMELEN);
   } else {
     calldata.domainname[0] = '\0';
   };
+
   calldata.callerid = callerid;
   calldata.hops = hops;
 

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.19  2004/04/12 23:02:29  eggestad
+ * - added missing server name to server table
+ *
  * Revision 1.18  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -202,7 +205,7 @@ SERVERID addserver(char * name, int mqid, pid_t pid)
   int srvidx = UNASSIGNED, i;
   static int nextidx = 0;
 
-  DEBUG(	"addserver(name=\"%s\", mqid=%d, pid=%d",
+  DEBUG("addserver(name=\"%s\", mqid=%d, pid=%d",
 	name, mqid, pid);
 
   ipcmain = getipcmaintable();
@@ -211,7 +214,7 @@ SERVERID addserver(char * name, int mqid, pid_t pid)
     return -EUCLEAN;
   };
   srvtbl = _mw_getserverentry(0);
-  DEBUG("address of server table is %#X %#x", srvtbl, srvtbl);
+  DEBUG("address of server table is %p %p", srvtbl, srvtbl);
 
   for (i = nextidx; i < ipcmain->srvtbl_length; i++) {
     DEBUG("addserver: testing %d status=%d", 
@@ -240,6 +243,7 @@ SERVERID addserver(char * name, int mqid, pid_t pid)
     return -ENOSPC;
   };
   
+  strncpy(srvtbl[srvidx].servername, name, MWMAXNAMELEN);
   srvtbl[srvidx].mqid = mqid;
   srvtbl[srvidx].status = 0;
   srvtbl[srvidx].booted = time(NULL);
@@ -264,8 +268,8 @@ SERVERID addserver(char * name, int mqid, pid_t pid)
   srvtbl[srvidx].avwait5 = 0;
   srvtbl[srvidx].avwait15 = 0;
   
-  DEBUG(	"addserver: added server %s id = %d adr %#x mqid = %d pid = %d", 
-	name, srvidx, (long)&srvtbl[srvidx], mqid, pid);
+  DEBUG("addserver: added server %s id = %d adr %p mqid = %d pid = %d", 
+	name, srvidx, &srvtbl[srvidx], mqid, pid);
   srvidx |= MWSERVERMASK;
   
   return srvidx;
@@ -319,7 +323,7 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
     return -EUCLEAN;
   };
   clttbl = _mw_getcliententry(0);    
-  DEBUG("address of client table is %#X %#x", clttbl, clttbl);
+  DEBUG("address of client table is %p %p", clttbl, clttbl);
 
   /* 
    * foreach entry in the client table, find the first available,
@@ -361,8 +365,8 @@ CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
   case MWIPCSERVER:
     clttbl[cltidx].location = GWLOCAL ;
     clttbl[cltidx].gwid = UNASSIGNED ;
-    DEBUG("added client %s to index %#x adr %#x mqid = %d pid = %d", 
-	  name, cltidx, (long) &clttbl[cltidx], mqid, pid);
+    DEBUG("added client %s to index %#x adr %p mqid = %d pid = %d", 
+	  name, cltidx, &clttbl[cltidx], mqid, pid);
     
     break;
   case MWNETCLIENT:

@@ -23,6 +23,13 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/08/31 19:49:16  eggestad
+ * - added domain to the address struct
+ * - corrected som defs for protocol types.
+ * - fix to prototype for _mwdecode_url(- added domain to the address struct
+ * - corrected som defs for protocol types.
+ * - fix to prototype for _mwdecode_url()
+ *
  * Revision 1.2  2000/07/20 19:14:10  eggestad
  * fix up on double include prevention
  *
@@ -37,27 +44,27 @@
 #include <netinet/in.h>
 
 /* protocol types */
-#define MWSYSVIPC 1
+#define MWSYSVIPC  1
 #define MWPOSIXIPC 2
-#define MWNETWORK 3
-#define MWHTTP    4
-#define MWTCPIPv4 3
-#define MWTCPIPv6 6
+#define MWSRBP     3
+#define MWHTTP     4
 
 typedef struct {
   int protocol ;
   int sysvipckey ;
+  char * domain;
   char * posixipcpath ;
-  struct sockaddr_in * remoteaddress_v4;
-  struct sockaddr_in6 * remoteaddress_v6;  
+  struct sockaddr_in * ipaddress_v4;
+  struct sockaddr_in6 * ipaddress_v6;  
 } mwaddress_t;
 
+/*
 #ifdef _ADDRESS_H
-mwaddress_t _mwaddress = {0, -1, NULL, NULL, NULL};
+mwaddress_t _mwaddress = {0, -1, NULL, NULL, NULL, NULL};
 #else 
 extern mwaddress_t _mwaddress;
 #endif
-
-int _mwdecode_url(char * url);
+*/
+mwaddress_t * _mwdecode_url(char * url);
 
 

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.19  2003/07/13 22:42:04  eggestad
+ * added timepegs
+ *
  * Revision 1.18  2003/07/06 22:07:56  eggestad
  * took out reverse ip lookups, it caused timeout on mwgwd start if no dns server is available
  *
@@ -815,15 +818,18 @@ int conn_read(Connection * conn)
     DEBUG("UDP recv, leftover = %d, better be 0!", conn->leftover); 
     assert ( conn->leftover == 0);
     l = sizeof(conn->peeraddr);
+    TIMEPEGNOTE("doing recvfrom");
     rc = recvfrom(conn->fd, conn->messagebuffer+conn->leftover, 
 	      SRBMESSAGEMAXLEN-conn->leftover, 0, &conn->peeraddr.sa, &l);
-    
+    TIMEPEGNOTE("done");
     DEBUG("UDP: read %d bytes from %s:%d", rc, 
 	  inet_ntop(AF_INET, &conn->peeraddr.sin4.sin_addr, buffer, 64),
 	  ntohs(conn->peeraddr.sin4.sin_port)); 
   } else {    
+    TIMEPEGNOTE("doing read");
     rc = read(conn->fd, conn->messagebuffer+conn->leftover, 
 	      SRBMESSAGEMAXLEN-conn->leftover);
+    TIMEPEGNOTE("done");
   };
   return rc;
 };

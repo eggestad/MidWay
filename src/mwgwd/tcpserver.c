@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.14  2003/07/13 22:42:17  eggestad
+ * added timepegs
+ *
  * Revision 1.13  2003/06/05 21:56:05  eggestad
  * environment var fixes
  *
@@ -224,6 +227,8 @@ static Connection *  tcpnewconnection(Connection * listensocket)
 void tcpcloseconnection(Connection * conn)
 {
 
+   TIMEPEGNOTE("begin");
+
   DEBUG("tcpcloseconnection on  fd=%d", conn->fd);
   if (conn->cid != UNASSIGNED) 
     gwdetachclient(conn->cid);
@@ -236,7 +241,9 @@ void tcpcloseconnection(Connection * conn)
 
   /* TODO: what if a listen socket closes, reall can only happen if
      the OS is going down (on way or another */
+  TIMEPEGNOTE("conn del");
   conn_del(conn->fd);
+  TIMEPEGNOTE("end");
 };
 
 /* called on shutdown, the shutdown flag will stop all new
@@ -288,9 +295,10 @@ static void gwreadmessage(Connection * conn)
 
   if (conn == NULL) return;
 
-  TIMEPEG();
+  TIMEPEGNOTE("begin");
 
   n = conn_read(conn);
+  TIMEPEG();
   DEBUG2("read a message from fd=%d returned %d errno=%d", conn->fd, n, errno);
 
   /* read return 0 on end of file, and -1 on error. */

@@ -1,5 +1,6 @@
 
 CC = gcc
+INSTALL = /usr/bin/install
 
 CFLAGS = -g -Wstrict-prototypes
 
@@ -36,6 +37,7 @@ install:
 	@ for dir in $(DIRS); do\
 	(cd $$dir; make  $@)\
 	done;
+	$(INSTALL) ../include/MidWay.h $(INSTALLDIR)/include/MidWay.h
 
 uninstall:
 	@ for dir in $(DIRS); do\

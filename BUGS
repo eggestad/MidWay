@@ -138,7 +138,9 @@ REL: 0.10.0
 
 (FIXED) * mwcall fails if NULL as data.
 
-* mwcall return 0 on success, not MWSUCCESS (=1)
+(FIXED) * mwcall return 0 on success, not MWSUCCESS (=1)
+	Actually, it shall return 0 on success, -1 on fail and 1 
+	if more replies are pending
 
 -----------------------------------------------------------------------
 
@@ -176,6 +178,9 @@ FIXED * handling of accidental deletion of shm segments. On HP-UX key
   with failure to client.  (only if the server only in shutdown down,
   if the entire instance is going down, ignor it.)
 
-
+* if making a dummy server that replies many times, calling it a few 
+  times causes a core dump in malloc(), somewhere we overwrite a 
+  malloced buffer. It dissapears when MALLOC_DEBUG_ env is set!
+  (Really anoying, have to try efence.).
 
 

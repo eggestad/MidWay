@@ -8,7 +8,7 @@ INCPATH = ../include
 
 CFLAGS =  $(INCLUDES) -g
 
-LIBS =  -L../lib -lreadline -ncurses -lMidWay
+LIBS =  -L../lib -lreadline -lncurses -lMidWay
 
 LDFLAGS = $(LIBS) 
 

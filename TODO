@@ -4,6 +4,7 @@
 =======================================================================
 
  * Events - sent from servers to clients
+   Haven't decided on an API yet.
 
  * Conversations - statefull clients server communicaion.
 
@@ -13,8 +14,9 @@
 	 * interinstance gw missing (need config file)
 	 * broker daemons missing.
 
- * Perl module
-   * A SRBP module partial ready
+(OK) * Perl module
+     * A SRBP module partial ready
+     * native module ready
 
  * Python module
 
@@ -36,7 +38,7 @@
 
  * trace facility
 
- * Data buffers are now not arbitrary length
+ * Data buffers are not arbitrary length
 
  * fast path missing
 
@@ -52,3 +54,8 @@
  * in doc, add refernce to pthreads programming ch3. THread pools p98
 
  * protocol version negotiation
+
+ (OK) * if mwcall() or mwacall(,,,!MWMULTIPLE), MULTIPLE flag is set 
+	to  server so that concatination of replies happen on	 
+	client. Also, return code on mwreply() can now be either 
+	MWFAIL, MWSUCCESS, or MWMORE. MWMORE in flag is depreciated.

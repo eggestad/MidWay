@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/11/18 00:23:10  eggestad
+ * - added prototype for impexp_cleanuppeer()
+ *
  * Revision 1.5  2002/10/17 22:19:12  eggestad
  * added impfindpeerconn()
  *
@@ -81,3 +84,5 @@ int exportservicetopeer(char *, struct gwpeerinfo * );
 //int unexportservice(char *);
 void doprovideevent(char * servicename);
 void dounprovideevent(char * servicename);
+
+void impexp_cleanuppeer(struct gwpeerinfo * pi);

@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.34  2004/11/17 20:58:08  eggestad
+ * Large data buffers for IPC
+ *
  * Revision 1.33  2004/08/11 19:01:36  eggestad
  * - shm heap is now 32/64 bit interoperable
  * - added large buffer alloc
@@ -351,8 +354,19 @@ static char * strdata(seginfo_t * si, int dataoff, int len)
    static char data[80];
    char * rdata;
    int i, l;
+   
    rdata = _mwoffset2adr(dataoff, si);
    
+   if (!rdata) {
+      if (si) {
+	 sprintf(data, "(null) ERROR: could not lookup buffer in segment %d size %ld offset %d len %d", 
+		 si->segmentid, (long) si->end - (long) si->start, dataoff, len);
+      } else {
+	 sprintf(data, "(null) ERROR: could not lookup buffer in NULL segment  offset %d len %d", 
+		 dataoff, len);
+      };
+      return data;
+   };
    if (len > 72) l = 72;
    else  l = len;
 
@@ -501,6 +515,7 @@ void  _mw_dumpmesg(void * mesg)
           time_t      issued             = %lld\n\
           int         uissued            = %d\n\
           int         timeout            = %d\n\
+	  int32_t     datasegmentid      = %d\n\
           int64_t     data               = %lld \"%s\"\n\
           int64_t     datalen            = %lld\n\
           int         appreturncode      = %d\n\
@@ -512,8 +527,9 @@ void  _mw_dumpmesg(void * mesg)
 	   rm->callerid,
 	   rm->forwardcount, rm->service, rm->origservice, 
 	   rm->issued, rm->uissued, rm->timeout, 
+	   rm->datasegmentid,
 	   rm->data, 
-	   strdata(_mw_getsegment(rm->datasegmentid), rm->data,  rm->datalen), 
+	   strdata(_mw_getsegment_byid(rm->datasegmentid), rm->data,  rm->datalen), 
 	   rm->datalen, 
 	   rm->appreturncode, rm->flags, rm->domainname, rm->returncode);
     return;
@@ -530,6 +546,7 @@ void  _mw_dumpmesg(void * mesg)
 	   "            SERVERID    srvid            = %d\n"
 	   "            SERVICEID   svcid            = %d\n"
 	   "            GATEWAYID   gwid             = %d\n"
+	   "          int32_t     datasegmentid      = %d\n"
 	   "          int64_t     data               = %lld \"%s\"\n"
 	   "          int64_t     datalen            = %lld\n"
 	   "          char        username           = %.64s\n"
@@ -543,8 +560,9 @@ void  _mw_dumpmesg(void * mesg)
 	   SRVID2IDX(ev->senderid),
 	   SVCID2IDX(ev->senderid),
 	   GWID2IDX(ev->senderid),
+	   ev->datasegmentid,
 	   ev->data, 
-	   strdata(_mw_getsegment(rm->datasegmentid), ev->data,  ev->datalen),
+	   strdata(_mw_getsegment_byid(ev->datasegmentid), ev->data,  ev->datalen),
 	   ev->datalen, 
 	   ev->username, 
 	   ev->clientname, 
@@ -564,10 +582,11 @@ void  _mw_dumpmesg(void * mesg)
 	   "   SERVERID    srvid            = %d\n"
 	   "   SERVICEID   svcid            = %d\n"
 	   "   GATEWAYID   gwid             = %d\n"
+	   " int32_t     datasegmentid      = %d\n"
 	   " int64_t     data               = %lld \"%s\"\n"
 	   " int64_t     datalen            = %lld\n"
-	   " int         flags              = %#x\n"
-	   " int         returncode         = %d\n",
+	   " int32_t     flags              = %#x\n"
+	   " int32_t     returncode         = %d\n",
 	   messagetype(ev->mtype), ev->mtype,  
 	   ev->event,
 	   ev->subscriptionid,
@@ -576,8 +595,9 @@ void  _mw_dumpmesg(void * mesg)
 	   SRVID2IDX(ev->senderid),
 	   SVCID2IDX(ev->senderid),
 	   GWID2IDX(ev->senderid),
-	   ev->data, 
-	   strdata(_mw_getsegment(rm->datasegmentid), ev->data,  ev->datalen),
+	   ev->datasegmentid,
+	   ev->data,
+	   strdata(_mw_getsegment_byid(ev->datasegmentid), ev->data,  ev->datalen),
 	   ev->datalen, 
 	   ev->flags, ev->returncode);
     return;
@@ -702,7 +722,9 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
       return 0;
     };
     Warning("msgsnd in _mw_ipc_putmessage returned error %d", errno);
-    return -errno;
+    rc = -errno;
+    errno = 0;
+    return rc;
   };
 
   TIMEPEG();
@@ -1297,13 +1319,13 @@ int _mwfetchipc (int * hdl, char ** data, int * len, int * appreturncode, int fl
   
   if (callmesg->data) {     
      id = 0;
-     si = _mw_getsegment(callmesg->datasegmentid);
+     si = _mw_getsegment_byid(callmesg->datasegmentid);
      
      if (si == NULL) {
 	Error ("failed to get the buffer accompanying the call");
 	return -EFAULT;
      };
-     DEBUG1("owner id of data is %d", id);
+
      
      if (! _mw_fastpath_enabled()) {
 	void * shmbuf;
@@ -1312,12 +1334,16 @@ int _mwfetchipc (int * hdl, char ** data, int * len, int * appreturncode, int fl
 	shmbuf = _mwoffset2adr(callmesg->data, si);
 	memcpy(*data, shmbuf, callmesg->datalen);
 	(*data)[callmesg->datalen] = '\0';
+
+	_mwshmgetowner(shmbuf, &id);	
+	DEBUG1("owner id of data is %s", _mwid2str(id, NULL));
 	_mwfree(shmbuf);
+	_mwshmgetowner(shmbuf, &id);	
      } else {
 	*data = _mwoffset2adr(callmesg->data, si);
+	_mwshmgetowner(*data, &id);	
      }; 
-     _mwshmgetowner(*data, &id);
-
+     DEBUG1("owner id of data is %s", _mwid2str(id, NULL));
      *len = callmesg->datalen;
   } else {
      *data = NULL;

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.19  2004/11/17 20:58:08  eggestad
+ * Large data buffers for IPC
+ *
  * Revision 1.18  2004/08/11 19:01:36  eggestad
  * - shm heap is now 32/64 bit interoperable
  * - added large buffer alloc
@@ -208,7 +211,7 @@ static int delsegment(int id, int fd)
 };
 
 
-static seginfo_t * findsegment_byadr(void * ptr)
+static seginfo_t * findsegment_byaddr(void * ptr)
 {
    int idx;
    
@@ -280,7 +283,7 @@ static seginfo_t * attach_mmap(int id)
    return si;
 };
 
-static int detach_mmap(seginfo_t * si)
+int _mw_detach_mmap(seginfo_t * si)
 {
    Assert(si != NULL);
    DEBUG1("deleting %d on fd %d start=%p end=%p", 
@@ -297,7 +300,7 @@ seginfo_t *  _mw_addsegment(int id, int fd, void * start, void * end)
    return  addsegment( id, fd, start, end);
 };
 
-seginfo_t * _mw_getsegment(int segid)
+seginfo_t * _mw_getsegment_byid(int segid)
 {
    seginfo_t * si;
 
@@ -305,6 +308,18 @@ seginfo_t * _mw_getsegment(int segid)
    if (si == NULL) {
       si = attach_mmap(segid);
    };
+
+   DEBUG1("lookup of segment id %d => %p", segid, si); 
+   return si;
+};
+
+seginfo_t * _mw_getsegment_byaddr(void * addr)
+{
+   seginfo_t * si;
+
+   si = findsegment_byaddr(addr);
+
+   DEBUG1("lookup of segment on addr %p => %p", addr, si); 
    return si;
 };
 
@@ -314,7 +329,7 @@ seginfo_t * _mw_getsegment(int segid)
 /* conversion between offset and adresses */
 long _mwadr2offset(void * adr, seginfo_t * si)
 {
-   if (si == NULL) si = findsegment_byadr(adr);
+   if (si == NULL) si = findsegment_byaddr(adr);
 
    if (si == NULL) return -1;   
    return (long) adr - (long) si->start;;
@@ -354,7 +369,7 @@ int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg)
   };
 
 
-  si = _mw_getsegment(callmesg->datasegmentid);
+  si = _mw_getsegment_byid(callmesg->datasegmentid);
   if (si == NULL) {
      errno = EBADR;
      Error("failed to open the associated mmap'ed buffer to call");
@@ -428,7 +443,10 @@ static size_t getchunksizebyadr(void * adr, seginfo_t * si)
 {
    chunkhead * pCHead;
    pCHead = (chunkhead *) (adr - sizeof(chunkhead));
-   
+   if ( (!adr) || (!si)) {
+      return -1;
+   };
+   DEBUG3("si->segmentid = %d size = %d", si->segmentid, pCHead->size);
    if (si->segmentid == 0) {
       return  pCHead->size * _mwHeapInfo->basechunksize;
    };
@@ -500,7 +518,7 @@ int _mwshmcheck(void * adr)
   int offset; 
   seginfo_t * si;
 
-  si = findsegment_byadr(adr);
+  si = findsegment_byaddr(adr);
   if (si == NULL) return -1;
 
   size = getchunksizebyadr(adr, si);
@@ -516,7 +534,7 @@ size_t _mwshmgetsizeofchunk(void * adr)
 {
   seginfo_t * si;
 
-  si = findsegment_byadr(adr);
+  si = findsegment_byaddr(adr);
   if (si == NULL) return -1;
 
   return  getchunksizebyadr(adr, si);
@@ -590,7 +608,7 @@ static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount, seginfo_
 
    iInsert = _mwadr2offset(pInsert, si);
 
-   DEBUG3("intering buffer at offset %d", iInsert);
+   DEBUG3("inserting buffer at offset %d", iInsert);
 
    pCFoot = _mwfooter(pInsert);
 
@@ -853,57 +871,160 @@ void * _mwrealloc(void * adr, size_t newsize)
   return NULL;
 };
 
+static int _mwfree0(seginfo_t * si, void * adr)
+{
+   long offset, off, l, s, n, t;
+   chunkhead *pCHead;
+   int bin, rc;
+   double d;
+
+   // this is a protection of the segment header
+   DEBUG1("checking to see if the address is in the chuck area of the heap");
+   offset = (unsigned long) adr - (unsigned long) _mwHeapInfo;
+   DEBUG1("top = %lld < adr = %ld < %lld, bottom", _mwHeapInfo->top, offset, _mwHeapInfo->bottom);
+   if ( (offset < _mwHeapInfo->top) || (offset > _mwHeapInfo->bottom)) {
+      DEBUG1("EINVAL");
+      return -EINVAL;
+   };
+   
+   /* adr point to the data area of a chunk, which lies between the
+      chunkhead and chunkfoot*/
+   pCHead = adr - sizeof(chunkhead);;
+   offset -= sizeof(chunkhead); //offset now it at the beginning of a chunk;
+   rc = getchunksizebyadr(adr, si);
+   if (rc < 0) {
+      DEBUG1("ENOENT");
+      return -ENOENT;
+   };
+
+   // blacvk out buffer
+   s = _mwHeapInfo->basechunksize * pCHead->size;
+   DEBUG1("Clearinbg buffer %d bytes", s);
+   memset(adr, 0, s);
+   
+   d = log(pCHead->size) / log(2);
+   bin = d;
+   DEBUG1("d = %f, bin = %d", d, bin);
+
+   /* check that the pointer is at a start of a chunk
+      first get the byte offset into the chunk area, then we do two checks:
+      1. the mod of the offset into the chunk area and size_of_chunk + CHUNKOVERHEAD must be 0
+      2. the offset into chunk area / by size_of_chunk + CHUNKOVERHEAD must be within chunks per size
+   */
+   t = _mw_gettopofbin(_mwHeapInfo, bin);
+   off = offset - t;
+   s =  (_mwHeapInfo->basechunksize *pCHead->size)+ CHUNKOVERHEAD;
+
+   DEBUG1("bin %d start %ld, %ld bytes per chunk, %ld bytes offset into chunk area", 
+	  bin, t, s, off);
+   l = off / s;
+   n =  bin  ? _mwHeapInfo->chunkspersize :  _mwHeapInfo->chunkspersize *2;
+   DEBUG1("bin %d chunk index %ld of %ld", bin, l, n);
+   if ( (l < 0) || (l > n)) {
+      Error ("Possible shm buffer corruption 0 < %ld < %ld fails for adr %p offset %ld", l,  n, adr, off);
+      errno = EINVAL;
+      return -1;
+   };
+   
+   l = off % s;
+   DEBUG1 ("%ld %% %ld = %ld shall be 0", off, s, l);
+   if (l != 0) {
+      Error("free on an address not at beginning of a buffer %p", adr);
+      errno = EINVAL;
+      return -1;
+   };
+
+
+   DEBUG1("size %lld ownerid=%s Bin = %d %d %f", pCHead->size, _mwid2str(pCHead->ownerid, NULL), rc, bin, d);
+   pCHead->ownerid = UNASSIGNED;
+   
+   rc = lock(bin); /* lock sem for bin */
+   rc = pushchunk(pCHead, &_mwHeapInfo->chunk[bin], 
+		  &_mwHeapInfo->freecount[bin], si);
+   if (rc != 0) {
+      Error("mwfree: shm chunk of size %lld lost, reason %d", 
+	    pCHead->size, rc);
+   };
+   _mwHeapInfo->inusecount --;
+   unlock(bin);
+   
+   return 0;
+};
+
+int _mwfree_mmap(seginfo_t * si, void * adr)
+{
+   Alloc allocmesg;
+   int rc;
+
+   allocmesg.mtype = FREEREQ;
+   allocmesg.mwid = _mw_get_my_mwid();
+   allocmesg.size = -1;
+   allocmesg.bufferid = si->segmentid;
+   allocmesg.pages = -1;
+   
+   _mw_detach_mmap(si);
+   
+   rc = _mw_ipc_putmessage(0, (void *) &allocmesg, sizeof(Alloc), 0);
+   DEBUG1("sendt free request to mwd rc=%d", rc);
+   Assert(rc == 0);
+   
+   return 0;
+};
+   
 int _mwfree(void * adr)
 {
    seginfo_t * si;
-  chunkhead *pCHead;
-  int bin, rc;
-  double d;
-
-  si = findsegment_byadr(adr);
-
-  if (si == NULL) return -ENOENT;
-
-  if (si->segmentid == 0) {
-     /* adr point to the data area of a chunk, which lies between the
-	chunkhead and chunkfoot*/
-     pCHead = adr - sizeof(chunkhead);;
-     
-     rc = getchunksizebyadr(pCHead, si);
-     if (rc < 0) return -ENOENT;
-     
-     d = log(pCHead->size) / log(2);
-     bin = d;
-     DEBUG1("size %lld ownerid=%x Bin = %d %d %f", pCHead->size, pCHead->ownerid, rc, bin, d);
-     pCHead->ownerid = UNASSIGNED;
-     
-     rc = lock(bin); /* lock sem for bin */
-     rc = pushchunk(pCHead, &_mwHeapInfo->chunk[bin], 
-		    &_mwHeapInfo->freecount[bin], si);
-     if (rc != 0) {
-	Error("mwfree: shm chunk of size %lld lost, reason %d", 
-	      pCHead->size, rc);
-     };
-     _mwHeapInfo->inusecount --;
-     unlock(bin);
-  } else {
-      Alloc allocmesg;
-
-      allocmesg.mtype = FREEREQ;
-      allocmesg.mwid = _mw_get_my_mwid();
-      allocmesg.size = -1;
-      allocmesg.bufferid = si->segmentid;
-      allocmesg.pages = -1;
-      
-      detach_mmap(si);
-      
-      rc = _mw_ipc_putmessage(0, (void *) &allocmesg, sizeof(Alloc), 0);
-      DEBUG1("sendt free request to mwd rc=%d", rc);
-      Assert(rc == 0);
-
-  };
-  return 0;
+   
+   si = findsegment_byaddr(adr);
+   
+   if (si == NULL) return -ENOENT;
+   
+   if (si->segmentid == 0) {
+      DEBUG3("shm buffer");
+      return _mwfree0(si, adr);
+   } else {
+      DEBUG3("mmap'ed buffer");
+      return _mwfree_mmap(si, adr);
+   };
 };
 
-  
+#ifdef SHMDEBUG
+
+int __mw_verify_segmenthdr(struct segmenthdr * seghdr)
+{
+   struct shmid_ds stat;
+
+   if (seghdr->magic != MWSEGMAGIC) {
+      Error("segment header %hx != %hx", seghdr->magic != MWSEGMAGIC);
+   };
+   
+   
+};
+#endif
+
+int _mw_gettopofbin(struct segmenthdr * seghdr, int bin)
+{
+   int offset, l;
+   int b, s;
+
+   offset = sizeof(struct segmenthdr);
+
+   for (b = 0; b < bin; b++) {
+      s = (1 << b) *  seghdr->basechunksize;
+      l = seghdr->chunkspersize * (s + CHUNKOVERHEAD);
+      if ( b == 0) l *= 2;
+      DEBUG1("chunks in bin %d is %d bytes total size %d bytes ", b, s, l);
+      offset += l;
+   }; 
+   DEBUG1("top of bin %d is %d ", bin, offset);
+   return offset;
+};
+
+/* Emacs C indention
+Local variables:
+c-basic-offset: 3
+End:
+*/
+
+   
 

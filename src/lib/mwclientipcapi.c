@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.18  2004/11/17 20:58:08  eggestad
+ * Large data buffers for IPC
+ *
  * Revision 1.17  2004/08/11 20:41:21  eggestad
  * large buffer alloc
  *
@@ -167,7 +170,7 @@ void _mw_do_ipcevent(Event * ev)
   doack = 0;
   if (ev->data != 0) {
     doack = 1;
-    dbuf = _mwoffset2adr(ev->data, NULL);
+    dbuf = _mwoffset2adr(ev->data, _mw_getsegment_byid(ev->datasegmentid));
     DEBUG3("ev->data %lld, addr = %p data = %s", ev->data, dbuf, dbuf); 
   }	
     

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2004/11/17 20:58:08  eggestad
+ * Large data buffers for IPC
+ *
  * Revision 1.8  2004/08/10 19:39:09  eggestad
  * - shm heap is now 32/64 bit interoperable
  * - added large buffer alloc
@@ -189,6 +192,9 @@ int _mwshmcheck(void * adr);
 #define CHUNKOVERHEAD sizeof(chunkhead) + sizeof(chunkfoot)
 #define BINS 6
 
+/* Magic number is "MW" thus thus 0x4D57 */
+#define MWSEGMAGIC 0x4D57
+
 struct segmenthdr {
   int16_t magic; 
   int16_t chunkspersize;
@@ -206,7 +212,11 @@ struct segmenthdr {
   int32_t freecount[BINS];
 };
 
-seginfo_t * _mw_getsegment(int segid);
+int _mw_gettopofbin(struct segmenthdr * seghdr, int bin);
+
+int _mw_detach_mmap(seginfo_t * si);
+seginfo_t * _mw_getsegment_byid(int segid);
+seginfo_t * _mw_getsegment_byaddr(void * addr);
 seginfo_t *  _mw_addsegment(int id, int fd, void * start, void * end);
 
 void * _mwalloc(size_t size);

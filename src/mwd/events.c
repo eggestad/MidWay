@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2004/11/17 20:58:08  eggestad
+ * Large data buffers for IPC
+ *
  * Revision 1.7  2004/08/11 20:34:43  eggestad
  * large buffer alloc
  *
@@ -201,10 +204,10 @@ static void dumpeventqueue(void)
 		    eventqueuelen);
   ev = eventqueue_root;
   for (i = 0; i < eventqueuelen; i++, ev = ev->next)
-     DEBUG2("   - %5d: @ %p %s [%s sender %#x subid=%d data=%lld datalen=%lld] next %p", 
+     DEBUG2("   - %5d: @ %p %s [%s sender %#x subid=%d datasegid=%d data=%lld datalen=%lld] next %p", 
 	    i, ev, ev->eventname, 
 	    ev->evmsg.event, ev->evmsg.senderid, ev->evmsg.subscriptionid, 
-	    ev->evmsg.data, ev->evmsg.datalen,
+	    ev->evmsg.datasegmentid, ev->evmsg.data, ev->evmsg.datalen,
 	    ev->next
 	    );
   
@@ -423,7 +426,7 @@ void event_clear_id(MWID id)
 int event_ack(Event * evmsg) 
 {
   queued_event_t * ev, **pev ;
-  int i;
+  int i, rc;
 
   if (evmsg == NULL) return -EINVAL;
 
@@ -444,8 +447,8 @@ int event_ack(Event * evmsg)
       /* if the last pwnding ack, dequeue and free shmbuffer */
       if (ev->pending_acks == 0) {
 	DEBUG("last panding ack, deleting");
-	_mwfree( _mwoffset2adr(ev->evmsg.data, NULL));
-	
+	rc = _mwfree( _mwoffset2adr(ev->evmsg.data, _mw_getsegment_byid(ev->evmsg.datasegmentid)));
+	DEBUG2("shm buffer release = %d", rc);
 	free(ev->pending_ack_ids);
 	*pev = ev->next;
 	ackqueuelen--;
@@ -465,6 +468,7 @@ int internal_event_enqueue(char * event, void * data, int datalen, char * user, 
 {
   Event evmsg;
   char * dbuf;
+  seginfo_t * si;
 
   if (event == NULL) return -EINVAL;
 
@@ -474,13 +478,17 @@ int internal_event_enqueue(char * event, void * data, int datalen, char * user, 
     if (datalen == 0) datalen = strlen(data);
 
     dbuf = _mwalloc(datalen+1);
+    if (!dbuf) return -ENOMEM;
     memcpy(dbuf, data, datalen+1);
     /* just for safety we make sure there is a trailing \0 */
     dbuf[datalen] = '\0';
-    
-    evmsg.data = _mwadr2offset(dbuf, NULL);
+
+    si = _mw_getsegment_byaddr(dbuf);
+    evmsg.datasegmentid = si->segmentid;
+    evmsg.data = _mwadr2offset(dbuf, si);
     evmsg.datalen = datalen;
   } else {
+    evmsg.datasegmentid = 0;
     evmsg.data = 0;
     evmsg.datalen = 0;
   };
@@ -514,9 +522,10 @@ int event_enqueue(Event * evmsg)
   if (evmsg == NULL) return -EINVAL;
   
   ev  = malloc(sizeof(queued_event_t));
-  
-  memcpy(&ev->evmsg, evmsg, sizeof(Event));
+  if (!ev) return -ENOMEM;
+  memset(ev, 0, sizeof(queued_event_t));
 
+  memcpy(&ev->evmsg, evmsg, sizeof(Event));
   ev->eventname = ev->evmsg.event;
 
   DEBUG("queued event \"%s\" senderid %#x eventid=%d", evmsg->event, evmsg->senderid, evmsg->eventid);
@@ -693,10 +702,11 @@ static int do_event(void)
     rc = _mw_ipc_putmessage(se->id, (char *) &ev->evmsg, sizeof (Event), IPC_NOWAIT); 
     if (rc < 0) {
        if (rc == -EAGAIN) {
+	  DEBUG("IPC queue to dest %#xis full, enqueuing", se->id);
 	  push_blockingqueue(se->id, (char *) &ev->evmsg, sizeof (Event));
 	  rc = 0;
        } else {
-	  DEBUG("FAiled to do and IPC putmessage errno = %d", -rc);
+	  DEBUG("Failed to do and IPC putmessage errno = %d", -rc);
 	  continue;
        };
     };

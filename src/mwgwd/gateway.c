@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.26  2004/11/17 20:58:08  eggestad
+ * Large data buffers for IPC
+ *
  * Revision 1.25  2004/06/06 16:09:42  eggestad
  * fix for segfault when domain are is empty
  *
@@ -231,12 +234,12 @@ static void do_event_message(char * message, int len)
   if ( (newsvc == 0) || (delsvc == 0) ){
     
     if (evmsg->datalen != sizeof(mwprovideevent)) {
-      Error("in datalength with provide event (%d != %d), probably an error in mwd(1)", 
-	    evmsg->datalen, sizeof(mwprovideevent));
+      Error("in datalength with provide event (%lld != %ld), probably an error in mwd(1)", 
+	    evmsg->datalen, (long) sizeof(mwprovideevent));
       return;
     };
     
-    pe = _mwoffset2adr(evmsg->data);
+    pe = _mwoffset2adr(evmsg->data, _mw_getsegment_byid(evmsg->datasegmentid));
     if (pe == NULL) {
       Error("in getting data with provide event, probably an error in mwd(1)");
       return;
@@ -350,9 +353,9 @@ static void do_svccall(Call * cmsg, int len)
 
   // TODO: handle arbitrary long data
   if (cmsg->datalen != 0) {
-    data = _mwoffset2adr(cmsg->data);
+    data = _mwoffset2adr(cmsg->data, _mw_getsegment_byid(cmsg->datasegmentid));
     if (!data) {
-      Error("got a corrupt svccall message, dataoffset = %d ", 
+      Error("got a corrupt svccall message, dataoffset = %lld ", 
 	    cmsg->data);
       return;
     };
@@ -361,7 +364,7 @@ static void do_svccall(Call * cmsg, int len)
 
     l = _mwshmcheck(data);
     if ( (l < 0) || (l < cmsg->datalen)) {
-      Error("got a corrupt svccall message, dataoffset = %d len = %d shmcheck() => %d", 
+      Error("got a corrupt svccall message, dataoffset = %lld len = %lld shmcheck() => %d", 
 	    cmsg->data, cmsg->datalen, l);
       return;
     };
@@ -454,7 +457,7 @@ static void do_svcreply(Call * cmsg, int len)
 
   if (cmsg->flags & MWNOREPLY) {
     DEBUG( "Noreply flags set, ignoring");
-    _mwfree(_mwoffset2adr(cmsg->data));
+    _mwfree(_mwoffset2adr(cmsg->data, _mw_getsegment_byid(cmsg->datasegmentid)));
     return;
   };
   
@@ -463,7 +466,7 @@ static void do_svcreply(Call * cmsg, int len)
     len = 0;
   } else {
     len = cmsg->datalen;
-    data = _mwoffset2adr(cmsg->data);
+    data = _mwoffset2adr(cmsg->data, _mw_getsegment_byid(cmsg->datasegmentid));
   };
   
   DEBUG( "sending reply on fd=%d", fd);
@@ -489,7 +492,7 @@ static void do_svcreply(Call * cmsg, int len)
      storePopCall() above, and we must free the map. */
   urlmapfree(srbmsg.map);
   
-  _mwfree(_mwoffset2adr(cmsg->data));
+  _mwfree(_mwoffset2adr(cmsg->data, _mw_getsegment_byid(cmsg->datasegmentid)));
   /* may be either a client or gateway, if clientid is myself,
      then gateway. */
   return;
@@ -1333,7 +1336,8 @@ void gw_closegateway(Connection * conn)
   if (conn != NULL) {
     DEBUG( "gw has a connection entry fd=%d", conn->fd);
     conn->gwid = UNASSIGNED;
-    ((struct gwpeerinfo *) conn->peerinfo)->conn = NULL;
+    if (conn->peerinfo)
+       ((struct gwpeerinfo *) conn->peerinfo)->conn = NULL;
     conn->peerinfo = NULL;
     conn_del(conn->fd);
   };    
@@ -1691,7 +1695,7 @@ int main(int argc, char ** argv)
   };
 
   rc = pthread_create(&tcp_thread, NULL, tcpservermainloop, &tcp_thread_rc);
-  DEBUG( "tcp_thread has id %d,", tcp_thread);
+  DEBUG( "tcp_thread has id %d,", (int) tcp_thread);
 
   Info("mwgwd startup complete");
 
@@ -1702,7 +1706,7 @@ int main(int argc, char ** argv)
 
   Info("Executing normal shutdown");
 
-  kill (globals.tcpserverpid, SIGQUIT);
+  pthread_kill(tcp_thread, SIGQUIT);
   pthread_join(tcp_thread, NULL);
   
   Info("Releasing gwtable slot %d", idx);

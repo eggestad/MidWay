@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2004/11/17 20:58:08  eggestad
+ * Large data buffers for IPC
+ *
  * Revision 1.9  2004/08/11 19:02:10  eggestad
  * - shm heap is now 32/64 bit interopperable
  *
@@ -191,16 +194,14 @@ int shmb_format(int mode, long chunksize, long chunkspersize)
   
   _mwHeapInfo = shmheap->start;
 
-  /* Magic number is "MW" thus thus 0x4D57 */
-  /*_mwHeapInfo->magic = (short) 'M';
-  
-    _mwHeapInfo->magic <<8;
-    _mwHeapInfo->magic += (short) 'W';*/
-  _mwHeapInfo->magic =  0x4D57;
+  _mwHeapInfo->magic =  MWSEGMAGIC;
   _mwHeapInfo->chunkspersize = chunkspersize;
   _mwHeapInfo->basechunksize = chunksize;
   _mwHeapInfo->segmentsize = segmentsize;
 
+  _mwHeapInfo->top = sizeof(struct segmenthdr);
+  _mwHeapInfo->bottom = segmentsize - sizeof(struct segmenthdr);
+ 
   /* initialize semaphores */
   _mwHeapInfo->semid = semget(IPC_PRIVATE, BINS, mode);
 
@@ -222,7 +223,7 @@ int shmb_format(int mode, long chunksize, long chunkspersize)
   _mwHeapInfo->inuseavgcount = 0;
   _mwHeapInfo->numbins = BINS;
 
-  /* all pointers in heap are offsets from start of shm segment */
+ /* all pointers in heap are offsets from start of shm segment */
   iChunkRoot =  sizeof(struct segmenthdr);
   for (i = 0; i < _mwHeapInfo->numbins-1; i++) {
     /* remember double number of chunk of size = base * 1. */

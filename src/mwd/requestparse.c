@@ -23,8 +23,11 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:26  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:49:01  eggestad
+ * Changes to handling of attachrequest to handle SRB clients
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:26  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
@@ -85,11 +88,12 @@ static int do_attach(void * mp)
   /* what the hell did we need the flag for?? */
 
   mwlog(MWLOG_DEBUG,
-	"Got an attach message from pid=%d, on qid=%d client=%s server=%s",
+	"Got an attach message from pid=%d, on qid=%d client=%s server=%s gatewayid=%d",
 	areq->pid, areq->ipcqid, 
 	areq->client?"TRUE":"FALSE", 
-	areq->server?"TRUE":"FALSE");
-
+	areq->server?"TRUE":"FALSE", 
+	areq->gwid != -1?areq->gwid & MWINDEXMASK:-1);
+  
   areq->mtype = ATTACHRPL;
   areq->srvid = UNASSIGNED;
   areq->cltid = UNASSIGNED;
@@ -103,6 +107,17 @@ static int do_attach(void * mp)
   if ( (ipcmain->status == MWSHUTDOWN) && (areq->server == TRUE) ) {
     areq->returncode = -ESHUTDOWN;
     return send_reply(areq, sizeof(Attach) -sizeof(long),areq->ipcqid);
+  };
+
+  /* check to see if it was a client handling gateway or an IPC agent */
+  if (areq->gwid != -1) {
+    if (areq->server) {
+      areq->returncode = -EUCLEAN;
+      return send_reply(areq, sizeof(Attach) -sizeof(long),areq->ipcqid);
+    };
+    type = MWNETCLIENT;
+  } else {
+    type = MWIPCCLIENT; 
   };
   areq->returncode = 0;
 
@@ -125,7 +140,6 @@ static int do_attach(void * mp)
   };
 
   if (areq->client) {
-    type = MWIPCCLIENT; 
     if (areq->srvid > 0) {
       type = MWIPCSERVER;
       id = (int) areq->srvid;
@@ -141,8 +155,12 @@ static int do_attach(void * mp)
 	    areq->pid, areq->ipcqid, areq->returncode);
     }
   };
-  mwlog(MWLOG_INFO, "CLIENT ATTACHED: pid %d  client id %#x, type %d",
-	areq->pid, areq->cltid, type);
+  if (type == MWIPCCLIENT) 
+    mwlog(MWLOG_INFO, "CLIENT ATTACHED: pid %d clientid %d",
+	  areq->pid, areq->cltid & MWINDEXMASK);
+  else
+    mwlog(MWLOG_INFO, "CLIENT ATTACHED: on gateway %d clientid %d",
+	  areq->gwid & MWINDEXMASK, areq->cltid & MWINDEXMASK);
     
   return send_reply(areq, sizeof(Attach) -sizeof(long),areq->ipcqid);
 
@@ -327,7 +345,7 @@ static int do_admin(void * mp)
  * typical SIGALRM for a local timer, or SIGCHLD if one of the child
  * gateway or client handlers died. 
  */
-int parse_request()
+int parse_request(void)
 {
   
   int rc, i;

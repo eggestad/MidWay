@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/09/21 18:54:05  eggestad
+ * Bug fixes around the URL, and added debug3 and 4 on -l option
+ *
  * Revision 1.2  2000/07/20 19:47:39  eggestad
  * - A semaphore for mwgwd is added. (mwgwd changes IPC tables directly,
  *   but they may be more than one.
@@ -83,7 +86,7 @@ void usage(void)
 {
   fprintf (stderr,"\nmwd [options...] [instancename]\n\n");
   fprintf (stderr,"  where options is one of the following:\n");
-  fprintf (stderr,"    -l loglevel : (error|warning|info|debug|debug1|debug2)\n");  
+  fprintf (stderr,"    -l loglevel : (error|warning|info|debug|debug1|debug2|debug3|debug4)\n");  
   fprintf (stderr,"    -A uri : uri is the address of the MidWay instance e.g. ipc://12345\n");  
   fprintf (stderr,"    -D : Start mwd as a daemon.\n");  
   fprintf (stderr,"    -H MidWayHome : Defaults to ~/MidWay.\n");  
@@ -507,9 +510,15 @@ main(int argc, char ** argv)
   int rc, loglevel, daemon = 0, n;
   char * nextdir, * thisdir, *tmphome, wd[256]; 
   char * name;
+  extern mwaddress_t * _mwaddress;
 
   /* obtaining info about who I am, must be fixed for suid, check masterd*/
   mepw = getpwuid(getuid());
+
+  mwlog(MWLOG_INFO, "MidWay daemon starting with userid %s (uid=%d) proccessid=%d", 
+	mepw->pw_name, getuid(), getpid());
+  mwlog(MWLOG_INFO, "Version $Name$");
+  mwlog(MWLOG_INFO, "Version %s", mwversion());
 
   /* doing options */
   while((c = getopt(argc,argv, "A:DH:l:c:C:s:S:b:B:g:")) != EOF ){
@@ -521,6 +530,8 @@ main(int argc, char ** argv)
       else if (strcmp(optarg, "debug")   == 0) loglevel=MWLOG_DEBUG;
       else if (strcmp(optarg, "debug1")  == 0) loglevel=MWLOG_DEBUG1;
       else if (strcmp(optarg, "debug2")  == 0) loglevel=MWLOG_DEBUG2;
+      else if (strcmp(optarg, "debug3")  == 0) loglevel=MWLOG_DEBUG3;
+      else if (strcmp(optarg, "debug4")  == 0) loglevel=MWLOG_DEBUG4;
       else usage();
       break;
     case 'A':
@@ -571,12 +582,15 @@ main(int argc, char ** argv)
   _mw_copy_on_stdout(TRUE);
   mwsetloglevel(MWLOG_DEBUG);
 
-  _mwdecode_url(uri);
-  if (_mwaddress.protocol != MWSYSVIPC) {
-    mwlog(MWLOG_ERROR, "url prefix must be ipc for mwd, url=%s", uri);
+  mwlog(MWLOG_INFO, "MidWay instance URI is %s", uri); 
+  errno = 0;
+  _mwaddress = _mwdecode_url(uri);
+  
+  if ( (_mwaddress != NULL) && (_mwaddress->protocol != MWSYSVIPC) ) {
+    mwlog(MWLOG_ERROR, "url prefix must be ipc for mwd, url=%s errno=%d", uri, errno);
     exit(-1);
   };
-  masteripckey = _mwaddress.sysvipckey;
+  masteripckey = _mwaddress->sysvipckey;
 
   /* Figure out the instance home. If not given by -D or thru env var MWHOME,
      Default to ~/MidWay/instancename */
@@ -584,6 +598,7 @@ main(int argc, char ** argv)
     mwhome = getenv("MWHOME");
   };
   if (mwhome == NULL) {
+    if (instancename == NULL) instancename = "";
     mwhome = malloc(strlen(mepw->pw_dir)+10+strlen(instancename));
     sprintf(mwhome,"%s/%s/%s", mepw->pw_dir, "MidWay", instancename);
   };
@@ -650,10 +665,6 @@ main(int argc, char ** argv)
   else name++;
   mwopenlog(name, wd, loglevel);
 
-  mwlog(MWLOG_INFO, "MidWay daemon starting with userid %s (uid=%d) proccessid=%d", 
-	mepw->pw_name, getuid(), getpid());
-  mwlog(MWLOG_INFO, "Version $Name$");
-  mwlog(MWLOG_INFO, "Version %s", mwversion());
   mwlog(MWLOG_INFO, "MidWay instance name is %s", instancename); 
   
 

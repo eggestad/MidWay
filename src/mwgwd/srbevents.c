@@ -20,6 +20,10 @@
 
 /*
  * $Log$
+ * Revision 1.3  2004/11/17 20:55:47  eggestad
+ * - large data buffer
+ * - protocol fix up in event messages
+ *
  * Revision 1.2  2004/04/12 23:05:25  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -239,12 +243,13 @@ static inline int checkmatch(char * name, struct srbsubscription * p)
       DEBUG2("string");
       rc = strcmp(p->pattern, name);
    };
+   DEBUG2("rc=%d", rc);
    return rc;
 };
    
 void do_srb_event_dispatch(Event * ev)
 {
-   SRBmessage srbmsg;
+   SRBmessage srbmsg = { 0 };
    struct srbsubscription * p;
    int rc;
 
@@ -253,12 +258,16 @@ void do_srb_event_dispatch(Event * ev)
    strncpy(srbmsg.command, SRB_EVENT, MWMAXSVCNAME);
    srbmsg.marker = SRB_NOTIFICATIONMARKER;    
    
-   _mw_srb_setfield(&srbmsg, SRB_EVENT, ev->event);
+   _mw_srb_setfield(&srbmsg, SRB_NAME, ev->event);
    
    if (ev->datalen > 0) {
-      _mw_srb_nsetfield(&srbmsg, SRB_DATA, _mwoffset2adr(ev->data), ev->datalen);
+      _mw_srb_nsetfield(&srbmsg, SRB_DATA, 
+			_mwoffset2adr(ev->data, _mw_getsegment_byid(ev->datasegmentid)), 
+			ev->datalen);
    };
    
+   // first we send events to subscribers. That's clients, and "in the
+   // future" remote domains.
    LOCKMUTEX(srbevent_mutex);
    dump_subscription_table();
    
@@ -266,6 +275,7 @@ void do_srb_event_dispatch(Event * ev)
    while(p) {
       DEBUG("checking match in %s",  p->pattern);
       rc = checkmatch(ev->event, p);
+      DEBUG("match = %d", rc);
       if (rc == 0) {
 	 _mw_srb_setfieldi(&srbmsg, SRB_SUBSCRIPTIONID, ev->subscriptionid);
 	 rc = _mw_srbsendmessage(p->conn, &srbmsg);
@@ -275,6 +285,10 @@ void do_srb_event_dispatch(Event * ev)
    };
 
    UNLOCKMUTEX(srbevent_mutex);
+
+
+   // now to the peers in our domain, provided that the event was
+   // generated in this instance.
    if  ( !(ev->flags & MWEVENTPEERGENERATED)) {
 
       // the peers need two more fields, but no subscription id

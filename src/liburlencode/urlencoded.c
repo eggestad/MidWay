@@ -221,6 +221,7 @@ int urllegal(char * str)
     if (str[i] == ')') continue;
     if (str[i] == '-') continue;
     if (str[i] == '_') continue;
+    if (str[i] == '.') continue;
     return 0;
   };
 

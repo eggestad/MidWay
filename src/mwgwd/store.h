@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.3  2002/10/17 22:18:27  eggestad
+ * fix to handle calls from a gateway, not just clients
+ *
  * Revision 1.2  2002/07/07 22:45:48  eggestad
  * *** empty log message ***
  *
@@ -31,10 +34,10 @@
  */
 
 
-void storePushCall(CLIENTID, int handle, int fd, urlmap *);
-int  storePopCall(CLIENTID, int handle, int * fd,  urlmap **);
-int  storeGetCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map);
-int  storeSetIPCHandle(CLIENTID cid, int nethandle, int fd, int ipchandle);
+void storePushCall(MWID mwid, int handle, int fd, urlmap *);
+int  storePopCall(MWID mwid, int handle, int * fd,  urlmap **);
+int  storeGetCall(MWID mwid, int ipchandle, int * fd,  urlmap **map);
+int  storeSetIPCHandle(MWID mwid, int nethandle, int fd, int ipchandle);
 void storeLockCall(void);
 void storeUnLockCall(void);
 

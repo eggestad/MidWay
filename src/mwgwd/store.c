@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.6  2002/10/17 22:18:28  eggestad
+ * fix to handle calls from a gateway, not just clients
+ *
  * Revision 1.5  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -69,7 +72,7 @@ struct PendingCall  {
   int fd;
   unsigned int nethandle;
   unsigned int ipchandle;
-  CLIENTID cltid;
+  MWID mwid; 
   urlmap * mappedmsg;
   struct PendingCall * next;
 };
@@ -96,23 +99,23 @@ static struct PendingCall * freePendingCall(void)
 static void clearPendingCall(struct PendingCall * PCtmp)
 {
   PCtmp->fd = -1;
-  PCtmp->cltid = -1;
+  PCtmp->mwid = -1;
   PCtmp->mappedmsg = NULL;
   PCtmp->next = NULL;
   return;
 };
 
 
-void storePushCall(CLIENTID cid, int nethandle, int fd, urlmap *map)
+void storePushCall(MWID mwid, int nethandle, int fd, urlmap *map)
 {
   struct PendingCall * PCtmp;
 
-  DEBUG2("Pushing PendingCall id=%d, handle=%u fd=%d, map @ %#x", 
-	cid&MWINDEXMASK, nethandle, fd, map);
+  DEBUG2("Pushing PendingCall id=%#x, handle=%u fd=%d, map @ %#x", 
+	mwid, nethandle, fd, map);
   PCtmp = freePendingCall();
   PCtmp->fd = fd;
   PCtmp->nethandle = nethandle;
-  PCtmp->cltid = cid;
+  PCtmp->mwid = mwid;
   PCtmp->mappedmsg = map;
   PCtmp->next = CallsInProgress;
   CallsInProgress = PCtmp;
@@ -125,7 +128,7 @@ void storePushCall(CLIENTID cid, int nethandle, int fd, urlmap *map)
    free'ed.  Get is used in teh case the service reply has RC =
    MWMORE, while Pop is used if RC = {MWSUCESS|MWFAIL}
 */
-int storeGetCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map)
+int storeGetCall(MWID mwid, int ipchandle, int * fd,  urlmap **map)
 {
   struct PendingCall * PCthis = NULL;
 
@@ -134,25 +137,25 @@ int storeGetCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map)
       *fd = -1;
     if (map != NULL)
       *map = NULL;
-    DEBUG2("Failed to Get PendingCall id=%d, ipchandle=%u empty list", 
-	  cid&MWINDEXMASK, ipchandle);
+    DEBUG2("Failed to Get PendingCall id=%x, ipchandle=%u empty list", 
+	  mwid, ipchandle);
     return 0;
   }
 
   PCthis = CallsInProgress;
   while(PCthis != NULL) {
-    if ( (PCthis->ipchandle == ipchandle) && (PCthis->cltid == cid) ) {
+    if ( (PCthis->ipchandle == ipchandle) && (PCthis->mwid == mwid) ) {
       if (fd != NULL)*fd = PCthis->fd;
       if (map != NULL)*map = PCthis->mappedmsg;
 
-      DEBUG2("Getting PendingCall id=%d, ipchandle=%u", 
-	    cid&MWINDEXMASK, ipchandle);
+      DEBUG2("Getting PendingCall id=%x, ipchandle=%u", 
+	    mwid, ipchandle);
       return 1;
     }
     PCthis = PCthis->next;
   };
-  DEBUG2("Failed to Get PendingCall id=%d, ipchandle=%u", 
-	cid&MWINDEXMASK, ipchandle);
+  DEBUG2("Failed to Get PendingCall id=%x, ipchandle=%u", 
+	mwid, ipchandle);
   if (fd != NULL)
     *fd = -1;
   if (map != NULL)
@@ -161,7 +164,7 @@ int storeGetCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map)
 };
 
 
-int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map)
+int storePopCall(MWID mwid, int ipchandle, int * fd,  urlmap **map)
 {
   struct PendingCall * PCthis = NULL, * PCprev = NULL;
 
@@ -170,15 +173,15 @@ int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map)
       *fd = -1;
     if (map != NULL)
       *map = NULL;
-    DEBUG2("Failed to Pop PendingCall id=%d, ipchandle=%u empty list", 
-	  cid&MWINDEXMASK, ipchandle);
+    DEBUG2("Failed to Pop PendingCall id=%x, ipchandle=%u empty list", 
+	  mwid, ipchandle);
     return 0;
   }
     
   PCthis = CallsInProgress;
   
   /* if top in list, should be the majority of the cases */
-  if ( (PCthis->ipchandle == ipchandle) && (PCthis->cltid == cid) ) {
+  if ( (PCthis->ipchandle == ipchandle) && (PCthis->mwid == mwid) ) {
     if (fd != NULL)*fd = PCthis->fd;
     if (map != NULL)*map = PCthis->mappedmsg;
     CallsInProgress = PCthis->next;
@@ -188,15 +191,15 @@ int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map)
     PCthis->next = CallsFreeList;
     CallsFreeList = PCthis;
 
-    DEBUG2("Poping PendingCall id=%d, ipchandle=%u (top)", 
-	  cid&MWINDEXMASK, ipchandle);  
+    DEBUG2("Poping PendingCall id=%x, ipchandle=%u (top)", 
+	  mwid, ipchandle);  
     return 1;
   };
   
   PCprev = PCthis;
   PCthis = PCthis->next;
   while(PCthis != NULL) {
-    if ( (PCthis->ipchandle == ipchandle) && (PCthis->cltid == cid) ) {
+    if ( (PCthis->ipchandle == ipchandle) && (PCthis->mwid == mwid) ) {
       if (fd != NULL)*fd = PCthis->fd;
       if (map != NULL)*map = PCthis->mappedmsg;
       PCprev->next = PCthis->next;
@@ -205,15 +208,15 @@ int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map)
       PCthis->next = CallsFreeList;
       CallsFreeList = PCthis;
 
-      DEBUG2("Poping PendingCall id=%d, ipchandle=%u", 
-	    cid&MWINDEXMASK, ipchandle);
+      DEBUG2("Poping PendingCall id=%x, ipchandle=%u", 
+	    mwid, ipchandle);
       return 1;
     }
     PCprev = PCthis;
     PCthis = PCthis->next;
   };
-  DEBUG2("Failed to Pop PendingCall id=%d, ipchandle=%u", 
-	cid&MWINDEXMASK, ipchandle);
+  DEBUG2("Failed to Pop PendingCall id=%x, ipchandle=%u", 
+	mwid, ipchandle);
   if (fd != NULL)
     *fd = -1;
   if (map != NULL)
@@ -221,7 +224,7 @@ int storePopCall(CLIENTID cid, int ipchandle, int * fd,  urlmap **map)
   return 0;
 };
 
-int storeSetIPCHandle(CLIENTID cid, int nethandle, int fd, int ipchandle)
+int storeSetIPCHandle(MWID mwid, int nethandle, int fd, int ipchandle)
 {
   struct PendingCall * PCthis = NULL;
 
@@ -229,18 +232,18 @@ int storeSetIPCHandle(CLIENTID cid, int nethandle, int fd, int ipchandle)
   
   PCthis = CallsInProgress;
   while (PCthis != NULL) {
-    if ( (PCthis->cltid == cid) &&
+    if ( (PCthis->mwid == mwid) &&
 	 (PCthis->nethandle == nethandle) &&
 	 (PCthis->fd == fd) ) {
       PCthis->ipchandle = ipchandle;
       DEBUG2("Set ipc handle %#x pending call client=%d handle=%#x",
-	    ipchandle, cid, nethandle);
+	    ipchandle, mwid, nethandle);
       return 0;
     };
     PCthis = PCthis->next;
   };
   DEBUG2("Set ipc handle %#x pending call client=%d handle=%#x FAILED",
-	ipchandle, cid, nethandle);
+	ipchandle, mwid, nethandle);
   return -1;
 };
 
@@ -580,7 +583,7 @@ int  storePopAttach(char * cname, int *connid, int * fd, urlmap ** map)
 
 int main(int argc, char ** argv)
 {
-  int fd, rc, cid, handle;
+  int fd, rc, mwid, handle;
   char *cname, *m;
   int connid;
 
@@ -600,64 +603,64 @@ int main(int argc, char ** argv)
   /* TESTING CALL STACK */
   printf("\nCall stack tests\n");
 
-  handle = 888; cid = 666; fd = 78; m = m1;
+  handle = 888; mwid = 666; fd = 78; m = m1;
   map1 = urlmapdecode(m);
-  printf("push call cid=%d, handle=%d fd=%d msg=%s\n", cid, handle, fd, m);
-  storePushCall(cid, handle, fd, map1);
+  printf("push call mwid=%d, handle=%d fd=%d msg=%s\n", mwid, handle, fd, m);
+  storePushCall(mwid, handle, fd, map1);
 
-  handle = 884; cid = 664; fd = 76; m = m2;
+  handle = 884; mwid = 664; fd = 76; m = m2;
   map1 = urlmapdecode(m);
-  printf("push call cid=%d, handle=%d fd=%d msg=%s\n", cid, handle, fd, m);
-  storePushCall(cid, handle, fd, map1);
+  printf("push call mwid=%d, handle=%d fd=%d msg=%s\n", mwid, handle, fd, m);
+  storePushCall(mwid, handle, fd, map1);
 
-  handle = 887; cid = 667; fd = 74; m = m3;
+  handle = 887; mwid = 667; fd = 74; m = m3;
   map1 = urlmapdecode(m);
-  printf("push call cid=%d, handle=%d fd=%d msg=%s\n", cid, handle, fd, m);
-  storePushCall(cid, handle, fd, map1);
+  printf("push call mwid=%d, handle=%d fd=%d msg=%s\n", mwid, handle, fd, m);
+  storePushCall(mwid, handle, fd, map1);
 
 
 
 
   handle = 888;
-  cid = 666;
-  rc = storePopCall(cid,handle,&fd,&map);
-  printf("pop of cid=%d handle=%d rc=%d fd=%d message=%s\n", cid, handle, rc, 
+  mwid = 666;
+  rc = storePopCall(mwid,handle,&fd,&map);
+  printf("pop of mwid=%d handle=%d rc=%d fd=%d message=%s\n", mwid, handle, rc, 
 	 fd, urlmapencode(map)); 
 
   handle = 888;
-  cid = 666;
-  rc = storePopCall(cid,handle,&fd,&map);
-  printf("pop of cid=%d handle=%d rc=%d fd=%d message=%s\n", cid, handle, rc, 
+  mwid = 666;
+  rc = storePopCall(mwid,handle,&fd,&map);
+  printf("pop of mwid=%d handle=%d rc=%d fd=%d message=%s\n", mwid, handle, rc, 
 	 fd, urlmapencode(map)); 
 
   handle = 884;
-  cid = 664;
-  rc = storePopCall(cid,handle,&fd,&map);
-  printf("pop of cid=%d handle=%d rc=%d fd=%d message=%s\n", cid, handle, rc, 
+  mwid = 664;
+  rc = storePopCall(mwid,handle,&fd,&map);
+  printf("pop of mwid=%d handle=%d rc=%d fd=%d message=%s\n", mwid, handle, rc, 
 	 fd, urlmapencode(map)); 
 
   handle = 887;
-  cid = 667;
-  rc = storePopCall(cid,handle,&fd,&map);
-  printf("pop of cid=%d handle=%d rc=%d fd=%d message=%s\n", cid, handle, rc, 
+  mwid = 667;
+  rc = storePopCall(mwid,handle,&fd,&map);
+  printf("pop of mwid=%d handle=%d rc=%d fd=%d message=%s\n", mwid, handle, rc, 
 	 fd, urlmapencode(map)); 
 
   handle = 883;
-  cid = 1;
-  rc = storePopCall(cid,handle,&fd,&map);
-  printf("pop of cid=%d handle=%d rc=%d fd=%d message=%s\n", cid, handle, rc, 
+  mwid = 1;
+  rc = storePopCall(mwid,handle,&fd,&map);
+  printf("pop of mwid=%d handle=%d rc=%d fd=%d message=%s\n", mwid, handle, rc, 
 	 fd, urlmapencode(map)); 
 
   handle = 883;
-  cid = 663;
-  rc = storePopCall(cid,handle,&fd,&map);
-  printf("pop of cid=%d handle=%d rc=%d fd=%d message=%s\n", cid, handle, rc, 
+  mwid = 663;
+  rc = storePopCall(mwid,handle,&fd,&map);
+  printf("pop of mwid=%d handle=%d rc=%d fd=%d message=%s\n", mwid, handle, rc, 
 	 fd, urlmapencode(map)); 
 
   handle = 1;
-  cid = 1;
-  rc = storePopCall(cid,handle,&fd,&map);
-  printf("pop of cid=%d handle=%d rc=%d fd=%d message=%s\n", cid, handle, rc, 
+  mwid = 1;
+  rc = storePopCall(mwid,handle,&fd,&map);
+  printf("pop of mwid=%d handle=%d rc=%d fd=%d message=%s\n", mwid, handle, rc, 
 	 fd, urlmapencode(map)); 
 
 

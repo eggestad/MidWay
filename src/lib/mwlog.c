@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2002/08/07 23:54:06  eggestad
+ * fixup for DEBUGs so we're C99 compliant
+ *
  * Revision 1.5  2002/07/07 22:35:20  eggestad
  * *** empty log message ***
  *
@@ -72,8 +75,7 @@ static char * logprefix = NULL;
 static char * progname = NULL;
 static FILE * copy_on_FILE = NULL;
 
-
-pthread_mutex_t logmutex = PTHREAD_MUTEX_INITIALIZER;
+DECLAREMUTEX(logmutex);
 
 /* this is meant to be undocumented. Needed my mwd to print on stdout before 
    becoming a daemon.*/
@@ -142,18 +144,17 @@ switchlog (void)
   mwlog(MWLOG_INFO, "Switched to New Log %s", filename);
   return;
 }
+
   
 void 
-mwlog(int level, char * format, ...)
+_mw_vlogf(int level, char * format, va_list ap)
 {
-  va_list ap;
-
+  
   if (level > loglevel) return;
   switchlog();
 
-  va_start(ap, format);
-
-  pthread_mutex_lock(&logmutex);
+  
+  LOCKMUTEX(logmutex);
 
   /* print to log file if open */
   if (log != NULL) {
@@ -175,6 +176,24 @@ mwlog(int level, char * format, ...)
     fflush(copy_on_FILE);
   };
 
+  UNLOCKMUTEX(logmutex);
+
+  return ;
+};
+
+  
+void 
+mwlog(int level, char * format, ...)
+{
+  va_list ap;
+
+  if (level > loglevel) return;
+  switchlog();
+
+  va_start(ap, format);
+  
+  _mw_vlogf(level, format, ap);
+  
   va_end(ap);
 
   pthread_mutex_unlock(&logmutex);

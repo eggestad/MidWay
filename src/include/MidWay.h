@@ -29,6 +29,29 @@
 
 #include "../../config.h"
 
+
+/* The max number of each ID are limitet to 24 bits, we use the top 
+ * 8 bit to disdingish among them, the lower 24 bits are the index into 
+ * their respective tables. */
+#define MWSERVERMASK     0x01000000
+#define MWCLIENTMASK     0x02000000
+#define MWGATEWAYMASK    0x04000000
+#define MWSERVICEMASK    0x08000000
+#define MWINDEXMASK      0x00FFFFFF
+
+typedef int MWID;
+
+#define MWID2CLTID(id)  ((id & MWCLIENTMASK) ?(id&MWINDEXMASK):UNASSIGNED)
+#define MWID2SRVID(id)  ((id & MWSERVERMASK) ?(id&MWINDEXMASK):UNASSIGNED)
+#define MWID2SVCID(id)  ((id & MWSERVICEMASK)?(id&MWINDEXMASK):UNASSIGNED)
+#define MWID2GWID(id)   ((id & MWGATEWAYMASK)?(id&MWINDEXMASK):UNASSIGNED)
+
+#define CLTID2MWID(id)  (id | MWCLIENTMASK)  
+#define SRVID2MWID(id)  (id | MWSERVERMASK)  
+#define SVCID2MWID(id)  (id | MWSERVICEMASK) 
+#define GWID2MWID(id)   (id | MWGATEWAYMASK)
+
+
 /* gcc hack in order to avoid unused warnings (-Wunused) on cvstags */
 #ifdef __GNUC__
 #define UNUSED __attribute__ ((unused))
@@ -39,6 +62,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 /* here we wrap malloc, realloc and catch out of memory error, and
    just plain abort if taht happen */
@@ -104,16 +128,44 @@ static inline void debug_free(char * file, int line, void *ptr)
 
 #endif
 
+
+#include <stdarg.h>
+
+void _mw_vlogf(int level, char * format, va_list ap); // in mwlog.c
+
 /* here we introduce some short forms for the mwlog() calls. These are
    here and not the main MidWay.h so that we don't clobber the
    namespace to user applications */
 #ifndef NDEBUG
+
+static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, ...)
+{
+  va_list ap;
+  char buffer[4096];
+
+  va_start(ap, m);
+  if(strlen(m) > 4000) return 0;
+
+  sprintf(buffer, "%s(%d): %s", func, line, m);
+  _mw_vlogf(MWLOG_DEBUG + N, buffer, ap);
+  
+  va_end(ap);
+  return 0;
+};
+
+#define DEBUG(m...)  _DEBUGN(0, __FUNCTION__, __FILE__, __LINE__, m)
+#define DEBUG1(m...) _DEBUGN(1, __FUNCTION__ , __FILE__, __LINE__, m)
+#define DEBUG2(m...) _DEBUGN(2, __FUNCTION__ , __FILE__, __LINE__, m)
+#define DEBUG3(m...) _DEBUGN(3, __FUNCTION__ , __FILE__, __LINE__, m)
+#define DEBUG4(m...) _DEBUGN(4, __FUNCTION__ , __FILE__, __LINE__, m)
+
+/*
 #define DEBUG(m...)  mwlog(MWLOG_DEBUG,  __FUNCTION__ "(): " m)
 #define DEBUG1(m...) mwlog(MWLOG_DEBUG1, __FUNCTION__ "(): " m)
 #define DEBUG2(m...) mwlog(MWLOG_DEBUG2, __FUNCTION__ "(): " m)
 #define DEBUG3(m...) mwlog(MWLOG_DEBUG3, __FUNCTION__ "(): " m)
 #define DEBUG4(m...) mwlog(MWLOG_DEBUG4, __FUNCTION__ "(): " m)
-
+*/
 #else 
 #define DEBUG(m...)
 #define DEBUG1(m...)
@@ -127,6 +179,16 @@ static inline void debug_free(char * file, int line, void *ptr)
 #define Error(m...)   mwlog(MWLOG_ERROR, m)
 #define Fatal(m...)   do { mwlog(MWLOG_FATAL, m); abort(); } while (0)
 
+
+/* Mutex  funtions */
+
+#define USETHREADS
+#ifdef USETHREADS
+
+#define DECLAREMUTEX(name) static pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
+#define LOCKMUTEX(name)  pthread_mutex_lock(&name)
+#define UNLOCKMUTEX(name)  pthread_mutex_unlock(&name)
+#endif
 
 #ifdef TIMEPEGS
 

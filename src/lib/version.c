@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/02/17 14:24:22  eggestad
+ * added missing include
+ *
  * Revision 1.3  2001/10/03 22:46:09  eggestad
  * mem corruption fixes
  *
@@ -39,6 +42,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 /* MAGIC are used to tag the ipcmain shm segment. */
 #define MAGIC "MW10"

@@ -28,6 +28,9 @@
 
 /*
  * $Log$
+ * Revision 1.3  2002/02/17 14:20:45  eggestad
+ * added missing include
+ *
  * Revision 1.2  2000/07/20 19:30:56  eggestad
  * CVS keywords missing
  *
@@ -39,6 +42,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdio.h>
 #include <errno.h>
 
 int _mw_procowner(pid_t pid, uid_t * uid) 

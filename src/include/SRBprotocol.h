@@ -21,11 +21,18 @@
 #ifndef _SRBPROTOCOL_H
 #define _SRBPROTOCOL_H
 
+#include <stdio.h>
 #include <urlencode.h>
 
 #define SRBPROTOCOLVERSION 	"0.9"
 
 #define SRBMESSAGEMAXLEN 	3500
+
+#ifdef DEBUG
+#define SRB_BROKER_PORT         1102
+#else 
+#define SRB_BROKER_PORT         102
+#endif
 
 #define SRB_DEFAULT_PORT 	11000
 
@@ -145,6 +152,7 @@
 #define SRB_PROTO_NOTREQUEST		413
 #define SRB_PROTO_NO_SUCH_SERVICE	430
 #define SRB_PROTO_SERVICE_FAILED	431
+#define SRB_PROTO_NOGATEWAY_AVAILABLE	440
 #define SRB_PROTO_GATEWAY_ERROR		500
 #define SRB_PROTO_DISCONNECTED		501
 #define SRB_PROTO_NOCLIENTS		520
@@ -167,6 +175,7 @@ typedef struct {
 
 SRBmessage * _mw_srbdecodemessage(char * message);
 int _mw_srbsendmessage(int fd, SRBmessage * srbmsg);
+int _mw_srbencodemessage(SRBmessage * srbmsg, char * buffer, int buflen);
 
 
 int _mw_srbsendreject(int fd, SRBmessage * srbmsg, 
@@ -180,6 +189,14 @@ int _mw_srbsendinit(int fd, char * user, char * password,
 
 int _mw_get_returncode(urlmap * map);
 int _mw_srb_checksrbcall(int fd, SRBmessage * srbmsg) ;
+
+int _mw_srb_traceonfile(FILE * fp);
+int _mw_srb_traceon(char * path);
+int _mw_srb_traceoff(void );
+
+
+#define SRB_TRACE_IN 1
+#define SRB_TRACE_OUT 0
 
 void _mw_srb_trace(int dir_in, int fd, char * message, int messagelen);
 

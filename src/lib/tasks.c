@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.4  2004/05/31 19:47:09  eggestad
+ * tasks interrupted mainloop
+ *
  * Revision 1.3  2004/04/12 23:05:24  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -38,6 +41,7 @@
 
 #include <MidWay.h>
 #include <utils.h>
+#include <tasks.h>
 
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$";
@@ -143,6 +147,7 @@ static void schedule(void)
 };
 
 static void (*chain)(int sig) = NULL;
+
 static void _sighandler(int sig)
 {
   if (sig !=  SIGALRM) return;
@@ -172,6 +177,12 @@ static inline void alarmunblock(void)
 
   DEBUG1("unblocking ARLM");
   sigprocmask(SIG_UNBLOCK, &sa_mask, NULL);
+};
+
+int _mw_tasksignalled(void)
+{
+   DEBUG1("alarm flags is %s", alarm?"set":"clear");
+   return alarm;
 };
 
 static inline int inittasks(void)

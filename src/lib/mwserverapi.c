@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.19  2004/05/31 19:47:09  eggestad
+ * tasks interrupted mainloop
+ *
  * Revision 1.18  2004/04/12 23:05:24  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -106,6 +109,7 @@
 #include <mwclientapi.h>
 #include <mwclientipcapi.h>
 #include <mwserverapi.h>
+#include <tasks.h>
 
 static char * RCSId UNUSED = "$Id$";
 
@@ -678,7 +682,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
 
   memset(svcreqinfo->username, 0, MWMAXSVCNAME);
   memset(svcreqinfo->clientname, 0, MWMAXSVCNAME);
-  svcreqinfo->autentication = UNASSIGNED;
+  svcreqinfo->authentication = UNASSIGNED;
   
   /* get autentication info from client table */
   if (callmesg->cltid != UNASSIGNED) {
@@ -686,7 +690,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
      if (cltent) {
 	strncpy(svcreqinfo->username, cltent->username, MWMAXSVCNAME);
 	strncpy(svcreqinfo->clientname, cltent->clientname, MWMAXSVCNAME);
-	svcreqinfo->autentication = cltent->authtype;
+	svcreqinfo->authentication = cltent->authtype;
      };
   };
 
@@ -782,7 +786,16 @@ int mwMainLoop(int flags)
     counter++;
     DEBUG1("std MailLoop begining for the %d time.", counter);
     rc = mwservicerequest(flags & ! MWNOBLOCK);
-    if ( (rc == -EINTR) && (flags & MWSIGRST)) continue;
+    if (rc == -EINTR) {
+       DEBUG1("interrupted due to interrupt");
+       if (_mw_tasksignalled()) {
+	  DEBUG1("doing tasks");
+	  mwdotasks();
+	  continue;
+       };
+       if (flags & MWSIGRST) continue;
+    };
+
     if (rc < 0) return rc;
   };
 };

@@ -20,6 +20,10 @@
 
 /*
  * $Log$
+ * Revision 1.11  2002/10/17 22:16:54  eggestad
+ * - fix for gateways
+ * - downgraded some debug to debug2
+ *
  * Revision 1.10  2002/10/09 12:30:30  eggestad
  * Replaced all unions for sockaddr_* with a new type SockAddress
  *
@@ -232,10 +236,10 @@ void conn_setinfo(int fd, int * id, int * role, int * rejects, int * reverse)
 int conn_getinfo(int fd, int * id, int * role, int * rejects, int * reverse)
 {
   if (id != NULL) {
-    if (connections[fd].cid != UNASSIGNED) 
-      *id = connections[fd].cid | MWCLIENTMASK;
-    else if (connections[fd].gwid != UNASSIGNED) 
-      *id = connections[fd].gwid | MWGATEWAYMASK;
+    if (CLTID(connections[fd].cid) != UNASSIGNED) 
+      *id = connections[fd].cid;
+    else if (GWID(connections[fd].gwid) != UNASSIGNED) 
+      *id = connections[fd].gwid;
     else {
       *id = UNASSIGNED;
     };
@@ -617,7 +621,7 @@ int conn_select(int * cause, time_t deadline)
     copy_fd_set(&rfds, &sockettable, maxsocket); 
     copy_fd_set(&errfds, &sockettable, maxsocket);
   
-    DEBUG("about to select() timeout = %d", 
+    DEBUG2("about to select() timeout = %d", 
 	  deadline==-1?deadline:tv.tv_sec);    
 
 #ifdef DEBUG
@@ -645,24 +649,24 @@ int conn_select(int * cause, time_t deadline)
      to last-1 */
   for (i=0; i<maxsocket+1; i++) {
     fd = (lastret + i) % (maxsocket+1);
-    DEBUG("checking fd %d", fd);
+    DEBUG2("checking fd %d", fd);
 
     *cause = 0;
 
     if (FD_ISSET(fd, &errfds)) {
-      DEBUG("fd %d has an error condition", fd);
+      DEBUG2("fd %d has an error condition", fd);
       if (cause) *cause |= COND_ERROR;
       FD_CLR(fd, &errfds);
     };
 
     if (FD_ISSET(fd, &wfds)) {
-      DEBUG("fd %d has a write condition", fd);
+      DEBUG2("fd %d has a write condition", fd);
       if (cause) *cause |= COND_WRITE;
       FD_CLR(fd, &wfds);
     };
 
     if (FD_ISSET(fd, &rfds)) {
-      DEBUG("fd %d has a read condition", fd);
+      DEBUG2("fd %d has a read condition", fd);
       if (cause) *cause |= COND_READ;
       FD_CLR(fd, &rfds);
     };

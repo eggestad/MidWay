@@ -21,6 +21,10 @@
 
 /*
  * $Log$
+ * Revision 1.14  2004/08/10 19:38:10  eggestad
+ * - ipcmessages is now 32/64 bit interchangeable
+ * - added messages for large buffer alloc
+ *
  * Revision 1.13  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -57,6 +61,7 @@
 #define IPCMESSAGES_H
 
 #include <unistd.h>
+#include <stdint.h>
 #include <sys/types.h>
 
 #include <MidWay.h>
@@ -158,12 +163,13 @@ struct call
   char service[MWMAXSVCNAME];
   char origservice[MWMAXSVCNAME];
   
-  time_t issued;
+  int64_t issued;
   int uissued;
   int timeout; /* millisec */
 
-  int data;
-  int datalen;
+  int datasegmentid;
+  int64_t data;
+  int64_t datalen;
   int appreturncode;
 
   int flags;
@@ -197,8 +203,8 @@ struct conversation
 
   char service[MWMAXSVCNAME];
 
-  int data;
-  int datalen;
+  int64_t data;
+  int64_t datalen;
 
   int flags;
 
@@ -226,6 +232,22 @@ typedef struct {
   CLIENTID cltid;
   int delay;
 } Administrative;
+
+/* Large buffer allocs. Used to get mwd to create a buffer file in the
+   buffer directory (see ipcmain), which is later mmap'ed  */
+
+#define ALLOCREQ 0x1200
+#define ALLOCRPL 0x1210
+#define FREEREQ  0x1220
+#define FREERPL  0x1230 // unused as of now, mwd shall not reply to a free request. 
+
+typedef struct {
+   long mtype; 
+   MWID mwid;
+   int64_t size;
+   int64_t pages;
+   int bufferid;
+} Alloc;
 
 
 /* the event  message. used to both subscribe  and unsubscribe as well
@@ -263,8 +285,8 @@ struct event {
   int subscriptionid;
   int senderid;
   
-  int data;
-  int datalen;
+  int64_t data;
+  int64_t datalen;
   
   char username[MWMAXNAMELEN];
   char clientname[MWMAXNAMELEN];
@@ -283,6 +305,7 @@ typedef union {
   Call call;
   Converse conv;
   Administrative admin;
+  Alloc alloc;
   Event ev;
 } _union_ipc_messages;
 

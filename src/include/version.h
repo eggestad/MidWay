@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/08/31 19:50:09  eggestad
+ * removed globals vars for version info
+ *
  * Revision 1.2  2000/07/20 19:17:58  eggestad
  * general prototype fixups.
  *
@@ -34,7 +37,6 @@
  *
  */
 
-char * major = NULL, * minor = NULL, * patch = NULL;
 const char * mwversion(void);
  
 int _mwgetversion(int * vmaj, int * vmin, int * ptcl);

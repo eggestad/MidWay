@@ -50,13 +50,13 @@ service mwbd start
 %preun
 service mwbd stop
 chkconfig --del mwbd
-rm /usr/lib/libMidWay.so.@MAJOR_VERSION@
+rm -f /usr/lib/libMidWay.so.@MAJOR_VERSION@
 
 %post devel
 ln -s /usr/lib/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@ /usr/lib/libMidWay.so
 
 %preun devel 
-rm /usr/lib/libMidWay.so
+rm -f /usr/lib/libMidWay.so
  
 %files
 %defattr(-,root,root)

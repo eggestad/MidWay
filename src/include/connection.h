@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2003/01/07 08:26:32  eggestad
+ * redefined CONN_TYPE for simpled debuging info
+ *
  * Revision 1.3  2002/10/22 21:58:20  eggestad
  * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
  *
@@ -95,11 +98,11 @@ typedef struct {
 } Connection;
 
 /* type parm to conn_add, all possible types of sockets (peers) */
-#define CONN_TYPE_CLIENT  01
-#define CONN_TYPE_GATEWAY 02
-#define CONN_TYPE_BROKER 010 
-#define CONN_TYPE_LISTEN 020
-#define CONN_TYPE_MCAST  040
+#define CONN_TYPE_CLIENT  'C'
+#define CONN_TYPE_GATEWAY 'G'
+#define CONN_TYPE_BROKER  'B'
+#define CONN_TYPE_LISTEN  'L'
+#define CONN_TYPE_MCAST   'M'
 
 /* the state, only used in the gateway when we do no_blocking to
    remeber if we're waiting for a connect() to complete, or we got an

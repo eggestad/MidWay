@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.5  2003/01/07 08:27:03  eggestad
+ * added sum of timepegs
+ *
  * Revision 1.4  2002/12/12 16:08:07  eggestad
  * inline asm in rt_sample was not hammer compat. Now it's both ia32 and hammer OK
  *
@@ -138,8 +141,8 @@ void _mw_setrealtimer(long long usecs)
  ************************************************************************/
 #ifdef TIMEPEGS
 
-// this works on both ia32 and x64-64.
-static inline long long  rt_sample()
+// this works on both ia32 and x86-64.
+static inline long long  rt_sample(void)
 {
   long long val;
   long msb, lsb;
@@ -263,7 +266,7 @@ void  __timepeg(char * function, char * file, int line, char * note)
 int timepeg_sprint(char * buffer, size_t size)
 {
   int i, l;
-  long long t;
+  long long t, sum = 0;
 #ifdef USETHREADS
   struct perfdata * pd;
   
@@ -277,6 +280,10 @@ int timepeg_sprint(char * buffer, size_t size)
   };
 #endif
 
+  if (pd->perfidx <= 0)  {
+    buffer[0] = '\0';
+    return;
+  };
 
   l = 0;
   l += snprintf(buffer + l, size - l, 
@@ -290,9 +297,11 @@ int timepeg_sprint(char * buffer, size_t size)
 		  pd->perfarray[i].function, 
 		  pd->perfarray[i].line, 
 		  t,
-		pd->perfarray[i].note?pd->perfarray[i].note:"");
+		  pd->perfarray[i].note?pd->perfarray[i].note:"");
+    sum += t;
   };
-  
+  l += snprintf(buffer + l, size - l, "\n                                                        = %8lld", sum);
+
   return l;
 };
   

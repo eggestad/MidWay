@@ -25,6 +25,10 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.3  2001/09/15 23:49:38  eggestad
+ * Updates for the broker daemon
+ * better modulatization of the code
+ *
  * Revision 1.2  2000/08/31 22:06:54  eggestad
  * - srbsend*() funcs now has a _mw_ prefix
  * - all direct use of urlmap, and sprintf() in making messages, we now use SRBmsg structs
@@ -51,11 +55,14 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <ipcmessages.h>
 #include <urlencode.h>
 #include <shmalloc.h>
+#include <version.h>
 
 #define _GATEWAY_C
+#include "SRBprotocolServer.h"
 #include "gateway.h"
 #include "tcpserver.h"
 #include "store.h"
+#include "connections.h"
 
 /***********************************************************************
  * This modules differs a bit from every one else in that is
@@ -81,14 +88,11 @@ gatewayentry * gwtbl = NULL;
 pid_t my_gw_pid = 0;
 pid_t tcpserver_pid = 0;
 
-char * mydomain = NULL;
-char * myinstance = NULL;
-
 globaldata globals = { 0 };
 
 void usage(char * arg0)
 {
-  printf ("%s: [-A uri] [-l level] [-c clientport] [-g gatewayport] [-p commonport]\n",
+  printf ("%s: [-A uri] [-l level] [-c clientport] [-g gatewayport] [-p commonport] [domainname]\n",
 	  arg0);
 };
 
@@ -155,7 +159,7 @@ int ipcmainloop(void)
       /* now this is in response to an attach. mwd must reply in
 	 sequence, so this is the reply to my oldest pending request.
 	 (not that it matters)*/
-      strcpy(srbmsg.command, "SRB INIT");
+      strcpy(srbmsg.command, SRB_INIT);
       srbmsg.marker = SRB_RESPONSEMARKER;
       rc = storePopAttach(amsg->cltname, &connid, &fd, &srbmsg.map);
       if (rc != 1) {
@@ -175,7 +179,7 @@ int ipcmainloop(void)
 	  cltent->status = UNASSIGNED;
 	};
 	amsg->cltid |= MWCLIENTMASK;
-	tcpsetconninfo(fd, &amsg->cltid, NULL, NULL, NULL);
+	conn_setinfo(fd, &amsg->cltid, NULL, NULL, NULL);
 	/* nothing more to do */
 	break;
       };
@@ -183,7 +187,7 @@ int ipcmainloop(void)
       mwlog(MWLOG_DEBUG, "connection for clientname %s on fd=%d is assigned the clientid %#x", 
 	    amsg->cltname, fd, &amsg->cltid);
       /* now assign the CLIENTID to the right connection. */
-      tcpsetconninfo(fd, &amsg->cltid, NULL, NULL, NULL);
+      conn_setinfo(fd, &amsg->cltid, NULL, NULL, NULL);
       _mw_srbsendinitreply(fd, &srbmsg, SRB_PROTO_OK, NULL);
       break;
 
@@ -204,7 +208,7 @@ int ipcmainloop(void)
 
       /* we must lock since it happens that the server replies before
          we do storeSetIpcCall() in SRBprotocol.c */
-      strcpy(srbmsg.command, "SVCCALL");
+      strcpy(srbmsg.command, SRB_SVCCALL);
       srbmsg.marker = SRB_RESPONSEMARKER;
 
       storeLockCall();
@@ -292,12 +296,15 @@ int gwattachclient(int connid, int fd, char * cname, char * username, char * pas
      first. */
   
   if (connid <= 0) {
-    connid = tcpgetconnid(fd);
+    Connection * conn;
+    conn = conn_getentry(fd);
+    if (conn) 
+      connid = conn->connectionid;
   };
   storePushAttach(cname, connid, fd, map);
 
   mwlog(MWLOG_DEBUG,
-	"gwattachclient(fd=%d, cname=\"%s\")", fd, cname);
+	"gwattachclient(fd=%d, cname=\"%s\", connid=%d)", fd, cname, connid);
 
   mesg.mtype = ATTACHREQ;
   mesg.gwid = _mw_get_my_gatewayid(); 
@@ -331,7 +338,7 @@ int gwdetachclient(int cltid)
      first. */
   
   mwlog(MWLOG_DEBUG,
-	"gwdetachclient(clientid=%d) (%s)", MWINDEXMASK& cltid, tcpgetclientpeername(cltid));
+	"gwdetachclient(clientid=%d) (%s)", MWINDEXMASK& cltid, conn_getclientpeername(cltid));
 
   memset (&mesg, '\0', sizeof(Attach));
 
@@ -439,7 +446,7 @@ void freegwid(GATEWAYID gwid)
 
 
 
-int mwgwd(int argc, char ** argv)
+int main(int argc, char ** argv)
 {
   int loglevel, gateway = 0, client = 0, port = 11000;
   int role = 0;
@@ -486,6 +493,15 @@ int mwgwd(int argc, char ** argv)
     }
   }
 
+  if (argc == optind) {
+    mwlog(MWLOG_DEBUG, "no domain name given");
+  } else if (argc == optind+1) {
+    mwlog(MWLOG_DEBUG, "domain name = %s", argv[optind]);
+    globals.mydomain=argv[optind];
+  } else {
+    usage(argv[0]);
+  };
+
   /* if neither g or c was giver, both is assumed.*/
   if ((gateway == 0) && (client == 0)) gateway = client = 1;
   if (client) role |= SRB_ROLE_CLIENT;
@@ -494,12 +510,13 @@ int mwgwd(int argc, char ** argv)
   /* first we attach to the IPC tables of the running instance */
   if (key == -1) key = getuid();
   rc = _mw_attach_ipc(key, MWIPCSERVER);
-  if (rc != 0) 
+  if (rc != 0) {
+    mwlog(MWLOG_ERROR, "MidWay instance is not running");
     exit(rc);
-
+  };
   ipcmain = _mw_ipcmaininfo();
   gwtbl = _mw_get_gateway_table();
-
+  
   strncpy(logprefix, ipcmain->mw_homedir, 256);
   strcat(logprefix, "/log/SYSTEM");
   printf("logprefix = %s\n", logprefix);
@@ -524,7 +541,12 @@ int mwgwd(int argc, char ** argv)
   /* we can now start in earnest 
    *********************************************************************************/
 
-  mwlog(MWLOG_INFO, "mwgwd starting gateway id %d", MWINDEXMASK&_mw_get_my_gatewayid());
+  mwlog(MWLOG_INFO, "mwgwd starting gateway id %d domain=%s instance=%s", 
+	MWINDEXMASK&_mw_get_my_gatewayid(), 
+	globals.mydomain?globals.mydomain:"(none)", 
+	ipcmain->mw_instance_name?ipcmain->mw_instance_name:"(none)"
+	);
+  globals.myinstance = ipcmain->mw_instance_name;
   /* now do the magic on the outside (TCP) */
   tcpserverinit ();
   rc = tcpstartlisten(port, role);
@@ -553,10 +575,4 @@ int mwgwd(int argc, char ** argv)
   _mw_detach_ipc();
   mwlog(MWLOG_INFO, "Bye!");
   exit(rc);
-};
-
-
-int main(int argc, char ** argv)
-{
-  mwgwd(argc, argv);
 };

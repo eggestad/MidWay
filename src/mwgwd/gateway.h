@@ -22,6 +22,10 @@
 
 /*
  * $Log$
+ * Revision 1.3  2001/09/15 23:49:38  eggestad
+ * Updates for the broker daemon
+ * better modulatization of the code
+ *
  * Revision 1.2  2000/08/31 22:08:31  eggestad
  * new global vars in gateway.c
  *
@@ -33,6 +37,8 @@
 
 typedef struct {
   int shutdownflag;
+  char * mydomain;
+  char * myinstance;
 } globaldata;
 
 int gwattachclient(int, int, char *, char *, char *, urlmap *);
@@ -45,9 +51,4 @@ int gwunimportservice(char *, char *);
 
 GATEWAYID allocgwid(int location, int role);
 void freegwid(GATEWAYID gwid);
-
-#ifndef _GATEWAY_C
-extern char * mydomain;
-extern char * myinstance;
-#endif
 

@@ -22,6 +22,10 @@
 
 /*
  * $Log$
+ * Revision 1.3  2001/09/15 23:49:38  eggestad
+ * Updates for the broker daemon
+ * better modulatization of the code
+ *
  * Revision 1.2  2000/08/31 22:19:31  eggestad
  * added prototype for tcpgetclientpeername()
  *
@@ -31,7 +35,11 @@
  */
 
 /* the max number of connections. */
-#define FD_MAX 1024
+#ifndef FD_SETSIZE
+#define FD_SETSIZE 1024
+#endif
+
+#define BROKER_RECONNECT_TIMER 15 /* secs */
 
 void tcpsetconninfo (int fd, int * id, int * role, int * rejects, int * reverse);
 int  tcpgetconninfo (int fd, int * id, int * role, int * rejects, int * reverse);

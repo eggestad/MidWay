@@ -24,6 +24,10 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.5  2001/09/15 23:49:38  eggestad
+ * Updates for the broker daemon
+ * better modulatization of the code
+ *
  * Revision 1.4  2001/08/29 17:55:15  eggestad
  * fix for changed behavior of urlmapnset
  *
@@ -54,16 +58,21 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <unistd.h>
 #include <sys/time.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <MidWay.h>
 #include <version.h>
 #include <SRBprotocol.h>
+#include <ipctables.h>
+#include <ipcmessages.h>
 
 #include <urlencode.h>
 
 #include "SRBprotocolServer.h"
 #include "tcpserver.h"
 #include "gateway.h"
+#include "connections.h"
+#include "store.h"
 
 
 /*static int srbrole = SRBNOTCONNECTED;*/
@@ -200,7 +209,7 @@ static void srbreject(int fd, SRBmessage * srbmsg)
 {
 
   mwlog(MWLOG_ERROR, "Got a reject message from %s \"%s\"", 
-	tcpgetconnpeername(fd), srbmessageencode(srbmsg));
+	conn_getpeername(fd), srbmessageencode(srbmsg));
   return;
 };
 
@@ -218,7 +227,7 @@ static void srbterm(int fd, SRBmessage * srbmsg)
     iGetOptField(fd, srbmsg, SRB_GRACE, &grace);
 
     mwlog(MWLOG_INFO, "Got a TERM request GRACE = %d from %s", 
-	  grace, tcpgetconnpeername(fd));
+	  grace, conn_getpeername(fd));
     _mw_srbsendterm(fd, -1);
     break;
     
@@ -226,7 +235,7 @@ static void srbterm(int fd, SRBmessage * srbmsg)
     
   case SRB_NOTIFICATIONMARKER:
     mwlog(MWLOG_INFO, "Got a TERM notification from %s, closing", 
-	  tcpgetconnpeername(fd));
+	  conn_getpeername(fd));
     
     tcpcloseconnection(fd);
   };
@@ -261,7 +270,7 @@ static void srbcall(int fd, SRBmessage * srbmsg)
 
   /* I don't like having to hardcode the offset into the fields in the
      message like this, but is quite simple... */
-  tcpgetconninfo(fd, &cltid, NULL, NULL, NULL);
+  conn_getinfo(fd, &cltid, NULL, NULL, NULL);
   if (cltid == UNASSIGNED) {
     mwlog(MWLOG_WARNING, "Got a SVCCALL before SRB INIT cltid=%d", cltid&MWINDEXMASK);
     _mw_srbsendcallreply(fd, srbmsg, NULL, 0, 0, SRB_PROTO_NOINIT, 0);
@@ -301,14 +310,14 @@ static void srbcall(int fd, SRBmessage * srbmsg)
     if (srbmsg->marker == SRB_NOTIFICATIONMARKER) {
       /* noreply  */
       mwlog(MWLOG_DEBUG, "Got a SVCCALL notification from %s, NOREPLY", 
-	    tcpgetconnpeername(fd));
+	    conn_getpeername(fd));
       flags |= MWNOREPLY;
       noreply = 1;
     }
     
     if (srbmsg->marker == SRB_REQUESTMARKER) {
       mwlog(MWLOG_DEBUG, "Got a SVCCALL service=%s from %s", 
-	    svcname, tcpgetconnpeername(fd));
+	    svcname, conn_getpeername(fd));
 
       /* handle is optional iff noreply */
       if (!(tmp =         szGetReqField(fd, srbmsg, SRB_HANDLE))) {
@@ -348,7 +357,7 @@ static void srbcall(int fd, SRBmessage * srbmsg)
          we do storeSetIpcCall() */
 
       storeLockCall();
-      rc = _mwacallipc (svcname, data, datalen, NULL,  flags);
+      rc = _mwacallipc (svcname, data, datalen, flags);
 
       _mw_set_my_clientid(UNASSIGNED);
       
@@ -387,7 +396,7 @@ static void srbcall(int fd, SRBmessage * srbmsg)
     };
 
     mwlog(MWLOG_DEBUG, "Got a SVCCALL reply from %s, ignoring", 
-	  tcpgetconnpeername(fd));
+	  conn_getpeername(fd));
     
   };
 
@@ -408,7 +417,7 @@ static void srbinit(int fd, SRBmessage * srbmsg)
     _mw_srbsendreject (fd, srbmsg, NULL, NULL, SRB_PROTO_FORMAT);
     return;
   };
-  tcpgetconninfo(fd, &cid, &connrole, NULL, NULL);    
+  conn_getinfo(fd, &cid, &connrole, NULL, NULL);    
 
   if (cid != UNASSIGNED) {
     _mw_srbsendinitreply(fd, srbmsg, SRB_PROTO_ISCONNECTED, NULL);
@@ -491,7 +500,7 @@ static void srbinit(int fd, SRBmessage * srbmsg)
     /* Now we we have a valid request, all thats left if to attache
        the client or register the gateway */
     mwlog(MWLOG_DEBUG, "SRB INIT correctly formated role=%d ", role); 
-    peername = tcpgetconnpeername(fd);
+    peername = conn_getpeername(fd);
 
     /* we use user and name after gwattach() but anytime after that
        the other thread may have gotten back from mwd and done
@@ -511,7 +520,7 @@ static void srbinit(int fd, SRBmessage * srbmsg)
 	      name, user?"Username=":"", user?user:"",
 	      rc , peername);
 	rc = rc | MWCLIENTMASK;
-	tcpsetconninfo(fd, NULL, &role, NULL, NULL);
+	conn_setinfo(fd, NULL, &role, NULL, NULL);
       } else {
 	rc = _mw_errno2srbrc(-rc);
 	szptr = _mw_srb_reason(rc);
@@ -659,6 +668,7 @@ int _mw_srbsendcallreply(int fd, SRBmessage * srbmsg, char * data, int len,
 
   /* first update th edata field, or remove as appropreate */
   if ( (data != NULL) && (len > 0) ) {
+    srbmsg->map = urlmapadd(srbmsg->map, SRB_DATA, NULL);
     urlmapnset(srbmsg->map, SRB_DATA, data, len);
   } else {
     urlmapdel(srbmsg->map, SRB_DATA);

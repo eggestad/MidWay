@@ -24,10 +24,11 @@ distclean:: clean
 	@ for dir in $(SUBDIRS); do\
 	(cd $$dir; $(MAKE) $@)\
 	done;\
-	rm -f Makefile config.cache config.h config.log config.status *~
+	rm -f Makefile config.cache config.h config.log config.status *~ *tgz
 
 install:: all
 	if [ ! -d @bindir@ ]; then install -d @bindir@; fi
+	if [ ! -d @sbindir@ ]; then install -d @sbindir@; fi
 	if [ ! -d @libdir@ ]; then install -d @libdir@; fi
 	if [ ! -d @includedir@ ]; then install -d @includedir@; fi
 	if [ ! -d @mandir@ ]; then install -d @mandir@; fi
@@ -49,3 +50,10 @@ uninstall:
 depend:
 	(cd src; $(MAKE) $@);\
 	if [[ $$? -ne 0 ]]; then exit 3; fi
+
+tgz: distclean
+	@LN_S@ -f . MidWay-@MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@
+	rm -f MidWay-@MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@.tgz
+	tar cvzf MidWay-@MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@.tgz \
+MidWay-@MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@/*
+	rm -f MidWay-@MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@

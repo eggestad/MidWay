@@ -6,8 +6,8 @@ exec_prefix = @exec_prefix@
 CC = @CC@
 INSTALL = @INSTALL@
 
-MAJOR_LIB_VERSION = 0
-MINOR_LIB_VERSION = 10
+MAJOR_LIB_VERSION = @MAJOR_VERSION@
+MINOR_LIB_VERSION = @MINOR_VERSION@
 
 INCLUDES = -I../include 
 
@@ -31,8 +31,8 @@ distclean:
 
 install:
 	$(INSTALL) libMidWay.so @libdir@/libMidWay.so.0.10
-	ln -f -s libMidWay.so.0.10 @libdir@/libMidWay.so.0
-	ln -f -s libMidWay.so.0.10 @libdir@/libMidWay.so
+	@LN_S@ -f @libdir@/libMidWay.so.0.10 @libdir@/libMidWay.so.0
+	@LN_S@ -f @libdir@/libMidWay.so.0.10 @libdir@/libMidWay.so
 	$(INSTALL) -m 644 libMidWay.a @libdir@/libMidWay.a
 
 uninstall:
@@ -50,8 +50,8 @@ libMidWay.a: $(IPCOBJS) $(COMMONOBJS) $(NETOBJS)
 
 libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION): $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) 
 	$(CC) -shared -Wl,-soname,libMidWay.so.$(MAJOR_LIB_VERSION) -o $@ $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) ../liburlencode/liburlencode.a -lm 
-	ln -f -s libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) libMidWay.so.$(MAJOR_LIB_VERSION)
-	ln -f -s libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) libMidWay.so
+	@LN_S@ -f  libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) libMidWay.so.$(MAJOR_LIB_VERSION)
+	@LN_S@ -f  libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) libMidWay.so
 
 #	ld -Bshareable -g -o $@ $(IPCOBJS) $(COMMONOBJS)
 

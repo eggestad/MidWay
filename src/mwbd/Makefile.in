@@ -11,19 +11,13 @@ LIBS =  -L../lib  -L../liburlencode -lMidWay -lurlencode
 
 CFLAGS = @CFLAGS@ $(INCLUDES) 
 
-all: requester testgw mwbd
-
-requester: requester.o 
-	$(CC) -o $@ requester.o $(LIBS)
+all: mwbd
 
 mwbd: mwbd.o mwbd_sockets.o  
 	$(CC) -o $@  mwbd.o  mwbd_sockets.o $(LIBS)
 
-testgw: testgw.o ../mwgwd/broker.o
-	$(CC) -o $@ testgw.o ../mwgwd/broker.o  $(LIBS)
-
 clean: 
-	rm -f  testgw requester mwbd *.o
+	rm -f mwbd *.o
 
 distclean:
 	rm -f Makefile *~

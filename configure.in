@@ -19,7 +19,14 @@ dnl  Boston, MA 02111-1307, USA.
 dnl
 dnl $Id$
 
-AC_REVISION($Name$)dnl
+dnl version information
+AC_REVISION($Name$)
+MAJOR_VERSION="0"
+AC_SUBST(MAJOR_VERSION)
+MINOR_VERSION="10"
+AC_SUBST(MINOR_VERSION)
+PATCH_VERSION="2"
+AC_SUBST(PATCH_VERSION)
 
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(src/mwd/mwd.c)
@@ -33,6 +40,7 @@ dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
+AC_PROG_LN_S
 
 
 case "$host" in
@@ -98,4 +106,4 @@ AC_OUTPUT(html-doc/mans/Makefile html-doc/Makefile src/Makefile
 	src/lib/Makefile src/liburlencode/Makefile src/mwadm/Makefile 
 	src/mwcall/Makefile src/mwd/Makefile src/mwgwd/Makefile src/mwbd/Makefile 
 	src/mwserver/Makefile src/test/Makefile Makefile
-	man/Makefile man/man1/Makefile man/man3/Makefile man/man7/Makefile)
+	man/Makefile man/man1/Makefile man/man3/Makefile man/man7/Makefile scripts/MidWay.spec)

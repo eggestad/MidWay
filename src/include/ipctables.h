@@ -250,10 +250,10 @@ int  _mw_my_mqid(void);
 cliententry  * _mw_get_client_byid (CLIENTID cltid);
 serverentry  * _mw_get_server_byid (SERVERID srvid);
 serviceentry * _mw_get_service_byid (SERVICEID svcid);
-SERVERID       _mw_get_server_by_serviceid (SERVICEID svcid);
+MWID           _mw_get_provider_by_serviceid (SERVICEID svcid);
 SERVICEID      _mw_get_service_byname (char * svcname, int flags); 
-SERVICEID    * _mw_get_services_byname (char * svcname, int convflag);
-MWID         * _mw_get_service_providers(char * svcname, int convflag);
+SERVICEID    * _mw_get_services_byname (char * svcname, int * n, int convflag);
+//MWID         * _mw_get_service_providers(char * svcname, int convflag);
 
 gatewayentry * _mw_get_gateway_table (void);
 gatewayentry * _mw_get_gateway_byid (GATEWAYID srvid);

@@ -76,10 +76,12 @@ while waiting for the reply from a server. If you want to avoid that
 condition you must used mwacall() and mwfetch() explicitly.
 .TP
 .B MWMULTIPLE
-This flag is only legal for mwacall, and tells the server if it is OK
-to send multiple replies. In this case each reply must be fetched
-seperatly with mwfetch, mwfetch will return 1 if there are more to
-fetch.
+This flag is only legal for mwfetch. If the server make multiple
+replies, mwfetch should return them in sequence with return code
+MWMORE exept the last repliy which return
+.BR MWSUCCESS " or " MWFAIL .
+If this flag is not set, and the server make multiple replies, the
+client libarary will concatenate all the replies into one.
 
 .SH "RETURN VALUES"
 On success mwcall() return 0, and mwfetch returns 0 if there is no
@@ -121,7 +123,9 @@ We are out of MidWays shared memory buffers, see
 .TP
 .B EAGAIN
 The call would block and MWNOBLOCK flags was set. 
+
 .SH WARNINGS
+
 
 .SH EXAMPLES
 
@@ -146,6 +150,16 @@ while( (rc = mwfetch(handle, &data, &len, 0L)) <= 0) {
 	if (rc == 0) break;
 };
 .fi
+
+.SH CAVEATS
+If you have services that make multiple replies, NOT setting the
+MWMULTIPLE flag to mwfetch is inefficient. All the replies must be
+concatenated into one (which is why it's done in the client). Since
+the client library must copy the replies into a malloc'ed buffer, and
+realloc as needed (read the first reply may actually end up being
+copied many times, if there are many replies). Keep in mind that this
+is exactly what mwcall does, since it can only return one reply.
+
 
 .SH BUGS 
 

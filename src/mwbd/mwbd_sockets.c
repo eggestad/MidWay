@@ -23,6 +23,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /* 
  * $Log$
+ * Revision 1.3  2002/02/17 14:25:52  eggestad
+ * added missing includes
+ *
  * Revision 1.2  2001/10/05 14:34:19  eggestad
  * fixes or RH6.2
  *
@@ -37,6 +40,7 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <assert.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <sys/uio.h>
 #include <sys/un.h>

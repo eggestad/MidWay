@@ -5,9 +5,9 @@
 .\" $Id$
 .\" $Name$
 .\"
-.TH MWD 8 "DATE" Linux "MiddleWay Users Manual"
+.TH MWD 8 "DATE" Linux "MidWay Users Manual"
 .SH NAME
-mwd \- The MiddleWay daemon
+mwd \- The MidWay daemon
 .SH SYNOPSIS
 .B mwd
 [-l \fIdebuglevel\fP] [-c \fImaxclients\fP] [-C \fImaxconversations\fP] 
@@ -16,20 +16,20 @@ mwd \- The MiddleWay daemon
 [-i \fIipckey\fP] [-H \fIruntimediretory\fP] [-g \fImaxgateways\fP] [-D]
 [\fIinstancename\fP]
 .SH DESCRIPTION
-The MiddleWay daemon is the arbitrator of a MiddleWay instance. It allocates the needed IPC resources, and
+The MidWay daemon is the arbitrator of a MidWay instance. It allocates the needed IPC resources, and
 handles all dynamic changes to the running instance. When a server starts or a client 
 want to connect it self to the instance, they must ask mwd to do so at their behalf.
 .br
 On startup it creates as needed the directory structure (see FILES below). 
 .br It also perform clean ups after aborted clients and servers.
-.br In future versions of MiddleWay that support TCP/IP as medium in addition to IPC, 
+.br In future versions of MidWay that support TCP/IP as medium in addition to IPC, 
 the daemon processes that handles gateways (neigbours) and networked clients 
 will be childs or threads of mwd.
 .PP
 Note that the max numbers, buffer basesize, and heap size are used by mwd at startup to 
 calculate the shared memory segment sizes. Since shm segments can't be dynamically resized 
-(see shmget(2)) these values are not dynamic and can't be changed without taking the MiddleWay 
-instance down, thus stopping mwd. In future versions of MiddleWay we may introduce a regime of 
+(see shmget(2)) these values are not dynamic and can't be changed without taking the MidWay 
+instance down, thus stopping mwd. In future versions of MidWay we may introduce a regime of 
 dynamically replacing shared memory segments, but for now you need to have a thougth of how much 
 you need.
 .SH OPTIONS
@@ -52,7 +52,7 @@ available conversational servers thru a gateway, they use table entries here as 
 Default is 20.
 .TP
 .BI "-s " maxservers
-The maximum numbers of processes (PIDs) that may attach the MiddleWay instance as servers. Note remote tervers available thru gateways are 
+The maximum numbers of processes (PIDs) that may attach the MidWay instance as servers. Note remote tervers available thru gateways are 
 .I not 
 included here. Default 50.
 .TP 
@@ -83,23 +83,23 @@ memory segment.  If absent we use
 .BI "-H " runtimedirectory
 See 
 .B FILES
-below. The directory where MiddleWay code expect to find config files, and places log and 
+below. The directory where MidWay code expect to find config files, and places log and 
 other runtime files. NOTE if you set this, you 
 .I must
 set the environment variable MWDIR for IPC clients and servers.
 Default is
-.IR  ~/MiddleWay , 
+.IR  ~/MidWay , 
 but will use 
-.I ~/.MiddleWay 
+.I ~/.MidWay 
 if it exists, and 
-.I ~/MiddleWay 
+.I ~/MidWay 
 do not. (I may swap this order in the future.) mwd will honor the environment variable MWDIR as well.
 .TP
 .BI "-g " maxgateways
-The max number of remote MiddleWay instances we may know about.
+The max number of remote MidWay instances we may know about.
 .TP
 .I instancename
-In order for one user to have more than one MiddleWay instance running each must at least have 
+In order for one user to have more than one MidWay instance running each must at least have 
 their own IPC key. Without gateways defined neither must have a name set, and are thus being 
 anonymous. However, if gateways are defined mwd will announce itself as 
 .IR username @ hostname(.ipdomainname) .
@@ -124,7 +124,7 @@ As discussed above the files are located under
 .IR MWDIR / instancename
 where the defaults are 
 .I MWDIR 
-= "~/MiddleWay" and 
+= "~/MidWay" and 
 .I instancemname 
 = "default". Under this directory we have the following files and subdirectories:
 .TP
@@ -148,7 +148,7 @@ If servers run by mwd core dumps, their core files are moved here, and renamed
 The default directory for placing logfiles, see 
 .BR mwlog (3C). 
 .TP
-.IB MWDIR/instancename/ logs/MiddleWayLog. YYYYMMDD
+.IB MWDIR/instancename/ logs/MidWayLog. YYYYMMDD
 The default logfile. See 
 .BR mwlog (3C). 
 .TP
@@ -159,7 +159,7 @@ For servers runned by mwd, default current working directory is set to here befo
 Runtime data, purged by mwd on startup. Unix family sockets for conversations go here, as well as 
 large buffers. 
 .SH SEE ALSO
-.BR MiddleWay (7),  mwadm (1), mwserver (1), mwd.conf (4)
+.BR MidWay (7),  mwadm (1), mwserver (1), mwd.conf (4)
 .SH WARNINGS
 Not matter what is said above, if you are running two or more instances with the same userid, 
 .B always

@@ -5,11 +5,11 @@
 .\" $Id$
 .\" $Name$
 .\"
-.TH MWATTACH 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.TH MWATTACH 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwattach, mwdetach \- Attaching to a running MiddleWay instance
+mwattach, mwdetach \- Attaching to a running MidWay instance
 .SH SYNOPSIS
-.B #include <MiddleWay.h>
+.B #include <MidWay.h>
 .sp
 .BI "int mwattach(int " url ", char * " name ", "
 .BI "char * " username ", char * " password ", int " flags ");"
@@ -19,11 +19,11 @@ mwattach, mwdetach \- Attaching to a running MiddleWay instance
 The call 
 .BR mwattach ()
 is analogous to connect() and shmat(), it is used to logon
-to a running MiddleWay system. To logoff you then use 
+to a running MidWay system. To logoff you then use 
 .BR mwdetach ().
-There are two different methods for a program to attach itself to a MiddleWay instance.
+There are two different methods for a program to attach itself to a MidWay instance.
 Either via IPC (sysvipc is currently only supported. Posix IPC is too new.),  via
-http, or a native middleway protocol. (none of the two latter are yet implemented). 
+http, or a native midway protocol. (none of the two latter are yet implemented). 
 .SS OPTIONS
 .TP
 .I url
@@ -34,7 +34,7 @@ or
 .BI ipc:// [instancename]
 instancename assumed to be "default" if absent, 
 or
-.BI middleway:// ipaddress:port
+.BI midway:// ipaddress:port
 or
 .BI http:// ipaddress:port
 for TCP/IP (NYI). If NULL wee look for the environment variable MWADDRESS instead. 

@@ -5,11 +5,11 @@
 .\" $Id$
 .\" $Name$
 .\"
-.TH MWCALL 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.TH MWCALL 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwcall mwacall, mwfetch \- MiddleWay service calls
+mwcall mwacall, mwfetch \- MidWay service calls
 .SH SYNOPSIS
-.B #include <MiddleWay.h>
+.B #include <MidWay.h>
 .sp
 .BI "int mwcall(char * servicename, char * data, int len, char ** rdata, int * rlen, int * appreturncode, int flags);"
 .sp
@@ -21,7 +21,7 @@ These calls are used to send a service request to a given service see mwservice(
 mwcall() is really a mwacall() mwfetch() pair, and is provided as a convinace. 
 .sp
 Servicename is a null terminated string of max 32 characters long. In order for this call to succed
-some server in the MiddleWay must have provided a service with name 
+some server in the MidWay must have provided a service with name 
 .IR servicename .
 .I Data
 is a pointer to the request buffer passed to the service routine. 
@@ -93,7 +93,7 @@ The deadline set by mwbegin() was reached, while we were waiting for one or more
 before mwcall was called..
 .TP
 .B ENOBUFS
-We are out of MiddleWays shared memory buffers, see mwd(1). 
+We are out of MidWays shared memory buffers, see mwd(1). 
 .TP
 .B EAGAIN
 The call would block and MWNOBLOCK flags was set. 

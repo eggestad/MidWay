@@ -3,11 +3,11 @@
 .\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
 .\" May be distributed under the GNU General Public License.
 .\"
-.TH MWCALL 3  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.TH MWCALL 3  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwcall mwacall, mwfetch \- MiddleWay service calls
+mwcall mwacall, mwfetch \- MidWay service calls
 .SH SYNOPSIS
-.B #include <MiddleWay.h>
+.B #include <MidWay.h>
 .sp
 .BI "int mwcall(char * servicename, char * cdata, int clen, char ** rdata, int * rlen, int * appreturncode, int flags);"
 .sp

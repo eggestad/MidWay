@@ -31,6 +31,6 @@ tags:
 
 # DO NOT DELETE
 
-mwadm.o: $(INCPATH)/MiddleWay.h mwadm.c $(INCPATH)/ipctables.h
+mwadm.o: $(INCPATH)/MidWay.h mwadm.c $(INCPATH)/ipctables.h
 
-commands.o: commands.c $(INCPATH)/MiddleWay.h  $(INCPATH)/ipctables.h $(INCPATH)/ipcmessages.h
+commands.o: commands.c $(INCPATH)/MidWay.h  $(INCPATH)/ipctables.h $(INCPATH)/ipcmessages.h

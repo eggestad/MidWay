@@ -5,9 +5,9 @@
 .\" $Id$
 .\" $Name$
 .\"
-.TH MWSERVER 1 "DATE" Linux "MiddleWay Users Manual"
+.TH MWSERVER 1 "DATE" Linux "MidWay Users Manual"
 .SH NAME
-mwd \- The MiddleWay generic server.
+mwd \- The MidWay generic server.
 .SH SYNOPSIS
 .B mwserver [-A url] [-l \fIdebuglevel\fP] {-s \fIservice[:function]\fP} \fIlibrarys\fP...
 .SH DESCRIPTION
@@ -33,7 +33,7 @@ shutdown mwserver looks for
 .SH EXAMPLE
 Given a C file example.c:
 .nf
-#include <MiddleWay.h>
+#include <MidWay.h>
 
 int SERVICE1(mwsvcinfo *si) {
 .
@@ -64,7 +64,7 @@ check with
 If you don't give the full path of your lib to 
 .BR mwserver, 
 it will look for your library
-in the current working directory, then in the bin directory of your MiddleWay instance (see 
+in the current working directory, then in the bin directory of your MidWay instance (see 
 .BR mwd (1). 
 After that it will follow the spesification of 
 .BR dlopen (3)
@@ -81,7 +81,7 @@ see
 see 
 .BR mwd (1). 
 .SH SEE ALSO
-.BR MiddleWay (7),  mwadm (1), mwd (1), mwservice (3C), dlopen (3)
+.BR MidWay (7),  mwadm (1), mwd (1), mwservice (3C), dlopen (3)
 .SH WARNINGS
 The intention is to make mwd start and stopp servers. If a server started
 directly by giving the mwserver command, and it core dumps, it will 

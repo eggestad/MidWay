@@ -5,11 +5,11 @@
 .\" $Id$
 .\" $Name$
 ..\"
-.TH MWREPLY 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.TH MWREPLY 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
 mwreply \- Returning data from service routines
 .SH SYNOPSIS
-.B #include <MiddleWay.h>
+.B #include <MidWay.h>
 .sp
 .BI "void mwreply(char * reply, int replylen, int successflag, int applicationreturncode );"
 .SH DESCRIPTION
@@ -22,14 +22,14 @@ If
 .I replylen 
 is 0, we assume a NULL terminated reply string. The 
 .I successflag 
-is interpreded by MiddleWay as 
+is interpreded by MidWay as 
 success of failure. (Not really used, but important for future support for the XA interface.)
 Zero on failure, non zero for success. 
 .BR mwfetch ()
 on the client will return EFAULT if this flag is zero.
 In addition to successflag programmers may pass another return code, 
 .I applicationreturncode
-for private use. MiddleWay ignore this, so it is optional.
+for private use. MidWay ignore this, so it is optional.
 .sp
 If the service perform a normal C return without calling 
 .BR  mwreply ()

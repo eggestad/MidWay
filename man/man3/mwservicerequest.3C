@@ -5,16 +5,16 @@
 .\" $Id$
 .\" $Name$
 ..\"
-.TH MWSERVICEREQUEST 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.TH MWSERVICEREQUEST 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
 mwservicerequest () \- Gets a service request of the input queue and executes the function for the service.
 .SH SYNOPSIS
-.B #include <MiddleWay.h>
+.B #include <MidWay.h>
 .sp
 .BI "int mwservicerequest(int flags);"
 .SH DESCRIPTION
 For every time this is called it gets a service request of the IPC message queue the server
-has to receive MiddleWay data on. It then lookup the registered (with 
+has to receive MidWay data on. It then lookup the registered (with 
 .BR mwprovide ()) 
 function that shall perform the service request. 
 .br 
@@ -42,7 +42,7 @@ has not yet been called, or it failed, or
 .BR mwdetach ()
 has been called.
 .B ESHUTDOWN
-The MiddleWay daemon 
+The MidWay daemon 
 .BR  mwd (1)
 has sent us an instruction to exit. We are required to do so.
 .TP

@@ -16,14 +16,14 @@ test:
 tags:
 	etags -a -o ../TAGS *.c *.h
 
-testsuiteserver.o: testsuiteserver.c ../include/MiddleWay.h testsuite.h
+testsuiteserver.o: testsuiteserver.c ../include/MidWay.h testsuite.h
 	gcc -fPIC $(CFLAGS) -c $<
 
 testsuiteserver.so: testsuiteserver.o
 	gcc -shared -g -o $@ $<
 
 
-testsuitclient.o: testsuiteclient.c ../include/MiddleWay.h testsuite.h
+testsuitclient.o: testsuiteclient.c ../include/MidWay.h testsuite.h
 	gcc $(CFLAGS) -c $<
 
 testsuiteclient: testsuiteclient.o

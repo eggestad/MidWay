@@ -5,11 +5,11 @@
 .\" $Id$
 .\" $Name$
 ..\"
-.TH MWMAINLOOP 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.TH MWMAINLOOP 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwMainLoop \- Main loop in a MiddleWay server
+mwMainLoop \- Main loop in a MidWay server
 .SH SYNOPSIS
-.B #include <MiddleWay.h>
+.B #include <MidWay.h>
 .sp
 .BI "int mwMainLoop(int flags);"
 .SH DESCRIPTION
@@ -27,12 +27,12 @@ If
 is not set it will return on a signal, with return code -EINTR. 
 .sp
 Programmers may feel the need roll their own mwMainLoop, espesially if you want to 
-incorporate a MiddleWay server in a program that has a main loop else where. Thats 
+incorporate a MidWay server in a program that has a main loop else where. Thats 
 pretty much OK, just be carefull. An example mwMainLoop is shown below, taken from 
-.IR MiddleWay/src/lib/mwserver.c .
+.IR MidWay/src/lib/mwserver.c .
 You may also look in the code for 
 .BR mwserver (1)
-(MiddleWay/src/mwserver) for a more complex example. 
+(MidWay/src/mwserver) for a more complex example. 
 .sp 
 After 
 .BR mwMainLoop ()
@@ -64,7 +64,7 @@ has not yet been called, or it failed, or
 has been called.
 .TP 
 .B ESHUTDOWN
-The MiddleWay daemon 
+The MidWay daemon 
 .BR  mwd (1)
 has sent us an instruction to exit. We are required to do so.
 .TP

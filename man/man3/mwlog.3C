@@ -3,11 +3,11 @@
 .\" Copyright (c) 1999 Terje Eggestad <terje.eggestad@iname.com>
 .\" May be distributed under the GNU General Public License.
 .\"
-.TH MWLOG 3  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.TH MWLOG 3  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwlog mwloglevel, mwlogprefix \- MiddleWay logging facility
+mwlog mwloglevel, mwlogprefix \- MidWay logging facility
 .SH SYNOPSIS
-.B #include <MiddleWay.h>
+.B #include <MidWay.h>
 .sp
 .BI "void mwlog(int level, char * fmt, ...);"
 .sp
@@ -15,7 +15,7 @@ mwlog mwloglevel, mwlogprefix \- MiddleWay logging facility
 .br
 .BI "void mwlogprefix(char * fileprefix);"
 .SH DESCRIPTION
-These calls constitute the logging facility in MiddleWay. This facility are used in MiddleWay code
+These calls constitute the logging facility in MidWay. This facility are used in MidWay code
 and is provided here to give programmers a unified program logg.
 There are nothing that provent a programmer
 to use stdout and stderr, but be aware that if 
@@ -35,7 +35,7 @@ To set what level of log messages to ignore and what to write to log file we set
 All logging above this loglevel is ignored.
 .br
 The default log fileprefix is 
-.BI ~/MiddleWay/ instancename /log/MiddleWayLog.  YYYYMMDD
+.BI ~/MidWay/ instancename /log/MidWayLog.  YYYYMMDD
 The date suffix is alway added to the logfile and the filename is
 automatically switched after midnight.
 
@@ -48,22 +48,22 @@ that it indicate severity of the entry..
 
 .TP
 .B MWLOG_DEBUG4
-Reserved for diffrentiate logging done in MiddleWay code on DEBUG3
+Reserved for diffrentiate logging done in MidWay code on DEBUG3
 .TP
 .B MWLOG_DEBUG3
-A rather extreme level of debugging, and will produce a wast number of logging from MiddleWay code.
-Normallly only used for developing and debugging MiddleWay code.
+A rather extreme level of debugging, and will produce a wast number of logging from MidWay code.
+Normallly only used for developing and debugging MidWay code.
 .TP
 .B MWLOG_DEBUG2
 Reserved for programmers to give excessive logging without being out
-drowned by logging from MiddleWay code.
+drowned by logging from MidWay code.
 .TP
 .B MWLOG_DEBUG1
-Some debygging from MiddleWay code, more ment to be helpful for programmers to see when execution
-swaps between their own code and MiddleWays.
+Some debygging from MidWay code, more ment to be helpful for programmers to see when execution
+swaps between their own code and MidWays.
 .TP
 .B MWLOG_DEBUG
-Reserved for programmers to have a debugging facility without any from MiddleWay code.
+Reserved for programmers to have a debugging facility without any from MidWay code.
 .TP
 .B MWLOG_INFO
 The default log level, which is meant to give enought to be able to go back and see when servers 
@@ -92,7 +92,7 @@ If you use a relative or absolute path in mwlogfileprefix(), and we fail to open
 we silently drop all logging.
 .SH "SEE ALSO"
 
-.BR MiddleWay (7)
+.BR MidWay (7)
 
 .SH STANDARDS
 These calls are somewhat inspired by syslog and the logging facility in CA/Unicenter AgentWorks.

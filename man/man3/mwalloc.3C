@@ -5,11 +5,11 @@
 .\" $Id$
 .\" $Name$
 .\"
-.TH MWALLOC 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.TH MWALLOC 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
-mwalloc, mwrealloc mwfree \- Allocate and free MiddleWay Shared memory buffers.
+mwalloc, mwrealloc mwfree \- Allocate and free MidWay Shared memory buffers.
 .SH SYNOPSIS
-.B #include <MiddleWay.h>
+.B #include <MidWay.h>
 .sp
 .BI "char * mwalloc (unsigned int size);"
 .br
@@ -17,7 +17,7 @@ mwalloc, mwrealloc mwfree \- Allocate and free MiddleWay Shared memory buffers.
 .br
 .BI "void mwfree(char * buffer);"
 .SH DESCRIPTION
-MiddleWay uses buffers in a shared memory segment to pass data to and from processes, such as by
+MidWay uses buffers in a shared memory segment to pass data to and from processes, such as by
 .BR mwcall ().
 Even if
 .BR mwcall ()
@@ -40,7 +40,7 @@ anyway. You must set
 .B MWFASTPATH
 to actually be given a pointer to shared memory.
 .sp
-The above holds true only if you use IPC to attach the MiddleWay domain. If you use TCP/IP, 
+The above holds true only if you use IPC to attach the MidWay domain. If you use TCP/IP, 
 .BR mwalloc (), 
 .BR mwrealloc "(), and" mwfree () 
 are always identical to 
@@ -75,7 +75,7 @@ on speed critical applications. Of course the gain of using
 .B MWFASTPATH
 increases with increased buffer lengths.
 .sp
-The MiddleWay daemon 
+The MidWay daemon 
 .BR mwd (1)
 do occationally try a garbage collect, but only after dead processes. 
 .sp

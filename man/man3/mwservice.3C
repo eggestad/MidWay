@@ -5,18 +5,18 @@
 .\" $Id$
 .\" $Name$
 .\"
-.TH MWSERVICE 3C  DATE "MiddleWay 1.0" "MiddleWay Programmer's Manual"
+.TH MWSERVICE 3C  DATE "MidWay 1.0" "MidWay Programmer's Manual"
 .SH NAME
- \- MiddleWay service routines
+ \- MidWay service routines
 .SH SYNOPSIS
-.B #include <MiddleWay.h>
+.B #include <MidWay.h>
 .sp
 .BI "int " functionname "(mwsvcinfo * si);"
 .SH DESCRIPTION
 This is the prototype for writing service routines in C. 
-A function must be registered as a MiddleWay service routinewith 
+A function must be registered as a MidWay service routinewith 
 .BR mwprovide ()
-where you give what name it should be announced with in the MiddleWay instance.
+where you give what name it should be announced with in the MidWay instance.
 You can either do mwprovide directly or by compile the C function 
 into a shared library and use either 
 .BR mwserver ()
@@ -93,7 +93,7 @@ The C return shall only return success (0) or failure (!0) of the service call.
 
 .SH "SEE ALSO"
 
-.BR MiddleWay (7)
+.BR MidWay (7)
 
 .SH STANDARDS
 NONE

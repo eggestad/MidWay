@@ -40,7 +40,7 @@ legacy in mind.
 
 
 
-**** Running Middleway ****
+**** Running Midway ****
 
 To do a quick test of MidWay, goto src and write make. There are no
 installation as of yet, this is alpha code. Either greate a soft link
@@ -54,7 +54,7 @@ goto src/lib and start testmidway
 
 goto src/mwadm and start it, at prompt give the command: 
 MWADM> call test1 date 
-the test1 service in testmiddleway shall now give you the date.
+the test1 service in testmidway shall now give you the date.
 
 Now read the docs!
 

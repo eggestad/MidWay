@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.8  2002/10/20 18:22:44  eggestad
+ * dumping of export list is now in DEBUG2 not DEBUG
+ *
  * Revision 1.7  2002/10/17 22:19:12  eggestad
  * added impfindpeerconn()
  *
@@ -75,18 +78,18 @@ static void impdumplist(void)
   Import * imp;
   peerlink * pl;
 
-  DEBUG("********************* DUMPING IMPORT LIST *********************");
-  DEBUG("******** importlist = %p", importlist);
+  DEBUG2("********************* DUMPING IMPORT LIST *********************");
+  DEBUG2("******** importlist = %p", importlist);
   for (imp = importlist; imp != NULL; imp = imp->next) {
-    DEBUG("********** imp=%p servicename=%s peerlist=%p next=%p", 
+    DEBUG2("********** imp=%p servicename=%s peerlist=%p next=%p", 
 	  imp, imp->servicename, imp->peerlist, imp->next);
     for (pl = imp->peerlist; pl != NULL; pl = pl->next) {
-      DEBUG("************ peerlist=%p instance=%s svcid=%d cost=%d gwid=%d next=%p", 
+      DEBUG2("************ peerlist=%p instance=%s svcid=%d cost=%d gwid=%d next=%p", 
 	    pl, pl->peer->instance, 
 	    SVCID2IDX(pl->svcid), pl->cost, GWID2IDX(pl->peer->gwid), pl->next);
     };
   };
-  DEBUG("******************* DUMP IMPORT LIST COMPLETE *****************");
+  DEBUG2("******************* DUMP IMPORT LIST COMPLETE *****************");
 
 };
 
@@ -95,17 +98,17 @@ static void expdumplist(void)
   Export * exp;
   peerlink * pl;
 
-  DEBUG("********************* DUMPING EXPORT LIST *********************");
-  DEBUG("******** exportlist = %p", importlist);
+  DEBUG2("********************* DUMPING EXPORT LIST *********************");
+  DEBUG2("******** exportlist = %p", importlist);
   for (exp = exportlist; exp != NULL; exp = exp->next) {
-    DEBUG("********** exp=%p servicename=%s cost=%d peerlist=%p next=%p", 
+    DEBUG2("********** exp=%p servicename=%s cost=%d peerlist=%p next=%p", 
 	  exp, exp->servicename, exp->cost, exp->peerlist, exp->next);
     for (pl = exp->peerlist; pl != NULL; pl = pl->next) {
-      DEBUG("************ peerlist=%p instance=%s gwid=%d next=%p", 
+      DEBUG2("************ peerlist=%p instance=%s gwid=%d next=%p", 
 	    pl, pl->peer->instance, GWID2IDX(pl->peer->gwid), pl->next);
     };
   };
-  DEBUG("******************* DUMP EXPORT LIST COMPLETE *****************");
+  DEBUG2("******************* DUMP EXPORT LIST COMPLETE *****************");
 
 };
 

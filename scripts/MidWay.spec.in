@@ -43,7 +43,7 @@ sed s+${RPM_BUILD_ROOT}++g ${RPM_BUILD_ROOT}/usr/sbin/midway.rc > ${RPM_BUILD_RO
 rm -rf $RPM_BUILD_ROOT
 
 %post 
-ln -sf @libdir@/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@ @libdir@/libMidWay.so.@MAJOR_VERSION@
+ln -sf /usr/lib/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@ /usr/lib/libMidWay.so.@MAJOR_VERSION@
 chkconfig --add mwbd
 service mwbd restart
 
@@ -51,33 +51,33 @@ service mwbd restart
 if [ 0 == $1 ]; then
 service mwbd stop
 chkconfig --del mwbd
-rm -f @libdir@/libMidWay.so.@MAJOR_VERSION@
+rm -f /usr/lib/libMidWay.so.@MAJOR_VERSION@
 fi
 
 %post devel
-ln -sf @libdir@/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@ @libdir@/libMidWay.so
+ln -sf /usr/lib/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@ /usr/lib/libMidWay.so
 
 %preun devel 
-rm -f @libdir@/libMidWay.so
+rm -f /usr/lib/libMidWay.so
  
 %files
 %defattr(-,root,root)
 %doc README NOTES ChangeLog html-doc
 
 %attr(555,root,root) /etc/rc.d/init.d/mwbd
-@bindir@/*
-@sbindir@/*
-@libdir@/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@
-@mandir@/man1/*
-@mandir@/man7/*
-@mandir@/man8/*
+/usr/bin/*
+/usr/sbin/*
+/usr/lib/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@
+/usr/man/man1/*
+/usr/man/man7/*
+/usr/man/man8/*
 
 
 %files devel
 %defattr(-,root,root)
-@mandir@/man3/*
-@includedir@/MidWay.h
-@libdir@/libMidWay.a
-@libdir@/liburlencode.a
+/usr/man/man3/*
+/usr/include/MidWay.h
+/usr/lib/libMidWay.a
+/usr/lib/liburlencode.a
 
 %changelog

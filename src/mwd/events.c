@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.9  2004/11/18 21:19:55  eggestad
+ * - fixed shm buffer leak if no subscription
+ *
  * Revision 1.8  2004/11/17 20:58:08  eggestad
  * Large data buffers for IPC
  *
@@ -738,8 +741,9 @@ static int do_event(void)
     DEBUG("queued in ackqueue with %d pending acks; ackqueuelen = %d", ev->pending_acks, ackqueuelen);
     dumppendingqueue();
   } else {
-    // free up if there was no 
-    if (ev->evmsg.data > 0) _mwfree( _mwoffset2adr(ev->evmsg.data, NULL));
+    // free up if there was no event sent
+     DEBUG2("freeing %lld", ev->evmsg.data);
+    if (ev->evmsg.data != 0) _mwfree( _mwoffset2adr(ev->evmsg.data, _mw_getsegment_byid(0)));
     free (ev);
   };
   

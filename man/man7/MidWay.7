@@ -101,10 +101,10 @@ The url has the format:
 .IR srbp : [//ipadress[:port]][/domain] .
 Note that "srbp:" alone is illegal, either you use SRBP directly to a
 gateway running on an instance, or to a broker daemon, to which you
-MUST give a domain. Note that when you have specified a domain,
-IP address may be the broadcast address (multicast??) on a IP net, at
-which the MidWay code will attach itself to the best/first broker that
-replies to the broadcast. 
+give a domain. Note that when you have specified a domain, IP address
+may be the multicast address on a IP net, at which the MidWay code
+will attach itself to the best/first broker that replies to the
+broadcast.
 
 .SS HTTP
 The http mode of addressing for the clients is a spinoff from mapping

@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.9  2002/09/22 22:51:50  eggestad
+ * added srbsendunprovide()
+ *
  * Revision 1.8  2002/08/09 20:50:16  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -80,6 +83,7 @@
 #include "gateway.h"
 #include "connections.h"
 #include "store.h"
+#include "impexp.h"
 
 extern globaldata globals;
 
@@ -914,7 +918,23 @@ int _mw_srbsendprovide(Connection * conn, char * service, int cost)
 
   rc = _mw_srbsendmessage(conn, &srbmsg);
   urlmapfree(srbmsg.map);
-    DEBUG2("send returned %d", rc);
+  DEBUG2("send returned %d", rc);
+  return rc;
+};
+
+int _mw_srbsendunprovide(Connection * conn, char * service)
+{
+  int rc;
+  SRBmessage srbmsg;
+  
+  DEBUG2("begin");
+  _mw_srb_init(&srbmsg, SRB_PROVIDE, SRB_NOTIFICATIONMARKER, 
+	       SRB_SVCNAME, service,
+	       NULL);
+
+  rc = _mw_srbsendmessage(conn, &srbmsg);
+  urlmapfree(srbmsg.map);
+  DEBUG2("send returned %d", rc);
   return rc;
 };
 

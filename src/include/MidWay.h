@@ -207,11 +207,18 @@ void _mw_vlogf(int level, char * format, va_list ap); // in mwlog.c
 
 #ifndef NDEBUG
 
+int * _mwgetloglevel(void);
+
+static int * debuglevel = NULL;
+
 static inline int _DEBUGN(int N, char * func, char * file, int line, char * m, ...)
 {
   va_list ap;
   char buffer[4096];
-
+  
+  if (debuglevel == NULL) debuglevel = _mwgetloglevel();
+  if (*debuglevel < MWLOG_DEBUG + N) return 0;
+  
   timepeg_pause(); // we're attempting to remove debugging overhead from timepegs bookkeeping
   va_start(ap, m);
   if(strlen(m) > 4000) return 0;

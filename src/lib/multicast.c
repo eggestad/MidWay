@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.11  2004/11/17 20:49:13  eggestad
+ * fix for null term of message buffer
+ *
  * Revision 1.10  2004/04/12 23:05:24  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -235,7 +238,7 @@ int _mw_sendmcastquery(int s, char * domain, char * instance)
   
 int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
 {
-  char buffer[SRBMESSAGEMAXLEN];
+  char buffer[SRBMESSAGEMAXLEN+1];
   int i, n, len, slen, rc;
   struct timeval tv;
   fd_set rfdset;
@@ -288,9 +291,9 @@ int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
   rc =recvfrom (s, buffer, len, 0, 
 		(struct sockaddr *) &peeraddr, &slen);
   DEBUG1("recvfrom returned %d", rc);
-
   if (rc < 1) return -1;
 
+  buffer[rc] = '\0';  
   _mw_srb_trace(SRB_TRACE_IN, &pseudoconn, buffer, rc);
   DEBUG1("got a message %d bytes long", rc);
 

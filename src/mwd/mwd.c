@@ -23,19 +23,30 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:24  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:47:39  eggestad
+ * - A semaphore for mwgwd is added. (mwgwd changes IPC tables directly,
+ *   but they may be more than one.
+ * - fix for home dir for instance.
+ * - prototype fixup.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:24  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
  *
  */
 
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
+
+
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/shm.h>
+#include <sys/sem.h>
 #include <string.h>
 #include <pwd.h>
 #include <sys/types.h>
@@ -68,7 +79,7 @@ struct passwd * mepw = NULL;
 
 Flags flags = { 0, 0, 0, 0, 0};
 
-void usage()
+void usage(void)
 {
   fprintf (stderr,"\nmwd [options...] [instancename]\n\n");
   fprintf (stderr,"  where options is one of the following:\n");
@@ -93,7 +104,7 @@ void usage()
 
 #define GLOBALDEF
 #define _MWD_C
-ipcmaininfo  * ipcmain = NULL;
+ipcmaininfo * ipcmain = NULL;
 
 ipcmaininfo * getipcmaintable()
 {
@@ -121,7 +132,7 @@ conv_entry * getconv_entry(int i)
   return & convtbl[i];
 };
 
-int mymqid()
+int mymqid(void)
 {
   if (ipcmain == NULL) return -EUCLEAN;
   return ipcmain->mwd_mqid;
@@ -324,7 +335,7 @@ create_ipc(int mode)
    5 - mark the rest of the shared memory segments for deletion.
    6 - detach them.  */
 
-int cleanup_ipc()
+int cleanup_ipc(void)
 {
   int rc; 
     
@@ -376,9 +387,10 @@ int cleanup_ipc()
 
 /* after creation, fill in initial data in the tables. */
 void
-init_maininfo()
+init_maininfo(void)
 {
-  
+  unsigned short int semval = 1;
+
   strcpy(ipcmain->magic,_mwgetmagic());
   _mwgetversion(&ipcmain->vermajor,&ipcmain->vermajor,&ipcmain->vermajor);
   mwlog (MWLOG_DEBUG,"magc = %s version = %d.%d.%d\n", 
@@ -401,9 +413,14 @@ init_maininfo()
   ipcmain->lastactive = 0;
   ipcmain->configlastloaded = 0;
   ipcmain->shutdowntime = 0;
+
+  /* alloc the lock for gateways. */
+  ipcmain->gwtbl_lock_sem = semget(IPC_PRIVATE, 1, 0600);
+  semctl(ipcmain->gwtbl_lock_sem, 1, SETALL, &semval);
 };
-/* mark the main seg athat the mwd has gone down. */
-int term_maininfo()
+
+/* mark the main segment that mwd has gone down. */
+int term_maininfo(void)
 {
   int mainid;
 
@@ -412,6 +429,7 @@ int term_maininfo()
   msgctl(ipcmain->mwd_mqid, IPC_RMID, NULL);
   ipcmain->mwd_mqid = -1;
   ipcmain->mwdpid = -1;
+  semctl(ipcmain->gwtbl_lock_sem, 1, IPC_RMID);
   
   mainid = shmget(masteripckey, 0, 0);
   shmctl(mainid, IPC_RMID, NULL);
@@ -488,7 +506,8 @@ main(int argc, char ** argv)
   char c;
   int rc, loglevel, daemon = 0, n;
   char * nextdir, * thisdir, *tmphome, wd[256]; 
-  
+  char * name;
+
   /* obtaining info about who I am, must be fixed for suid, check masterd*/
   mepw = getpwuid(getuid());
 
@@ -625,13 +644,16 @@ main(int argc, char ** argv)
   };
   getcwd(wd,255);
   strcat(wd,"/SYSTEM");
-  mwsetlogprefix(wd);
-  mwsetloglevel(loglevel);
+
+  name = strrchr(argv[0], '/');
+  if (name == NULL) name = argv[0];
+  else name++;
+  mwopenlog(name, wd, loglevel);
 
   mwlog(MWLOG_INFO, "MidWay daemon starting with userid %s (uid=%d) proccessid=%d", 
 	mepw->pw_name, getuid(), getpid());
   mwlog(MWLOG_INFO, "Version $Name$");
-  mwlog(MWLOG_INFO, "%s", mwversion());
+  mwlog(MWLOG_INFO, "Version %s", mwversion());
   mwlog(MWLOG_INFO, "MidWay instance name is %s", instancename); 
   
 
@@ -702,6 +724,9 @@ main(int argc, char ** argv)
   init_maininfo();
   init_tables();
   
+  /* place MWHOME in ipcmain */
+  strncpy(ipcmain->mw_homedir, mwhome, 256);
+
   /* module ipctables.c has a static defined ipcmain, we must set it. */
   _mw_set_shmadr (ipcmain, clttbl, srvtbl, svctbl, gwtbl, convtbl);
 
@@ -737,13 +762,16 @@ main(int argc, char ** argv)
   };
   mwlog(MWLOG_INFO, "MidWay WatchDog daemon started pid=%d", rc); 
   mwlog(MWLOG_INFO, "MidWay daemon boot complete systemname is %s", ipcmain->mw_system_name); 
-  _mw_copy_on_stdout(FALSE);
 
-  fclose (stdin);
-  fclose (stdout);
-  fclose (stderr);
+  /* we copy all log messages to stdout iff in debugmode. */
+  if (loglevel < MWLOG_DEBUG) {
+    _mw_copy_on_stdout(FALSE);
+    fclose (stdin);
+    fclose (stdout);
+    fclose (stderr);
+  };
 
-  ipcmain->status = MWNORMAL;
+  ipcmain->status = MWREADY;
   time(&ipcmain->boottime);
   while(1) {
     rc = parse_request();

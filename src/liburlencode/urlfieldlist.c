@@ -23,14 +23,15 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2002/08/09 16:09:11  eggestad
+ * fixed UNUSED in RCS tags
+ *
  * Revision 1.3  2001/10/04 19:18:10  eggestad
  * CVS tags fixes
  *
  *
  */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -38,6 +39,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <stdarg.h>
     
 #include "urlencode.h"
+
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /*********************************************************
  * API for handling field operations.  fields are

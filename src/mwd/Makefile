@@ -19,7 +19,7 @@ clean:
 	rm -f $(EXE) $(OBJS) core
 
 install:
-	$(INSTALL) -D mwd $(INSTALLDIR)/bin
+	$(INSTALL) -D mwd $(INSTALLDIR)/bin/mwd
 
 uninstall:
 	rm -f $(INSTALLDIR)/bin/mwd

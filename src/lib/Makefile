@@ -20,8 +20,8 @@ clean:
 	rm -f $(LIBS) $(IPCOBJS) $(COMMONOBJS) $(NETOBJS) testmidway core 
 
 install:
-	$(INSTALL) -D libMidWay.so $(INSTALLDIR)/lib
-	$(INSTALL) -D -m 644 libMidWay.a $(INSTALLDIR)/lib
+	$(INSTALL) -D libMidWay.so $(INSTALLDIR)/lib/libMidWay.so
+	$(INSTALL) -D -m 644 libMidWay.a $(INSTALLDIR)/lib/libMidWay.a
 
 uninstall:
 	rm -f $(INSTALLDIR)/lib/libMidWay.so

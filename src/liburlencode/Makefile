@@ -12,7 +12,7 @@ clean:
 	rm -f $(LIBS) *.o
 
 install:
-	$(INSTALL) -D -m 644 liburlencode.a $(INSTALLDIR)/lib
+	$(INSTALL) -D -m 644 liburlencode.a $(INSTALLDIR)/lib/liburlencode.a
 
 uninstall:
 	rm -f $(INSTALLDIR)/lib/liburlencode.a

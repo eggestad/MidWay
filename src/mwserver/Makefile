@@ -14,7 +14,7 @@ clean:
 	rm -f mwserver *.o *.so core
 
 install:
-	$(INSTALL) -D mwserver $(INSTALLDIR)/bin
+	$(INSTALL) -D mwserver $(INSTALLDIR)/bin/mwserver
 
 uninstall:
 	rm -f $(INSTALLDIR)/bin/mwserver

@@ -28,7 +28,7 @@ clean:
 	rm -f mwcall $(OBJ) core 
 
 install:
-	$(INSTALL) -D mwcall $(INSTALLDIR)/bin
+	$(INSTALL) -D mwcall $(INSTALLDIR)/bin/mwcall
 
 uninstall:
 	rm -f $(INSTALLDIR)/bin/mwcall

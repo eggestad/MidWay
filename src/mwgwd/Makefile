@@ -18,7 +18,7 @@ clean:
 	rm -f $(EXE) $(OBJS) core store
 
 install:
-	$(INSTALL) -D mwgwd $(INSTALLDIR)/bin
+	$(INSTALL) -D mwgwd $(INSTALLDIR)/bin/mwgwd
 
 uninstall:
 	rm -f $(INSTALLDIR)/bin/mwgwd

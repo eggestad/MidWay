@@ -24,6 +24,9 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 /*
  * $Log$
+ * Revision 1.2  2000/08/31 22:02:48  eggestad
+ * last check-in, this module is to be discontinued.
+ *
  * Revision 1.1  2000/07/20 18:49:59  eggestad
  * The SRB daemon
  *
@@ -46,52 +49,64 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <urlencode.h>
 
+#include "SRBprotocolServer.h"
 #include "tcpserver.h"
 #include "gateway.h"
 
-static char messagebuffer[SRBMESSAGEMAXLEN];
 
 /*static int srbrole = SRBNOTCONNECTED;*/
 
-static void srbhello(int, char, char * );
-static void srbterm(int, char, char * );
-static void srbinit(int, char, char * );
-static void srbsvccall(int, char, char * );
-static void srbsvcdata(int, char, char * );
+static void srbhello(int, SRBmessage * );
+static void srbterm(int, SRBmessage * );
+static void srbinit(int, SRBmessage * );
+static void srbsvccall(int, SRBmessage * );
+static void srbsvcdata(int, SRBmessage * );
 
+/* is it even used anymore ??? */
+char * srbmessageencode(SRBmessage * srbmsg)
+{
+  int len;
+  static char message[SRBMESSAGEMAXLEN];
 
-static void srbsendreject(int, char *, int, char *, char *, int );
+  len = sprintf(message, "%s%c", srbmsg->command, srbmsg->marker);
+  urlmapnencode(message+len, SRBMESSAGEMAXLEN-len, srbmsg->map);
+  return message;
+};
 
-static char * szGetReqField(int fd, char * message, urlmap * map, char * fieldname)
+/* help functions to retrive fields in messages. */
+static char * szGetReqField(int fd, SRBmessage * srbmsg, char * fieldname)
 {
   int idx;
-  idx = urlmapget(map, fieldname);
+  idx = urlmapget(srbmsg->map, fieldname);
+  mwlog(MWLOG_DEBUG2, "szGetReqField: index of %s is %d, errno=%d", 
+	fieldname, idx, errno);
   if (idx != -1) {
-    return map[idx].value;
+    return srbmsg->map[idx].value;
   } 
-  srbsendreject(fd, message,  -1, 
-		fieldname, NULL, SRB_PROTO_FIELDMISSING);
+  _mw_srbsendreject(fd, srbmsg, fieldname, NULL, SRB_PROTO_FIELDMISSING);
   return NULL;
 }
 
-static char * szGetOptField(int fd, char * message, urlmap * map, char * fieldname)
+static char * szGetOptField(int fd, SRBmessage * srbmsg, char * fieldname)
 {
   int idx;
-  idx = urlmapget(map, fieldname);
+  idx = urlmapget(srbmsg->map, fieldname);
+  mwlog(MWLOG_DEBUG2, "szGetOptField: index of %s is %d errno=%d", 
+	fieldname, idx, errno);
   if (idx != -1) {
-    return map[idx].value;
+    return srbmsg->map[idx].value;
   } 
   return NULL;
 }
 
-static int iGetOptBinField(int fd, char * message, urlmap * map, 
-			  char * fieldname, char ** value, int * valuelen)
+static int iGetOptBinField(int fd, SRBmessage * srbmsg, 
+			   char * fieldname, char ** value, int * valuelen)
 {
   int idx;
-  idx = urlmapget(map, fieldname);
+  idx = urlmapget(srbmsg->map, fieldname);
   if (idx != -1) {
-    *value = map[idx].value;
-    *valuelen = map[idx].valuelen;
+    *value = srbmsg->map[idx].value;
+    *valuelen = srbmsg->map[idx].valuelen;
     return 1;
   } 
   *value = NULL;
@@ -99,36 +114,36 @@ static int iGetOptBinField(int fd, char * message, urlmap * map,
   return 0;
 }
 
-static int iGetReqField(int fd, char * message, urlmap * map, 
+static int iGetReqField(int fd, SRBmessage * srbmsg, 
 			char * fieldname, int *  value)
 {
   int idx, rc;
-  idx = urlmapget(map, fieldname);
+  idx = urlmapget(srbmsg->map, fieldname);
   if (idx != -1) {
-    rc = sscanf (map[idx].value, "%d", value);
+    rc = sscanf (srbmsg->map[idx].value, "%d", value);
     if (rc != 1) {
-      srbsendreject(fd, message,  -1, 
-		    map[idx].key, map[idx].value, SRB_PROTO_ILLEGALVALUE);
+      _mw_srbsendreject(fd, srbmsg, srbmsg->map[idx].key, srbmsg->map[idx].value, 
+			SRB_PROTO_ILLEGALVALUE);
       return 0;
     };
     return 1;
     
   }
-  srbsendreject(fd, message,  -1, 
-		fieldname, NULL, SRB_PROTO_FIELDMISSING);
+  _mw_srbsendreject(fd, srbmsg, fieldname, NULL, SRB_PROTO_FIELDMISSING);
   return 0;
 };
 
-static int iGetOptField(int fd, char * message, urlmap * map, 
+static int iGetOptField(int fd, SRBmessage * srbmsg,
 			char * fieldname, int *  value)
 {
   int idx, rc;
-  idx = urlmapget(map, fieldname);
+  idx = urlmapget(srbmsg->map, fieldname);
   if (idx != -1) {
-    rc = sscanf (map[idx].value, "%d", value);
+    rc = sscanf (srbmsg->map[idx].value, "%d", value);
     if (rc != 1) {
-      srbsendreject(fd, message,  -1, 
-		    map[idx].key, map[idx].value, SRB_PROTO_ILLEGALVALUE);
+      _mw_srbsendreject(fd, srbmsg, 
+			srbmsg->map[idx].key, srbmsg->map[idx].value, 
+			SRB_PROTO_ILLEGALVALUE);
       return 0;
     };
     return 1;
@@ -140,28 +155,26 @@ static int iGetOptField(int fd, char * message, urlmap * map,
  * Callbacks for receiving messages
  **********************************************************************/
 
-static void srbhello(int fd, char marker, char * message)
+static void srbhello(int fd, SRBmessage * srbmsg)
 {
   int len, idx = 0;
   struct timeval now;
-  urlmap * map;
   char buffer[50];
 
   gettimeofday(&now, NULL);
    
-  map = urlmapdecode(message+6);
   printf("Got a hello message\n");
-  switch (marker) {
+  switch (srbmsg->marker) {
     
   case SRB_REQUESTMARKER:
     sprintf(buffer, "%d.%06d", now.tv_sec, now.tv_usec);
-    map = urlmapadd(map, SRB_REMOTETIME, buffer);
+    srbmsg->map = urlmapadd(srbmsg->map, SRB_REMOTETIME, buffer);
 
-    sprintf(messagebuffer, "%s%c", SRB_HELLO, SRB_RESPONSEMARKER);
+    sprintf(_mw_srbmessagebuffer, "%s%c", SRB_HELLO, SRB_RESPONSEMARKER);
     len = 6;
-    len += urlmapnencode(messagebuffer+len, SRBMESSAGEMAXLEN-len, map);
+    len += urlmapnencode(_mw_srbmessagebuffer+len, SRBMESSAGEMAXLEN-len, srbmsg->map);
 
-    sendmessage(fd, messagebuffer, len);
+    sendmessage(fd, _mw_srbmessagebuffer, len);
     break;
 
   case SRB_RESPONSEMARKER:
@@ -169,35 +182,31 @@ static void srbhello(int fd, char marker, char * message)
 
   case SRB_NOTIFICATIONMARKER:  
   default:
-    srbsendreject(fd, message, 6, NULL, NULL, SRB_PROTO_NOTREQUEST);
+    srbsendreject(fd, srbmsg, NULL, NULL, SRB_PROTO_NOTREQUEST);
   }
-  urlmapfree(map);
   return;
 };
 
-static void srbreject(int fd, char marker, char * message)
+static void srbreject(int fd, SRBmessage * srbmsg)
 {
 
   mwlog(MWLOG_ERROR, "Got a reject message from %s \"%s\"", 
-	tcpgetconnpeername(fd), message);
+	tcpgetconnpeername(fd), srbmessageencode(srbmsg));
   return;
 };
 
-static void srbterm(int fd, char marker, char * message)
+static void srbterm(int fd, SRBmessage * srbmsg)
 {
-  urlmap * map;
   int idxGrace, i = 0;
   int grace = -1;
   int rc, idx;
   char * tmp;
   int id;
   
-  map = urlmapdecode(message+5);
-
-  switch (marker) {
+  switch (srbmsg->marker) {
     
   case SRB_REQUESTMARKER:
-    iGetOptField(fd, message, map,  SRB_GRACE, &grace);
+    iGetOptField(fd, srbmsg, SRB_GRACE, &grace);
 
     mwlog(MWLOG_INFO, "Got a TERM request GRACE = %d from %s", 
 	  grace, tcpgetconnpeername(fd));
@@ -213,12 +222,10 @@ static void srbterm(int fd, char marker, char * message)
     tcpcloseconnection(fd);
   };
 
-  urlmapfree(map);
 };
 
-static void srbcall(int fd, char marker, char * message)
+static void srbcall(int fd, SRBmessage * srbmsg)
 {
-  urlmap * map;
   int i = 0, fail = 0;
   int rc, idx;
   char * tmp;
@@ -242,95 +249,82 @@ static void srbcall(int fd, char marker, char * message)
   int sectolive = -1;
   int returncode = 0;
   int appreturncode = 0;
-  
-  printf("Got a svccall message %s\n", message);
 
   /* I don't like having to hardcode the offset into the fields in the
      message like this, but is quite simple... */
-  map = urlmapdecode(message + 8);
-
   tcpgetconninfo(fd, &cltid, NULL, NULL, NULL);
   if (cltid == UNASSIGNED) {
     mwlog(MWLOG_WARNING, "Got a SVCCALL before SRB INIT cltid=%d", cltid);
-    srbsendcallreply(fd, map, NULL, 0, 0, SRB_PROTO_NOINIT, 0);
+    srbsendcallreply(fd, srbmsg, NULL, 0, 0, SRB_PROTO_NOINIT, 0);
     return;
   };
 
-  /* first we get the field that are identical on requests as well as replies. */
-  if (!(svcname =     szGetReqField(fd, message, map, SRB_SVCNAME))) {
-    urlmapfree(map);
+  mwlog(MWLOG_WARNING, "srbcall: beginning SVCCALL from cltid=%d", cltid);
+
+  /* first we get the field that are identical on requests as well as
+     replies. */
+  if (!(svcname =     szGetReqField(fd, srbmsg, SRB_SVCNAME))) {
     return;
   };
   if ( strlen(svcname) > MWMAXSVCNAME) {
-    srbsendreject(fd, message,  -1, 
-		  SRB_SVCNAME, tmp, SRB_PROTO_ILLEGALVALUE);
-    urlmapfree(map);
+    srbsendreject(fd, srbmsg, SRB_SVCNAME, tmp, SRB_PROTO_ILLEGALVALUE);
     return;
   };
 
-  if (!(tmp =         szGetReqField(fd, message, map, SRB_HANDLE))) {
-    urlmapfree(map);
-    return;
-  };
-
-  if ( (tmp == NULL) || (sscanf(tmp,"%x", &handle) != 1) ) {
-    srbsendreject(fd, message,  -1, 
-		  SRB_HANDLE, tmp, SRB_PROTO_ILLEGALVALUE);
-    urlmapfree(map);
-    return;
-  };
-  if (!(iGetReqField(fd, message, map,  SRB_HOPS, &hops))) {
-    urlmapfree(map);
+  
+  if (!(iGetReqField(fd, srbmsg,  SRB_HOPS, &hops))) {
     return;
   };
 
 
-  iGetOptBinField(fd, message, map, SRB_DATA, &data, &datalen);
+  iGetOptBinField(fd, srbmsg, SRB_DATA, &data, &datalen);
   if (data == NULL) datalen = 0;
   
-  iGetOptField(fd, message, map, SRB_DATACHUNKS, &datachunks);
-  instance =    szGetOptField(fd, message, map, SRB_INSTANCE);
-  iGetOptField(fd, message, map,  SRB_SECTOLIVE, &sectolive);
+  iGetOptField(fd, srbmsg, SRB_DATACHUNKS, &datachunks);
+  instance =    szGetOptField(fd, srbmsg, SRB_INSTANCE);
+  iGetOptField(fd, srbmsg,  SRB_SECTOLIVE, &sectolive);
 
-  switch (marker) {
+  switch (srbmsg->marker) {
     
   case SRB_NOTIFICATIONMARKER:
-
-    /* noreply  */
-    mwlog(MWLOG_INFO, "Got a SVCCALL notification from %s, NOREPLY\n", 
-	  tcpgetconnpeername(fd));
-    flags |= MWNOREPLY;
-
   case SRB_REQUESTMARKER:
-
-    mwlog(MWLOG_INFO, "Got a SVCCALL service=%s from %s\n", 
-	  svcname, tcpgetconnpeername(fd));
-
-    domain =      szGetOptField(fd, message, map, SRB_DOMAIN);
-    clientname =  szGetOptField(fd, message, map, SRB_CLIENTNAME);
-
-    tmp =         szGetOptField(fd, message, map, SRB_NOREPLY);
-    if (tmp) 
-      if  (strcasecmp(tmp, SRB_YES) == 0) noreply = 1;
-      else if (strcasecmp(tmp, SRB_NO) == 0) noreply = 0;
-      else {
-	srbsendreject(fd, message,  -1, 
-		      SRB_NOREPLY, tmp, SRB_PROTO_ILLEGALVALUE);
-	break;
-      };
     
+    if (srbmsg->marker == SRB_NOTIFICATIONMARKER) {
+      /* noreply  */
+      mwlog(MWLOG_INFO, "Got a SVCCALL notification from %s, NOREPLY\n", 
+	    tcpgetconnpeername(fd));
+      flags |= MWNOREPLY;
+      noreply = 1;
+    }
+    
+    if (srbmsg->marker == SRB_REQUESTMARKER) {
+      mwlog(MWLOG_INFO, "Got a SVCCALL service=%s from %s\n", 
+	    svcname, tcpgetconnpeername(fd));
 
-    tmp =         szGetOptField(fd, message, map, SRB_MULTIPLE);
+      /* handle is optional iff noreply */
+      if (!(tmp =         szGetReqField(fd, srbmsg, SRB_HANDLE))) {
+	return;
+      };
+      if ( (tmp == NULL) || (sscanf(tmp,"%x", &handle) != 1) ) {
+	srbsendreject(fd, srbmsg, SRB_HANDLE, tmp, SRB_PROTO_ILLEGALVALUE);
+	return;
+      };
+    };
+
+    domain =      szGetOptField(fd, srbmsg, SRB_DOMAIN);
+    clientname =  szGetOptField(fd, srbmsg, SRB_CLIENTNAME);
+
+    tmp =         szGetOptField(fd, srbmsg, SRB_MULTIPLE);
     if (tmp)
       if (strcasecmp(tmp, SRB_YES) == 0) multiple = 1;
       else if (strcasecmp(tmp, SRB_NO) == 0) multiple = 0;
       else {
-	srbsendreject(fd, message,  -1, 
+	srbsendreject(fd, srbmsg,
 		      SRB_MULTIPLE, tmp, SRB_PROTO_ILLEGALVALUE);
 	break;
       };
 
-    iGetOptField(fd, message, map,  SRB_MAXHOPS, &maxhops);
+    iGetOptField(fd, srbmsg,  SRB_MAXHOPS, &maxhops);
 
     /* 
        This is the special case where we don't have any chunks.
@@ -345,14 +339,15 @@ static void srbcall(int fd, char marker, char * message)
          we do storeSetIpcCall() */
 
       storeLockCall();
-      storePushCall(cltid, handle, fd, map);
+      storePushCall(cltid, handle, fd, srbmsg->map);
       rc = _mwacallipc (svcname, data, datalen, NULL,  flags);
-      
+      srbmsg->map = NULL;
+
       _mw_set_my_clientid(UNASSIGNED);
       
       if (rc > 0) {
 	 mwlog(MWLOG_DEBUG, "_mwacallipc succeeded");  
-	 if ( !(flags & MWNOREPLY)) {
+	 if ( ! noreply) {
 	  mwlog(MWLOG_DEBUG, 
 		"Storing call fd=%d nethandle=%u clientid=%d ipchandle=%d",
 		fd, handle, cltid&MWINDEXMASK, rc);
@@ -366,36 +361,33 @@ static void srbcall(int fd, char marker, char * message)
 	  return ; /* NB PREVENT urlmapfree() */
 	};
       } else {
-	storeUnLockCall();
 	mwlog(MWLOG_DEBUG, "_mwacallipc failed with %d ", rc);   
-	srbsendcallreply(fd, map, NULL, 0, 0, errno2srbrc(rc), 0);
-	map = NULL;
+	srbsendcallreply(fd, srbmsg, NULL, 0, 0, errno2srbrc(rc), 0);
+	srbmsg->map = NULL;
       };
+      storeUnLockCall();
     };
     break;
     
   case SRB_RESPONSEMARKER:
-    if (!(tmp =         szGetOptField(fd, message, map, SRB_MORE))) break;
+    if (!(tmp =         szGetOptField(fd, srbmsg, SRB_MORE))) break;
     if (strcasecmp(tmp, SRB_YES) == 0) more = 1;
     else if (strcasecmp(tmp, SRB_NO) == 0) more = 0;
     else {
-      srbsendreject(fd, message,  -1, 
-		    SRB_MORE, tmp, SRB_PROTO_ILLEGALVALUE);
+      srbsendreject(fd, srbmsg, SRB_MORE, tmp, SRB_PROTO_ILLEGALVALUE);
       break;
     };
 
     mwlog(MWLOG_INFO, "Got a SVCCALL reply from %s, ignoring\n", 
 	  tcpgetconnpeername(fd));
     
-    urlmapfree(map);
   };
 
   
 };
 
-static void srbinit(int fd, char marker, char * message)
+static void srbinit(int fd, SRBmessage * srbmsg)
 {
-  urlmap * map;
   int reverse = 0, rejects = 1, auth = 0, role;
   char * type = NULL, * version= NULL, * tmp = NULL;
   char * domain = NULL, * name = NULL, * user = NULL, * passwd = NULL; 
@@ -404,87 +396,89 @@ static void srbinit(int fd, char marker, char * message)
   char * szptr, * peername; 
   CLIENTID cid;
 
-  map = urlmapdecode(message+9);
-
+  if (srbmsg->map == NULL) {
+    srbsendreject (fd, srbmsg, NULL, NULL, SRB_PROTO_FORMAT);
+    return;
+  };
   tcpgetconninfo(fd, &cid, &connrole, NULL, NULL);    
 
   if (cid != UNASSIGNED) {
-    srbsendinitreply(fd, map, SRB_PROTO_ISCONNECTED, NULL);
+    srbsendinitreply(fd, srbmsg, SRB_PROTO_ISCONNECTED, NULL);
     return;
   };
-  switch (marker) {
+  switch (srbmsg->marker) {
     
   case SRB_REQUESTMARKER:
   /* VERSION - REQ */  
 
-    if (!(version = szGetReqField(fd, message, map, SRB_VERSION))) break;
-    if ( strcmp(SRBPROTOCOLVERSION, version) != 0) {
-      srbsendinitreply(fd, map, SRB_PROTO_VERNOTSUPP, SRB_VERSION);
+    if (!(version = szGetReqField(fd, srbmsg, SRB_VERSION))) break;
+    if ( strcasecmp(SRBPROTOCOLVERSION, version) != 0) {
+      srbsendinitreply(fd, srbmsg, SRB_PROTO_VERNOTSUPP, SRB_VERSION);
       break;
     };
     
     /* TYPE - REQ */
-    if (!(type = szGetReqField(fd, message, map, SRB_TYPE))) break;
+    if (!(type = szGetReqField(fd, srbmsg, SRB_TYPE))) break;
 
-    if (strcasecmp(type, SRB_CLIENT) == 0) role = SRB_ROLE_CLIENT;
-    else if (strcasecmp(type, SRB_GATEWAY) == 0) role = SRB_ROLE_GATEWAY;
+    if (strcasecmp(type, SRB_TYPE_CLIENT) == 0) role = SRB_ROLE_CLIENT;
+    else if (strcasecmp(type, SRB_TYPE_GATEWAY) == 0) role = SRB_ROLE_GATEWAY;
     else {
-      srbsendinitreply(fd, map, SRB_PROTO_ILLEGALVALUE, SRB_TYPE);
+      srbsendinitreply(fd, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_TYPE);
       break;
     };
 
     /* if requested type is not expected, decline */
     if (!(role & connrole)) {
       if (role == SRB_ROLE_CLIENT)
-	srbsendinitreply(fd, map, SRB_PROTO_NOCLIENTS, SRB_TYPE);
+	srbsendinitreply(fd, srbmsg, SRB_PROTO_NOCLIENTS, SRB_TYPE);
       else 
-	srbsendinitreply(fd, map, SRB_PROTO_NOGATEWAYS, SRB_TYPE);
+	srbsendinitreply(fd, srbmsg, SRB_PROTO_NOGATEWAYS, SRB_TYPE);
       break;;
     };
     
     /* NAME - REQ */
-    if (!(name = szGetReqField(fd, message, map, SRB_NAME))) break; 
+    if (!(name = szGetReqField(fd, srbmsg, SRB_NAME))) break; 
 
     /* DOMAIN - OPT */
-    domain = szGetOptField(fd, message, map, SRB_DOMAIN);
+    domain = szGetOptField(fd, srbmsg, SRB_DOMAIN);
     
     /* REVERSE - OPT */
-    tmp = szGetOptField(fd, message, map, SRB_REVERSE);
+    tmp = szGetOptField(fd, srbmsg, SRB_REVERSE);
     if (tmp != NULL) {
       if (strcasecmp(tmp, SRB_YES) == 0) reverse = 1;
       else if (strcasecmp(tmp, SRB_NO) == 0) reverse = 0;
       else {
-	srbsendinitreply(fd, map, SRB_PROTO_ILLEGALVALUE, SRB_REVERSE);
+	srbsendinitreply(fd, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_REVERSE);
 	break;
       };
     };
     /* REJECT - OPT */
-    tmp = szGetOptField(fd, message, map, SRB_REJECTS);
+    tmp = szGetOptField(fd, srbmsg, SRB_REJECTS);
     if (tmp != NULL) {
       if (strcasecmp(tmp, SRB_YES) == 0) rejects = 1;
       else if (strcasecmp(tmp, SRB_NO) == 0) rejects = 0;
       else {
-	srbsendinitreply(fd, map, SRB_PROTO_ILLEGALVALUE, SRB_REJECTS);
+	srbsendinitreply(fd, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_REJECTS);
 	break;
       };
     }
     /* AUTHENTICATION - OPT */
-    tmp = szGetOptField(fd, message, map, SRB_AUTHENTICATION);
+    tmp = szGetOptField(fd, srbmsg, SRB_AUTHENTICATION);
     if (tmp != NULL) {
       if (strcasecmp(tmp, SRB_AUTH_NONE) == 0) ;
       else if (strcasecmp(tmp, SRB_AUTH_UNIX) == 0) ;
       else if (strcasecmp(tmp, SRB_AUTH_X509) == 0) ;
       else {
-	srbsendinitreply(fd, map, SRB_PROTO_ILLEGALVALUE, SRB_AUTHENTICATION);
+	srbsendinitreply(fd, srbmsg, SRB_PROTO_ILLEGALVALUE, SRB_AUTHENTICATION);
 	break;
       };
     };
     /* USER, PASSWORD, AGENT, AGENTVERSION, OS - OPT */
-    user     = szGetOptField(fd, message, map, SRB_USER);
-    passwd   = szGetOptField(fd, message, map, SRB_PASSWORD);
-    agent    = szGetOptField(fd, message, map, SRB_AGENT);
-    agentver = szGetOptField(fd, message, map, SRB_AGENTVERSION);
-    os       = szGetOptField(fd, message, map, SRB_OS);
+    user     = szGetOptField(fd, srbmsg, SRB_USER);
+    passwd   = szGetOptField(fd, srbmsg, SRB_PASSWORD);
+    agent    = szGetOptField(fd, srbmsg, SRB_AGENT);
+    agentver = szGetOptField(fd, srbmsg, SRB_AGENTVERSION);
+    os       = szGetOptField(fd, srbmsg, SRB_OS);
     
     /* Now we we have a valid request, all thats left if to attache
        the client or register the gateway */
@@ -502,9 +496,10 @@ static void srbinit(int fd, char marker, char * message)
 
     /* if client */
     if (role == SRB_ROLE_CLIENT) {
-      rc = gwattachclient(-1, fd, name, user, passwd, map);
+      rc = gwattachclient(-1, fd, name, user, passwd, srbmsg->map);
       if (rc >= 0) {
- 	mwlog(MWLOG_INFO, "Client %s %s%s ID=%#u connected from %s", 
+ 	srbmsg->map = NULL;
+	mwlog(MWLOG_INFO, "Client %s %s%s ID=%#u connected from %s", 
 	      name, user?"Username=":"", user?user:"",
 	      rc , peername);
 	rc = rc | MWCLIENTMASK;
@@ -516,13 +511,13 @@ static void srbinit(int fd, char marker, char * message)
 	      name, user?"Username=":"", user?user:"",
 	      peername);
 	rc = errno2srbrc(-rc);
-	srbsendinitreply(fd, map, rc, NULL);
+	srbsendinitreply(fd, srbmsg, rc, NULL);
       }
       free(user);
     } else {
       /* if (type == SRB_ROLE_GATEWAY) */
       free(user);
-      srbsendinitreply(fd, map, SRB_PROTO_NOGATEWAYS, NULL);
+      srbsendinitreply(fd, srbmsg, SRB_PROTO_NOGATEWAYS, NULL);
       break;
     };
     
@@ -532,7 +527,7 @@ static void srbinit(int fd, char marker, char * message)
       
   case SRB_NOTIFICATIONMARKER:  
   default:
-    srbsendinitreply(fd, map, SRB_PROTO_NOTREQUEST, NULL);
+    srbsendinitreply(fd, srbmsg, SRB_PROTO_NOTREQUEST, NULL);
   };
   
   return;
@@ -540,7 +535,7 @@ static void srbinit(int fd, char marker, char * message)
 
 
 /**********************************************************************
- * entru function for receiving messages, basic syntax check and 
+ * entry function for receiving messages, basic syntax check and 
  * dispatch to API above.
  **********************************************************************/
 
@@ -550,190 +545,70 @@ int srbDoMessage(int fd, char * message)
   int commandlen;
   int messagetype;
   char * ptr;
-
+  SRBmessage srbmsg;
+  
   if ( (ptr = strchr(message, SRB_REQUESTMARKER)) == NULL)
     if ( (ptr = strchr(message, SRB_RESPONSEMARKER)) == NULL)
       if ( (ptr = strchr(message, SRB_NOTIFICATIONMARKER)) == NULL) {
-	srbsendreject(fd, message, 0, NULL, NULL, SRB_PROTO_FORMAT);
-	return -1;
+	if ( (ptr = strchr(message, SRB_REJECTMARKER)) != NULL) {
+	  return 0;
+	} else { 
+	  _mw_srbsendreject_sz(fd, message, -1);
+	  return -1;
+	}
       }
   commandlen = ptr - message;
-
-  mwlog(MWLOG_DEBUG, "srbDoMessage: command=%*.*s marker=%c", 
+  if (commandlen > 32) {
+    _mw_srbsendreject_sz(fd, message, commandlen);
+    return -1;
+  };
+  strncpy(srbmsg.command, message, commandlen);
+  srbmsg.command[commandlen] = '\0';
+  srbmsg.marker = *ptr;
+  srbmsg.map = urlmapdecode(message+commandlen+1);
+  
+  mwlog(MWLOG_DEBUG2, "srbDoMessage: command=%*.*s marker=%c", 
 	commandlen, commandlen, message, *ptr);
+  mwlog(MWLOG_DEBUG, "srbDoMessage: command=%s marker=%c", 
+	srbmsg.command, srbmsg.marker);
+
   switch(commandlen) {
   case 4:
-    if ( strncasecmp(message, SRB_TERM, commandlen) == 0) {
-      srbterm(fd, *ptr, message);
-      return ;
+    if ( strcasecmp(srbmsg.command, SRB_TERM) == 0) {
+      srbterm(fd, &srbmsg);
+      break ;
     };
     break;
   case 5:
-    if ( strncasecmp(message, SRB_HELLO, commandlen) == 0) {
-      srbhello(fd, *ptr, message);
-      return;
+    if ( strcasecmp(srbmsg.command, SRB_HELLO) == 0) {
+      srbhello(fd, &srbmsg);
+      break;
     }
     break;
   case 6:
-    if ( strncasecmp(message, SRB_REJECT, commandlen) == 0) {
-      srbreject(fd, *ptr, message);
-      return;
+    if ( strcasecmp(srbmsg.command, SRB_REJECT) == 0) {
+      srbreject(fd, &srbmsg);
+      break;
     }
     break;
   case 7:
-    if ( strncasecmp(message, SRB_SVCCALL, commandlen) == 0) {
-      srbcall(fd, *ptr, message);
-      return;
+    if ( strcasecmp(srbmsg.command, SRB_SVCCALL) == 0) {
+      srbcall(fd, &srbmsg);
+      break;
     }
   case 8:
-     if ( strncasecmp(message, SRB_INIT, commandlen) == 0) {
-      srbinit(fd, *ptr, message);
-      return;
-     }
+    if ( strcasecmp(srbmsg.command, SRB_INIT) == 0) {
+      srbinit(fd, &srbmsg);
+      break;
+    }
   case 9:
-
-  };
-
-  srbsendreject(fd, message, 0, NULL, NULL, SRB_PROTO_FORMAT);
-  return SRB_PROTO_FORMAT;
-};
-
-
-/**********************************************************************
- * API for Sending messages
- **********************************************************************/
-
-void srbsendreject(int fd, char * message, int offset, 
-			  char * causefield, char * causevalue, 
-			  int rc)
-{
-  int len;
-  urlmap * map = NULL;
-
-  map = urlmapaddi(map, SRB_REASONCODE, rc);
-  map = urlmapadd(map, SRB_REASON, strreason(rc));
-
-  len = sprintf(messagebuffer, "%s%c", SRB_REJECT, SRB_NOTIFICATIONMARKER);
-
-  if (offset > -1) 
-    map = urlmapaddi(map, SRB_OFFSET, offset);
-  
-  map = urlmapadd(map, SRB_MESSAGE, message);
-
-  if (causefield != NULL) 
-    map = urlmapadd(map, SRB_CAUSEFIELD, causefield);
-
-  if (causevalue != NULL) 
-    map = urlmapadd(map, SRB_CAUSEVALUE, causevalue);
-
-  len += urlmapnencode(messagebuffer+len, SRBMESSAGEMAXLEN-len, map);
-  urlmapfree(map);
-
-  sendmessage(fd, messagebuffer, len);
-};
-
-void srbsendinitreply(int fd, urlmap * map, int rc, char * field)
-{
-  char rcode[4];
-  int len, ml;
-
-  if (map == NULL) return;
-
-  len = sprintf(messagebuffer, "%s%c", SRB_INIT, SRB_RESPONSEMARKER);
-  
-  map = urlmapaddi(map, SRB_RETURNCODE, rc);
-  if (rc != 0) {
-    map = urlmapadd(map, SRB_CAUSE, strreason(rc));
-    if (field != NULL)
-      map = urlmapadd(map, SRB_CAUSEFIELD, field);
+    
+  default:
+    _mw_srbsendreject_sz(fd, message, 0);
   };
   
-  ml = urlmapnencode(messagebuffer+len, SRBMESSAGEMAXLEN-len, map);
+  if (srbmsg.map != NULL)
+    urlmapfree(srbmsg.map);
 
-  if (ml == -1) {
-    mwlog(MWLOG_ERROR, "This cant happen, reply to SRB INIT too long: %s\n", 
-	  messagebuffer);
-    return;
-  };
-
-  len += ml;
-  sendmessage (fd, messagebuffer, len);
-  urlmapfree(map);
-  return;
-};
-
-void srbsendcallreply(int fd, urlmap *map, char * data, int len, 
-			     int apprcode, int rcode, int flags)
-{
-  urlmap * m;
-  int rc;
-
-  if (map == NULL) return;
-
-  /* first update th edata field, or remove as appropreate */
-  if ( (data != NULL) && (len > 0) ) {
-    rc = urlmapnset(map, SRB_DATA, data, len);
-    if (rc == -1)
-      map = urlmapnadd(map, SRB_DATA, data, len);
-  } else {
-    urlmapdel(map, SRB_DATA);
-  };
-
-  /* it really is the senders fault if it had set RETURNCODE fields when sending
-   * but just to be nice...*/
-  urlmapdel(map, SRB_APPLICATIONRC);
-  urlmapdel(map, SRB_RETURNCODE);
-  /* returncodes, add */
-  map = urlmapaddi(map, SRB_APPLICATIONRC, apprcode);
-  map = urlmapaddi(map, SRB_RETURNCODE, rcode);
-
-  urlmapdel(map, SRB_MORE);
-  if (flags & MWMORE) 
-    map = urlmapadd(map, SRB_MORE, SRB_YES);
-  else
-    map = urlmapadd(map, SRB_MORE, SRB_NO);
-
-  urlmapdel(map, SRB_INSTANCE);
-  urlmapdel(map, SRB_CLIENTNAME);
-  urlmapdel(map, SRB_NOREPLY);
-  urlmapdel(map, SRB_MULTIPLE);
-  urlmapdel(map, SRB_MAXHOPS);
-  
-  len = sprintf(messagebuffer, "%s%c", SRB_SVCCALL, SRB_RESPONSEMARKER);
-  len += urlmapnencode(messagebuffer+len, SRBMESSAGEMAXLEN-len, map);
-  
-  sendmessage(fd, messagebuffer, len);
-  urlmapfree(map);
-};
-
-void srbsendterm(int fd, int grace)
-{
-  int len;
-
-  if (grace == -1) {
-    len = sprintf(messagebuffer, "%s%c", SRB_TERM, SRB_NOTIFICATIONMARKER);
-  }else 
-    len = sprintf(messagebuffer, "%s%c%s=%d", 
-		  SRB_TERM, SRB_REQUESTMARKER, SRB_GRACE, grace);
-
-  sendmessage(fd, messagebuffer, len);
-
-#ifdef SRBSERVER
-  if (grace <= 0)
-    srvcloseconnection(fd);
-#endif
-};
-
-void srbsendgreeting(int fd)
-{
-  int len;
-  urlmap * map = NULL;
-
-  len = sprintf(messagebuffer, "%s%c", SRB_READY, SRB_NOTIFICATIONMARKER);
-  map = urlmapadd(map, SRB_VERSION, SRBPROTOCOLVERSION);
-  map = urlmapadd(map, SRB_AGENT, "MidWay");
-  map = urlmapadd(map, SRB_AGENTVERSION, (char *) mwversion());
-  len += urlmapnencode (messagebuffer+len, SRBMESSAGEMAXLEN, map);
-  sendmessage(fd, messagebuffer, len);
-  urlmapfree(map);
+  return 0;
 };

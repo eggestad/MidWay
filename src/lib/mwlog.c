@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.21  2003/12/08 17:18:04  eggestad
+ * segv with efence fix
+ *
  * Revision 1.20  2003/09/25 19:33:45  eggestad
  * loglevel fixup
  *
@@ -419,7 +422,7 @@ void mwsetlogprefix(char * lfp)
 	strncat(logdir, "/", PATH_MAX-strlen(logdir));
       };
       strncat(logdir, tmp, PATH_MAX-strlen(logdir));
-      logdir[PATH_MAX] = '\0';
+      logdir[PATH_MAX-1] = '\0';
     };
   } else {
     // ok called with NULL, attempting to set default

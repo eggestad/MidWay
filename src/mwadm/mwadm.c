@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2000/11/29 23:32:04  eggestad
+ * mwadm created it own default ipc url
+ *
  * Revision 1.2  2000/07/20 19:43:31  eggestad
  * CVS keywords were missing
  *
@@ -199,11 +202,6 @@ int attach(int argc, char ** argv)
   int ipckey;
   char durl [1024];
     
-  if (url == NULL) {
-    ipckey = getuid();
-    sprintf (durl, "ipc://%d", ipckey);
-    url = durl;
-  };
   rc = mwattach(url, "mwadm", NULL, NULL, 0 );
   printf("mwattach on url %s returned %d\n", url, rc);
   if (rc == 0) {

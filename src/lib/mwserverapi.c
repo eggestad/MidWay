@@ -23,13 +23,21 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:15  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:30:19  eggestad
+ * - major change to mwreply() for multiple replies.
+ * - prototype fixup.
+ * - fix for gateways clients. (return mqueue)
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:15  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
  *
  */
+
+static char * RCSId = "$Id$";
+static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <errno.h>
 #include <sys/time.h>
@@ -245,7 +253,7 @@ int mwunprovide(char * service)
 static struct timeval starttv, endtv; 
 static int waitmsec, servemsec, _mw_requestpending = 0;
 
-static void completeStats()
+static void completeStats(void)
 {
   gettimeofday(&endtv, NULL);
   servemsec = (endtv.tv_sec - starttv.tv_sec) * 1000 
@@ -261,12 +269,21 @@ static void completeStats()
   Another reason is that the serice routine should be able to do 
   fault recovery if the caller fails to get the reply.
 */
-int mwreply(char * data, int len, int returncode, int appreturncode)
+int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
 {
   char * ptr;
   int rc, dataoffset;
   void * dbuf;
-  
+  int mwid;
+
+  /* if we already have completed the replies */
+  if (! _mw_requestpending) return -EALREADY;
+
+  /* we we try to send multiple replies, abnd multple flags not set in
+     callmesg */
+  if ( (flags & MWMORE) && !(callmesg->flags & MWMULTIPLE) ) 
+    return -EINVAL;
+
   rc = _mwsystemstate();
   if (rc) return rc;
 
@@ -306,9 +323,10 @@ int mwreply(char * data, int len, int returncode, int appreturncode)
   callmesg->mtype = SVCREPLY;
   callmesg->srvid = _mw_get_my_serverid();
 
-  /* send reply buffer*/
-  /* we should check to see if callmesg->ipcqid is legal in client table*/
-  rc = _mw_ipc_putmessage(callmesg->cltid, (char *) callmesg, sizeof(Call), IPC_NOWAIT);
+  /* send reply buffer, if gateway id is set, use that, or else used clientid.*/
+  if (callmesg->gwid == UNASSIGNED) mwid  = callmesg->cltid;
+  else mwid  = callmesg->gwid;
+  rc = _mw_ipc_putmessage(mwid, (char *) callmesg, sizeof(Call), IPC_NOWAIT);
   if (rc != 0) {
     mwlog(MWLOG_WARNING,"Failure on replying to client %#x reason %s", 
 	  callmesg->cltid, errno);
@@ -317,7 +335,10 @@ int mwreply(char * data, int len, int returncode, int appreturncode)
   mwlog(MWLOG_DEBUG, "mwreply sent to client %d rc= %d", 
 	callmesg->cltid, callmesg->returncode);
 
-  _mw_requestpending = 0;
+  /* if the more flag is set, and multiple flag in the callmesg is
+     set, do not clear pending flag. */
+  if (! (flags & MWMORE))
+    _mw_requestpending = 0;
   
   gettimeofday(&endtv, NULL);
   completeStats();
@@ -464,7 +485,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
     mwlog(MWLOG_ERROR, "Can't happen, Got a call to %s (%d) but it does not exist in BBL", 
 	  callmesg->service, callmesg->svcid);
     callmesg->returncode = -ENOENT;
-    _mw_ipc_putmessage(callmesg->cltid,callmesg, sizeof(Call), 0);
+    _mw_ipc_putmessage(callmesg->cltid, (char*) callmesg, sizeof(Call), 0);
     _mw_requestpending = 0;  
     _mw_set_my_status("(ERROR)");
     errno = ENOENT;
@@ -519,7 +540,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
 	  starttv.tv_sec ,  starttv.tv_usec, 
 	  svcreqinfo->deadline, svcreqinfo->udeadline);
     callmesg->returncode = -ETIME;
-    _mw_ipc_putmessage(callmesg->cltid,callmesg, sizeof(Call), 0);
+    _mw_ipc_putmessage(callmesg->cltid, (char *) callmesg, sizeof(Call), 0);
     _mw_set_my_status(NULL);
     errno = ETIME;
     free(svcreqinfo);
@@ -583,6 +604,7 @@ int _mwCallCServiceFunction(mwsvcinfo * svcinfo)
      Busy time is calculated by _mw_set_my_status()
   */
   if (_mw_requestpending) {
+    mwreply(NULL, 0, rc, 0, 0);
     completeStats();
   };
 

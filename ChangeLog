@@ -1,5 +1,7 @@
 2003-09-25  Terje Eggestad  <terje.eggestad@iname.com>
 
+	* RELEASE 0.13.0 	
+
 	* A serious bug in SRB if multiple messages was fetched and left
 	in the connection inbound buffer, resulting in lost messages. 
 	* loglevel env vars now accept levels as a string
@@ -17,7 +19,7 @@
 	* fixed major ipc buffers corruption bug when all buffers exausted
 	* also make mwacall and mwreply retry for a while if no buffers are immediatly available
 	* better exit from mwacall
-	* fixed dwrong prototype in mwattach.3C man page.
+	* fixed wrong prototype in mwattach.3C man page.
 	
 2003-07-13  Terje Eggestad  <terje.eggestad@iname.com>
 

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2004/08/11 18:59:04  eggestad
+ * *** empty log message ***
+ *
  * Revision 1.13  2004/04/08 10:34:06  eggestad
  * introduced a struct with pointers to the functions implementing the midway functions
  * for a given protocol.
@@ -130,7 +133,7 @@ static void debug_print_matches(regmatch_t *match, char * url)
   while (j < MAXMATCH) {
     if (match[j].rm_so >=0 ){
       len = match[j].rm_eo - match[j].rm_so;
-      DEBUG3("REGEXP Match %d in %s at %d to %d \"%*.*s\"", 
+      DEBUG3("REGEXP Match %d in %s at %ld to %ld \"%*.*s\"", 
 	    j, url, 
 	    (long int) match[j].rm_so, (long int) match[j].rm_eo, 
 	    len, len, url+match[j].rm_so);
@@ -280,8 +283,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
   };
 
   if ( regcomp( & srbexp, RE_SRBP, REG_EXTENDED|REG_ICASE) != 0) {
-    Error("error on compiling regex %d\n", errno);
-    exit;
+     Fatal("error on compiling regex %d\n", errno);
   };
 
   for (j = 0; j < MAXMATCH; j++) {

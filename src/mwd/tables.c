@@ -23,8 +23,14 @@
  * $Name$
  * 
  * $Log$
- * Revision 1.1  2000/03/21 21:04:29  eggestad
- * Initial revision
+ * Revision 1.2  2000/07/20 19:53:32  eggestad
+ * - ID numbers are no longer assigned the first from 0 but in rotation,
+ *   like Unix pid.
+ * - Major changes to client table to accommodate SRB clients.
+ * - prototype fixup.
+ *
+ * Revision 1.1.1.1  2000/03/21 21:04:29  eggestad
+ * Initial Release
  *
  * Revision 1.1.1.1  2000/01/16 23:20:12  terje
  * MidWay
@@ -39,6 +45,7 @@
 #define _TABLES_C
 #include <MidWay.h>
 #include <osdep.h>
+#include <ipcmessages.h>
 #include "tables.h"
 #include "mwd.h"
 
@@ -90,8 +97,10 @@ init_tables()
     gwtbl[i].status = UNASSIGNED;
     gwtbl[i].mqid = UNASSIGNED;
     gwtbl[i].pid = UNASSIGNED;
-    memset(gwtbl[i].remote_mwname, '\0', MWMAXNAMELEN);
+    memset(gwtbl[i].instancename, '\0', MWMAXNAMELEN);
+    memset(gwtbl[i].domainname, '\0', MWMAXNAMELEN);
   }
+  ipcmain->gwtbl_nextidx = 0;
   for (i=0; i < ipcmain->convtbl_length; i++) {
     convtbl[i].srvid = UNASSIGNED;
     convtbl[i].cltid = UNASSIGNED;
@@ -134,7 +143,8 @@ SERVERID addserver(char * name, int mqid, pid_t pid)
 {
   ipcmaininfo * ipcmain;
   serverentry * srvtbl;
-  int srvidx;
+  int srvidx = UNASSIGNED, i;
+  static int nextidx = 0;
 
   mwlog(MWLOG_DEBUG, 
 	"addserver(name=\"%s\", mqid=%d, pid=%d",
@@ -146,48 +156,65 @@ SERVERID addserver(char * name, int mqid, pid_t pid)
     return -EUCLEAN;
   };
   srvtbl = getserverentry(0);
-  mwlog(MWLOG_DEBUG, "address of table is %#X %#x", srvtbl, srvtbl);
-  mwlog(MWLOG_DEBUG, "address of table is %#X %#x", (long)srvtbl, (long) srvtbl);
+  mwlog(MWLOG_DEBUG, "address of server table is %#X %#x", srvtbl, srvtbl);
 
-  for (srvidx = 0; srvidx < ipcmain->srvtbl_length; srvidx++) {
+  for (i = nextidx; i < ipcmain->srvtbl_length; i++) {
     mwlog(MWLOG_DEBUG, "addserver: testing %d status=%d", 
-	  srvidx, srvtbl[srvidx].status);
+	  i, srvtbl[i].status);
     
-    if (srvtbl[srvidx].status != UNASSIGNED) continue;
-    
-    srvtbl[srvidx].mqid = mqid;
-    srvtbl[srvidx].status = 0;
-    srvtbl[srvidx].booted = time(NULL);
-    srvtbl[srvidx].lastsvccall = -1;
-    srvtbl[srvidx].mwdblock = FALSE;
-    srvtbl[srvidx].pid = pid;
-    srvtbl[srvidx].nowserving = UNASSIGNED;
-  
-    srvtbl[srvidx].percbusy1 = 0;
-    srvtbl[srvidx].percbusy5 = 0;
-    srvtbl[srvidx].percbusy15 = 0;
-    srvtbl[srvidx].count1 = 0;
-    srvtbl[srvidx].count5 = 0;
-    srvtbl[srvidx].count15 = 0;
-    srvtbl[srvidx].qlenbusy1 = 0;
-    srvtbl[srvidx].qlenbusy5 = 0;
-    srvtbl[srvidx].qlenbusy15 = 0;
-    srvtbl[srvidx].avserv1 = 0;
-    srvtbl[srvidx].avserv5 = 0;
-    srvtbl[srvidx].avserv15 = 0;
-    srvtbl[srvidx].avwait1 = 0;
-    srvtbl[srvidx].avwait5 = 0;
-    srvtbl[srvidx].avwait15 = 0;
-
-    mwlog(MWLOG_DEBUG, 
-	  "addserver: added server %s to index %#x adr %#x mqid = %d pid = %d", 
-	  name, srvidx, (long)&srvtbl[srvidx], mqid, pid);
-    srvidx |= MWSERVERMASK;
-
-    return srvidx;
+    if (srvtbl[i].status == UNASSIGNED) {
+      srvidx = i;
+      nextidx = i+1;
+      break;
+    }
   };
-  mwlog(MWLOG_ERROR, "Server table full");
-  return -ENOSPC;
+  if (srvidx == UNASSIGNED) {
+    for (i = 0; i < nextidx; i++) {
+      mwlog(MWLOG_DEBUG, "addserver: testing %d status=%d", 
+	    i, srvtbl[i].status);
+      
+      if (srvtbl[i].status == UNASSIGNED) {
+	srvidx = i;
+	nextidx = i+1;
+	break;
+      }
+    };
+  };
+  if (srvidx == UNASSIGNED) {
+    mwlog(MWLOG_ERROR, "Server table full");
+    return -ENOSPC;
+  };
+  
+  srvtbl[srvidx].mqid = mqid;
+  srvtbl[srvidx].status = 0;
+  srvtbl[srvidx].booted = time(NULL);
+  srvtbl[srvidx].lastsvccall = -1;
+  srvtbl[srvidx].mwdblock = FALSE;
+  srvtbl[srvidx].pid = pid;
+  srvtbl[srvidx].nowserving = UNASSIGNED;
+  
+  srvtbl[srvidx].percbusy1 = 0;
+  srvtbl[srvidx].percbusy5 = 0;
+  srvtbl[srvidx].percbusy15 = 0;
+  srvtbl[srvidx].count1 = 0;
+  srvtbl[srvidx].count5 = 0;
+  srvtbl[srvidx].count15 = 0;
+  srvtbl[srvidx].qlenbusy1 = 0;
+  srvtbl[srvidx].qlenbusy5 = 0;
+  srvtbl[srvidx].qlenbusy15 = 0;
+  srvtbl[srvidx].avserv1 = 0;
+  srvtbl[srvidx].avserv5 = 0;
+  srvtbl[srvidx].avserv15 = 0;
+  srvtbl[srvidx].avwait1 = 0;
+  srvtbl[srvidx].avwait5 = 0;
+  srvtbl[srvidx].avwait15 = 0;
+  
+  mwlog(MWLOG_DEBUG, 
+	"addserver: added server %s id = %d adr %#x mqid = %d pid = %d", 
+	name, srvidx, (long)&srvtbl[srvidx], mqid, pid);
+  srvidx |= MWSERVERMASK;
+  
+  return srvidx;
 };
 
 int delserver(SERVERID sid)
@@ -219,62 +246,97 @@ int delserver(SERVERID sid)
  *
  **********************************************************************/
 
-CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int sid)
+CLIENTID addclient(int type, char * name, int mqid, pid_t pid, int gwid)
 {
-  ipcmaininfo * ipcmain;
-  cliententry * clttbl;
-  int cltidx;
-  
-  mwlog(MWLOG_DEBUG, 
-	"addclient(type=%d, name=\"%s\", mqid=%d, pid=%d, sid=%d",
-	type, name, mqid, pid, sid);
-  
-  if (type & MWGATEWAY) return -ENOSYS;
+  ipcmaininfo * ipcmain = NULL;
+  cliententry * clttbl = NULL;
+  int cltidx = UNASSIGNED, i;
+  static int nextidx = 0;
 
+  mwlog(MWLOG_DEBUG, 
+	"addclient(type=%d, name=\"%s\", mqid=%d, pid=%d, gwid=%d",
+	type, name, mqid, pid, gwid);
+  
   ipcmain = getipcmaintable();
   if (ipcmain == NULL) {
     mwlog(MWLOG_ERROR, "No ipcmain table available");
     return -EUCLEAN;
   };
   clttbl = getcliententry(0);    
-  mwlog(MWLOG_DEBUG, "address of table is %#X %#x", clttbl, clttbl);
+  mwlog(MWLOG_DEBUG, "address of client table is %#X %#x", clttbl, clttbl);
 
   /* 
-   * foreach entry in the client table, find the first available
+   * foreach entry in the client table, find the first available,
+   * starting with the last id issued.  
    */
-  for (cltidx = 0; cltidx < ipcmain->clttbl_length; cltidx++) {
+  for (i = nextidx; i < ipcmain->clttbl_length; i++) {
     mwlog(MWLOG_DEBUG, "addclient: testing %d if status=%d==%d type=%d==%d", 
-	  cltidx, clttbl[cltidx].status, UNASSIGNED, clttbl[cltidx].type, UNASSIGNED);
+	  i, clttbl[i].status, UNASSIGNED, clttbl[i].type, UNASSIGNED);
 
-    if (clttbl[cltidx].status != UNASSIGNED) continue;
-    /* 
-     * We have an available, set all the params.
-     */
-    clttbl[cltidx].type     = type;
+    if (clttbl[i].status == UNASSIGNED) {
+      cltidx = i;
+      nextidx = i+1;
+      break;
+    };
+  };
+  if (cltidx == UNASSIGNED) {
+    for (i = 0; i < nextidx; i++) {
+      mwlog(MWLOG_DEBUG, "addclient: testing %d if status=%d==%d type=%d==%d", 
+	    i, clttbl[i].status, UNASSIGNED, clttbl[i].type, UNASSIGNED);
+      
+      if (clttbl[i].status == UNASSIGNED) {
+	cltidx = i;
+	nextidx = i+1;
+	break;
+      };
+    };
+  }
+  if (cltidx == UNASSIGNED) {  
+    /* if for loop completed, we have a full table.*/
+    mwlog(MWLOG_ERROR, "Client table full");
+    return -ENOSPC;
+  }
+  
+  /* 
+   * We have an available, set all the params.
+   */
+  switch (type) {
+  case MWIPCCLIENT:
+  case MWIPCSERVER:
     clttbl[cltidx].location = MWLOCAL ;
-    clttbl[cltidx].mqid     = mqid;
-    clttbl[cltidx].pid      = pid;
-
-    strncpy(clttbl[cltidx].clientname, name, MWMAXNAMELEN) ;
-    clttbl[cltidx].authtype = MWAUTHUNIX;
-
-    clttbl[cltidx].status = 0;
-
-    clttbl[cltidx].connected = time(NULL);
-    clttbl[cltidx].requests = 0;
-
+    clttbl[cltidx].gwid = UNASSIGNED ;
     mwlog(MWLOG_DEBUG, 
 	  "addclient: added client %s to index %#x adr %#x mqid = %d pid = %d", 
 	  name, cltidx, (long) &clttbl[cltidx], mqid, pid);
+    
+    break;
+  case MWNETCLIENT:
+    clttbl[cltidx].location = MWREMOTE ;
+    clttbl[cltidx].gwid = gwid ;
+    mwlog(MWLOG_DEBUG, 
+	  "addclient: added client %s to index %#x  gatewayid = %d pid = %d", 
+	  name, cltidx, gwid, pid);
+    
+    break;
+  default:
+    mwlog(MWLOG_WARNING, "Got a request to add a client of unknown type (%#x)", type);
+    return -ENOSYS;
+  }
+  clttbl[cltidx].type     = type;      
+  clttbl[cltidx].mqid     = mqid;
+  clttbl[cltidx].pid      = pid;
+  
+  strncpy(clttbl[cltidx].clientname, name, MWMAXNAMELEN) ;
+  clttbl[cltidx].authtype = UNASSIGNED;
+  
+  clttbl[cltidx].status = 0;
+  clttbl[cltidx].connected = time(NULL);
+  clttbl[cltidx].requests = 0;
+  
+  cltidx |= MWCLIENTMASK;
+  return cltidx;
+};
 
-    cltidx |= MWCLIENTMASK;
-    return cltidx;
-  };
-
-  /* if for loop completed, we have a full table.*/
-  mwlog(MWLOG_ERROR, "Server table full");
-  return -ENOSPC;
-}
   
 /*
  * used when deleting a server to ensure that all service entries 
@@ -332,7 +394,9 @@ int delclient(CLIENTID cid)
 
 SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
 {
-  int i;
+  int i, svcidx;
+  static int nextidx = 0;
+
   serviceentry * svctbl;
   serverentry * srvent;
 
@@ -345,22 +409,43 @@ SERVICEID addlocalservice(SERVERID srvid, char * name, int type)
     mwlog(MWLOG_ERROR, "got a request to assign a service to server %#x which is nott attached", srvid);
     return -EINVAL;
   };
-  /* we go thru the service table to find the first available entry.*/
+  
+  /* we go thru the service table starting with the nest after the
+     last one we returned to find the first available entry.*/
   svctbl = getserviceentry(0);
-  for (i = 0; i < ipcmain->svctbl_length; i++) {
+  for (i = nextidx; i < ipcmain->svctbl_length; i++) {
     if (svctbl[i].server == UNASSIGNED) {
-      svctbl[i].server = srvid;
-      strncpy(svctbl[i].servicename, name, MWMAXSVCNAME);
-      svctbl[i].type = type;
-      svctbl[i].location = MWLOCAL;
-
-      i = i | MWSERVICEMASK;
-      mwlog(MWLOG_DEBUG, "Added service %s as %#x for server %#x", 
-	    name, i, srvid);
-      return i;
+      svcidx = i;
+      nextidx = i+1;
+      break;
     };
   }
-  return -ENOSPC;
+  if (svcidx == UNASSIGNED) {
+    for (i = 0; i < nextidx; i++) {
+      if (svctbl[i].server == UNASSIGNED) {
+	svcidx = i;
+	nextidx = i+1;
+	break;
+      };
+    }
+  };
+  
+  if (svcidx == UNASSIGNED) {  
+    /* if for loop completed, we have a full table.*/
+    mwlog(MWLOG_ERROR, "Service table full");
+    return -ENOSPC;
+  };
+  
+  svctbl[svcidx].server = srvid;
+  strncpy(svctbl[svcidx].servicename, name, MWMAXSVCNAME);
+  svctbl[svcidx].type = type;
+  svctbl[svcidx].location = MWLOCAL;
+  
+  mwlog(MWLOG_DEBUG, "Added service %s as %d for server %#x, nextid=%d", 
+	name, svcidx, srvid, nextidx);
+
+  svcidx = svcidx | MWSERVICEMASK;
+  return svcidx;
 };
 
 int delservice(SERVICEID svcid, SERVERID srvid)
@@ -491,7 +576,7 @@ int stop_server(SERVERID sid)
 
 static int signallist[5] = { SIGTERM, SIGHUP, SIGQUIT, SIGKILL, 0 };
 
-int kill_all_servers()
+int kill_all_servers(void)
 {
   int npidlist, n, i, j, rc; 
   pid_t * pidlist;
@@ -553,7 +638,7 @@ int kill_all_servers()
 */
 int check_tables()
 { 
-  int i, rc;
+  int i,j, rc;
 
   if (clttbl != NULL) {
     for (i = 0; i< ipcmain->clttbl_length; i++) 
@@ -597,7 +682,21 @@ int check_tables()
   if (gwtbl != NULL) {
     for (i = 0; i< ipcmain->gwtbl_length; i++) 
       if (gwtbl[i].pid > 1) {
-	/* THIS CAN'T HAPPEN (YET) */
+	if (rc == -1) {
+	  mwlog(MWLOG_INFO, "gateway %d pid=%d has died, cleaning up", i, gwtbl[i].pid);
+	  msgctl(srvtbl[i].mqid, IPC_RMID, NULL);
+	  /* clean up all the network clients handled by this gw */
+	  for (j = 0; j < ipcmain->clttbl_length; j++) {
+	    if (clttbl[j].gwid = i)
+	      delclient(MWCLIENTMASK | j);
+	  };
+
+	  gwtbl[i].pid = UNASSIGNED;
+	  gwtbl[i].srbrole = UNASSIGNED;
+	  gwtbl[i].location = UNASSIGNED;
+	  gwtbl[i].mqid = UNASSIGNED;
+	  gwtbl[i].status = UNASSIGNED;
+	};
       }
   };
 

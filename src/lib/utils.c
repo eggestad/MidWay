@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2002/10/22 21:45:49  eggestad
+ * added timepegs for measuring timeing in code, based on x86 instr rdtsc
+ *
  * Revision 1.1  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  *
@@ -124,3 +127,146 @@ void _mw_setrealtimer(long long usecs)
   return;
 };
 
+/************************************************************************
+ * time pegs 
+ ************************************************************************/
+#ifdef TIMEPEGS
+
+static inline long long  rt_sample(void)
+{
+  long long val;
+  asm volatile ("rdtsc"  : "=A" (val));
+  return val;
+};
+
+struct perfentry {
+  char * file;
+  char * function;
+  int line;
+  char * note; 
+  long long timestamp;
+};
+
+#define MAXPEGS 100
+
+struct perfdata {
+  struct perfentry perfarray[MAXPEGS];
+  int perfidx;
+};
+
+
+#ifdef USETHREADS
+static pthread_key_t data_key;
+static int pd_init = 0;
+#else 
+struct perfdata * pd = NULL;
+#endif
+
+void timepeg_clear(void)
+{
+  int i;
+#ifdef USETHREADS
+  struct perfdata * pd;
+  
+  if (!pd_init++) pthread_key_create(&data_key, NULL);
+
+  pd = pthread_getspecific(data_key);
+  if (pd == NULL) {
+    pd = malloc(sizeof(struct perfdata));
+    memset(pd, '\0', sizeof(struct perfdata));
+    pthread_setspecific(data_key, pd);
+  };
+#endif
+    
+  pd->perfidx = 0;
+  for (i = 0; i < MAXPEGS; i++) {
+    pd->perfarray[i].file = NULL;
+    pd->perfarray[i].function = NULL;
+    pd->perfarray[i].line = 0;
+    pd->perfarray[i].note = NULL;
+  };
+};
+
+
+void  __timepeg(char * function, char * file, int line, char * note)
+{
+  struct perfentry * pe;
+#ifdef USETHREADS
+  struct perfdata * pd;
+  
+  if (!pd_init++) pthread_key_create(&data_key, NULL);
+
+  pd = pthread_getspecific(data_key);
+  if (pd == NULL) {
+    pd = malloc(sizeof(struct perfdata));
+    memset(pd, '\0', sizeof(struct perfdata));
+    pthread_setspecific(data_key, pd);
+  };
+#endif
+
+  if (pd->perfidx >= MAXPEGS-1) return;
+  
+  pe = & pd->perfarray[pd->perfidx];
+  pe->timestamp = rt_sample();
+  pe->file = file;
+  pe->function = function;
+  pe->line = line;
+  pe->note = note;
+  //  fprintf (stderr, "set timepeg %d\n", perfidx);
+  pd->perfidx++;
+};
+
+int timepeg_sprint(char * buffer, size_t size)
+{
+  int i, l;
+  long long start, t, d;
+#ifdef USETHREADS
+  struct perfdata * pd;
+  
+  if (!pd_init++) pthread_key_create(&data_key, NULL);
+
+  pd = pthread_getspecific(data_key);
+  if (pd == NULL) {
+    pd = malloc(sizeof(struct perfdata));
+    memset(pd, '\0', sizeof(struct perfdata));
+    pthread_setspecific(data_key, pd);
+  };
+#endif
+
+
+  start = pd->perfarray[0].timestamp; 
+
+  l = 0;
+  l += snprintf(buffer + l, size - l, 
+		"\n     Entry:         File         :      Function       (line)   cycles     delta    note");
+  for (i = 0; i < pd->perfidx; i++) {    
+    if (i == 0) {
+      start = pd->perfarray[i].timestamp;
+      t = pd->perfarray[i].timestamp - start;
+      d = 0;
+    } else {
+      t = pd->perfarray[i].timestamp - start;
+      d = pd->perfarray[i].timestamp - pd->perfarray[i-1].timestamp;
+    };
+    if ((size - l) < 100) return l;
+    l += snprintf(buffer + l, size - l, "\n     %5d:%22s:%22s(%d) %8lld + %8lld  \"%s\"", 
+		  i,
+		  pd->perfarray[i].file, 
+		  pd->perfarray[i].function, 
+		  pd->perfarray[i].line, 
+		  t,
+		  d,
+		  pd->perfarray[i].note?pd->perfarray[i].note:"");
+  };
+  return l;
+};
+  
+void timepeg_log(void)
+{
+  char buffer[(MAXPEGS * 256) + 1024];
+  timepeg_sprint(buffer, (MAXPEGS * 128) + 1024);
+  Info("TIMEPEGS: %s", buffer);
+  timepeg_clear();
+};
+
+#endif

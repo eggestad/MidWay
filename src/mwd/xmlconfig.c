@@ -19,9 +19,6 @@
 */
 
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
@@ -37,9 +34,11 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include "xmlconfig.h"
 #include "servermgr.h"
 
+static char * RCSId UNUSED = "$Id$";
+static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 static xmlDocPtr  configdoc = NULL;
-static xmlNsPtr configns = NULL;
+//static xmlNsPtr configns = NULL;
 
 static char * configfilename = NULL;
 
@@ -71,7 +70,6 @@ static void trim(char * p)
 
 int xmlConfigLoadFile(char * configfile)
 {
-    int i = 0;
     FILE * ferror;
     long off;
     char * errormesg;
@@ -229,7 +227,6 @@ static int ParseEnvTag(xmlNodePtr node, int servergroup)
   xmlNodePtr cur;
   char * envs;
   int envslength;
-  char * newline;
   char * name;
   char * value;
   int i, rc;
@@ -352,7 +349,6 @@ static int ParseArgListTag(xmlNodePtr node)
 
 static int ParseServerInstancesTag(xmlNodePtr node)
 {
-  xmlNodePtr cur;
   char * propvalue;
   int min = 1, max = 1;
 

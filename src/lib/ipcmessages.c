@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.28  2004/03/01 12:55:21  eggestad
+ * change in mwfetch() params\
+ *
  * Revision 1.27  2003/12/08 16:04:01  eggestad
  * call reply queue was a FILO queue, should be a FIFO, which it now is
  *
@@ -205,7 +208,7 @@ static Call * popCallReplyByHandle(int handle)
 
    if (callReplyQueue == NULL) goto out;
 
-   if (handle == -1) {
+   if (handle == 0) {
       DEBUG1("pop any queue = %p", callReplyQueue);
       if (callReplyQueue) {
 	 elm = callReplyQueue;
@@ -1169,13 +1172,15 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
    NB!!!!! NOT THREAD SAFE!!!!
 */
 
-int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int flags)
+int _mwfetchipc (int * hdl, char ** data, int * len, int * appreturncode, int flags)
 {
   int rc;
   char * buffer;
   struct timeval tv;
   Call * callmesg;
   MWID id;
+  int handle = *hdl;
+
 
   /*  if (handle == 0) return -NMWNYI;*/
   
@@ -1191,9 +1196,9 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
     buffer = malloc(MWMSGMAX);
   };
 
-  while ( callmesg == NULL) {
+  while (callmesg == NULL) {
     /* get the next message of type SVCREPLY of teh IPC queue. */
-    rc = _mw_ipc_getmessage(buffer, len , SVCREPLY, flags);
+    rc = _mw_ipc_getmessage(buffer, len, SVCREPLY, flags);
     if (rc != 0) {
       DEBUG1("returned with error code %d", rc);
       free (buffer);
@@ -1259,6 +1264,7 @@ int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int f
   };
 
   *appreturncode = callmesg->appreturncode;
+  *hdl = callmesg->handle;
 
   /* deadline info is invalid even though I can provide it */
 

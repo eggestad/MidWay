@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.12  2004/03/01 12:56:35  eggestad
+ * change in mwfetch() params\
+ *
  * Revision 1.11  2002/10/20 18:09:39  eggestad
  * added instance to the Call struct. Needed later for gateway to gateway calls
  *
@@ -231,13 +234,13 @@ typedef struct {
 #define EVENTUNSUBSCRIBERPL  0x450
 
 /* in the "normal" case of an event, the event cant be "". The data is
-however optional, and the user  and group is optional as well.  (first
-byte is \0  if empty.  flag is  not used. The data, if  passed, is now
-owned by mwd, and the event sender must not free it.  The mwd will let
-it be and send a event message to all subscribers, all pointing to the
-same date buffer.  Therefore recipient  of event must ack in order for
-the mwd to know when it's OK to free the buffer. The mwd do not ack to
-the original sender. */
+however optional, and the user and group/clientname is optional as
+well.  (first byte is \0 if empty.  flag is not used. The data, if
+passed, is now owned by mwd, and the event sender must not free it.
+The mwd will let it be and send a event message to all subscribers,
+all pointing to the same date buffer.  Therefore recipient of event
+must ack in order for the mwd to know when it's OK to free the
+buffer. The mwd do not ack to the original sender. */
 
 /* In the case of subscribe  or unsubscribe, A string, glob, or regexp
 is passed as the event that the mwd will use to match any event to any
@@ -304,7 +307,7 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid);
 
 int _mwacallipc (char * svcname, char * data, int datalen, int flags, 
 		 MWID mwid, char * instance, char * domain, MWID callerid, int hops);
-int _mwfetchipc (int handle, char ** data, int * len, int * appreturncode, int flags);
+int _mwfetchipc (int * handle, char ** data, int * len, int * appreturncode, int flags);
 
 int _mw_ipcconnect(char * servicename, char * socketpath, int flags);
 int _mw_ipcdisconnect(int fd);

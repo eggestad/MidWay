@@ -41,6 +41,8 @@
 
 typedef int MWID;
 
+#define PTASKMAGIC 0x00effe00
+
 /*
  * I tried for a  while to keep the SERVICE/SERVER/CLIENT/GATEWAYID to
  * be the index, without the  flags set, and introduce a MWID where we
@@ -51,16 +53,6 @@ typedef int MWID;
  * first of all mostly seperate  variables foir the ID, and then check
  * to verify  that it's the correct type just apeal  to me. THus these
  * macros are now obsiolete.
-
-#define MWID2CLTID(id)  ((id & MWCLIENTMASK)  >= 0 ? (id&MWINDEXMASK):UNASSIGNED)
-#define MWID2SRVID(id)  ((id & MWSERVERMASK)  >= 0 ? (id&MWINDEXMASK):UNASSIGNED)
-#define MWID2SVCID(id)  ((id & MWSERVICEMASK) >= 0 ? (id&MWINDEXMASK):UNASSIGNED)
-#define MWID2GWID(id)   ((id & MWGATEWAYMASK) >= 0 ? (id&MWINDEXMASK):UNASSIGNED)
- 
-#define CLTID2MWID(id)  (id | MWCLIENTMASK) 
-#define SRVID2MWID(id)  (id | MWSERVERMASK)  
-#define SVCID2MWID(id)  (id | MWSERVICEMASK) 
-#define GWID2MWID(id) (id | MWGATEWAYMASK) */
 
 /* get the index or unassigned if wrong mask set */
 #define CLTID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWCLIENTMASK)  >= 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)

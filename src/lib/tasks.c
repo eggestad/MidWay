@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2003/04/25 13:04:20  eggestad
+ * - fixes to task API
+ *
  * Revision 1.1  2002/08/09 20:50:15  eggestad
  * A Major update for implemetation of events and Task API
  * 
@@ -46,8 +49,9 @@ struct _task {
   int interval; // in ms. 
   int state;
   
-  int (*function)(void);
-  
+  taskproto_t function;
+   char * name;
+
   long long nextsched;
 
   int calls;
@@ -88,7 +92,7 @@ static void schedule(void)
   for (i = 0; i < tasks; i++) {
     idx = (nexttask + i) % tasks;
     t = & tasklist[i];
-    DEBUG3("scheduling task #%d", i); 
+    DEBUG3("scheduling task #%d \"%s\"", i, t->name); 
     switch (t->state) {
       
     case TASK_RUN:
@@ -102,7 +106,7 @@ static void schedule(void)
 	t->state = TASK_RUN; 
 	newrunnable++;
       } else {
-	DEBUG3(" in wait: %lld micro til next schedule", t->nextsched - now);
+	DEBUG3(" %s in wait: %lld micro til next schedule", t->name, t->nextsched - now);
 	if (t->nextsched < nexttasktime) {
 	  nexttasktime = t->nextsched ;
 	  first = idx;
@@ -193,6 +197,7 @@ int mwdotasks(void)
   long long start, end, tt;
   long long timeintask = 0;
   int i, idx, rc;
+  Task * t;
 
   if (tasks <= 0) return 0;
 
@@ -219,17 +224,25 @@ int mwdotasks(void)
     idx = (nexttask + i) % tasks;
     DEBUG3("checking task %d, nexttask = %d", idx, nexttask);
     if (tasklist[idx].state == TASK_RUN) {
-      DEBUG1("calling task %d", idx);
+      t = &tasklist[idx];
+      DEBUG1("calling task %d \"%s\"", idx, t->name);
+
       start = _mw_llgtod();
-      rc = tasklist[idx].function();
+      rc = t->function(idx+PTASKMAGIC);
       end = _mw_llgtod();
       if (rc == 0)  {
 	DEBUG1("task complete");
-	tasklist[idx].state = TASK_WAIT;
 	runnable--;
-	tasklist[idx].nextsched = _mw_llgtod() + tasklist[idx].interval;
-	DEBUG1("task complete nextsched = %lld, runnable %d", tasklist[idx].nextsched, runnable);
-      }
+	if (t->interval < 0) {
+	   t->state = TASK_SUSP;
+	   t->nextsched = 0;
+	   DEBUG1("task complete suspending, runnable %d", t->nextsched, runnable);
+	} else {	   
+	   t->state = TASK_WAIT;
+	   t->nextsched = _mw_llgtod() + t->interval;
+	   DEBUG1("task complete nextsched = %lld, runnable %d", t->nextsched, runnable);
+	}
+      };
       tt = end - start;
       DEBUG1("time spend in his task = %lld timeintask = %lld", tt, timeintask);
       timeintask += tt;
@@ -260,60 +273,128 @@ int mwdotasks(void)
   return runnable;
 };
 
-/* if we for some reason should need to wake a task before itæs interval, we can call this. */
+
+//int mwchtask(PTask pt, int cmd, void * data)
+
+/* if we for some reason should need to wake a task before it's interval, we can call this. */
 int mwwaketask(PTask pt)
 {
   Task * t;
   int idx;
 
+  idx = pt - PTASKMAGIC;
   if (tasks < 0) return -EILSEQ;
   if (tasks == 0) return -ENOENT;
-  t = (Task *) pt;
-  if (t == NULL) return -EINVAL;
-  idx  = ((long)t - (long)tasklist) / sizeof(Task);
   if (idx >= tasks) return -ENOENT;
+  t = &tasklist[idx];
 
-  DEBUG1("waking task %d", idx);
+  DEBUG1("waking task %d \"%s\"", idx, t->name);
   t->state = TASK_RUN;
   if (!runnable) {
     nexttask = idx;
     _mw_setrealtimer(0);
   };
   runnable++;
+  return 0;
 };
 
-/* interval is in ms */
-PTask mwaddtask(int (*function)(void), int interval)
+int mwsuspendtask(PTask pt)
+{
+   Task * t;
+   int idx;
+
+   idx = pt - PTASKMAGIC;
+   if (tasks < 0) return -EILSEQ;
+   if (tasks == 0) return -ENOENT;
+   if (idx >= tasks) return -ENOENT;
+   t = &tasklist[idx];
+
+   DEBUG1("suspending task %d", idx);
+   
+   t->state = TASK_SUSP;
+   schedule();
+   return 0;
+};
+
+int mwsettaskinterval (PTask pt, int interval) 
+{
+   Task * t;
+   int oldinterval;
+   int idx;
+
+   idx = pt - PTASKMAGIC;
+   if (tasks < 0) return -EILSEQ;
+   if (tasks == 0) return -ENOENT;
+   if (idx >= tasks) return -ENOENT;
+   t = &tasklist[idx];
+
+   if (interval < 0) interval = -1;
+
+   oldinterval = t->interval / 1000;
+   t->interval = interval *1000;
+
+   DEBUG1("task interval = %d new interval = %d old interval = %d ret=%d", 
+	  interval, t->interval, oldinterval*1000, oldinterval);
+   schedule();
+   return oldinterval;
+};
+   
+
+PTask _mwaddtask(taskproto_t function, char * name, int interval)
+{
+   return _mwaddtaskdelayed(function, name, interval, -1);
+};
+
+/* interval & initialdelay is in ms but all times in struct is in
+   us. if initdelay is -1, the first call is in inteval. If interval
+   if -1 and initialdelay is -1, the task is never scheduled until
+   either mwwaketask() or mwchtask() is called. if only initialdelay
+   is positive, the task is called once, and is suspended after
+   completion. */
+PTask _mwaddtaskdelayed(taskproto_t function, char * name, int interval, int initialdelay)
 {
   Task * t;
+  int firstissue = -1;
+  int idx;
 
-  if (function == NULL) { errno= EINVAL; return NULL; };
+  if (function == NULL) return  -EINVAL;
   DEBUG1("tasks %d", tasks);
 
   if (tasks == -1) inittasks();
   tasklist = realloc(tasklist, (tasks+1)*sizeof(Task));
   DEBUG1("tasklist = %p, size = %d", tasklist, (tasks+1)*sizeof(Task));
+  idx = tasks;
   t = &tasklist[tasks];
   tasks++;
 
+  if (initialdelay >= 0) firstissue = initialdelay* 1000;
+  else if (interval >= 0) firstissue = interval  * 1000;
+  
   t->function = function;
-  DEBUG1("adding task %d", tasks);
+  t->name = name;
+
+  DEBUG1("adding task %d interval %d delay %d", tasks, interval, initialdelay);
   if (interval <= 0) { 
     t->interval = -1;
-    t->nextsched = -1;
   } else {    
-    t->interval = interval * 1000;
-    t->nextsched = _mw_llgtod() + t->interval;
-    nexttasktime = t->nextsched;
-    nexttask = tasks-1;
-    DEBUG3("nexttask = %d at %lld", nexttask, nexttasktime);
+     t->interval = interval * 1000;
   };
 
-  t->state = TASK_WAIT;
+  if (firstissue >= 0) {
+     t->nextsched = _mw_llgtod() + firstissue;
+  } else {
+     t->nextsched = -1;
+  };
+
+  // if both neg, we go directly to suspend.
+  if ( (interval < 0) && (initialdelay < 0))
+     t->state = TASK_SUSP;
+  else
+     t->state = TASK_WAIT;
 
   t->calls = 0;
   t->timespend = 0;
 
   schedule();
-  return (PTask) t;
+  return  idx + PTASKMAGIC;
 };

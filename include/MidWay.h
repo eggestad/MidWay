@@ -170,6 +170,18 @@ extern "C" {
   int mwfree(void *);
 
   /* task API */
+  typedef long PTask;
+  typedef int (*taskproto_t)(PTask);
+
+  PTask _mwaddtaskdelayed(taskproto_t func, char * name, int interval, int initialdelay);
+  PTask _mwaddtask(taskproto_t func, char * name, int interval);
+#define mwaddtaskdelayed(f, i, d) _mwaddtaskdelayed(f, #f, i, d)
+#define mwaddtask(f, i) _mwaddtask(f, #f, i)
+
+  int mwwaketask(PTask t);
+   int mwdotasks(void) ;
+   int mwsettaskinterval (PTask pt, int interval) ;
+
 
   /* internal logging API */
   void mwsetlogprefix(char * fileprefix);
@@ -204,11 +216,6 @@ extern "C" {
   } instanceinfo;
 
   instanceinfo * mwbrokerquery(char * domain, char * instance);
-
-  typedef struct Task * PTask;
-  PTask mwaddtask(int (*function)(void), int interval);
-  int mwwaketask(PTask t);
-  int mwdotasks(void) ;
 
 
 #ifdef	__cplusplus

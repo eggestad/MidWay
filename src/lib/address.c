@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2002/02/17 13:55:16  eggestad
+ * added missing includes
+ *
  * Revision 1.6  2001/10/03 22:45:10  eggestad
  * added multicast quert, and mem corruption fixes
  *
@@ -50,14 +53,18 @@ static char * RCSId = "$Id$";
 static char * RCSName = "$Name$"; /* CVS TAG */
 
 #include <sys/types.h>
+#include <ctype.h>
 #include <regex.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 #include <pwd.h>
+#include <unistd.h>
 
 #include <netinet/in.h>
 #include <netdb.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 #include <MidWay.h>
 

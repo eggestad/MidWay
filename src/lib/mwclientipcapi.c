@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.16  2004/04/12 11:19:08  eggestad
+ * - fix for wrong detach() return code
+ *
  * Revision 1.15  2004/04/08 10:34:06  eggestad
  * introduced a struct with pointers to the functions implementing the midway functions
  * for a given protocol.
@@ -143,7 +146,7 @@ int _mwdetachipc(void)
     rc = _mw_ipcsend_detach(1);
   };
   _mw_detach_ipc();
-  return 1;
+  return rc;
 };
 /* This conclude the administrative calls.*/
 

@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.9  2004/11/17 20:56:41  eggestad
+ * fix for double free (pointer not NULL'ed)
+ *
  * Revision 1.8  2004/04/12 23:05:25  eggestad
  * debug format fixes (wrong format string and missing args)
  *
@@ -540,6 +543,7 @@ int  storePopAttach(char * cname, int *connid, int * fd, urlmap ** map)
       *connid = PAthis->connid;
 
     free(PAthis->cname);
+    PAthis->cname = NULL;
     PAthis->mappedmsg = NULL;
     PAthis->connid = -1;
     
@@ -563,6 +567,7 @@ int  storePopAttach(char * cname, int *connid, int * fd, urlmap ** map)
 	*connid = PAthis->connid;
       
       free(PAthis->cname);
+      PAthis->cname = NULL;
       PAthis->mappedmsg = NULL;
       PAthis->connid = -1;
       

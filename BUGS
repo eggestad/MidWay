@@ -131,6 +131,14 @@ Minor BUGS:
 
 * in SRBclient:_mwfetch_srb: do test on expired deadline
 
+REL: 0.10.0
+
+(FIXED) * servers fail to start when mwd is started with -D,
+  mwprovide() return ECONNABORTED: Cause wrong mwdpid in ipcmain.
+
+(FIXED) * mwcall fails if NULL as data.
+
+
 -----------------------------------------------------------------------
 
 CRITICAL BUGS:

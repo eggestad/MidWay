@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.4  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.3  2004/03/01 12:56:14  eggestad
  * added event API for SRB client
  *
@@ -45,5 +50,7 @@ int _mwfetch_srb(int * handle, char ** data, int * len, int * appreturncode, int
 
 
 int _mwevent_srb(char * evname, char * data, int datalen, char * username, char * clientname);
-int _mwsubscribe_srb(char * pattern, int flags);
-int _mwunsubscribe_srb(char * pattern, int flags); 
+int _mwsubscribe_srb(char * pattern, int id, int flags);
+int _mwunsubscribe_srb(int id); 
+
+int _mw_drain_socket(int flags);

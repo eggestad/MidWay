@@ -21,6 +21,11 @@
 
 /*
  * $Log$
+ * Revision 1.17  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.16  2003/09/25 19:36:20  eggestad
  * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
  * - also improved logic in blocking/nonblocking of reading on Connection objects
@@ -236,10 +241,11 @@ void tcpcloseconnection(Connection * conn)
 
    TIMEPEGNOTE("begin");
 
-  DEBUG("tcpcloseconnection on  fd=%d", conn->fd);
-  if (conn->cid != UNASSIGNED) 
-    gwdetachclient(conn->cid);
-  else if (conn->type == CONN_TYPE_BROKER) {
+  DEBUG("on  fd=%d", conn->fd);
+  if (conn->cid != UNASSIGNED) {
+     srb_unsubscribe_all(conn);
+     gwdetachclient(conn->cid);
+  } else if (conn->type == CONN_TYPE_BROKER) {
     reconnect_broker = 1;   
   } else if ((conn->type == CONN_TYPE_GATEWAY) && (conn->type != UNASSIGNED)) {
      gw_closegateway(conn);

@@ -20,6 +20,11 @@
 
 /*
  * $Log$
+ * Revision 1.22  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.21  2003/06/12 07:35:50  eggestad
  * fix for NULL data when forward to peer
  *
@@ -138,6 +143,7 @@
 #include "connections.h"
 #include "toolbox.h"
 #include "impexp.h"
+#include "srbevents.h"
 
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$";
@@ -200,10 +206,10 @@ static void do_event_message(char * message, int len)
 	  
   DEBUG("Got an event %s", evmsg->event);
 
-  /* only events that don't start with a. is passed on */
+  /* only events that don't start with a. is passed on too peers */
   if (evmsg->event[0] != '.') {
-    // TODO: generate srb event 
-    return;
+     do_srb_event_dispatch(evmsg);
+     return; // only event beginning with . is processed below
   };
 
   /* special handle for .mw(un)provide messages */
@@ -255,15 +261,17 @@ static void do_event_message(char * message, int len)
       }
     } else // delsvc == 0
       dounprovideevent(pe->name);
-    
+  } else {
+     DEBUG("Ignoring event %s", evmsg->event);
+  };
   ack:
-    evmsg->mtype = EVENTACK;
-    DEBUG("acking event to mwd"); 
-    _mw_ipc_putmessage(MWD_ID, message, len, 0);
-    return;
-  } 
-  
-  Warning("Ignoring event we never (should have) subscribed to");
+  // we only ack messages with acompanying buffers
+  if (evmsg->data) {
+     evmsg->mtype = EVENTACK;
+     DEBUG("acking event to mwd"); 
+     _mw_ipc_putmessage(MWD_ID, message, len, 0);
+  };
+  return;
 };
 
 static void do_svcreply(Call * cmsg, int len);
@@ -1164,6 +1172,32 @@ void gw_provideservice_to_peers(char * service)
    DEBUG( "export complete");
 };
 
+void gw_send_to_peers(SRBmessage * srbmsg)
+{
+   int i;
+   struct gwpeerinfo * pi;
+   
+   DEBUG( "sending a SRB message to all peers");
+   
+   LOCKMUTEX(peersmutex);
+   for (i = 0; i < GWcount; i++) {
+      pi = & GWENTRY(i);
+      if (pi->conn == NULL) {
+	 DEBUG(" peer %d is not connected");
+	 continue;
+      };
+
+      if (pi->conn->state != CONNECT_STATE_UP) {
+	 DEBUG("peer %d is not yet in connected state, ignoring", i);
+	 continue;
+      };
+
+      _mw_srbsendmessage(pi->conn, srbmsg);
+   };
+   UNLOCKMUTEX(peersmutex);
+   DEBUG( "send complete");
+};
+
 /* now this is called only every time a new peer is connected. At that
    time we must go thru the full  svc ipc table, and get a list of the
    uniue service names . */
@@ -1625,10 +1659,10 @@ int main(int argc, char ** argv)
   gwtbl[idx].status = MWREADY;
 
   DEBUG("Subscribing to events");
-  rc = _mw_ipc_subscribe(NEWSERVICEEVENT, 0, MWEVSTRING);
-  DEBUG2("subscribe " NEWSERVICEEVENT " returned %d", rc);
-  rc = _mw_ipc_subscribe(DELSERVICEEVENT, 1, MWEVSTRING);
-  DEBUG2("subscribe " DELSERVICEEVENT " returned %d", rc);
+  rc = _mw_ipc_subscribe("*", 0, MWEVGLOB);
+  DEBUG2("subscribe * returned %d", rc);
+  rc = _mw_ipc_subscribe(".*", 1, MWEVGLOB);
+  DEBUG2("subscribe .* returned %d", rc);
 
   /* now do the magic on the outside (TCP) */
   tcpserverinit ();

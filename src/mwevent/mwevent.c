@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.2  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.1  2004/03/12 13:15:44  eggestad
  * added mwevent client
  *
@@ -46,27 +51,59 @@
 static char * RCSId UNUSED = "$Id";
 static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
-static char * url = NULL;
+char * inputfile = NULL;
+char * outputfile = NULL;
+FILE * fp = NULL;
 
-static char * inputfile = NULL;
-static char * outputfile = NULL;
-static char * logfile = NULL;
-static int noreply = 0;
-static char * prog; 
+char * logfile = NULL;
 
+#define PROG "mwevent"
+char * prog = PROG;
+
+// for attach
+char * myclientname = PROG;
+char * username = NULL;
+char * password = NULL;
+
+// for event
+char * url = NULL;
 char * user = NULL;
 char * client = NULL;
+
+int mode = 0;
 
 /* undocumented func in lib/mwlog.c */
 void _mw_copy_on_stdout(int flag);
 void _mw_copy_on_stderr(int flag);
 
+int subflag = MWEVSTRING;
+
+void eventhdl(char * eventname, char * data, int datalen) 
+{
+   fprintf (fp, "%s %*.*s\n", eventname, datalen, datalen, data);
+};
+
+int watchevents(int argc, char ** argv) 
+{
+   int i;
+
+   for (i = 0; i < argc; i++) {
+      mwsubscribeCB(argv[i], subflag, eventhdl);
+   };
+
+   do {
+      sleep(1);
+      mwrecvevents();
+   } while(1);
+};
+
+
+
+
 int postevent(int argc, char ** argv) 
 {
   int len = 0, rc = 0; 
-  int rlen = 0;
   char * data = NULL; 
-  struct timeval start, end;
 
   if (argv[0] == NULL) {
     return -EINVAL;
@@ -120,7 +157,6 @@ int postevent(int argc, char ** argv)
   
 
   DEBUG("about to send event (%s, %s, %d, ...)", argv[0], data, len);
-  gettimeofday(&start, NULL); 
 
   rc = mwevent(argv[0], data, len, user, client);
   
@@ -129,21 +165,35 @@ int postevent(int argc, char ** argv)
   return 0;
 };
 
-static char * prog = "mwevent";
 
 void usage(int rc) 
 {
-  fprintf (stderr, "usage: %s [-l debuglevel] [-L logfile] [-i inputfile] [-o outputfile] [-u user] [-c client] [-A URL] event [data|-]\n", prog);
-  fprintf (stderr, "       -l debuglevel : one of: error warning info debug debug1 debug2 debug3 debug4\n");
-  fprintf (stderr, "       -L logfile    : all logging is placed in this file, if - stderr\n");
-  fprintf (stderr, "       -i inputfile  : The data to be passed the service is read from this file\n");
-  fprintf (stderr, "       -o outputfile : the return data is placed in this file \n");
-  fprintf (stderr, "       -u user       : username \n");
-  fprintf (stderr, "       -c client     : clientname \n");
-  fprintf (stderr, "       -A URL        : the URL to the MidWay instance (e.g. srbp://host:port or ipc:ipckey\n");
-  fprintf (stderr, "       event         : The name of the MidWay event\n");
-  fprintf (stderr, "       data | -      : either a data string or - to use stdin\n");
-  exit(rc);
+   if (rc != 2) {
+      fprintf (stderr, "usage: %s [-l debuglevel] [-L logfile] [-i inputfile] [-o outputfile] [-u user] [-c client] [-A URL] event [data|-]\n", prog);
+      fprintf (stderr, "       -A URL        : the URL to the MidWay instance (e.g. srbp://host:port or ipc:ipckey\n");
+      fprintf (stderr, "       -l debuglevel : one of: error warning info debug debug1 debug2 debug3 debug4\n");
+      fprintf (stderr, "       -L logfile    : all logging is placed in this file, if - stderr\n");
+      fprintf (stderr, "       -i inputfile  : The data to be passed the service is read from this file\n");
+      fprintf (stderr, "       -U username   : username to login to MidWay with\n");
+      fprintf (stderr, "       -P password   : password for username \n");
+      fprintf (stderr, "       -u user       : username to whom to send events\n");
+      fprintf (stderr, "       -c client     : clientname to whom to send events \n");
+      fprintf (stderr, "       event         : The name of the MidWay event\n");
+      fprintf (stderr, "       data | -      : either a data string or - to use stdin\n");
+   } else if (rc != 1) {
+      fprintf (stderr, "usage: -S %s [-l debuglevel] [-L logfile] [-i inputfile] [-o outputfile] [-u user] [-c client] [-A URL] event [data|-]\n", prog);
+      fprintf (stderr, "       -l debuglevel : one of: error warning info debug debug1 debug2 debug3 debug4\n");
+      fprintf (stderr, "       -L logfile    : all logging is placed in this file, if - stderr\n");
+      fprintf (stderr, "       -o outputfile : the return data is placed in this file \n");
+      fprintf (stderr, "       -U username   : username to login to MidWay with\n");
+      fprintf (stderr, "       -P password   : password for username \n");
+      fprintf (stderr, "       -A URL        : the URL to the MidWay instance (e.g. srbp://host:port or ipc:ipckey\n");
+      fprintf (stderr, "       -r            : pattern is a regular expression \n");
+      fprintf (stderr, "       -E            : pattern is an extended regular expression \n");
+      fprintf (stderr, "       -g            : pattern is a glob wildcard expression \n");
+      fprintf (stderr, "       pattern...    : The pattern(s) to subscribe to\n");
+   };
+   exit(rc);
 };
   
 int main(int argc, char ** argv)
@@ -155,7 +205,7 @@ int main(int argc, char ** argv)
 
   prog = argv[0];
 
-  while ((option = getopt(argc, argv, "l:L:o:i:u:c:A:")) != EOF) {
+  while ((option = getopt(argc, argv, "l:L:A:So:i:u:c:U:P:rgE")) != EOF) {
     
     switch (option) {
       
@@ -165,6 +215,14 @@ int main(int argc, char ** argv)
        loglevel = rc;
        mwsetloglevel(loglevel);
        DEBUG("mwevent loglevel set to %s", optarg);
+       break;
+
+    case 'U':
+       username = optarg;
+       break;
+
+    case 'P':
+       password = optarg;
        break;
 
     case 'u':
@@ -197,25 +255,70 @@ int main(int argc, char ** argv)
       outputfile = optarg;
       break;
 
+    case 'r':
+       subflag = MWEVREGEXP;
+       break;
+
+    case 'E':
+       subflag = MWEVEREGEXP;
+       break;
+
+    case 'g':
+       subflag = MWEVGLOB;
+       break;
+
+    case 'S':
+       mode = 1;
+       break;
+
     case '?':
-      usage(-1);
+      usage(9);
     }
   }
-  DEBUG("mwevent client starting");
+  if (optind >= argc) usage (3);
 
-  if (optind >= argc) usage (-2);
+  if (mode == 0) {
+     DEBUG("mwevent client starting");
+     
+     if (outputfile) usage(1);
+     if (subflag != MWEVSTRING) usage(1);
+     
+     rc = mwattach(url, myclientname, username, password, 0 );
+     if (rc != 0) {
+	Error("mwattach on url %s returned %d", url, rc);
+	exit(rc);
+     };
 
-  rc = mwattach(url, "mwevent", NULL, NULL, 0 );
-  if (rc != 0) {
-    Error("mwattach on url %s returned %d", url, rc);
-    exit(rc);
+     rc = postevent(argc - optind, argv+optind) ;
+     
+     DEBUG("event returned %d", rc);   
+     DEBUG("detaching");  
+     
+     mwdetach();
+     exit(rc);
+  } else {
+     
+     DEBUG("mwevent watcher starting");
+  
+     if (inputfile) usage(2);
+     if (user) usage(2);
+     
+     if (outputfile) {
+	fp = fopen(outputfile, "w");
+	if (!fp) {
+	   Error("could not open %s for writing, reason: %s", outputfile, strerror(errno));
+	   exit(8);
+	};
+     } else {
+	fp = stdout;
+     };
+
+     rc = mwattach(url, myclientname, username, password, 0 );
+     if (rc != 0) {
+	Error("mwattach on url %s returned %d", url, rc);
+	exit(rc);
+     };
+
+     watchevents(argc - optind, argv+optind);
   };
-
-  rc = postevent(argc - optind, argv+optind) ;
-
-  DEBUG("event returned %d", rc);   
-  DEBUG("detaching");  
-
-  mwdetach();
-  exit(rc);
 };

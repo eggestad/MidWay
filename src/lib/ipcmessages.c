@@ -21,6 +21,11 @@
 /*
  * 
  * $Log$
+ * Revision 1.29  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.28  2004/03/01 12:55:21  eggestad
  * change in mwfetch() params\
  *
@@ -1208,7 +1213,7 @@ int _mwfetchipc (int * hdl, char ** data, int * len, int * appreturncode, int fl
     /* we now got the first available reply of the IPC message queue.
        In it wasn't the one we was waiting for push it to the internal queue. */
     callmesg = (Call *) buffer ;
-    if (callmesg->handle != handle) {
+    if (handle && (callmesg->handle != handle)) {
       
       gettimeofday(&tv, NULL);
       /* test to see if message missed deadline. NOTE if the message
@@ -1332,7 +1337,7 @@ int _mw_ipcsend_subscribe (char * pattern, int subid, int flags)
   memset (&ev, '\0', sizeof(Event));
   errno = 0;
 
-  dest = 0; // mwd
+  dest = MWD_ID; 
 
   if  (pattern == NULL) return -EINVAL;
   if  (subid < 0) return -EINVAL;
@@ -1391,7 +1396,7 @@ int _mw_ipcsend_unsubscribe (int subid)
   memset (&ev, '\0', sizeof(Event));
   errno = 0;
 
-  dest = 0; // mwd
+  dest = MWD_ID; 
 
   if  (subid < 0) return -EINVAL;
 
@@ -1415,7 +1420,8 @@ int _mw_ipcsend_unsubscribe (int subid)
   return rc;
 };
     
-int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, char * clientname)
+int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, char * clientname, 
+		       MWID fromid, int remoteflag)
 {
   MWID id;
   int  dest; 
@@ -1427,7 +1433,7 @@ int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, 
   memset (&ev, '\0', sizeof(Event));
   errno = 0;
 
-  dest = 0;
+  dest = MWD_ID;
   
   
   /* now the data string are passed in shm, we only pass the address (offset) , and 
@@ -1475,6 +1481,8 @@ int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, 
   else 
     ev.clientname[0] = '\0';
   
+  if (remoteflag) ev.flags |= MWEVENTPEERGENERATED;
+
   DEBUG1("Sending a ipcmessage to mwd event %s id %#x buffer at offset%d len %d ", 
 	 ev.event, ev.senderid, ev.data, ev.datalen);
 

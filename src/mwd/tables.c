@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.18  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.17  2004/02/19 23:44:09  eggestad
  * adding debug messages for msgctl(RM)
  *
@@ -427,6 +432,7 @@ int delclient(CLIENTID cid)
   };
 
   event_clear_id(cid);
+  event_unsubscribe(UNASSIGNED, cid);
 
   clttbl = _mw_getcliententry(0);
   cltidx = CLTID2IDX(cid);

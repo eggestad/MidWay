@@ -21,6 +21,11 @@
 
 /*
  * $Log$
+ * Revision 1.15  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.14  2004/03/01 12:56:14  eggestad
  * added event API for SRB client
  *
@@ -98,6 +103,7 @@ Connection cltconn = {
    role:          -1
 }; 
 
+#if 0
 /* a good example of the difference between client code, and server
    code, in server code we would never call fcntl() twice, but rather
    store the flags. */
@@ -122,6 +128,7 @@ static void nonblockingmode(int fd)
    fcntl(fd, F_SETFL, flags | O_NONBLOCK);
    return;
 };
+#endif
 
 static void cltcloseconnect(void)
 {
@@ -168,7 +175,7 @@ static int pushCRqueue(urlmap * map)
 
    crelm->map = map;
    crelm->handle = map[idx].value;
-   DEBUG3("pushCRqueue: handle = %s", crelm->handle);
+   DEBUG3("pushCRqueue: handle = %s map=%p", crelm->handle, map);
  
    idx = urlmapget(map, SRB_DATACHUNKS);
    if (idx != -1) {
@@ -271,7 +278,7 @@ static urlmap * popCRqueue(char * handle)
 
    map = crethis->map;
    free(crethis);
-   DEBUG3("popCRqueue: poped the reply for handle %s", handle);
+   DEBUG3("popCRqueue: poped the reply for handle %s map=%p", handle, map);
    TIMEPEGNOTE("end found");
    return map;
 };
@@ -551,14 +558,14 @@ int _mwacall_srb(char * svcname, char * data, int datalen, int flags)
 
    TIMEPEGNOTE("begin");
    handle = _mw_nexthandle();  
-   DEBUG1("_mwacall_srb: got handle=%#x", handle);
+   DEBUG1("got handle=%#x", handle);
    rc = _mw_srbsendcall(&cltconn, handle, svcname, data, datalen, 
 			flags);
    if (rc < 0) {
-      DEBUG1("_mwacall_srb: _mw_srbsendcall returned errno=%d", -rc);
+      DEBUG1("_mw_srbsendcall returned errno=%d", -rc);
       return rc;
    };
-   DEBUG1("_mwacall_srb: _mw_srbsendcall returned %d, returning handle=%#x", 
+   DEBUG1("_mw_srbsendcall returned %d, returning handle=%#x", 
 	  rc, handle);
 
    TIMEPEGNOTE("end");
@@ -566,166 +573,172 @@ int _mwacall_srb(char * svcname, char * data, int datalen, int flags)
 };
 
 
+void process_event(urlmap * map)
+{
+   char * name, * data;
+   int datalen;
+   int idx, subid;
+
+   DEBUG("enter");
+   name = urlmapgetvalue(map, SRB_EVENT);
+   if (!name) return;
+
+   idx = urlmapget(map, SRB_SUBSCRIPTIONID);
+   if (idx == UNASSIGNED) return;
+   subid = atoi(map[idx].value);
+   
+   idx = urlmapget(map, SRB_DATA);
+   if (idx > UNASSIGNED) {
+      data = map[idx].value;
+      datalen = map[idx].valuelen;
+   } else {
+      data = NULL;
+      datalen = 0;
+   };
+
+   _mw_doevent(subid, name, data, datalen);      
+   return;
+};
+
 /* we drain of all the messages in the TCP queue */
 
-static urlmap * _mw_read_svcreply(int flags)
+int _mw_drain_socket(int flags)
 {
-   int blocking;
-   urlmap * map = NULL;
+   int rc = 0;
    SRBmessage * srbmsg = NULL;
-
    
-   blocking = flags&MWNOBLOCK;
    TIMEPEGNOTE("begin");
-   DEBUG1("entring loop blocking = %d", blocking);
+   DEBUG1("entring loop nonblocking = %d", flags&MWNOBLOCK);
    do {
 
-      DEBUG3("_mwfetch_srb: at top of drain loop about to call _mw_srb_recvmessage(%s)", 
-	     blocking ? "blocking":"nonblocking");
+      DEBUG3("at top of drain loop about to call _mw_srb_recvmessage(%#x)", 
+	     flags);
 
       /* if we have call reply to return we don't block, nor if NOBLOCK flag is set '*/
-
       errno = 0;
-
+      if (srbmsg) 
+	 _mw_srb_destroy(srbmsg);
       srbmsg = _mw_srb_recvmessage(&cltconn, flags);
 
       if (srbmsg == NULL) {
-	 DEBUG1("_mwfetch_srb: readmessage failed with errno=%d", errno);
+	 DEBUG1("readmessage failed with errno=%d", errno);
 	 switch (errno) {
 	 
+	 case EPIPE:
+	    DEBUG1("Disconnected");
+	    return -EPIPE;
+
 	 case EAGAIN:
 	    DEBUG1("nothing left to read in the TCP queue");
-	    return NULL;
+	    return -EAGAIN;
 
 	 case EINTR:
 	    if (flags & MWSIGRST)
 	       continue;
 	    else {
 	       DEBUG1("returning due to interrupt");	       
-	       return NULL;
+	       return -errno;
 	    };
-	    
-	 default:  	    
-	    Warning("_mwfetch_srb: got an incomprehensible SRB message errno%d", errno);
-	    /* we should reject it */
-	    continue;	    
-	 };
-	 // just to be safe
-	 return NULL;
+	 }
+	 return -errno;
       };
 
-      /* if a reject fro the peer, ignore it. */
+      /* if a reject from the peer, ignore it. */
       if (srbmsg->marker == SRB_REJECTMARKER) { 
-	 Error("_mwfetch_srb: got a rejected message");
-	 _mw_srb_destroy(srbmsg);
-	 srbmsg = NULL;
+	 Error("got a rejected message");
 	 continue;/* do loop */
       };
       
+      if (strcmp(srbmsg->command, SRB_EVENT) == 0) {
+	 process_event(srbmsg->map);
+	 continue;
+      };
+
       /* special handling of svccall replies */
       if (strcmp(srbmsg->command, SRB_SVCCALL) == 0) {
-	 DEBUG1("_mwfetch_srb: got a SRBCALL message\"%s%c\"",  
+	 DEBUG1("got a SRBCALL message\"%s%c\"",  
 		srbmsg->command, srbmsg->marker);
 	 if (srbmsg->marker != SRB_RESPONSEMARKER) {
-	    Error("_mwfetch_srb: got a call request in TCP queue!");
+	    Error("got a call request in TCP queue!");
 	    /* should we send a reject? */
-	    _mw_srb_destroy(srbmsg);
-	    srbmsg = NULL;
 	    continue; /* do loop */
 	 };
 	 
 	 /* format check on the SVCCALL */
 	 if (!_mw_srb_checksrbcall(&cltconn, srbmsg)) {
-	    _mw_srb_destroy(srbmsg);
-	    srbmsg = NULL;
 	    continue; /* do loop */
 	 };
-	 
-	 map = srbmsg->map;
+
+	 pushCRqueue(srbmsg->map);	 
+	 srbmsg->map = NULL;
+	 flags |= MWNOBLOCK;
+	 rc++;
       } 
 
       /* this is a message other than SVCCALL, the only one we
 	 recognize is TERM */
       else if (strcmp(srbmsg->command, SRB_TERM) == 0) {
-	 DEBUG1("_mwfetch_srb: got a TERM message\"%s\"",  srbmsg->command);
+	 DEBUG1("got a TERM message\"%s\"",  srbmsg->command);
 	 cltcloseconnect();
-	 errno = EPIPE;
-	 return NULL;
+	 return -EPIPE;
       } else {
-	 Warning("_mwfetch_srb: got an unexpected SRB message\"%s\"", srbmsg->command);
-	 /* we should reject it */
-	 _mw_srb_destroy(srbmsg);
-	 srbmsg = NULL;
+	 Warning("an unexpected SRB message\"%s\"", srbmsg->command);
+	 /* TODO: we should reject it */
 	 continue;
       };
-   } while(!map);
+   } while(1);
    
    TIMEPEGNOTE("end");
-   DEBUG1("got a reply");
-   return map;
+   return rc;
 };
 
   
 int _mwfetch_srb(int *hdl, char ** data, int * len, int * appreturncode, int flags)
 {
    urlmap * map = NULL;
-   char szHdl[9];
+   char * szHdl, buffer[9];;
    int idx= -1, rc;
-   int blocking;
    int handle = *hdl;
 
    DEBUG1("ENTER hdl=%#x ");
    TIMEPEGNOTE("begin");
 
+   // first of all drain the socket, not optimal for the client (the
+   // fastest would be just to check the internal queue directly, but
+   // inorder to be well behaved with the gateway we drain any
+   // potential send queues in the gateway. THis will also process any events we're gotten
+   _mw_drain_socket(MWNOBLOCK);
+
    /* first of we check to see if a reply with the handle exists in the
       CR queue already */
-
-   sprintf (szHdl, "%8.8x", handle);
-  
-   if (handle == 0)
-      map = popCRqueue(NULL);
+   if (handle == 0) 
+      szHdl = NULL;
    else {
-      map = popCRqueue(szHdl);
+      szHdl = buffer;
+      sprintf (szHdl, "%8.8x", handle);
    };
+   map = popCRqueue(szHdl);
+
   
-   DEBUG1("_mwfetch_srb: pop in the CR queue for handle \"%s\"(%d) %s", 
+   DEBUG1("pop in the CR queue for handle \"%s\"(%d) %s", 
 	  szHdl, handle, map?"found a match":"had no match");
 
+   // if nonblocking and no reply at this point we return
+   if ( (map == NULL) && (flags&MWNOBLOCK) ) return -EAGAIN;
+
    while (map == NULL) {
-      
-      // if no match goto socket queue
-      
-      blocking = (flags&MWNOBLOCK);
-      DEBUG1("_mwfetch_srb: no SVCCALL with right handle waiting and MWNOBLOCK=%d",
+      DEBUG1("no SVCCALL with right handle waiting and MWNOBLOCK=%d",
 	     (flags&MWNOBLOCK));
       
-      map = _mw_read_svcreply(flags&MWNOBLOCK);
-      
-      if (map == NULL) {
-	 DEBUG1("LEAVE ");
-	 return -errno;
-      };
-     
-      DEBUG1("got a reply");
-      idx = urlmapget(map, SRB_HANDLE);
-      /* in case we're still waiting see if we are to return this one.*/
-      if (handle != 0) {
-	 DEBUG1("_mwfetch_srb: checking to see if handle %s == %s", 
-		map[idx].value, szHdl);
-	 if (strcasecmp(map[idx].value, szHdl) != 0) {
-	    /* we got a svccall reply message we were not awaiting, queue
-	       it in the CR queue */
-	   
-	    DEBUG1("queueing srvreply with handle=%s", map[idx].value);
-	    pushCRqueue(map);
-	    map = NULL;
-	 };
-      };
+      rc = _mw_drain_socket(1);
+      if (rc < 0) return rc;
+      if (rc == 0) continue;
+      map = popCRqueue(szHdl);
    } 
    
    rc = _mw_get_returncode(map);
 
-   DEBUG1("_mwfetch_srb: RETURNCODE=%d", rc);
+   DEBUG1("RETURNCODE=%d", rc);
   
    switch(rc) {
    case -1:
@@ -749,7 +762,7 @@ int _mwfetch_srb(int *hdl, char ** data, int * len, int * appreturncode, int fla
    };
 
    /* now return the data, and RC's */
-   DEBUG1("_mwfetch_srb: about to return %d bytes of data and RC=%d", * len, rc);
+   DEBUG1("about to return %d bytes of data and RC=%d", * len, rc);
    TIMEPEGNOTE("getting return params");
 
    idx = urlmapget(map, SRB_DATA);
@@ -800,12 +813,12 @@ int _mwevent_srb(char * evname, char * data, int datalen, char * username, char 
    return _mw_srbsendevent(&cltconn, evname, data, datalen, username, clientname);
 };
 
-int _mwsubscribe_srb(char * pattern, int flags) 
+int _mwsubscribe_srb(char * pattern, int id, int flags) 
 {
-   return _mw_srbsendsubscribe(&cltconn, pattern, flags);
+   return _mw_srbsendsubscribe(&cltconn, pattern, id, flags);
 };
 
-int _mwunsubscribe_srb(char * pattern, int flags) 
+int _mwunsubscribe_srb(int id) 
 {
-   return _mw_srbsendunsubscribe(&cltconn, pattern, flags);
+   return _mw_srbsendunsubscribe(&cltconn, id);
 };

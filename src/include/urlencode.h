@@ -140,6 +140,7 @@ int urlmapseti(urlmap * map, char * key, int value);
 
 int urlmapget(urlmap * map, char * key);
 char * urlmapgetvalue(urlmap * map, char * key);
+
 int urlmapdel(urlmap * map, char * key);
 urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len);
 urlmap * urlmapadd(urlmap * map, char * key, char * value);
@@ -160,7 +161,7 @@ int mwsetloglevel(int level);
 
 
 // timepegs which are defined in lib/utils.c
-#ifdef DEBUGGING
+#ifdef DEBUGGINGX
 #define TIMEPEGS
 #endif
 #ifdef TIMEPEGS

@@ -155,7 +155,7 @@ static inline void debug_free(char * file, int line, void *ptr)
 // timepegs which are defined in lib/utils.c
 
 #ifndef TIMEPEGS
-#ifdef DEBUGGING
+#ifdef DEBUGGINGX
 #define TIMEPEGS
 #endif
 #endif

@@ -21,6 +21,11 @@
 
 /*
  * $Log$
+ * Revision 1.13  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.12  2004/03/01 12:56:35  eggestad
  * change in mwfetch() params\
  *
@@ -267,6 +272,7 @@ struct event {
   int flags;
   int returncode;
 };
+#define MWEVENTPEERGENERATED 0x10000000
 
 typedef struct event Event;
   
@@ -317,7 +323,7 @@ int _mw_ipc_subscribe(char * pattern, int subid, int flags);
 int _mw_ipcsend_subscribe (char * pattern, int subid, int flags);
 int _mw_ipc_unsubscribe(int subid);
 int _mw_ipcsend_unsubscribe (int subid);
-int _mw_ipcsend_event(char * event, char * data, int datalen, char * username, char * clientname);
+int _mw_ipcsend_event(char * event, char * data, int datalen, char * username, char * clientname, MWID fromid, int remoteflag);
 int _mw_ipc_getevent(Event * ev);
 
 /* additionsl for servers */

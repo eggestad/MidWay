@@ -21,6 +21,11 @@
 
 /*
  * $Log$
+ * Revision 1.13  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.12  2004/03/01 12:56:14  eggestad
  * added event API for SRB client
  *
@@ -517,8 +522,15 @@ SRBmessage * _mw_srb_recvmessage(Connection * conn, int flags)
    TIMEPEG();
    DEBUG3("read a message from fd=%d returned %d errno=%d", conn->fd, n, errno);
 
-   if ((n == -1) || (n == 0)) {
+   if (n == 0) {
       eof = 1;
+      n = 0;
+   } else  if (n == -1) {
+      if ( (errno == EAGAIN) || (errno = EINTR) ) {
+	 eof = 0;
+      } else {
+	 eof = 1;
+      };
       n = 0;
    };
    
@@ -778,7 +790,7 @@ int _mw_srbsendevent(Connection * conn,
   strncpy(srbmsg.command, SRB_EVENT, MWMAXSVCNAME);
   srbmsg.marker = SRB_NOTIFICATIONMARKER;    
 
-  _mw_srb_setfield(&srbmsg, SRB_EVENT, event);
+  _mw_srb_setfield(&srbmsg, SRB_NAME, event);
   if (data) {
      if (datalen > 3000) {
 	Warning("not yet capable to send event with more than 3000 octets or data");
@@ -801,45 +813,52 @@ int _mw_srbsendevent(Connection * conn,
 
 
 
-static int _mw_srb_do_sendsubscribe(int sub_unsub, Connection * conn, char * pattern, int flags)
+int _mw_srbsendsubscribe(Connection * conn, char * pattern, int subid, int flags)
 {
-  int rc;
-  SRBmessage srbmsg;
-  srbmsg.map = NULL;
+   int rc;
+   SRBmessage srbmsg;
+   srbmsg.map = NULL;
+   
+   if (conn == NULL) return -EINVAL;
+   
+   strncpy(srbmsg.command, SRB_SUBSCRIBE, MWMAXSVCNAME);
+   
+   srbmsg.marker = SRB_NOTIFICATIONMARKER;    
 
-  if (conn == NULL) return -EINVAL;
+   _mw_srb_setfield(&srbmsg, SRB_PATTERN, pattern);
+   _mw_srb_setfieldi(&srbmsg, SRB_SUBSCRIPTIONID, subid);
 
-  if (sub_unsub) 
-     strncpy(srbmsg.command, SRB_SUBSCRIBE, MWMAXSVCNAME);
-  else 
-     strncpy(srbmsg.command, SRB_UNSUBSCRIBE, MWMAXSVCNAME);
-  
-  srbmsg.marker = SRB_NOTIFICATIONMARKER;    
-
-  _mw_srb_setfield(&srbmsg, SRB_PATTERN, pattern);
-  
-  if (flags & MWEVGLOB)
-     _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_GLOB);
-  else if (flags & MWEVREGEXP)
-     _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_REGEXP);
-  else if (flags & MWEVEREGEXP)
-     _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_EXTREGEXP);
-  else 
-     _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_STRING);
-
-  rc = _mw_srbsendmessage(conn, &srbmsg);
-  urlmapfree(srbmsg.map);
-  return rc;
+   if (flags & MWEVGLOB)
+      _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_GLOB);
+   else if (flags & MWEVREGEXP)
+      _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_REGEXP);
+   else if (flags & MWEVEREGEXP)
+      _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_EXTREGEXP);
+   else 
+      _mw_srb_setfield(&srbmsg, SRB_MATCH, SRB_SUBSCRIBE_STRING);
+   
+   rc = _mw_srbsendmessage(conn, &srbmsg);
+   urlmapfree(srbmsg.map);
+   return rc;
 };
 
-int _mw_srbsendsubscribe(Connection * conn, char * pattern, int flags)
+int _mw_srbsendunsubscribe(Connection * conn, int subid)
 {
-   return _mw_srb_do_sendsubscribe(1, conn, pattern, flags);
-};
-
-int _mw_srbsendunsubscribe(Connection * conn, char * pattern, int flags)
-{
-   return _mw_srb_do_sendsubscribe(0, conn, pattern, flags);
+   int rc;
+   SRBmessage srbmsg;
+   srbmsg.map = NULL;
+   
+   if (conn == NULL) return -EINVAL;
+      
+   strncpy(srbmsg.command, SRB_UNSUBSCRIBE, MWMAXSVCNAME);
+   
+   srbmsg.marker = SRB_NOTIFICATIONMARKER;    
+   
+   _mw_srb_setfieldi(&srbmsg, SRB_SUBSCRIPTIONID, subid);
+   
+   rc = _mw_srbsendmessage(conn, &srbmsg);
+   urlmapfree(srbmsg.map);
+   return rc;
 };
 
 /************************************************************************/ 

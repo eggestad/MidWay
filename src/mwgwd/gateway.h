@@ -22,6 +22,11 @@
 
 /*
  * $Log$
+ * Revision 1.9  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.8  2003/03/16 23:50:24  eggestad
  * Major fixups
  *
@@ -57,6 +62,7 @@
 
 #include <MidWay.h>
 #include <connection.h>
+#include <SRBprotocol.h>
 
 typedef struct {
   int shutdownflag;
@@ -107,6 +113,8 @@ void gw_connectpeers(void);
 int gw_peerconnected(char * instance, char * peerdomain, Connection * conn);
 void gw_provideservices_to_peer(GATEWAYID gwid);
 void gw_provideservice_to_peers(char * service);
+void gw_send_to_peers(SRBmessage * srbmsg);
+
 void gw_closegateway(Connection *);
 int gw_getcostofservice(char * service);
 void gw_setipc(struct gwpeerinfo * pi);

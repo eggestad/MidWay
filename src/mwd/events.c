@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.6  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.5  2004/02/19 23:46:34  eggestad
  * - added handling for full msg queues for recipients for events. This
  * means that events are queued up in yet another queue until the
@@ -314,19 +319,19 @@ int event_subscribe(char * pattern, MWID id, int subid, int flags)
 /* called when we get an unsubscribe message from a member, or
    internally if we're clearing up after a die/detached member that
    didnæt unsubscribe. In the later case subid = -1  */
-int event_unsubscribe(int subid, MWID id)
+int event_unsubscribe(int subid, MWID mwid)
 {
   subscribe_event_t * se, ** pse;
 
   if (subid < UNASSIGNED) return -EINVAL;
 
-  DEBUG("unsubscribe subid %d mwid %#x", subid, id);
+  DEBUG("unsubscribe subid %d mwid %#x", subid, mwid);
 
   for (pse = &subscription_root; *pse != NULL; pse = &((*pse)->next)) {
     se = *pse;
     DEBUG("  comparing to \"%s\" subid %d mwid %#x", se->pattern, se->subscriptionid,  se->id);
 
-    if (se->id == id) {
+    if (se->id == mwid) {
       // if called with a real subscriptionid we also match it,
       // otherwise this is a post mortem cleanup
       if ((subid != UNASSIGNED) && (se->subscriptionid != subid)) continue;
@@ -585,8 +590,6 @@ static void clear_blockingqueue_byid(MWID id)
    DEBUG("id = %x blockingqueuelen = %d", id, ipc_blocking_queue_len);
 
    for (pent = &ipc_blocking_queue; *pent != NULL; ) {
-      int rc;
-
       ent = *pent;
       
       if (ent->mwid == id) {

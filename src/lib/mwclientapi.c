@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.16  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.15  2004/03/01 12:54:52  eggestad
  * change in mwfetch() params
  * added event API for SRB client
@@ -284,7 +289,7 @@ int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flag
   if ( (data == NULL) || (len == NULL) || (handle == NULL) || (appreturncode == NULL) )
     return -EINVAL;
 
-  DEBUG1("mwfetch called handle = %d", handle);
+  DEBUG1("mwfetch called handle = %d", *handle);
 
   if (!_mwaddress) {
     DEBUG1("not attached");
@@ -527,17 +532,18 @@ int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char
   DEBUG1("SUBSCRIBE %d %x", pattern, flags);
   if (_mwaddress == NULL) return -ENOTCONN;
 
+  if (pattern == NULL) return -EINVAL;
+  if (func == NULL) return -EINVAL;
+  
+
   LOCKMUTEX(eventmutex);
   subscriptions = realloc(subscriptions, sizeof(subscribed_events_t) * (subscription_count+1));
   se = &subscriptions[subscription_count++];
   UNLOCKMUTEX(eventmutex);
 
-  strcpy(se->pattern, pattern);
+  se->pattern = strdup(pattern);
   se->flags = flags;
 
-  if (pattern == NULL) return -EINVAL;
-  if (func == NULL) return -EINVAL;
-  
   se->callback = func;
   se->subscriptionid = get_subscriptionid();
   
@@ -555,7 +561,7 @@ int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char
     break;
 
   case MWSRBP:
-     rc = _mwsubscribe_srb(pattern, flags);
+     rc = _mwsubscribe_srb(pattern, se->subscriptionid, flags);
      break;
     
   default:
@@ -605,6 +611,7 @@ int mwunsubscribe(int subid)
     goto errout;
   };
 
+  DEBUG1("UNSUBSCRIBE %d", se->subscriptionid);
   switch (_mwaddress->protocol) {
     
   case MWSYSVIPC:
@@ -612,9 +619,8 @@ int mwunsubscribe(int subid)
     break;
 
   case MWSRBP:
-     DEBUG1("UNSUBSCRIBE %d %x", se->pattern, se->flags);
-     rc = _mwunsubscribe_srb(se->pattern, se->flags);
-    break;
+     rc = _mwunsubscribe_srb(se->subscriptionid);
+     break;
     
   default:
     Error("mwevent: This can't happen unknown protocol %d", 
@@ -622,7 +628,8 @@ int mwunsubscribe(int subid)
     error = -EFAULT;
     goto errout;
   };
-  
+
+  free(se->pattern);
   if (rc >= 0) {
     DEBUG1("unsubscription OK");    
     subscription_count--;
@@ -655,7 +662,7 @@ int mwevent(char * event, char * data, int datalen, char * username, char * clie
   switch (_mwaddress->protocol) {
     
   case MWSYSVIPC:
-    return _mw_ipcsend_event(event, data, datalen, username, clientname);
+    return _mw_ipcsend_event(event, data, datalen, username, clientname, UNASSIGNED, 0);
     
   case MWSRBP:
      return _mwevent_srb(event, data, datalen, username, clientname);
@@ -677,6 +684,7 @@ void mwrecvevents(void)
     break;  
     
   case MWSRBP:
+     _mw_drain_socket(MWNOBLOCK);
     break;
   };
 

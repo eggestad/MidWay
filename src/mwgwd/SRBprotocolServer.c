@@ -21,6 +21,11 @@
 
 /*
  * $Log$
+ * Revision 1.20  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.19  2003/08/06 23:16:19  eggestad
  * Merge of client and mwgwd recieving SRB messages functions.
  *
@@ -121,6 +126,7 @@
 #include "store.h"
 #include "impexp.h"
 #include "shmalloc.h"
+#include "srbevents.h"
 
 extern globaldata globals;
 
@@ -1003,6 +1009,136 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
   return;
 };
 
+static void srbevent(Connection * conn, SRBmessage * srbmsg)
+{
+   char * event, * data, * user, * clt;
+   Event ev;
+   int datalen, remote, rc;
+   MWID id;
+
+   memset (&ev, '\0', sizeof(Event));
+
+   switch (srbmsg->marker) {
+    
+   case SRB_REQUESTMARKER:
+      Error("got a SRB EVENT request from %s rejecting", conn->peeraddr_string);
+      _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_NOTNOTIFICATION);
+      return;
+      
+   case SRB_RESPONSEMARKER:
+      Error("got a SRB EVENT reply from %s  but we never sent a request: rejecting", 
+	    conn->peeraddr_string);
+      _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_UNEXPECTED);
+      return;
+      
+   case SRB_NOTIFICATIONMARKER:
+      DEBUG("Got a event notification from %s", conn->peeraddr_string);
+      
+      break;
+   };
+   
+   if (!(event = szGetReqField(conn, srbmsg, SRB_EVENT))) {
+      return;
+   };
+   
+   DEBUG("got event %s", event);
+   vGetOptBinField(conn, srbmsg, SRB_DATA, &data, &datalen);
+
+   user = szGetOptField(conn, srbmsg, SRB_USER);
+   clt  = szGetOptField(conn, srbmsg, SRB_CLIENTNAME);
+
+   if (conn->role == SRB_ROLE_CLIENT) {
+      id = conn->cid;
+      remote = 0;
+   } else {
+      id = conn->gwid;
+      remote = 1;
+   };
+
+   rc = _mw_ipcsend_event(event, data, datalen, user, clt, id, remote);
+   DEBUG("_mw_ipcsend_event for returned %d", rc);
+   return;
+};
+
+static void srbsubscribe(Connection * conn, SRBmessage * srbmsg)
+{
+   int flags, id;
+   char * pattern, *match;
+
+   switch (srbmsg->marker) {
+    
+   case SRB_REQUESTMARKER:
+      Error("got a SRB SUBSCRIBE request from %s rejecting", conn->peeraddr_string);
+      _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_NOTNOTIFICATION);
+      return;
+      
+   case SRB_RESPONSEMARKER:
+      Error("got a SRB SUBSCRIBE reply from %s  but we never sent a request: rejecting", 
+	    conn->peeraddr_string);
+      _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_UNEXPECTED);
+      return;
+      
+   case SRB_NOTIFICATIONMARKER:
+      DEBUG("Got a subscribe notification from %s", conn->peeraddr_string);
+      
+      break;
+   };
+
+   if (!(pattern = szGetReqField(conn, srbmsg, SRB_PATTERN))) {
+      return;
+   };
+   if (!(match = szGetReqField(conn, srbmsg, SRB_MATCH))) {
+      return;
+   };
+   if (!(iGetReqField(conn, srbmsg, SRB_SUBSCRIPTIONID, &id))) {
+      return;
+   };
+   
+   if (strcmp (match, SRB_SUBSCRIBE_GLOB) == 0) {
+      flags |= MWEVGLOB;
+   } else if (strcmp (match, SRB_SUBSCRIBE_REGEXP) == 0) {
+      flags |= MWEVREGEXP;
+   } else if (strcmp (match, SRB_SUBSCRIBE_EXTREGEXP) == 0) {
+      flags |= MWEVEREGEXP;
+   } 
+      
+   srb_subscribe(conn, pattern, id, flags);
+   return;
+};
+
+
+static void srbunsubscribe(Connection * conn, SRBmessage * srbmsg)
+{
+   int flags, id;
+   char * pattern, *match;
+
+   switch (srbmsg->marker) {
+    
+   case SRB_REQUESTMARKER:
+      Error("got a SRB UNSUBSCRIBE request from %s rejecting", conn->peeraddr_string);
+      _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_NOTNOTIFICATION);
+      return;
+      
+   case SRB_RESPONSEMARKER:
+      Error("got a SRB UNSUBSCRIBE reply from %s  but we never sent a request: rejecting", 
+	    conn->peeraddr_string);
+      _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_UNEXPECTED);
+      return;
+      
+   case SRB_NOTIFICATIONMARKER:
+      DEBUG("Got a unsubscribe notification from %s", conn->peeraddr_string);
+      
+      break;
+   };
+
+   if (!iGetReqField(conn, srbmsg, SRB_SUBSCRIPTIONID, &id)) {
+      return;
+   };
+   
+   srb_unsubscribe(conn, id);
+   return;
+};
+
 
 /**********************************************************************
  * entry function for receiving messages, basic syntax check and 
@@ -1044,6 +1180,10 @@ int srbDoMessage(Connection * conn, SRBmessage * srbmsg)
   case 5:
     if ( strcasecmp(srbmsg->command, SRB_HELLO) == 0) {
       srbhello(conn, srbmsg);
+      break;
+    }
+    if ( strcasecmp(srbmsg->command, SRB_EVENT) == 0) {
+      srbevent(conn, srbmsg);
       break;
     }
     break;
@@ -1091,7 +1231,17 @@ int srbDoMessage(Connection * conn, SRBmessage * srbmsg)
       srbunprovide(conn, srbmsg);
       break;
     }
+    if ( strcasecmp(srbmsg->command, SRB_SUBSCRIBE) == 0) {
+      srbsubscribe(conn, srbmsg);
+      break;
+    }
     break;
+
+  case 11:
+    if ( strcasecmp(srbmsg->command, SRB_UNSUBSCRIBE) == 0) {
+      srbunsubscribe(conn, srbmsg);
+      break;
+    }
 
   default:
     _mw_srbsendreject(conn, srbmsg, NULL, NULL, SRB_PROTO_FORMAT);

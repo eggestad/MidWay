@@ -107,6 +107,7 @@
 #define SRB_REVERSE 		"REVERSE"
 #define SRB_SECTOLIVE 		"SECTOLIVE"
 #define SRB_SVCNAME 		"SVCNAME"
+#define SRB_SUBSCRIPTIONID	"SUBSCRIPTIONID"
 #define SRB_TYPE 		"TYPE"
 #define SRB_UNIQUE 		"UNIQUE"
 #define SRB_USER 		"USER"
@@ -226,8 +227,8 @@ int _mw_srbsendevent(Connection * conn,
 		     char * event,  char * data, int datalen, 
 		     char * username, char * clientname);
 
-int _mw_srbsendsubscribe(Connection * conn, char * pattern, int flags);
-int _mw_srbsendunsubscribe(Connection * conn, char * pattern, int flags);
+int _mw_srbsendsubscribe(Connection * conn, char * pattern, int subscriptionid, int flags);
+int _mw_srbsendunsubscribe(Connection * conn, int subscriptionid);
 
 
 /* tracing API */

@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.14  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.13  2004/03/01 12:52:15  eggestad
  * change in mwfetch() params
  *
@@ -194,58 +199,6 @@ void _mw_doipcevents(void)
  * attach as a server only.
  *
  *****************************************************************/
-
-
-
-int _mwfetch_ipcxx(int * handle, char ** data, int * len, int * appreturncode, int flags) 
-{
-  int rc;
-  char * tmpdata = NULL;
-  char * buffer = NULL;
-  int tlen, blen = 0;
-
-  DEBUG1("_mwfetch_ipc(): ");
-
-  rc = _mwsystemstate();
-  if (rc) return rc;
-  /* if caller wants chunks send them. */
-  if (flags & MWMULTIPLE)
-    return _mwfetchipc ( handle, data, len, appreturncode, flags);
-
-  DEBUG1("_mwfetch_ipc(): MULTIPLE"); 
-  /* caller don't want chunks, but the whole enchilada. 
-     if server sent a single reply, then, we just return it*/
-  rc = _mwfetchipc ( handle, &tmpdata, &tlen, appreturncode, flags);
-  DEBUG1("_mwfetch_ipc(): rc = %d"); 
-  if (rc != 1) {
-    *data = tmpdata;
-    *len = tlen;
-    return rc;
-  };
-  DEBUG1("_mwfetch_ipc(): concating mwreplies...");
-  /* caller don't want chunks, but we're getting chunks, we now must 
-     copy all data into a temp buffer until we get the last chunk. */
-  while(rc == 1) {
-    buffer = realloc(buffer, blen+tlen);
-    memcpy(buffer+blen, tmpdata, tlen);
-    blen += tlen;
-    DEBUG1(	  "_mwfetch_ipc(): appended %d bytes to the reply, len is now %d", 
-	  blen, tlen);
-    mwfree(tmpdata);
-    tmpdata = NULL;
-    rc = _mwfetchipc ( handle, &tmpdata, &tlen, appreturncode, flags);
-    DEBUG1("_mwfetch_ipc(): repeat rc = %d", rc); 
-  };
-  /* we append the last chunk */
-  buffer = realloc(buffer, blen+tlen);
-  memcpy(buffer+blen, tmpdata, tlen);
-  blen += tlen;
-  DEBUG1(	"_mwfetch_ipc(): appended last %d bytes to the reply, len is now %d", 
-	tlen, blen);
-  *data = buffer;
-  *len = blen;
-  return rc;
-}
 
 /* the usuall IPC only API, except that mwcall() is implemeted
    entierly here.

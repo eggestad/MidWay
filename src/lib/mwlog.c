@@ -24,6 +24,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.22  2004/03/20 18:57:47  eggestad
+ * - Added events for SRB clients and proppagation via the gateways
+ * - added a mwevent client for sending and subscribing/watching events
+ * - fix some residial bugs for new mwfetch() api
+ *
  * Revision 1.21  2003/12/08 17:18:04  eggestad
  * segv with efence fix
  *
@@ -396,7 +401,7 @@ void mwsetlogprefix(char * lfp)
 
   _fprintf(stderr, "logprefix arg = %s at %s:%d\n", lfp, __FUNCTION__, __LINE__);
 
-  // if arg is null and we've set lofprefix, we no not override with default. 
+  // if arg is null and we've set logprefix, we no not override with default. 
   if ( (logprefix != NULL) && (lfp == NULL) ) return;
 
   if (lfp != NULL) {

@@ -25,7 +25,7 @@ distclean:
 	@ for dir in $(DIRS); do\
 	(cd $$dir; $(MAKE) $@)\
 	done; 
-	rm -f Makefile *~
+	rm -f Makefile *~ TAGS
 
 
 tags:

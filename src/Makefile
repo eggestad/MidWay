@@ -17,6 +17,7 @@ clean:
 	done;
 
 tags:
+	rm TAGS
 	@ for dir in $(DIRS); do\
 	(cd $$dir; make $@)\
 	done;

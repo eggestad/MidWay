@@ -16,7 +16,7 @@ mwgwd \- The MidWay gateway daemon
 The gateway daemon handles all TCP/IP traffic for an instance, and
 it's what ties an instance to a domain. 
 
-The protocol the gateway implements is the 
+The protocol the gateway implement is the 
 .IR "Service Request Broker Protocol" (SRBP).
 
 If no 
@@ -81,17 +81,33 @@ this service.
 .B MWGWD_LOGLEVEL
 The loglevel as set with -l option. 
 .TP MWGWD_TASK_INTERVAL
-The task interval in seconds. The purpose of the task at this time is
-to clear connections that never send any data. Just connecting to the
-gw's port, without sending data, and doing it a lot will exhaust the
-systems maximum socket/file table and is a DoS attack. This allow us
-to do the clean up more often. Default is 60 seconds.  Note that if
-only the mwbd is used, it's the mwbd that normally do this anti DoS,
-however, cleanup of clients on dead nodes is still done by the gw
-task.
- 
+The task interval in seconds (real number). The purpose of the task at
+this time is to clear connections that never send any data. Just
+connecting to the gw's port, without sending data, and doing it a lot
+will exhaust the systems maximum socket/file table and is a DoS
+attack. This allow us to do the clean up more often. Default is 60.0
+seconds.  Note that if only the mwbd is used, it's the mwbd that
+normally do this anti DoS, however, cleanup of clients on dead nodes
+is still done by the gw task.
+.TP MWGWD_FAST_TASK_INTERVAL
+The task interval in seconds (real number). The fast task is normally
+suspended, and is started when a receiving IPC process has a full
+queue. The fast task then try to flush the internal queues to the
+recipient IPC messages queues at every interval. Default is 1.0.
+.TP MWGWD_BIGLOCK
+This should never be used under normal circumstances. The 
+.BR mwgwd ()
+is multi-threaded, and the normal is to use fine granular mutual
+exclusion locks. However, if there should be a bug that causes data
+corruption, setting this env to 1 enables the biglock that ensure that
+only one of the threads may be active at one time. Enabling this may
+cause performance degradation on SMP systems. 
+
 .SH SEE ALSO
 .BR MidWay (7),  mwadm (1), mwd (1), mwd.conf (4)
+
+.SH NOTES
+
 
 .SH WARNINGS
 

@@ -119,8 +119,21 @@ The runtime directory, may be overidden with the -H option.
 .TP
 .B MWURL
 The url, may be overridden with the -A option.
+.TP
+.B MWD_SRVMGR_TASK_INTERVAL
+The task interval in seconds, default 5 sec. The Server manager task
+start dead servers. Normally servers that dies are immediatly
+restarted, but if they fail repeatedly, restart is postponed, and done
+at a task.
+.TP
+.B MWD_EVENT_TASK_INTERVAL
+The interval in seconds, default 5 secs.  When a client postes an
+event it sent to the mwd, and queued. The queue is processed only
+every event task. Hence the average time it take an event to sent to
+it's subscribers is halv this interval.
+
 .SH FILES
-As discussed above the files are located under 
+As discussed above the files are located under
 .IR MWDIR / instancename
 where the defaults are 
 .I MWDIR 

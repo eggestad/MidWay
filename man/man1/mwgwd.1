@@ -76,10 +76,25 @@ a service from a foreign domain. The foreign domain must have
 .I exported
 this service. 
 
+.SH ENVIRONMENT
+.TP
+.B MWGWD_LOGLEVEL
+The loglevel as set with -l option. 
+.TP MWGWD_TASK_INTERVAL
+The task interval in seconds. The purpose of the task at this time is
+to clear connections that never send any data. Just connecting to the
+gw's port, without sending data, and doing it a lot will exhaust the
+systems maximum socket/file table and is a DoS attack. This allow us
+to do the clean up more often. Default is 60 seconds.  Note that if
+only the mwbd is used, it's the mwbd that normally do this anti DoS,
+however, cleanup of clients on dead nodes is still done by the gw
+task.
+ 
 .SH SEE ALSO
 .BR MidWay (7),  mwadm (1), mwd (1), mwd.conf (4)
 
 .SH WARNINGS
 
 .SH BUGS
-The domain interconnect and foreign domain export/imports are unimplemented. 
+The domain interconnect and foreign domain export/imports are
+unimplemented.

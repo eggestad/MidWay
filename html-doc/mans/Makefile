@@ -2,7 +2,7 @@
 
 
 
-all:	index.html
+all:	
 	mkhtml.pl
 
 clean:

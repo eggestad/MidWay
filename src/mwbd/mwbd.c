@@ -20,6 +20,10 @@
 
 /* 
  * $Log$
+ * Revision 1.6  2002/10/17 22:07:44  eggestad
+ * - we're now using the mwlog() api
+ * - improved handling of SRB fields
+ *
  * Revision 1.5  2002/09/29 17:39:06  eggestad
  * fix of debugmessage that didn't give correct recv SRB message
  *
@@ -106,7 +110,7 @@ void Exit(char * reason, int exitcode)
 {
   closeall();
   if (reason)
-    info("%s", reason);
+    Info("%s", reason);
   exit(exitcode);
 };
 
@@ -145,18 +149,18 @@ void read_from_client(int fd, struct fd_info * cinfo)
 
   pseudoconn.fd = fd;
 
-  debug("reading data from client on %d", fd);
+  DEBUG("reading data from client on %d", fd);
   buflen = read(fd, buffer, SRBMESSAGEMAXLEN);
   if (buflen == -1) return;
   if (buflen == SRBMESSAGEMAXLEN) {
-    error("received a message exceeding %d bytes, discarding and disconnecting", 
+    Error("received a message exceeding %d bytes, discarding and disconnecting", 
 	  SRBMESSAGEMAXLEN);
     _mw_srbsendreject_sz(&pseudoconn, "Message too long", SRBMESSAGEMAXLEN);
     goto clean;
   };
   srbmsg = _mw_srbdecodemessage(buffer);
   if (srbmsg == NULL) {
-    error("received an undecodable message");
+    Error("received an undecodable message");
     _mw_srbsendreject_sz(&pseudoconn, "Expected SRB INIT?....", 0);
     goto clean;
   };
@@ -171,7 +175,7 @@ void read_from_client(int fd, struct fd_info * cinfo)
        (srbmsg->marker ==  SRB_REQUESTMARKER) ) {
     SRBmessage srbmsg_reply;
     
-    debug("processing a SRB READY request");
+    DEBUG("processing a SRB READY request");
 
     _mw_srb_init(&srbmsg_reply, SRB_READY, SRB_RESPONSEMARKER, NULL);
 
@@ -195,12 +199,12 @@ void read_from_client(int fd, struct fd_info * cinfo)
 
   /* the only legal message now is SRB INIT */
   if (strcmp(srbmsg->command, SRB_INIT) != 0) {
-    error("received a message with command %s not %s", srbmsg->command, SRB_INIT);
+    Error("received a message with command %s not %s", srbmsg->command, SRB_INIT);
     _mw_srbsendreject(&pseudoconn, srbmsg, NULL, NULL, SRB_PROTO_NOINIT);
     goto clean;
   };
   if (srbmsg->marker !=  SRB_REQUESTMARKER) {
-    error("received a message with command %s but not a request", srbmsg->command);
+    Error("received a message with command %s but not a request", srbmsg->command);
     _mw_srbsendreject(&pseudoconn, srbmsg, NULL, NULL, SRB_PROTO_NOTREQUEST);
     goto clean;
   };
@@ -212,7 +216,7 @@ void read_from_client(int fd, struct fd_info * cinfo)
   if (n != -1) instance = srbmsg->map[n].value;
 
   if ( (instance == NULL)  && (domain == NULL) ){
-    error("received a %s message without domain", srbmsg->command);
+    Error("received a %s message without domain", srbmsg->command);
     _mw_srbsendreject(&pseudoconn, srbmsg, SRB_INSTANCE, NULL, SRB_PROTO_FIELDMISSING);
     goto clean;
   };
@@ -222,7 +226,7 @@ void read_from_client(int fd, struct fd_info * cinfo)
   gwinfo = find_gw(domain, instance);
   
   if (gwinfo == NULL) {
-    error("client requested domain %s & instance %s, but not available", 
+    Error("client requested domain %s & instance %s, but not available", 
 	  domain?domain:"", instance?instance:"");     
     _mw_srbsendreject(&pseudoconn, srbmsg, NULL, NULL, SRB_PROTO_NOGATEWAY_AVAILABLE); 
     goto clean; // do not disconnect here
@@ -231,16 +235,16 @@ void read_from_client(int fd, struct fd_info * cinfo)
   pseudoconn.fd = gwinfo->fd;
   _mw_srb_trace(SRB_TRACE_OUT, &pseudoconn, buffer, buflen);
 
-  debug("about to send fd with SRB init to gw");
+  DEBUG("about to send fd with SRB init to gw");
   // markfd(fd);
   rc = sendfd(fd, gwinfo->fd, buffer, buflen); // must be moved to read_client();
   assert(rc == buflen);
   if (rc != buflen) {
-    error("sendfd returned %d excpected %d", rc, buflen);
+    Error("sendfd returned %d excpected %d", rc, buflen);
     goto retry;
   };
 
-  debug("Ok fd passed on cleaning up client");
+  DEBUG("Ok fd passed on cleaning up client");
   /* ok fd is now passwd to gateway, and we're closing. */
   
  clean:
@@ -271,7 +275,7 @@ static void  do_udp_dgram(int sd)
   rc = recvfrom(sd, buffer, 1024, 0, (struct sockaddr *)&from, &fromlen);
   inet_ntop(AF_INET, &from.sin_addr, addrbuf, 100);
 
-  debug ("from socket %d, we got a message %*.*s sender %s:%d (%d)", 
+  DEBUG ("from socket %d, we got a message %*.*s sender %s:%d (%d)", 
 	sd, rc-2, rc-2, buffer, addrbuf , ntohs(from.sin_port), fromlen);
 
   pseudoconn.fd = sd;    
@@ -280,13 +284,13 @@ static void  do_udp_dgram(int sd)
   
   srbmsg_req = _mw_srbdecodemessage(buffer);
   if (srbmsg_req == NULL) {
-    debug("unintelligble messgage, ignoring");
+    DEBUG("unintelligble messgage, ignoring");
     return;
   };
 
   if ( (strcmp(srbmsg_req->command, SRB_READY) != 0) ||
        srbmsg_req->marker != SRB_REQUESTMARKER) {
-    debug("Illegal message %s%c..., ignoring", srbmsg_req->command, srbmsg_req->marker);
+    DEBUG("Illegal message %s%c..., ignoring", srbmsg_req->command, srbmsg_req->marker);
     return;
   };
 
@@ -318,7 +322,7 @@ static void  do_udp_dgram(int sd)
     urlmapset(srbmsg_reply.map, SRB_INSTANCE, gwinfo->instance);
     rc = _mw_srbencodemessage(&srbmsg_reply, buffer, SRBMESSAGEMAXLEN);
     if (rc == -1) {
-      error("failed to encode SRB READY response for instance %s"
+      Error("failed to encode SRB READY response for instance %s"
 	    "domain %s, version %d.%d: reason %s", 
 	    gwinfo->instance, gwinfo->domain, 
 	    gwinfo->majorversion, gwinfo->minorversion, strerror(errno));
@@ -328,13 +332,39 @@ static void  do_udp_dgram(int sd)
     _mw_srb_trace(SRB_TRACE_OUT, &pseudoconn, buffer, rc);
     inet_ntop(AF_INET, &from.sin_addr, addrbuf, 100);
 
-    debug ("from socket %d, we sending reply to sender %s:%d (%d)", 
+    DEBUG ("from socket %d, we sending reply to sender %s:%d (%d)", 
 	  sd, addrbuf , ntohs(from.sin_port), fromlen);
     rc = sendto(sd, buffer, rc, 0, (struct sockaddr *)&from, fromlen);
-    debug("sendto returned %d errno=%d", rc, errno);
+    DEBUG("sendto returned %d errno=%d", rc, errno);
   };
   return ;
 };
+
+
+#ifndef FIXME
+// THis is copied from mwgwd/SRBprotocolServer, and belong in a shared
+// object somewhere, but  not in the std lib  used by clients. Clients
+// shall not send rejects
+
+/* help functions to retrive fields in messages. */
+static char * szGetReqField(Connection * conn, SRBmessage * srbmsg, char * fieldname)
+{
+  int idx;
+  idx = urlmapget(srbmsg->map, fieldname);
+  DEBUG2("szGetReqField: index of %s is %d, errno=%d", 
+	fieldname, idx, errno);
+  if (idx != -1) {
+    if (srbmsg->map[idx].value == NULL) {
+      _mw_srbsendreject(conn, srbmsg, fieldname, NULL, SRB_PROTO_ILLEGALVALUE);
+      return NULL;
+    };
+    return srbmsg->map[idx].value;
+  } 
+  _mw_srbsendreject(conn, srbmsg, fieldname, NULL, SRB_PROTO_FIELDMISSING);
+  return NULL;
+}
+
+#endif
 
 /* do read from gateway side. */
 void recv_gw_data(int fd, struct fd_info * gwinfo)
@@ -342,12 +372,13 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
   char buffer[SRBMESSAGEMAXLEN], * msg, * msgend;
   int rc, len, inbuffer, n;
   SRBmessage * srbmsg;
+  char * val;
 
   pseudoconn.fd = fd;    
   len = read(fd, buffer, SRBMESSAGEMAXLEN);
 
   if (len < 0) {
-    error ("error while reading data from gw!, errno = %d", errno);
+    Error ("error while reading data from gw!, errno = %d", errno);
     unmarkfd(fd);
     del_gw(fd);
     close(fd);
@@ -355,7 +386,7 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
   }
 
   if (!len) {
-    info ("gateway with domain=%s and instance = %s disconnected", 
+    Info ("gateway with domain=%s and instance = %s disconnected", 
 	  gwinfo->domain, gwinfo->instance);
     del_gw(fd);
     unmarkfd(fd);
@@ -365,14 +396,14 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
 
   gwinfo = find_gw_byfd(fd);
   if (gwinfo == NULL) {
-    error ("received data from unknown fd!, Can't happen");
+    Error ("received data from unknown fd!, Can't happen");
     unmarkfd(fd);
     del_gw(fd);
     close(fd);
     return;
   }
   
-  debug("read %d bytes of data", len);
+  DEBUG("read %d bytes of data", len);
   _mw_srb_trace(SRB_TRACE_IN, &pseudoconn, buffer, len);
   
   /* now we may have prev incomplete data in gwindo, if so append the
@@ -401,11 +432,11 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
   pseudoconn.fd = gwinfo->fd;    
 
   while(len != 0) {
-    debug("beginning parse loop inbuffer=%s len=%d", inbuffer?"yes":"no", len);
+    DEBUG("beginning parse loop inbuffer=%s len=%d", inbuffer?"yes":"no", len);
     msgend = strstr(msg, "\r\n");
     /* if  incomplete  the remaing go to the incomplete buffer*/
     if (!msgend) {
-      debug("no complete message found");
+      DEBUG("no complete message found");
       if (msg == gwinfo->incomplete_mesg) return;
       if (inbuffer) {
 	assert(gwinfo->incomplete_mesg == NULL);
@@ -422,56 +453,55 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
     srbmsg = _mw_srbdecodemessage(buffer);
 
     if (srbmsg == NULL) {
-      error ("got an incomprehensible message");
+      Error ("got an incomprehensible message");
       goto close_n_out;
     };
 
     if ((strcmp(&srbmsg->command[0], SRB_TERM) == 0) &&
 	(srbmsg->marker == SRB_NOTIFICATIONMARKER)) {
-      info ("Instance %s recalls domain %s, version %d.%d", 
+      Info ("Instance %s recalls domain %s, version %d.%d", 
 	  gwinfo->instance, gwinfo->domain, 
 	  gwinfo->majorversion, gwinfo->minorversion);
       goto close_n_out;
     };
     if ((strcmp(srbmsg->command, SRB_READY) != 0) ||
 	(srbmsg->marker != SRB_NOTIFICATIONMARKER)) {
-      error("Got an unecpected message from ...");
+      Error("Got an unecpected message from ...");
       _mw_srbsendreject (&pseudoconn, srbmsg, NULL, NULL, SRB_PROTO_UNEXPECTED);
       goto close_n_out;
     };
-    
-    n = urlmapget(srbmsg->map, SRB_DOMAIN);
-    if ( n == -1) {
-      error ("domain missing in SRB READY message");
-      _mw_srbsendreject (&pseudoconn, srbmsg, SRB_DOMAIN, NULL, SRB_PROTO_FIELDMISSING);
+
+    val = szGetReqField(&pseudoconn, srbmsg, SRB_DOMAIN);
+    if (!val) {
+      Error ("domain missing in SRB READY message");
       goto close_n_out;
     };
-    strncpy(gwinfo->domain, srbmsg->map[n].value, MWMAXNAMELEN);
-    strcat(gwinfo->domain, "");
-    n = urlmapget(srbmsg->map, SRB_INSTANCE);
-    if ( n == -1) {
-      error ("instance missing in SRB READY message");
-      _mw_srbsendreject (&pseudoconn, srbmsg, SRB_INSTANCE, NULL, SRB_PROTO_FIELDMISSING);
-      goto close_n_out;
-    };
-    strncpy(gwinfo->instance, srbmsg->map[n].value, MWMAXNAMELEN);
+    strncpy(gwinfo->domain, val, MWMAXNAMELEN);
     strcat(gwinfo->domain, "");
 
-    n = urlmapget(srbmsg->map, SRB_VERSION);
-    if ( n == -1) {
-      error ("version missing in SRB READY message");
-      _mw_srbsendreject (&pseudoconn, srbmsg, SRB_VERSION, NULL, SRB_PROTO_FIELDMISSING);
+    val = szGetReqField(&pseudoconn, srbmsg, SRB_INSTANCE);
+    if (!val) {
+      Error ("instance missing in SRB READY message");
       goto close_n_out;
     };
-    rc = sscanf(srbmsg->map[n].value, "%d.%d", 
+    strncpy(gwinfo->instance, val, MWMAXNAMELEN);
+    strcat(gwinfo->domain, "");
+
+    val = szGetReqField(&pseudoconn, srbmsg, SRB_VERSION);
+    if (!val) {
+      Error ("version missing in SRB READY message");
+      goto close_n_out;
+    };
+    rc = sscanf(val, "%d.%d", 
 		&gwinfo->majorversion, 
 		&gwinfo->minorversion);
     if (rc != 2) {
-      error ("wrong version (%s) in SRB READY message",srbmsg->map[n].value );
+      Error ("wrong version (%s) in SRB READY message",srbmsg->map[n].value );
       _mw_srbsendreject (&pseudoconn, srbmsg, SRB_VERSION, NULL, SRB_PROTO_ILLEGALVALUE);
       goto close_n_out;
     };
-    info ("Instance %s provides domain %s, version %d.%d", 
+
+    Info ("Instance %s provides domain %s, version %d.%d", 
 	  gwinfo->instance, gwinfo->domain, 
 	  gwinfo->majorversion, gwinfo->minorversion);
     len -= (long) (msgend -  msg) +2;
@@ -485,7 +515,7 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
   return;
 
  close_n_out:
-  debug("close out on fd %d", fd);
+  DEBUG("close out on fd %d", fd);
   del_gw(fd);
   unmarkfd(fd);
   close (fd);
@@ -510,7 +540,7 @@ void sig_chld(int sig)
 
 void sig_term(int sig)
 {
-  info ("going down on signal %d", sig);
+  Info ("going down on signal %d", sig);
   going_down = 1;
 };
 
@@ -522,7 +552,7 @@ int daemonize(void)
   p = fork();
 
   if (p == -1) {
-    error("fork failed, reason %s", strerror(errno));
+    Error("fork failed, reason %s", strerror(errno));
     exit(1);
   };
 
@@ -530,7 +560,7 @@ int daemonize(void)
     while(startok == -1) pause();          
     if (startok == 0) exit(2);
     if (startok == 1) exit(0);
-    error("impossible exit status! can't happen");
+    Error("impossible exit status! can't happen");
     exit(9);
   };
 	
@@ -548,6 +578,8 @@ void usage(char * prog)
 {
   fprintf(stderr, "%s: [-t] [-d]\n" 
 	  "  -t : enable trace on %s or %s\n "
+	  "  -l level : set loglevel [fatal|error|warning|info|debug|debug2|debug3|debug4]\n" 
+	  "  -L logfilename : use file as logprefix\n "
 	  "  -d : enable debugging in syslog\n", TRACEFILE1, TRACEFILE2);
   exit(1);
 };
@@ -559,6 +591,12 @@ int main(int argc, char ** argv)
   struct fd_info * fdinfo;
   struct sigaction sa;
   FILE * tracefile = NULL;
+  char * logfilename = "/var/log/mwbd";
+#ifdef DEBUGGING 
+  int loglevel = MWLOG_DEBUG;
+#else 
+  int loglevel = MWLOG_INFO;
+#endif
 
   /* mmmm, nasty but such a simple way to test an fd for the speciall
      cases of udp packes and new connections. */
@@ -584,7 +622,7 @@ int main(int argc, char ** argv)
   sa.sa_handler = sig_term;
   sigaction(SIGINT, &sa, NULL);
 
-  while( (c = getopt(argc, argv, "td")) != EOF) {
+  while( (c = getopt(argc, argv, "tdL:l:")) != EOF) {
     
     switch (c) {
 
@@ -596,13 +634,32 @@ int main(int argc, char ** argv)
       debugging = 1;
       break;
 
+    case 'L':
+      logfilename =optarg;
+      break;
+
+    case 'l':
+      if      (strcmp(optarg, "fatal")   == 0) loglevel=MWLOG_FATAL;
+      else if (strcmp(optarg, "error")   == 0) loglevel=MWLOG_ERROR;
+      else if (strcmp(optarg, "warning") == 0) loglevel=MWLOG_WARNING;
+      else if (strcmp(optarg, "alert")   == 0) loglevel=MWLOG_ALERT;
+      else if (strcmp(optarg, "info")    == 0) loglevel=MWLOG_INFO;
+      else if (strcmp(optarg, "debug")   == 0) loglevel=MWLOG_DEBUG;
+      else if (strcmp(optarg, "debug1")  == 0) loglevel=MWLOG_DEBUG1;
+      else if (strcmp(optarg, "debug2")  == 0) loglevel=MWLOG_DEBUG2;
+      else if (strcmp(optarg, "debug3")  == 0) loglevel=MWLOG_DEBUG3;
+      else usage(argv[0]);
+      break;
+
     default:
       usage(argv[0]);
       exit(3);
     };
   }
 
-#ifndef DEBUG
+  mwopenlog(argv[0], logfilename, loglevel);
+
+#ifndef DEBUGGING
   if (getuid() != 0) {
     fprintf(stderr, "%s must be run as root\n", argv[0]);
     exit(4);
@@ -614,19 +671,20 @@ int main(int argc, char ** argv)
   chdir ("/");
 #endif
 
+  
   /* DON'T CALL USAGE() BEYOND THIS POINT */
 
-#ifdef DEBUG
+#ifdef DEBUGGING
   trace = 1;
 #endif
 
   if (trace) {
     tracefile = fopen (TRACEFILE1, "a");
-    if (tracefile) info("tracing on %s", TRACEFILE1);
+    if (tracefile) Info("tracing on %s", TRACEFILE1);
     else  {
       tracefile = fopen (TRACEFILE2, "a");  
-      if (tracefile) info("tracing on %s", TRACEFILE2);
-      else error ("failed to open either trace file: %s or %s", TRACEFILE1, TRACEFILE2);
+      if (tracefile) Info("tracing on %s", TRACEFILE2);
+      else Error ("failed to open either trace file: %s or %s", TRACEFILE1, TRACEFILE2);
     };
     _mw_srb_traceonfile(tracefile);
   };
@@ -637,7 +695,7 @@ int main(int argc, char ** argv)
     exit(1);
   };
 
-  info("using multicast address %s", MCASTADDRESS_V4);
+  Info("using multicast address %s", MCASTADDRESS_V4);
   _mw_setmcastaddr();
   initmcast();
 
@@ -649,7 +707,7 @@ int main(int argc, char ** argv)
     rc = waitdata ( &fd, &opr);
     if (rc <= 0) continue;
     
-    debug( "waitdata gave %d files ready and %d ready with %d", 
+    DEBUG( "waitdata gave %d files ready and %d ready with %d", 
 	   rc, fd, opr);
     
     if (fd == tcp_socket) {
@@ -667,7 +725,7 @@ int main(int argc, char ** argv)
     if (fd == unix_socket) {
       fd = accept_unix();
       rc = send_srb_ready_not(fd);
-      debug( "sending on %d greating returned %d errno=%d", fd, rc, errno);
+      DEBUG( "sending on %d greating returned %d errno=%d", fd, rc, errno);
 
       continue;
     };
@@ -678,7 +736,7 @@ int main(int argc, char ** argv)
     };
     
     if (opr == EXCEPTREADY) {
-      info("connection on fd=%d broken", fd);
+      Info("connection on fd=%d broken", fd);
       unmarkfd(fd);
       close(fd);
       del_gw(fd);
@@ -697,13 +755,13 @@ int main(int argc, char ** argv)
       continue;
     };
 
-    error("THIS CAN'T HAPPEN data to read on fd %d, but itn't a known fd", fd);
+    Error("THIS CAN'T HAPPEN data to read on fd %d, but itn't a known fd", fd);
     unmarkfd(fd);
     close(fd);
   };
 
   closeall();
-  info ("Midway Broker Daemon exits normally");
+  Info ("Midway Broker Daemon exits normally");
   exit(0);
 }
 

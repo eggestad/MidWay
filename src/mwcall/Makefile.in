@@ -10,7 +10,7 @@ INCLUDES = -I../include
 
 INCPATH = ../include
 
-CFLAGS =  $(INCLUDES) -g
+CFLAGS =  @CFLAGS@ $(INCLUDES)
 
 LIBS =  -L../lib -lMidWay
 
@@ -24,9 +24,6 @@ all: $(EXE)
 
 $(EXE): $(OBJ)
 	$(CC) -o $@ $(OBJ) $(LIBS)
-
-depend:
-	makedepend -Y *.c
 
 clean:
 	rm -f mwcall $(OBJ) core 
@@ -43,7 +40,8 @@ uninstall:
 tags:
 	etags -a -o ../TAGS *.c *.h
 
-# DO NOT DELETE
+depend:
+	makedepend -- $(CFLAGS) -- *.c
 
-mwcall.o: $(INCPATH)/MidWay.h mwcall.c 
+# DO NOT DELETE
 

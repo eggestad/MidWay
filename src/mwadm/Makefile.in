@@ -10,7 +10,7 @@ INCLUDES = -I../include
 
 INCPATH = ../include
 
-CFLAGS =  $(INCLUDES) -g
+CFLAGS =  @CFLAGS@ $(INCLUDES)
 
 LIBS =  -L../lib @readlinelib@ -lMidWay
 LIB = @LIBS@
@@ -26,7 +26,7 @@ mwadm: $(OBJ)
 	$(CC) -o $@ $(OBJ) $(LIBS)
 
 depend:
-	makedepend -Y *.c
+	makedepend -- $(CFLAGS) -- *.c
 
 clean:
 	rm -f mwadm $(OBJ) core 
@@ -44,7 +44,3 @@ tags:
 	etags -a -o ../TAGS *.c *.h
 
 # DO NOT DELETE
-
-mwadm.o: $(INCPATH)/MidWay.h mwadm.c $(INCPATH)/ipctables.h
-
-commands.o: commands.c $(INCPATH)/MidWay.h  $(INCPATH)/ipctables.h $(INCPATH)/ipcmessages.h

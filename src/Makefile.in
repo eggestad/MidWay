@@ -8,11 +8,12 @@ CC = @CC@
 @SET_MAKE@
 
 
-DIRS = liburlencode lib mwd mwadm mwserver mwgwd mwcall test
+DIRS = liburlencode lib mwd mwadm mwserver mwgwd mwcall mwbd test
 
 all: 
 	@ for dir in $(DIRS); do\
-	(cd $$dir; $(MAKE) $@)\
+	(cd $$dir; $(MAKE) $@);\
+	if [[ $$? -ne 0 ]]; then exit 3; fi\
 	done;
 
 clean: 
@@ -38,10 +39,12 @@ test:
 	(cd $@; $(MAKE) $@)
 
 depend:
-	makedepend -Y *.c
+	@ for dir in $(DIRS); do\
+	(cd $$dir; $(MAKE) $@);\
+	if [[ $$? -ne 0 ]]; then exit 3; fi\
+	done;
 
-
-install:
+install: all
 	@ for dir in $(DIRS); do\
 	(cd $$dir; $(MAKE)  $@)\
 	done;

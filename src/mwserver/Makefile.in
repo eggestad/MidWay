@@ -12,6 +12,7 @@ LIBS = -L../lib -lMidWay
 
 CFLAGS =  @CFLAGS@ $(INCLUDES)
 
+OBJS = mwserver.o shared_lib_services.o
 all: mwserver testservices.so
 
 clean: 
@@ -32,17 +33,16 @@ test:
 tags:
 	etags -a -o ../TAGS *.c *.h
 
+depend:
+	makedepend -- $(CFLAGS) -- *.c
+
 testservices.o: testservices.c ../include/MidWay.h
 	$(CC) -fPIC $(CFLAGS) -c $<
 
 testservices.so: testservices.o
 	$(CC) -shared -g -o testservices.so testservices.o
 
-mwserver.o: ../include/MidWay.h ./shared_lib_services.h
-
-shared_lib_services.o: ../include/MidWay.h ./shared_lib_services.h
-
-mwserver: mwserver.o shared_lib_services.o ../lib/libMidWay.so
-	$(CC) -o $@ mwserver.o shared_lib_services.o -rdynamic $(CFLAGS) $(LIBS) -ldl
+mwserver:  $(OBJS) ../lib/libMidWay.so
+	$(CC) -o $@ $(OBJS)  -rdynamic $(CFLAGS) $(LIBS) -ldl
 
 

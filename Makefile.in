@@ -46,3 +46,6 @@ uninstall:
 	done;
 	rm -f @includedir@/MidWay.h
 
+depend:
+	(cd src; $(MAKE) $@);\
+	if [[ $$? -ne 0 ]]; then exit 3; fi

@@ -8,15 +8,17 @@ INSTALL = @INSTALL@
 
 LIBS = -lMidWay -lurlencode -lpthread
 
-CFLAGS = -I../include  -g  -Wstrict-prototypes
+INCLUDES = -I../include 
+
+CFLAGS = @CFLAGS@ $(INCLUDES)
 
 LDFLAGS = -L../lib -L../liburlencode
 
 EXE = mwgwd
 
-OBJS = SRBprotocolServer.o connections.o tcpserver.o gateway.o store.o
+OBJS = SRBprotocolServer.o connections.o tcpserver.o gateway.o store.o broker.o
 
-all: $(EXE)
+all: $(EXE) 
 
 clean:
 	rm -f $(EXE) $(OBJS) core store
@@ -33,19 +35,12 @@ uninstall:
 tags:
 	etags -a -o ../TAGS *.c *.h
 
+depend:
+	makedepend -- $(CFLAGS) -- *.c
+
 mwgwd: $(OBJS)
 	$(CC) $(LDFLAGS) -o $@ $(OBJS) -lefence $(LIBS)
 
 # used for testing store module.
 store: store.c store.h 
-	 $(CC)-g -DMODULETEST -o store store.c -I../include -L../lib -L../liburlencode/ -lurlencode -lMidWay
-
-SRBprotocolServer.o: SRBprotocolServer.c tcpserver.h gateway.h ../include/SRBprotocol.h
-
-connections.o: connections.c
-
-tcpserver.o: tcpserver.c tcpserver.h gateway.h ../include/SRBprotocol.h
-
-gateway.o: gateway.c gateway.h store.h 
-
-store.o: store.c store.h 
+	 $(CC) -g -DMODULETEST -o store store.c -I../include -L../lib -L../liburlencode/ -lurlencode -lMidWay

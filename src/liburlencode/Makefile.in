@@ -8,6 +8,10 @@ INSTALL = @INSTALL@
 
 LIBS = liburlencode.a # liburlencode.so 
 
+CFLAGS= @CFLAGS@ -I../include
+
+COBJS=urlencoded.o urlfieldlist.o urlmap.o
+
 all:  $(LIBS)  test-liburlencode
 
 xall:  $(LIBS) liburl++.a test-liburlencode
@@ -27,9 +31,8 @@ uninstall:
 tags:
 	etags -a -o ../TAGS *.c *.h
 
-CFLAGS=-g -Wall -I../include
-
-COBJS=urlencoded.o urlfieldlist.o urlmap.o
+depend:
+	makedepend -- $(CFLAGS) -- *.c
 
 liburlencode.a: $(COBJS)
 	ar qcs $@ $(COBJS)
@@ -39,12 +42,6 @@ liburlencode.so:
 
 test-liburlencode: liburlencode.a test-liburlencode.o
 	$(CC) -o $@ test-liburlencode.o -L. -lurlencode
-
-urlencoded.o: urlencoded.c ../include/urlencode.h
-
-urlmap.o: urlmap.c ../include/urlencode.h
-
-urlfieldlist.o: urlfieldlist.c ../include/urlencode.h
 
 liburl++.a: urlencoded++.o
 	ar qcs $@ urlencoded++.o

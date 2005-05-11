@@ -28,8 +28,10 @@ distclean:
 	rm -f Makefile *~ TAGS
 	rm -f include/version.h\
 
+doxy::
+	doxygen
 
-TAGS:
+TAGS::
 	rm -f TAGS
 	etags -o TAGS ../include/*.h
 	etags -a -o TAGS include/*.h

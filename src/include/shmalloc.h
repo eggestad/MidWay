@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.10  2005/06/13 23:21:04  eggestad
+ * Added doxygen comments
+ *
  * Revision 1.9  2004/11/17 20:58:08  eggestad
  * Large data buffers for IPC
  *
@@ -57,12 +60,15 @@
  *
  */
 
-/*
-
+/**
+   @file
+   The layout of the IPC shmsegment are described here. 
+   
   (each) Shared memory heaps are formatet as follows
   (each line is a 32 bit word):
 
   The start of the segment has a header structure.
+  @verbatim
   +       +       +       +       
   +------------------------------+
   |    magic      | chunkpersize |
@@ -84,9 +90,11 @@
   |    endadr of bin size = 1    |  <-|  start and end adr is used to   
   /    ----- foreach bin -----   /  <-/  check if a chunk is corrupt.
   +------------------------------+
-  
-  The remainder of the heap shm segemts is filled with chuck formated as:
+  @endverbatim
 
+  The remainder of the heap shm segemts is filled with chuck formated as:
+  
+  @verbatim
   +------------------------------+ <- start of chunk
   |     owner id (MWID, not pid) | (correction, pid as of this time)
   |     size (basechunksizes)    |
@@ -99,14 +107,15 @@
   /                              /  (next chunk)
   /                              /
   +------------------------------+
+  @endverbatim
 
-  The list are ring lists, and not as in glibc where pre poimter
+  The list are ring lists, and not as in glibc where pre pointer
   points to the chuck above the current chunk. The latter is needed
-  for mergeing with the chuck above. We define the abovepointer here
+  for merging with the chuck above. We define the above pointer here
   but do not use it. Merging chunks are future use.
  
-  Chuck size are set at runtime, this is for optimalization.  This
-  scheme is effectivly the same as GLIBC's malloc.  However, since
+  Chuck size are set at runtime, this is for optimization.  This
+  scheme is effectively the same as GLIBC's malloc.  However, since
   shared memory segments can't be resized, entire segments has to be
   added at run time.
 
@@ -115,11 +124,11 @@
   something it should do. It must however free up buffers owned by
   dead members.
 
-  Extremly large segments must be handled with a seperate scheme.
+  Extremely large segments must be handled with a separate scheme.
   Either by a pipe/socket or storing to disk (mmap()). glibc malloc
   does the later. Storing to disk is preferable to creating large
-  shared memory segements, the latter since it will provoke
-  pageing/swapping.
+  shared memory segments, the latter since it will provoke
+  paging/swapping.
 
   Since many processes shall be clobbering around here we need a
   number of semaphores to prevent chaos. We only have one for each
@@ -127,16 +136,16 @@
   pointers to prevent blocking during mwd's garbage collect.
 
   Note: traditionally a transaction is done by passing messages with
-  size < 10k. People tend to think larger goes againts the very idea
-  of a transaction monitor, since speed is severly hampered by such
+  size < 10k. People tend to think larger goes against the very idea
+  of a transaction monitor, since speed is severely hampered by such
   large pieces of data. They tend to think that such data sizes should
-  be sendt by ftp. I however recognice the need for sending images
+  be sent by ftp. I however recognize the need for sending images
   which almost never are < 10k. However, per default I think we should
-  be resticted to 1M. 
+  be restricted to 1M.
 
-  For version 1.0 we don't allow chuck partitioning or mergeing. what
+  For version 1.0 we don't allow chuck partitioning or merging. what
   you booted with is what you have. We also postpone runtime adding of
-  segments, as well as storing large segemtens to disk. We also
+  segments, as well as storing large segments to disk. We also
   postpone having several segments
 
 */
@@ -147,34 +156,47 @@
 #include <stdint.h>
 #include <ipcmessages.h>
 
+/**
+   The struct at the top of a chunk. 
+
+   The chunk pointer/offset is immediately after this header. 
+*/
 struct _chunkhead {
-  MWID ownerid;
-  int64_t size; /* in # of basechunksizes in IPC segements, bytes on mmap with one buffer */
+   MWID ownerid; //!< The MWID thaht owns the chunk, #UNASSIGNED if free
+   int64_t size; //!< in # of basechunksizes in IPC segements, bytes on mmap with one buffer 
 };
 typedef struct _chunkhead chunkhead ;
 
+/**
+   The structure at the end of every chunk.
+   
+   If keeps an offset to the start of chunk above (for sanity
+   checking) and the next prov for a double linked link.
+*/
 struct _chunkfoot {
-  int64_t above;
-  int64_t next;
-  int64_t prev;
+   int64_t above; //!< the offset of the start of chunk on the chunk above in the segment. 
+   int64_t next;  //!< next in a DDL
+   int64_t prev;  //!< prev in a DDL
 };
 typedef struct _chunkfoot chunkfoot ;
 
-/* the heap number that distinguish between many buffer heaps. 
+/**
+   The heap number that distinguish between many buffer heaps. 
    0 being shm
    1 - LOW_LARGE_BUFFER_NUMBER being heaps on files (currently unused)
    LOW_LARGE_BUFFER_NUMBER - INTMAX is single buffer files alloced by mwd
 */
 #define LOW_LARGE_BUFFER_NUMBER 999
 
-/* the struct used in shmalloc.c to keep track of buffer heaps. It's
+/**
+   The struct used in shmalloc.c to keep track of buffer heaps. It's
    either ipc shm or a mmaped file. This struct is really only used in
    shmalloc.c, but _mwadr2offset() is used in event.c, but then we
    pass NULL for seginfo_t * */
 struct shm_segment {
-   int segmentid;
-   int fd;
-   void * start;
+   int segmentid; //!< The segment of this shm or mmap
+   int fd;        //!< the fd of the mmap'ed file, #UNASSIGNED if shm
+   void * start;  
    void * end;
 } ;
 
@@ -189,27 +211,35 @@ chunkfoot * _mwfooter(chunkhead *);
 
 int _mwshmcheck(void * adr);
 
+/** The # of bytes wasted to header and footer */
 #define CHUNKOVERHEAD sizeof(chunkhead) + sizeof(chunkfoot)
+/** The number of bins, really should be settable thru mwd(). */
 #define BINS 6
 
-/* Magic number is "MW" thus thus 0x4D57 */
+/** Magic number used in segement header.  This is for sanity checking
+    to find out if a mmap or shm is used in MidWay. The Magic is "MW"
+    thus thus 0x4D57 */
 #define MWSEGMAGIC 0x4D57
 
+/** 
+    The header struct for shm and mmap heaps. Single buffer mmap'ed files do not have this struct. 
+*/
 struct segmenthdr {
-  int16_t magic; 
-  int16_t chunkspersize;
-  int32_t basechunksize;
-  int64_t segmentsize;
-  int64_t semid;
+   int16_t magic;         //!< #MWSEGMAGIC
+   int16_t chunkspersize; //!< The number of chunks per size/BIN, set be mwd(). 
+   int32_t basechunksize; //!< The size in bytes of the base chunk for BIN \a n size is \a *2^n
+   int64_t segmentsize;   //!< The total segement size in bytes
+   int64_t semid;         //!< The SYSVIPC id for the semaphore used to lock the BINS.  
 
-  int64_t top, bottom; // the max and min offsets into the heap that may be buffers
-  int32_t inusecount;
-  int32_t inusehighwater;
-  int32_t inuseaverage;
-  int32_t inuseavgcount;
-  int32_t numbins;
-  int32_t chunk[BINS];
-  int32_t freecount[BINS];
+   int64_t top;           //!< the min offset into the heap/segement that may be buffers
+   int64_t bottom;        //!< the max offset into the heap/segement that may be buffers
+   int32_t inusecount;    //!< The number of buffers currently in use
+   int32_t inusehighwater;//!< The highest number of chunks thath ever has been in use at the same time
+   int32_t inuseaverage;  //!< The average inuse count
+   int32_t inuseavgcount; 
+   int32_t numbins;       //!< The number of bins currently must be #BINS
+   int32_t chunk[BINS];   //!< The root offset(pointer) to the in use chucks for the bins
+   int32_t freecount[BINS]; //!< The root offset(pointer) to the free lists for the bins
 };
 
 int _mw_gettopofbin(struct segmenthdr * seghdr, int bin);
@@ -250,3 +280,6 @@ static inline size_t get_pagesize(void)
 
 
 
+
+/*  LocalWords:  malloc
+ */

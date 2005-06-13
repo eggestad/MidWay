@@ -1,0 +1,109 @@
+/**
+@mainpage
+
+@author Terje Eggestad
+@date 2005
+
+This is the internal documentation of MidWay intended for MidWay
+developers. If you're only planning to use MidWay in application
+development the documentation herein should be of little use (I
+hope!).
+
+For user documentation see the man pages, they should be shipped with
+the runtime and development packages.
+
+It's a requirement that anyone developing on MidWay is familiar with
+MidWay operations and the contents of the man pages.
+ 
+There is here a common documentation of all the parts that are shipped
+in MidWay runtime and development. This include all the utilities as
+well as the library.
+
+
+
+
+@section IPC operations
+
+We're based on SYSV IPC, I've not really looked at posix IPC.  The IPC
+work principally by exploiting the message queue semantics. The
+features we really need is the message boundary and that you can based
+in the massage type retrieve messages out of order. I've considered
+UNIX UDP sockets, but rejected them because they'd need to be named,
+and named UNIX sockets are persistent after the process dies, and the
+trickiness is getting protection right for proper operation.  Also
+UNIX sockets, even UDP do not support getting messages out of order.
+I'd like to see the credentials of UNIX socket on message queues, but
+that is just for authentication, which has not been critical for the
+first versions.
+
+In addition there are the IPC shared memory areas for data buffers and
+information tables on clients, services, servers. gateways, etc.  When
+a client do a service call on IPC, it get a data buffer for the call
+data, looks up a service in the service table, lookup the associated
+server for the service, gets its IPC msgqueue id and places a
+callmessage on it's queue. The server do the same, get a buffer (or
+reuse the same) and places a reply message of the client message
+queue.
+
+@section Building subsets
+
+I'd an intention about just building the IPC or just the SRB parts, or
+other network protocol part to let application developers build a
+distro with only the necessary code. The structure is there but it's
+not clean, so the separation is not possible without a little bit of
+coding.
+
+@section Why C
+
+C is the language that create the least amount of hassle when creating
+language bindings for other languages, partly because C is a the least
+common denominator language, and partly because all other languages
+(at least in Linux) are implemented in C.
+
+I do expect that most MidWay application will not be written in C. 
+
+In retrospect I wish I did mwgwd in C++. 
+
+@section Coding style
+
+Indention shall be 3 (there may be some 2 somewhere still) if you see
+some files that don't have the c-basic-offset magic at the end, fix
+it.
+
+All symbols beginning with mw is intended for use by application
+programmers, and as such is a part of the provided API.
+
+All symbols beginning _mw is for internal use. 
+
+The library shall ideally not have any symbols beyond mw* and _mw*. The
+reason being to be as namespace conservative as possible, hence
+avoiding namespace collisions for the application programmers. One
+obvious exception is the included \ref liburl which shall use url* and
+_url* symbols.
+
+I tend to code each C module as a class, and is restrictive about the
+functions and variables a module provide. Any function or variable
+(ideally all variables) that are private to the module \e shall be
+declared \c static.
+
+This has the effect to keep the number of symbols in the library to a
+minimum.
+
+@section liburl 
+
+The URL library, never could come up with a better name is something
+that I've kept a separate as possible so that it may be taken out into
+a separate library.  The background is that the SRB protocol is based
+on URL encoding.  URL encoding being the way field and values are
+encoded in url for CGI. You may have seen urls in you browser like
+
+http://www.xyz.com/dir/page?abc=6&name=myself&date=20030203. The
+liburl is a library to efficiently convert the map part \c
+abc=6&name=myself&date=20030203 into a map in proper UTF8. (The UTF8
+part is not done, only 8bit chars.) And of course to create url encoded
+strings from maps.
+
+
+*/
+
+ LocalWords:  MidWay IPC SYSV posix UDP SRB url liburl

@@ -18,7 +18,14 @@
   Boston, MA 02111-1307, USA. 
 */
 
-   
+/** @file
+    This is the inlude that is shipped with the library and defines
+    everything that is exposed to the user programs.
+
+    Howevere the doxygen tags here are really intended for the
+    internal MidWay documentatiom.
+*/
+
 #ifndef _MIDWAY_H
 
 #include <time.h>
@@ -29,22 +36,55 @@
 
 #define _MIDWAY_H
 
+/**
+   The MWID unassigned value.
+ */
 #define UNASSIGNED  -1
 
 /* Service name length is max 32, historic to be 
  * tuxedo compatible, really should be the same here.
  */
+//* The minumum allocated area needed to hold a service name
 #define MWMAXSVCNAME (32 + 1)
+//* The minumum allocated area needed to hold a name of any other kind, like clientname. 
 #define MWMAXNAMELEN (64 + 1)
 
+/**
+   @ingroup mwid 
+   A typedef to create a type to hold a server id  */
 typedef int SERVERID;
+/**
+   @ingroup 
+   mwid A typedef to create a type to hold a client id 
+*/
 typedef int CLIENTID;
+/**
+   @ingroup mwid 
+   A typedef to create a type to hold a gateway id
+*/
 typedef int GATEWAYID;
+/**
+   @ingroup mwid 
+   A typedef to create a type to hold a service id
+*/
 typedef int SERVICEID;
+/**
+   @ingroup mwid 
+   A typedef to create a type to hold a conversational service id 
+*/
 typedef int CONVID;
 
+/**
+   The type for the handle returned by mwcall()
+*/
 typedef int32_t mwhandle_t;
 
+/** 
+    The struct passed a service handler.
+
+    This struct contain all available info about a service call, and
+    is the only passed argument to a service function/handler.
+*/
 typedef struct {
   mwhandle_t  handle;
   CLIENTID cltid;
@@ -68,13 +108,13 @@ typedef struct {
 
 /****************** FLAGS ***************/
 /* Flags for mw(a)call/mwfetch/mwreply */
-#define MWNOREPLY    0x00000001
-#define MWNOBLOCK    0x00000002
-#define MWNOTIME     0x00000004
-#define MWSIGRST     0x00000008
-#define MWNOTRAN     0x00000010
-#define MWUNIQUE     0x00000020
-#define MWMULTIPLE   0x00000040
+#define MWNOREPLY    0x00000001 //!< A service call shall not have any reply 
+#define MWNOBLOCK    0x00000002 //!< If a system call would block, return with EAGAIN. 
+#define MWNOTIME     0x00000004 //!< Do not use the timeout value set by mwbegin(() (FUTURE USE)
+#define MWSIGRST     0x00000008 //!< Signal restert, if a system call was interrupted, restart
+#define MWNOTRAN     0x00000010 //!< Do not include service call in an ungoing transaction (FUTURE USE)
+#define MWUNIQUE     0x00000020 //!< the provided service name shall be unique (FUTURE USE)
+#define MWMULTIPLE   0x00000040 //!< Multiple replies, mwfetch shall not concatinate all replies. 
 
 /* the IPC only flag was introduced for the GW, inorder to ensure that
 incomming service calls aren't routed back out. As such this flag may

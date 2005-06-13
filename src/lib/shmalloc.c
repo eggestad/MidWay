@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.21  2005/06/13 23:21:29  eggestad
+ * Added doxygen comments
+ *
  * Revision 1.20  2004/12/14 19:06:48  eggestad
  * mwalloc() returned wrong size buffer in some cases
  *
@@ -117,18 +120,39 @@
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
-/* a note on threads. Since shmalloc, shmrealloc, and shmfree
+/**
+   @file
+
+   Here are where we do all the client IPC shared memory buffer
+   things. Note that these are the actual IPC functions, the API
+   mwalloc(), mwfree(), mwrealloc() are wrappers that may user libc
+   malloc's for SRB clients.
+
+   a note on threads. Since shmalloc, shmrealloc, and shmfree
    deal in shared memory they must be multi process proof.
-   Since a thread in another process this module must be thread safe. */
+   Since a thread in another process this module must be thread safe. 
 
-/* this need to change for more segments, note module entry functions 
-   are responsible for checking for heapinfo == NULL*/
+   this need to change for more segments, note module entry functions 
+   are responsible for checking for heapinfo == NULL
 
-/* Here I do something I otherwise selvdom do, I prefix each variable with 
+   Here I do something I otherwise selvdom do, I prefix each variable with 
    data type, i for int, p for pointer.
-   This is to keep oversigth over the chaos we have joggeling absolute
+
+   This is to keep oversight over the chaos we have joggeling absolute
    addresses (pointers) and offsets into the segment which is int.
    remember all members of the struct chunkhead and chunkfoot are in int.
+
+   Offsets into segments are necessary because assuming that a shared
+   memory segement have the same address in all attached processes is
+   non portable.
+   
+   Be aware of the distiction of buffers and chunks, a buffer is the
+   user data area of a chunk, a chunk is the buffer plus the header
+   and footer.
+
+
+   @see shmalloc.h
+
 */
 
 /*
@@ -139,6 +163,12 @@ static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 */
 static int _mw_fastpath = 0;
 
+/**
+   Return the fastpath enabled flag.
+
+   Fast path is currently not implemented properly, this flag should
+   go to mwclientapi.c.
+*/
 int _mw_fastpath_enabled(void) 
 {
   return _mw_fastpath;
@@ -146,7 +176,15 @@ int _mw_fastpath_enabled(void)
 
 struct segmenthdr * _mwHeapInfo = NULL;
 
-/* this operate on absolute adresses */
+/**
+   Get the shmbuffer footer.
+   
+   Given the chunk header, return the footer, this operate on absolute
+   adresses.
+
+   @param head a legal head pointer
+   @return the footer pointer
+*/
 chunkfoot * _mwfooter(chunkhead * head)
 {
   void * fadr;
@@ -286,6 +324,13 @@ static seginfo_t * attach_mmap(int id)
    return si;
 };
 
+/**
+   unmaps a mmap used for a shared buffer. It's safe to to call this
+   if the segment is not a mmap.  
+
+   @param si The segment info pointer for this segement
+   @return aloways 0
+*/
 int _mw_detach_mmap(seginfo_t * si)
 {
    Assert(si != NULL);
@@ -298,11 +343,28 @@ int _mw_detach_mmap(seginfo_t * si)
    return 0;
 }
 
+/** 
+    Add a segment. 
+
+    This is used both for shm and mmap segements. 
+    
+    @param id  The IS for this segement, 0 is special and refer to the IPC shm heap. 
+    @param fd The file descriptor if a mmap segement. 
+    @param start The address of the top
+    @param end  The address of the bottom
+    @return the segement info struct of the new segment. 
+*/
 seginfo_t *  _mw_addsegment(int id, int fd, void * start, void * end)
 {
    return  addsegment( id, fd, start, end);
 };
 
+/**
+   Get the segement info struct for the given segemnt id. 
+   
+   @param segid the segment id
+   @return the segement info struct, or NULL if no segement if no segement with this id. 
+*/
 seginfo_t * _mw_getsegment_byid(int segid)
 {
    seginfo_t * si;
@@ -316,6 +378,13 @@ seginfo_t * _mw_getsegment_byid(int segid)
    return si;
 };
 
+/**
+   Get the segment to where the address points. This is used when
+   having a pointer and you want to find the segement.
+   
+   @param addr Any address
+   @return he segement info struct, or NULL if the address if not within any segement. 
+ */
 seginfo_t * _mw_getsegment_byaddr(void * addr)
 {
    seginfo_t * si;
@@ -329,7 +398,13 @@ seginfo_t * _mw_getsegment_byaddr(void * addr)
 /************************************************************************/
 
 
-/* conversion between offset and adresses */
+/**
+   Conversion from and adresses to offset. 
+   @param adr Any address.
+   @param si The segement we want offset into, may be NULL (will use _mw_getsegment_byaddr())
+   @return return the offset or -1 if address is not within (a/the) segment.
+*/
+   
 long _mwadr2offset(void * adr, seginfo_t * si)
 {
    if (si == NULL) si = findsegment_byaddr(adr);
@@ -338,20 +413,32 @@ long _mwadr2offset(void * adr, seginfo_t * si)
    return (long) adr - (long) si->start;;
 };
 
+/**
+   Conversion from offset to adresses. 
+   @param offset offset into the segement
+   @param si The segement we want address into, may not be NULL
+   @return the address or NULL if out of bounds of the segement. 
+*/
 void * _mwoffset2adr(long offset, seginfo_t * si)
 {
+   void * adr;
    if (si == NULL) return NULL;   
    if (offset < 0) return NULL; 
-
-   return (void *) si->start + offset;
+   adr = (void *) si->start + offset;
+   if (adr > si->end) return NULL;
+   return adr;
 };
 
-/* a check for corruption
-   return -1 if adr is not in the shm buffer segment.
-   return 0 of chunk is OK
-   return chunksize if corrupt (in basechunksizes)
-*/
+/** 
+    Set the data pointer part of a mwsvcinfo. Give the IPC callmessage
+    we get a pointer in our address space. Will mmap a unmmaped
+    segment if needed.
 
+    @param svcreqinfo The mwsvcinfo that shall have have the pointer
+    @param callmesg The IPC call message from where we'll get the shared buffer info. 
+    @return -1 w/EINVAL, EMSGMSG, or EBADR
+    @return 0 of chunk is OK
+*/
 
 int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg)
 {
@@ -402,6 +489,16 @@ int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg)
   return 0;
 };
 
+/**
+   Put a shm buffer to a Call message. Gived the pointer to a buffer
+   set the segmentid and offset in the Call message. If the buffer is
+   not in a shm/mmap buffer, this functin create one and copies over.
+
+   @param callmesg a pointer to a #Call struct
+   @param data a pointer to a data buffer
+   @param datalen the length of the data buffer, if 0 data buffer is assumed nul terminated. 
+   @return 0 or -ENOMEM
+*/
 int _mw_putbuffer_to_call (Call * callmesg, char * data, size_t len)
 {
    long dataoffset;
@@ -507,13 +604,18 @@ static int getchunksizebyadr(chunkhead * pCHead)
 };
 #endif
 
-/* Used in mw(a)call() and mwreply() to check if an address in a shmbuffer.
-   Remember that in contrast to tuxedo our data areas must not have bo be alloced 
-   by mwalloc() before mwacall and mwreply. if static or alloacted by malloc() 
-   mwacall and mwreply will copy the data into a shmbuffer. 
-   this function is used to find out if that is needed.
-   see mwacall(3C), mwreply(3C), mwalloc(3C)
-   This return the offset of the buffer.
+/**
+   Checks to see if a buffer is a shared buffer. Used in mw(a)call()
+   and mwreply() to check if an address in a shmbuffer.  Remember that
+   in contrast to tuxedo our data areas must not have to be alloced by
+   mwalloc() before mwacall() and mwreply(). if static or allocated by
+   malloc() mwacall() and mwreply() will copy the data into a shmbuffer.
+   this function is used to find out if that is needed.  see
+   mwacall(3C), mwreply(3C), mwalloc(3C) This return the offset of the
+   buffer.
+
+   @param adr the address of the buffer. 
+   @return -1 if false or offset into segment if true
 */
 int _mwshmcheck(void * adr)
 {
@@ -533,6 +635,11 @@ int _mwshmcheck(void * adr)
   return offset;
 }
 
+/**
+   Get the size of a shm buffer. 
+   @param adr
+   @return -1 if not a shm buffer, else size in bytes. 
+*/
 size_t _mwshmgetsizeofchunk(void * adr)
 {
   seginfo_t * si;
@@ -664,6 +771,7 @@ static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount, seginfo_
    sops[0].sem_flg = 0;
    return semop(_mwHeapInfo->semid, sops, 1);
  };
+
  static int unlock(int id)
  {
    struct sembuf sops[2];
@@ -705,27 +813,38 @@ static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount, seginfo_
  };
 
 
- int _mwshmgetowner(void * adr, MWID * id)
- {
-    chunkhead * pCHead;
+/**
+   Get the owner MWID of a chunk. 
+   @param adr the pointer to the buffer
+   @param *id a pointer to a MWID to store the MWID
+   @return always 0 (should return -1 if adr is not pointing to ashm bvffer)
+*/
+int _mwshmgetowner(void * adr, MWID * id)
+{
+   chunkhead * pCHead;
 
-    pCHead = adr - sizeof(chunkhead);
+   pCHead = adr - sizeof(chunkhead);
+   
+   *id = pCHead->ownerid;
+   return 0;
+};
 
-    *id = pCHead->ownerid;
-    return 0;
- };
-
-
- int _mwshmsetowner(void * adr, MWID id)
- {
-    chunkhead * pCHead;
-
-    pCHead = adr - sizeof(chunkhead);
-
-    pCHead->ownerid = id;
-
-    return 0;
- };
+/**
+   Set the owner MWID of a chunk. 
+   @param adr the pointer to the buffer
+   @param id a MWID to store in the chunk header
+   @return always 0 (should return -1 if adr is not pointing to ashm bvffer)
+*/
+int _mwshmsetowner(void * adr, MWID id)
+{
+   chunkhead * pCHead;
+   
+   pCHead = adr - sizeof(chunkhead);
+   
+   pCHead->ownerid = id;
+   
+   return 0;
+};
 
 
 static int find_bin(size_t size, seginfo_t * si)
@@ -748,6 +867,14 @@ static int find_bin(size_t size, seginfo_t * si)
    return bin;
 };
 
+/**
+   Allocate a shm buffer. This is not subject to fast path, and will
+   always return a shm buffer or fail. Prototype shall be identical to
+   malloc().
+
+   @param size the size in bytes
+   @return a pointer to the buffer or NULL with errno = ENOMEM
+*/
 void * _mwalloc(size_t size)
 {
    chunkhead *pCHead;
@@ -862,6 +989,15 @@ void * _mwalloc(size_t size)
   return NULL;
 };
 
+/**
+   Reallocate a shm buffer. This is not subject to fast path, and will
+   always return a shm buffer or fail. Prototype shall be identical to
+   realloc().
+
+   @param adr a pointer to the old buffer, which @e must be a shm buffer or NULL. 
+   @param size the size in bytes
+   @return a pointer to the buffer or NULL with errno = ENOMEM
+*/
 void * _mwrealloc(void * adr, size_t newsize) 
 {
   size_t size, copylength;
@@ -891,6 +1027,9 @@ void * _mwrealloc(void * adr, size_t newsize)
   return NULL;
 };
 
+/**
+   free and zero out a shm buffer. 
+*/
 static int _mwfree0(seginfo_t * si, void * adr)
 {
    long offset, off, l, s, n, t;
@@ -917,7 +1056,7 @@ static int _mwfree0(seginfo_t * si, void * adr)
       return -ENOENT;
    };
 
-   // blacvk out buffer
+   // black out buffer
    s = _mwHeapInfo->basechunksize * pCHead->size;
    DEBUG1("Clearinbg buffer %ld bytes", s);
    memset(adr, 0, s);
@@ -971,6 +1110,13 @@ static int _mwfree0(seginfo_t * si, void * adr)
    return 0;
 };
 
+/**
+   free and mmaped buffer. 
+
+   @param si the segment info for the buffer/chunk
+   @param adr a pointer to the buffer
+   @return always 0, could possibly return error of a IPC message to mwd() fails. 
+*/
 int _mwfree_mmap(seginfo_t * si, void * adr)
 {
    Alloc allocmesg;
@@ -991,6 +1137,13 @@ int _mwfree_mmap(seginfo_t * si, void * adr)
    return 0;
 };
    
+/**
+   Free a shm buffer.  Prototype shall be identical to
+   free().
+
+   @param adr the pointer to the buffer to free. 
+   @return 0 or -ENOENT (if not a pointer to a valid shm buffer)
+*/
 int _mwfree(void * adr)
 {
    seginfo_t * si;
@@ -1021,7 +1174,14 @@ int __mw_verify_segmenthdr(struct segmenthdr * seghdr)
    
 };
 #endif
+/**
+   Get the top of a bin.  Top of memeory area, not the first chunk in
+   the freelist.
 
+   @param seghdr a pointer to the segement header struct
+   @param bin the bin index must be 0 < bin < #BINS
+   @return the offset into the segement. 
+*/
 int _mw_gettopofbin(struct segmenthdr * seghdr, int bin)
 {
    int offset, l;

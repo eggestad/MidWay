@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.26  2005/06/13 23:23:10  eggestad
+ * Added doxygen comments
+ *
  * Revision 1.25  2004/11/17 20:50:52  eggestad
  * added function  _mwid2str helper for debugging
  *
@@ -120,11 +123,16 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include <MidWay.h>
 #include <ipctables.h>
 
 static char * RCSId UNUSED = "$Id$";
+
+/** @file
+This module implement the provided logging API see man page for mwlog(3).
+*/
 
 /* vt100'ish color codes. See ctlseq.ms that float around the net,
    which describe xterms vt100 control sequences.  */
@@ -154,18 +162,31 @@ static char * RCSId UNUSED = "$Id$";
 
 #endif 
 
-char levelprefix[] = { 'F', 'E', 'W', 'A', 'I', 'D', '1', '2', '3', '4' };
-char *levelheader[] = { COLOR_RED_ON_YELLOW "FATAL: "  COLORNORMAL, 
-			COLOR_RED_BOLD      "ERROR: "  COLORNORMAL, 
-			COLOR_YELLOW_BOLD   "Warning: " COLORNORMAL, 
-			COLOR_MAGNETA_BOLD  "ALERT: "  COLORNORMAL, 
-			COLOR_GREEN_BOLD    "info: "   COLORNORMAL, 
-			COLOR_BLUE          "Debug: "  COLORNORMAL, 
-			COLOR_GREY          "Debug1: " COLORNORMAL, 
-			COLOR_GREY          "Debug2: " COLORNORMAL, 
-			COLOR_GREY          "Debug3: " COLORNORMAL, 
-			COLOR_GREY          "Debug4: " COLORNORMAL, 
-			NULL };
+static char levelprefix[] = { 'F', 'E', 'W', 'A', 'I', 'D', '1', '2', '3', '4' };
+
+static char * ttylevelheader[] = { COLOR_RED_ON_YELLOW "FATAL: "  COLORNORMAL, 
+				   COLOR_RED_BOLD      "ERROR: "  COLORNORMAL, 
+				   COLOR_YELLOW_BOLD   "Warning: " COLORNORMAL, 
+				   COLOR_MAGNETA_BOLD  "ALERT: "  COLORNORMAL, 
+				   COLOR_GREEN_BOLD    "info: "   COLORNORMAL, 
+				   COLOR_BLUE          "Debug: "  COLORNORMAL, 
+				   COLOR_GREY          "Debug1: " COLORNORMAL, 
+				   COLOR_GREY          "Debug2: " COLORNORMAL, 
+				   COLOR_GREY          "Debug3: " COLORNORMAL, 
+				   COLOR_GREY          "Debug4: " COLORNORMAL, 
+				   NULL };
+
+static char *levelheader[] = { "FATAL: ", 
+			       "ERROR: ", 
+			       "Warning: ", 
+			       "ALERT: ", 
+			       "info: ", 
+			       "Debug: ", 
+			       "Debug1: ", 
+			       "Debug2: ", 
+			       "Debug3: ", 
+			       "Debug4: ", 
+			       NULL };
 
 static FILE *log = NULL;
 static int loglevel = MWLOG_INFO;
@@ -186,9 +207,12 @@ DECLAREMUTEX(logmutex);
 
 
 
-/* this is meant to be undocumented. Needed my mwd to print on stdout before 
-   becoming a daemon.*/
+/**
+   Indicate that logging shall be copied on stdout. 
 
+   this is meant to be undocumented. Needed my mwd to print on stdout before 
+   becoming a daemon.
+*/
 void _mw_copy_on_stdout(int flag)
 {
   if (flag) copy_on_FILE = stdout;
@@ -196,6 +220,12 @@ void _mw_copy_on_stdout(int flag)
   return;
 };
 
+/**
+   Indicate that logging shall be copied on stderr. 
+
+   this is meant to be undocumented. Needed my mwd to print on stdout before 
+   becoming a daemon.
+*/
 void _mw_copy_on_stderr(int flag)
 {
   if (flag) copy_on_FILE = stderr;
@@ -224,6 +254,10 @@ static char timesuffix[100] = "";
 static char newsuffix[100];
 static char filename[256];
 
+/**
+   rotate the logfind is we'ew crossed midnite. 
+
+*/
 static void 
 switchlog (void)
 {
@@ -275,14 +309,25 @@ switchlog (void)
 static   char buffer[LOG_MSG_MAX];
 static char mesg[LOG_MSG_MAX];
 
+/**
+   This is mwlog() incarnate. 
+
+   mwlog() is really a varargs wrapper that ultimatly call this
+   function. It is here is a va_ version for reuse internally.
+
+   @param level loglevel as defined in MidWay.h
+   @param format the printf format
+   @param ap the va_list see stdard.h
+*/
 void 
 _mw_vlogf(int level, char * format, va_list ap)
 {
 
-  int l, s, rc;
+  int l, e, s, rc;
 
   if (level > loglevel) return;
   if (format == NULL) return;
+  e = errno;
 
   if (!loginited) mwopenlog(NULL, NULL, MWLOG_INFO);
   switchlog();
@@ -323,7 +368,11 @@ _mw_vlogf(int level, char * format, va_list ap)
 
   /* copy to stdout/stderr if so has been desired */
   if (copy_on_FILE) {
-    fprintf(copy_on_FILE,"%s%s\n", levelheader[level], mesg);
+     if (ttyname(fileno(copy_on_FILE))) {
+	fprintf(copy_on_FILE,"%s%s\n", ttylevelheader[level], mesg);
+     } else {
+	fprintf(copy_on_FILE,"%s%s\n", levelheader[level], mesg);
+     }
     //    fflush(copy_on_FILE);
   };
 
@@ -331,9 +380,14 @@ _mw_vlogf(int level, char * format, va_list ap)
   _UNLOCKMUTEX(logmutex);
 #endif
 
+  errno = e;
   return ;
 };
 
+/**
+  Get the string representaion of a loglevel.
+
+*/
 int _mwstr2loglevel(char * arg) 
 {
    int loglevel = -1, l;
@@ -355,7 +409,16 @@ int _mwstr2loglevel(char * arg)
    return loglevel;
 };
 
-static char strbuf[64];
+#ifdef  _ISOC99_SOURCE
+static __thread char strbuf[64];
+#else 
+static  char strbuf[64];
+#endif
+/** 
+    get a string version of the MWID.
+
+    This is for debugging purposes, note that unless you're in C99, using NULL for buffer is not threadsafe
+*/
 char * _mwid2str(MWID id, char * buffer)
 {
    int idx;
@@ -390,6 +453,11 @@ char * _mwid2str(MWID id, char * buffer)
    return buffer;
 } 
 
+/**
+   The main logging function. 
+
+   This is a part of the user library API see man page
+*/
 void mwlog(int level, char * format, ...)
 {
   va_list ap;
@@ -403,6 +471,12 @@ void mwlog(int level, char * format, ...)
   return ;
 };
 
+/**
+   Set the loglevel. 
+
+   This is a part of the user library API see man page. 
+   Sets what log messages that shall be ignored. 
+*/
 int mwsetloglevel(int level)
 {
   int oldlevel;
@@ -432,27 +506,33 @@ int mwsetloglevel(int level)
   return oldlevel;
 };
 
-/* undocumented but give us the pointer to the loglevel variable */
+/**
+   give us the pointer to the loglevel variable
+
+   for internal use
+*/
 int * _mwgetloglevel(void)
 {
   return &loglevel;
 };
 
-/* the if's and but's here  are getting complicated...  
-
-if the arg lfp (LogFilePrefix) is not NULL, we check if the lfp has
-a leading  path it's relative  to cwd.  If  not we place it  in the
-logdir.   However, we  may not  have the  logdir until  we actually
-mwattach(), and then only in the  case if IPC attach. The logdir is
-default mwhome/instancename/log/. 
-
-if lfp is NULL we use  progname as default filename, if progname is
-NULL, we use userlog;
-*/
-
 static char * logfilename = NULL;
 static char * logdir = NULL;
 
+/**
+   This is a part of the user library API see man page. 
+  
+   The if's and but's here  are getting complicated...  
+
+   if the arg lfp (LogFilePrefix) is not NULL, we check if the lfp has
+   a leading path it's relative to cwd.  If not we place it in the
+   logdir.  However, we may not have the logdir until we actually
+   mwattach(), and then only in the case if IPC attach. The logdir is
+   default mwhome/instancename/log/.
+
+   if lfp is NULL we use progname as default filename, if progname is
+   NULL, we use userlog;
+*/
 
 void mwsetlogprefix(char * lfp)
 {
@@ -547,7 +627,11 @@ void mwsetlogprefix(char * lfp)
   return;
 };
 
+/**
+   replaces both mwsetloglevel and mwsetlogprefix.
 
+   This is a part of the user library API see man page. 
+*/
 void mwopenlog(char * prog, char * lfp, int level)
 {
   _fprintf(stderr, "openlog(prog=%s, logprefix=%s, level=%d\n", 

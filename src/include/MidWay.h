@@ -18,7 +18,13 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* this is the MidWay.h for internal MidWay use. We add on config.h ++ */
+/** @file
+    This is the MidWay.h for internal use in the library, we really should rename to libMidWay.h or MidWayImpl.h or something...
+
+
+    We add on config.h and a lot of macros, debugging macros, etc
+ */
+
 
 #ifndef _MIDWAY_INTERNAL_H
 #define _MIDWAY_INTERNAL_H
@@ -32,15 +38,42 @@
 #include "acconfig.h"
 
 
-/* The max number of each ID are limitet to 24 bits, we use the top 
- * 8 bit to disdingish among them, the lower 24 bits are the index into 
- * their respective tables. */
+/** @defgroup mwid MWID - The MidWay ID
+    One thing that is used almost everywhere is the \a MWID.
+  
+    The different type #CLIENTID, #SERVERID, #SERVICEID,
+    #GATEWAYID, defined in the include/MidWay.h are unioned by
+    #MWID. If we'd been object oriented MWID would be the super class of all other IDs. 
+ 
+
+    Different MidWay entities are uniquely identfied by their id. The
+    \a MWID is a 32 bit number where the top 8 bit identify the type
+    of entity and the lower 24 bit is the index.
+
+    The different entities are normally in a IPC table maintained by
+    ipctable.c, where the index give the row. There are access
+    functions to get the entries thru ipctables.c.
+  
+    The MW*MASK and #MWINDEXMASK are no longer intended for use
+    outside src/include/MidWay.h
+
+//@{
+
+*/
+
+
+//! The bit indicating that the \a MWID is a server
 #define MWSERVERMASK     0x01000000
+//! The bit indicating that the \a MWID is a client
 #define MWCLIENTMASK     0x02000000
+//! The bit indicating that the \a MWID is a gateway
 #define MWGATEWAYMASK    0x04000000
+//! The bit indicating that the \a MWID is a service
 #define MWSERVICEMASK    0x08000000
+//! This mask filter out the index part of \a MWID
 #define MWINDEXMASK      0x00FFFFFF
 
+//! The MWID which is the generic type for holding all type of ID's. 
 typedef int MWID;
 
 /*
@@ -53,12 +86,25 @@ typedef int MWID;
  * first of all mostly separate variables for the ID, and then check
  * to verify that it's the correct type just appeal to me. Thus these
  * macros are now obsolete.
+ */
 
-/* get the index or unassigned if wrong mask set */
+/** @defgroup mwid2idx Getting the index from an ID 
+    These macros is the recommend way of getting the index part of a \a MWID. 
+    If the \a MWID is of a 
+
+    @ingroup mwid
+//@{
+*/
+
+//! Get the index part of clientid, #UNASSIGNED if not a clientid
 #define CLTID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWCLIENTMASK)  > 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+//! Get the index part of serverid, #UNASSIGNED if not a serverid
 #define SRVID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWSERVERMASK)  > 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+//! Get the index part of serviceid, #UNASSIGNED if not a serviceid
 #define SVCID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWSERVICEMASK) > 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+//! Get the index part of gatewayid, #UNASSIGNED if not a gatewayid
 #define  GWID2IDX(id)  ((id != UNASSIGNED) ? ((id & MWGATEWAYMASK) > 0 ? (id & MWINDEXMASK) : UNASSIGNED) : UNASSIGNED)
+//@}
 
 /* filters */
 #define CLTID(id)  ((id & MWCLIENTMASK)  != 0 ? id : UNASSIGNED)
@@ -74,6 +120,16 @@ typedef int MWID;
 
 char * _mwid2str(MWID id, char * buffer);
 
+//@}
+
+/************************************************************************
+ * other utilities
+ */
+
+//! min for any numeric args 
+#define min(a,b) (a < b ? a : b)
+//! max for any numeric args 
+#define max(a,b) (a > b ? a : b)
 
 
 #ifdef __GNUC__
@@ -92,7 +148,7 @@ char * _mwid2str(MWID id, char * buffer);
 #include <string.h>
 
 /* here we wrap malloc, realloc and catch out of memory error, and
-   just plain abort if taht happen */
+   just plain abort if that happen */
 static inline void * x_malloc(size_t size)
 {
   void * nptr;
@@ -119,37 +175,6 @@ static inline void * x_realloc(void *ptr, size_t size)
 /* malloc debugging, we just print out the addresses when *alloc()ing
    and free()ing */
 #ifdef DEBUG_MALLOC
-
-static inline void * debug_malloc(char * file, int line, size_t size)
-{
-  void * nptr;
-  nptr =  x_malloc(size);
-  mwlog(MWLOG_DEBUG2, "@@@@@@@@@ %s:%d @@@@@@@@@    malloc(%d) => %p\n", file, line, size, nptr);
-  return nptr;
-};
-
-static inline void * debug_realloc(char * file, int line, void *ptr, size_t size)
-{
-  void * nptr;
-  nptr = x_realloc(ptr, size);
-  mwlog(MWLOG_DEBUG2, "@@@@@@@@@ %s:%d @@@@@@@@@    realloc (%p, %d) => %p\n", file, line, ptr, size, nptr);
-  return nptr;
-};
-
-static inline void debug_free(char * file, int line, void *ptr)
-{
-  mwlog(MWLOG_DEBUG2, "@@@@@@@@@ %s:%d @@@@@@@@@    freeing %p\n", file, line, ptr);  
-  free(ptr);
-};
-
-static inline char * debug_strdup(char * file, int line, char * ptr)
-{
-   ptr = strdup(ptr);
-   mwlog(MWLOG_DEBUG2, "@@@@@@@@@ %s:%d @@@@@@@@@    strdup => %p\n", file, line, ptr);  
-   return ptr;
-};
-
-
 
 #define malloc(s) debug_malloc(__FILE__, __LINE__, s)
 #define realloc(p,s) debug_realloc(__FILE__, __LINE__, p, s)
@@ -192,7 +217,25 @@ void _perf_resume(void);
 
 #endif
 
+
 // debugging  macros
+
+/**
+   @defgroup debug Debugging 
+
+   We got a set of debugging macros defined here, first and formost we
+   got a set on aliases for mwlog(MWLOG_*, ...);
+
+   The DEBUGs() print DEBUG: <function>:<linenumber>, the Info, Error, etc do not. 
+
+   When developing you tend to use DEBUG and DEBUG1, then after code
+   is becomming stable migrate unnecessary to DEBUG2 and DEBUG3.
+   
+
+   To turn off all DEBUG*() define NDEBUG, it will speed up the code. 
+//@{
+*/
+
 
 #include <stdarg.h>
 
@@ -202,6 +245,7 @@ void _mw_vlogf(int level, char * format, va_list ap); // in mwlog.c
    here and not the main MidWay.h so that we don't clobber the
    namespace to user applications */
 //#define NDEBUG
+
 
 #ifndef NDEBUG
 
@@ -240,11 +284,15 @@ static inline int _DEBUGN(int N, const char * func, const char * file, int line,
   timepeg_resume(); 
   return 0;
 };
-
+/** Debug level 0, to be used in non verbose debugging from utiliies */
 #define DEBUG(m...)  _DEBUGN(0, __FUNCTION__, __FILE__, __LINE__, m)
+/** Debug level 1, to be used in non verbose debugging from libraries */
 #define DEBUG1(m...) _DEBUGN(1, __FUNCTION__ , __FILE__, __LINE__, m)
+/** Debug level 2, to be used in verbose debugging from utiliies */
 #define DEBUG2(m...) _DEBUGN(2, __FUNCTION__ , __FILE__, __LINE__, m)
+/** Debug level 3, to be used in verbose debugging from library */
 #define DEBUG3(m...) _DEBUGN(3, __FUNCTION__ , __FILE__, __LINE__, m)
+/** Debug level 4, to be used in really really verbose debugging */
 #define DEBUG4(m...) _DEBUGN(4, __FUNCTION__ , __FILE__, __LINE__, m)
 
 #else  // ifndef NDEBUG
@@ -259,13 +307,20 @@ static inline int _DEBUGN(int N, const char * func, const char * file, int line,
 #define DEPRECATED
 #endif
 
+/** Info level log. */
 #define Info(m...)    mwlog(MWLOG_INFO, m)
+/** Warning level log */
 #define Warning(m...) mwlog(MWLOG_WARNING, m)
+/** Error level log */
 #define Error(m...)   mwlog(MWLOG_ERROR, m)
 
+/** Fatal leve log and call abort() */
 #define Fatal(m...)   do { mwlog(MWLOG_FATAL, m); abort(); } while (0)
+
+/** do an assert with Fatal level log and abort */
 #define Assert(test) do { if (!(test)) {mwlog(MWLOG_FATAL, "Internal error: (%s) fails in %s() %s:%d", \
 #test, __func__, __FILE__, __LINE__); abort(); }} while (0)
+//@}
 
 /* Mutex  funtions */
 #ifdef HAVE_LIBPTHREAD
@@ -275,15 +330,24 @@ static inline int _DEBUGN(int N, const char * func, const char * file, int line,
 
 #ifdef USETHREADS
 
+/**
+   Wrapper for pthread mutex declare. Module local.
+   We have a set of wrappers for thread libraries, this is for pthread. 
+*/
 #define DECLAREMUTEX(name) static pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
+//! Wrapper for pthread mutex declare within a struct
 #define DECLARESTRUCTMUTEX(name) pthread_mutex_t name
+//! Wrapper for global pthread mutex declare
 #define DECLAREGLOBALMUTEX(name) pthread_mutex_t name = PTHREAD_MUTEX_INITIALIZER
+//! Wrapper for extern pthread mutex declare
 #define DECLAREEXTERNMUTEX(name) extern pthread_mutex_t name
 
 #define _LOCKMUTEX(name)   do {pthread_mutex_lock(&name); }   while(0)
 #define _UNLOCKMUTEX(name) do {pthread_mutex_unlock(&name); } while(0)
+//! Wrapper for pthread mutex lock
 #define LOCKMUTEX(name)    do { DEBUG3("locking mutex " #name " ..." );  \
 pthread_mutex_lock(&name); DEBUG1("locked mutex " #name);  } while(0)
+//! Wrapper for pthread mutex unlock
 #define UNLOCKMUTEX(name)  do { DEBUG1("unlocking mutex " #name); pthread_mutex_unlock(&name); } while(0)
 #else 
 #error "PTHREADS are currently required"

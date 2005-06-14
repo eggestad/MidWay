@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.22  2005/06/14 23:07:05  eggestad
+ * Fix on next handle, it didn't wrap bit got a new random value on wrap, which could be a recently used value.
+ *
  * Revision 1.21  2004/12/29 19:59:01  eggestad
  * handle datatype fixup
  *
@@ -314,22 +317,32 @@ int _mw_isattached(void)
   return 1;
 };
 
-/* the call handle, it is inc'ed everytime we need a new, and randomly
-   assigned the first time.*/
+
 static mwhandle_t handle = -1;
 DECLAREMUTEX(callhandle);
+/**
+   Get a call handle unique to this process. 
+   
+   Contraint: 1 <= handle <= MAX_INT32 (2^31). 
+   It is inc'ed everytime we need a new, wrapped to 1, and randomly
+   assigned the first time.
+*/
 mwhandle_t _mw_nexthandle(void)
 {
   LOCKMUTEX(callhandle);
-  if (handle > 0) handle++;
+  handle++;
+  if (handle > 0)  goto out;
 
   /* test for overflow (or init) */
-  if (handle < 1) {
-    while(handle < 1) {
-      srand(time(NULL));
-      handle = rand() + 1;
-    }; 
-  }; 
+  if (handle == -1) {
+     while(handle < 1) {
+	srand(time(NULL));
+	handle = rand() + 1;
+     }; 
+  } else {
+     handle = 1;
+  };
+ out:
   UNLOCKMUTEX(callhandle);
   return handle;
 };

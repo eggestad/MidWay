@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.11  2005/06/19 13:36:01  eggestad
+ * Added doxygen comments
+ *
  * Revision 1.10  2004/11/26 16:38:34  eggestad
  * added a utility function _mw_irand() as a wrapper to random functions
  *
@@ -53,30 +56,37 @@
  *
  */
 
+/** @file
+   This is a collection of utility function to be use through out MidWay. 
+*/
+
 /* linux return uptime in clock ticks via times(2).
-        normally a clock tick is 1/100'th of a second. 
-        uptime as reported by times() then roll over 2^31 every ~250 days.
-        Thus on 32 bit machines we must have a 32 bit carry, 64 bit is OK.
-
-        NB: times() even if returns an signed int, in the linux kernel, it is 
-        an unsigned int, and is returned directly.
-        We carry over after 31 bits.
-
-	NB: an unsigned int is still 32 bit even on a 64 bit system,
-	we're really counting on clock_t to guide us!
+   normally a clock tick is 1/100'th of a second. 
+   uptime as reported by times() then roll over 2^31 every ~250 days.
+   Thus on 32 bit machines we must have a 32 bit carry, 64 bit is OK.
+   
+   NB: times() even if returns an signed int, in the linux kernel, it is 
+   an unsigned int, and is returned directly.
+   We carry over after 31 bits.
+   
+   NB: an unsigned int is still 32 bit even on a 64 bit system,
+   we're really counting on clock_t to guide us!
 */
 
 #include <sys/time.h>
 #include <sys/times.h>
 #include <errno.h>
 #include <string.h>
+#include <unistd.h>
+
 
 #include <MidWay.h>
 
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
-/* the gettiimeofday in microsecs. We use microsecs and not mlillisecs
+/**
+   The gettiimeofday in microsecs. We use microsecs and not mlillisecs
    since setrealtimer takes microsecs. */
 long long _mw_llgtod(void)
 {
@@ -90,6 +100,12 @@ long long _mw_llgtod(void)
   return res;
 };
  
+/**
+   Get the time in ticks since an arbitrary point. This function is a
+   wrsapper to times(2) bit it returns always a 64 bit int, and can't
+   wrap-around like times(2).
+   @return the number of ticks. 
+*/
 unsigned long long _mw_lltimes(void)
 {
   clock_t jiff;
@@ -114,7 +130,12 @@ unsigned long long _mw_lltimes(void)
   return now;
 };
 
+/**
+   Set at timer (wall clock). A wrapper to setitimer.  
 
+   @param usecs the time into the future the timer shall strick, in
+   micro seconds. 0 disable the timer.
+ */
 void _mw_setrealtimer(long long usecs)
 {
   struct itimerval itv;
@@ -175,17 +196,22 @@ void _mw_setrealtimer(long long usecs)
 };
 
 
-/* return a number between 0 and bound-1 */
+/**
+   Get an random integer. 
+   @param bound the uppper bound. 
+   @return a number between 0 and bound-1 
+*/
 int _mw_irand(int bound)
 {
    static int seed = -1;
-   
+   double upper = bound;
+
    if (seed == -1) {
       seed = time(NULL) + getpid(); // good enough
       srand(seed);
    };
 
-   return (int) (10.0*rand()/(RAND_MAX+1.0));
+   return (int) (upper*rand()/(RAND_MAX+1.0));
 };   
 
 /************************************************************************
@@ -240,16 +266,28 @@ static int pd_init = 0;
 struct perfdata * pd = NULL;
 #endif
 
+
+/**
+   \ingroup timing
+   Pause the timing. The cycles between a pause and resume is not included in the timing info. 
+   @{
+*/
 void _perf_pause(void)
 {
   _pause = rt_sample();
 };
 
+/**
+   Resume the timing. The cycles between a pause and resume is not included in the timing info. 
+*/
 void _perf_resume(void)
 {
   debug_subtract += rt_sample() - _pause;
 };
 
+/**
+   Clear the timepeg table. Used after printing the table to start another timeing trace. 
+*/
 void timepeg_clear(void)
 {
   int i;
@@ -277,7 +315,11 @@ void timepeg_clear(void)
   };
 };
 
-
+/**
+   Records a timepeg for the gived function, file, line, and
+   note. This is not inteded for direct use. Use the #TIMEPEG, or
+   #TIMEPEGNOTE instead, they are wrappers.
+*/
 void  __timepeg(char * function, char * file, int line, char * note)
 {
   struct perfentry * pe;
@@ -315,6 +357,12 @@ void  __timepeg(char * function, char * file, int line, char * note)
   pd->perfidx++;
 };
 
+/**
+   Print the timepeg trace table to the given buffer. 
+   @param buffer a buffer to write the table to. 
+   @param size the size of buffer
+   @return the number of bytes actually written to buffer, if returning size, the print was crpped. 
+*/
 int timepeg_sprint(char * buffer, size_t size)
 {
   int i, l;
@@ -359,6 +407,7 @@ int timepeg_sprint(char * buffer, size_t size)
 };
   
 static char tpbuffer [(MAXPEGS * 256) + 1024];
+/** Log the timepeg trace table with a Info(). */
 void timepeg_log(void)
 {
    int l, n;
@@ -367,6 +416,46 @@ void timepeg_log(void)
   n = timepeg_sprint(tpbuffer, l);
   Info ("TIMEPEGS: (%d/%d) %s", n, l, tpbuffer);
   timepeg_clear();
+};
+/* @} */
+#endif
+
+#ifdef DEBUG_MALLOC
+
+struct alloc {
+   void * addr;
+   size_t size;
+   char * file;
+   int line;
+};
+
+void * debug_malloc(char * file, int line, size_t size)
+{
+  void * nptr;
+  nptr =  x_malloc(size);
+  mwlog(MWLOG_DEBUG2, "@@@@@@@@@ %s:%d @@@@@@@@@    malloc(%d) => %p\n", file, line, size, nptr);
+  return nptr;
+};
+
+void * debug_realloc(char * file, int line, void *ptr, size_t size)
+{
+  void * nptr;
+  nptr = x_realloc(ptr, size);
+  mwlog(MWLOG_DEBUG2, "@@@@@@@@@ %s:%d @@@@@@@@@    realloc (%p, %d) => %p\n", file, line, ptr, size, nptr);
+  return nptr;
+};
+
+void debug_free(char * file, int line, void *ptr)
+{
+  mwlog(MWLOG_DEBUG2, "@@@@@@@@@ %s:%d @@@@@@@@@    freeing %p\n", file, line, ptr);  
+  free(ptr);
+};
+
+char * debug_strdup(char * file, int line, char * ptr)
+{
+   ptr = strdup(ptr);
+   mwlog(MWLOG_DEBUG2, "@@@@@@@@@ %s:%d @@@@@@@@@    strdup => %p\n", file, line, ptr);  
+   return ptr;
 };
 
 #endif

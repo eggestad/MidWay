@@ -21,6 +21,10 @@
 /*
  * 
  * $Log$
+ * Revision 1.36  2005/06/25 15:35:33  eggestad
+ * - added  _mw_get_caller_mwid()
+ * - added doxygen doc
+ *
  * Revision 1.35  2004/12/29 19:59:01  eggestad
  * handle datatype fixup
  *
@@ -170,7 +174,11 @@
 
 static char * RCSId UNUSED = "$Id$";
 
+/** @file
+ We here have all the function that deal with sending and receiving IPC messages. 
 
+*/
+   
 struct CallReplyQueue
 {
   Call * callmessage;
@@ -450,6 +458,8 @@ static const char * messagetype(int mtype)
    };
 };
 
+/** for debugging, it do a DEBUG1() with the decoded IPC message. 
+ */
 void  _mw_dumpmesg(void * mesg)
 {
   long * mtype;
@@ -637,19 +647,25 @@ void  _mw_dumpmesg(void * mesg)
   
 };
 
-/* 
+/**
+   Get a message from my IPC message queue. 
+
    Until we support POSIX IPC we go directly to msg queue and fetch
    messages of the right type. later when we support events
    we need internal queues for sorting requests, events and replys.
    
-   These calls should have a timeout option.
+   This call should have a timeout option.
 
-   len input is including the mtype, sysv msgsnd/rcv do not.
-
+   @param data the ipc message buffer
+   @param *len The len of the data, the actuall bytes is
+   returned. This is including the mtype, as opposed to sysv
+   msgsnd/msgrcv were length is without the mtype.
+   @param type Get a IPC message of a specific type, or any od 0
    Anyway these hide the low level IPC calls. POSIX vs SYSV are hidden here.
-*/
+   @param flags #MWNOBLOCK
 
-/* return 0 on success or -errno */
+   @return 0 on success or -errno 
+*/
 int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
 {
   int rc; 
@@ -682,7 +698,14 @@ int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
   return 0;
 };
 
-/* return 0 on success or -errno */
+/** 
+  Put a message  on an IPC message queue.  
+  
+  @param dest the #MWID recipient. 
+  @param data the pointer to the message
+  @param len the length of themessage including the mtype header. 
+  @param flags #MWNOBLOCK
+  @return 0 on success or -errno */
 int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
 {
   int rc; 
@@ -712,7 +735,7 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
   TIMEPEG();
 
   DEBUG1("_mw_ipc_putmessage: msgsnd(dest=%d, msglen=%d, flags=%#x) returned %d", 
-	dest, len, flags, rc);
+	qid, len, flags, rc);
   /*
     if we got an interrupt this is OK, else not.
     Hmmm, we should have a timeout here. (?)
@@ -746,6 +769,18 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
 
  * When we convert to POSIX.4 IPC, only this module must be changed.
  * except for mwd of course.
+ */
+
+/**
+   Do an attach on IPC. Used my mwattach() if address is in IPC domain. 
+
+   @todo This function is not used by mwgwd()
+   
+   @param attachtype an or'ed combinatuon of #MWIPCSERVER and #MWIPCCLIENT. 
+   @param name the client name
+   @param flags sent to mwd()
+   
+   @return 0 on success or -errno
  */
 int _mw_ipcsend_attach(int attachtype, char * name, int flags)
 {
@@ -830,23 +865,31 @@ name = %s, client = %s server = %s srvid=%#x cltid=%#x flags=0x%x rcode=%d",
   return -mesg.returncode;
 };
 
-/*
- * mwd support detaching as either server or client if attached as
- * both. However this is not supported in V1.  an detach disconnects
- * us completly, This function always succeed, but it is not declared
- * void, we really should have some error hendling, but we need rules
- * how to to handle errors.
+/**
+   Do an attach on IPC. Used my mwattach() if address is in IPC domain. 
 
- * the force flags tell us to set the force flag, and not expect a
- * reply.  It tell the mwd that we're going down, really an ack to a
- * mq removal, mwd uses that to inform us of a shutdown.
+   mwd support detaching as either server or client if attached as
+   both. However this is not supported in V1.  an detach disconnects
+   us completly, This function always succeed, but it is not declared
+   void, we really should have some error hendling, but we need rules
+   how to to handle errors.
 
- * Maybe a bad design/imp desicion, by I need a seperate call to
- * detach an indirect client, networked, even if _mw_ipcsend_attach()
- * do both. Maybe we should have a separate attach?. Fortunately
- * _mw_ipcsedn_detach() is almost directly mapped on
- * _mw_ipcsend_detach_indirect() */
+   the force flags tell us to set the force flag, and not expect a
+   reply.  It tell the mwd that we're going down, really an ack to a
+   message queue removal, mwd uses that to inform us of a shutdown.
 
+   Maybe a bad design/imp desicion, but I need a seperate call to
+   detach an indirect client, networked, even if _mw_ipcsend_attach()
+   do both. Maybe we should have a separate attach?. Fortunately
+   _mw_ipcsend_detach() is almost directly mapped on
+   _mw_ipcsend_detach_indirect() 
+   
+   @param cid detach the client with cid
+   @param sid detach the server with sid
+   @param force mwd() will not reply to the request, mwd() will just do it immediately
+   
+   @return 0 on success or -errno
+*/
 int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force) 
 {
   Attach mesg;
@@ -913,6 +956,7 @@ int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force)
   return 0;
 };
 
+/** see _mw_ipcsend_detach_indirect() */
 int _mw_ipcsend_detach(int force)
 {
   CLIENTID cid;
@@ -929,11 +973,22 @@ int _mw_ipcsend_detach(int force)
   return rc;
 };
 
-/* we need this  for gateways where a gw has entries  in the gwtbl for
-   foreign/peer  gateways, and  the gwid  shall  be the  gwid for  the
-   foreign,  and not the  local gw.   We made  however a  more general
-   function here so that in the  future we can conduct such madness as
-   having a single process be more than one server.*/
+
+/**
+   A provide for imported services. 
+   We need this for gateways where a gw has entries in the gwtbl for
+   foreign/peer gateways, and the gwid shall be the gwid for the
+   foreign, and not the local gw.  We made however a more general
+   function here so that in the future we can conduct such madness as
+   having a single process be more than one server.
+
+   @param mwid the MWID for the provider (server or gateway)
+   @param servicename The service name
+   @param cost The routing cost for imported services, 1 if local. 
+   @param flags sent on in Provide. 
+
+   @return the actual bytes in the sent message, or -errno
+*/
 int _mw_ipcsend_provide_for_id(MWID mwid, char * servicename, int cost, int flags)
 {
   Provide providemesg;
@@ -966,6 +1021,14 @@ int _mw_ipcsend_provide_for_id(MWID mwid, char * servicename, int cost, int flag
   return rc;
 };
 
+/** Send a Provide message. 
+
+    @param service name the service name
+    @param cost The routing cost for imported services, 1 if local. 
+    @param flags sent on in Provide. 
+    
+    @return the actual bytes in the sent message, or -errno
+ */
 int _mw_ipcsend_provide(char * servicename, int cost, int flags)
 {
   SERVERID srvid;
@@ -979,6 +1042,11 @@ int _mw_ipcsend_provide(char * servicename, int cost, int flags)
   return _mw_ipcsend_provide_for_id(srvid, servicename, cost, flags);
 };
 
+/** The IPC version of mwprovide(). 
+    @param service name the service name
+    @param flags sent on in Provide. 
+    @return the SERVICEID or -errno
+ */
 SERVICEID _mw_ipc_provide(char * servicename, int flags)
 {
   Provide providemesg;
@@ -1004,6 +1072,11 @@ SERVICEID _mw_ipc_provide(char * servicename, int flags)
   return providemesg.svcid;
 };
 
+/** Send an unprovide request. 
+    @param service name the service name
+    @param svcid the SERVICEID of the provided service)
+    @return 0 or -errno
+*/
 int _mw_ipcsend_unprovide(char * servicename,  SERVICEID svcid)
 {
   SERVERID srvid;
@@ -1017,6 +1090,12 @@ int _mw_ipcsend_unprovide(char * servicename,  SERVICEID svcid)
   return _mw_ipcsend_unprovide_for_id(srvid, servicename, svcid);
 };
 
+/** Send an unprovide for imported services. 
+    @param mwid the gateway id for the importing gateway.
+    @param service name the service name
+    @param svcid the SERVICEID of the provided service)
+    @return 0 or -errno
+*/
 int _mw_ipcsend_unprovide_for_id(MWID mwid, char * servicename,  SERVICEID svcid)
 {
   Provide unprovidemesg;
@@ -1048,6 +1127,11 @@ int _mw_ipcsend_unprovide_for_id(MWID mwid, char * servicename,  SERVICEID svcid
   return rc;
 };
 
+/** The IPC version of mwunprovide(). 
+    @param service name the service name
+    @param svcid the SERVICEID of the provided service)
+    @return 0 or -errno
+*/
 int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid)
 {
   Provide unprovidemesg;
@@ -1063,16 +1147,44 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid)
   return unprovidemesg.returncode;
 };
 
-/* the IPC implementation of mwacall() */
+/**
+   Get the MWID of the client (caller). Which is the cid if cid !=
+   UNASSIGNED, gwid else.
+*/
 
-/* the mwid  shall be set to  UNASSIGNED for IPC  clients.  mwgwd sets
-   mwid  for teh srb  client or  gwid for  peer gateway.   the domain,
-   callerid, and hops is only used  by mwgwd when one mwgwd is passing
-   a call to  another gateway callerid is the id  on the peer gateways
-   side. It's must be kept here  since we must passit back to the peer
-   gateway. It's done this way  because the peer gateway don't need to
-   remember the call, and hence reduses the time the peer gateway uses
-   to process the reply (no lookups) */
+MWID _mw_get_caller_mwid(Call * cmsg)
+{
+   if (cmsg->cltid != UNASSIGNED) 
+      return cmsg->cltid;
+   else 
+      return cmsg->gwid;
+};
+
+/**
+  The IPC implementation of mwacall(). This is used by mwgwd() as well as IPC clients. 
+
+  @todo caller is is obsolete. 
+
+  @param svcname the service name
+  @param data The passed data in the call, NULL if no data
+  @param datalen the number of bytes in data, 0 if data is NULL. 
+  @param flags non blocking if or'ed with #MWNOBLOCK, rest is passed on in call request. 
+  @param mwid mwgwd sets mwid for the srb client or gwid for peer gateway.  The mwid shall be set to
+  #UNASSIGNED for IPC clients. This function will user the current clientid or gatewayid. 
+
+  @param domain the remote domain, our own domain is used if NULL
+  @param instance the remote instance, our own instace is used if NULL
+
+  @param callerid is the id on the peer gateways side. It's must be kept here
+  since we must passit back to the peer gateway. It's done this way
+  because the peer gateway don't need to remember the call, and hence
+  reduses the time the peer gateway uses to process the reply (no
+  lookups) 
+
+  @param hops the number if gateways this request has route thru. 
+  
+  @return see mwacall() man page. 
+*/
 int _mwacallipc (char * svcname, char * data, int datalen, int flags, 
 		 MWID mwid, char * instance, char * domain, MWID callerid, int hops)
 {
@@ -1239,18 +1351,24 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
     
 
 
-/* mwfetch primary purpose is to get the reply to a mwacall(). 
-   In that case the handle is what mwacall() returned. 
-   However if handle is 0 we can use mwfetch() to get service calls
-   in servers. Thus this IPC implementation are a bit diffrent from 
-   the TCP one.
-*/
+/** The IPC version of mwfethc(). The mwfetch() primary purpose is to
+   get the reply to a specific mwacall().  In that case the handle is
+   what mwacall() returned.  However if handle is 0 we can use
+   mwfetch() to get service calls in servers. Thus this IPC
+   implementation are a bit diffrent from the TCP one.
 
-/* callmesg is stored globally so that _mwreply can retived info that 
+   callmesg is stored globally so that _mwreply can retived info that 
    may not survive the service handle functon 
-   NB!!!!! NOT THREAD SAFE!!!!
-*/
 
+   \e NB!!!!! NOT THREAD SAFE!!!!
+
+   @param *hdl The IPC call handle, if the value if hdl is 0, the actual handle is returned here. 
+   @param *data a pointer to a pointer which will point to a data buffer or have the value NULL if no data was returned in this reply. 
+   @param *len a point to an integer that will be set to the number of bytes in the returned buffer, or 0 if no data was returned in this reply. 
+   @param *appreturncode The application return code. The returned value has special meaning to MidWay, this value is private to the application. 
+   @param flags may be #MWNOBLOCK
+   @return the call return code one of either #MWSUCCESS, #MWFAIL, or #MWMORE
+*/
 int _mwfetchipc (mwhandle_t * hdl, char ** data, int * len, int * appreturncode, int flags)
 {
   int rc;
@@ -1369,6 +1487,16 @@ int _mwfetchipc (mwhandle_t * hdl, char ** data, int * len, int * appreturncode,
 /************************************************************************/
 
 /* EVENTS */
+
+/**
+   The IPC version of mwsubscribe().
+   
+   @param pattern The pattern of event name to subscribe on. 
+   @param subid the subscription id of this subscription. 
+   @param flags either #MWEVSTRING, #MWEVGLOB, #MWEVREGEXP, or #MWEVEREGEXP
+
+   @return 0 on success or -errno
+*/
 int _mw_ipc_subscribe(char * pattern, int subid, int flags)
 {
   Event ev;
@@ -1395,6 +1523,12 @@ int _mw_ipc_subscribe(char * pattern, int subid, int flags)
   return ev.returncode;
 };
 
+/**
+   The IPC version of mwsubscribe().
+   
+   @param subid the subscription id of the subscription. 
+   @return 0 on success or -errno
+*/
 int _mw_ipc_unsubscribe(int subid)
 {
   Event ev;
@@ -1410,6 +1544,15 @@ int _mw_ipc_unsubscribe(int subid)
   return ev.returncode;
 };
 
+/**
+   send an event subscription on IPC (to mwd()). Do now wait for reply
+
+   @param pattern The pattern of event name to subscribe on. 
+   @param subid the subscription id of this subscription. 
+   @param flags either #MWEVSTRING, #MWEVGLOB, #MWEVREGEXP, or #MWEVEREGEXP
+
+   @return 0 on success or -errno  
+*/
 int _mw_ipcsend_subscribe (char * pattern, int subid, int flags)
 {
   MWID id;
@@ -1471,6 +1614,12 @@ int _mw_ipcsend_subscribe (char * pattern, int subid, int flags)
   return rc;
 };
     
+/**
+   send an event unsubscription on IPC (to mwd()). Do now wait for reply
+
+   @param subid the subscription id of the subscription. 
+   @return 0 on success or -errno
+};
 int _mw_ipcsend_unsubscribe (int subid)
 {
   MWID id;
@@ -1505,6 +1654,18 @@ int _mw_ipcsend_unsubscribe (int subid)
   return rc;
 };
 
+/**
+   send an event on IPC (to mwd()). 
+
+   @param event The event name, may not be NULL
+   @param data Associated data, may be NULL if datalen == 0
+   @param datalen the number of bytes in data
+   @param username if not NULL, the username we're sending an event to
+   @param clientname if not NULL, the clientname we're sending an event to
+   @param fromid if #UNASSIGNED we use our own clientid, intened for mwgwd() to set clientid of the network cliennt sending the event, or the gateway for imported events.  
+   @param remoteflag if the event came from a peer gateway.
+   @return 0 on success or -errno
+};
 int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, char * clientname, 
 		       MWID fromid, int remoteflag)
 {
@@ -1585,6 +1746,14 @@ int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, 
   return rc;
 };
 
+/**
+   Get an event of the IPC message queue. This is non blocking and
+   will return -EAGAIN if no event are in the queue.
+
+   @param ev A pointer to an allocated Event. 
+   
+   @return 0 on success -errno else, normally -EAGAIN if no events. 
+*/
 int _mw_ipc_getevent(Event * ev)
 {
   int len;
@@ -1602,6 +1771,10 @@ int _mw_ipc_getevent(Event * ev)
       
 /************************************************************************/
 
+/** Get the number of messages in my IPC message queue. 
+    
+@return the number of mesage of -errno on error
+*/
 int _mwCurrentMessageQueueLength()
 {
   struct msqid_ds mqstat;
@@ -1613,6 +1786,13 @@ int _mwCurrentMessageQueueLength()
   return mqstat.msg_qnum;
 };
 
+/**
+   Send a shutdown command to mwd. 
+
+   @param delay The grace periode for shutdown in seconds. 
+
+   @return 0 on success, -errno on error. 
+*/
 int _mw_shutdown_mwd(int delay)
 {
   

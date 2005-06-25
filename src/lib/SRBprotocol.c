@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.17  2005/06/25 12:08:24  eggestad
+ * - added large data
+ *
  * Revision 1.16  2004/11/17 20:47:57  eggestad
  * message map leak fix
  *
@@ -108,6 +111,7 @@ static char * RCSId UNUSED = "$Id$";
 
 static char * tracefilename = NULL;
 static FILE * tracefile  = NULL;
+int _mw_srbdata_per_message = 3000;
 
 int _mw_srb_traceonfile(FILE * fp)
 {
@@ -805,7 +809,7 @@ int _mw_srbsendevent(Connection * conn,
 
   _mw_srb_setfield(&srbmsg, SRB_NAME, event);
   if (data) {
-     if (datalen > 3000) {
+     if (datalen > srbdata_per_message()) {
 	Warning("not yet capable to send event with more than 3000 octets or data");
 	return -ENOSYS;
      };
@@ -934,22 +938,44 @@ int _mw_srbsendinit(Connection * conn, mwcred_t *cred,
 /************************************************************************/ 
 // SERVICE call/reply 
 
+int _mw_srbsenddata(Connection * conn, char * handle, char * data, int datalen)
+{
+   int l, rc, rclen = 0;
+   DEBUG1("begins");
+   SRBmessage srbmsg;
+
+   _mw_srb_init(&srbmsg, SRB_SVCDATA, SRB_NOTIFICATIONMARKER, SRB_HANDLE, handle, NULL);
+   
+   do {
+      l = min(srbdata_per_message(), datalen);
+      _mw_srb_nsetfield(&srbmsg, SRB_DATA, data, l);
+      
+      DEBUG1(" sending chunk with len %d", l);
+      rc =  _mw_srbsendmessage(conn, &srbmsg);
+      data += l;
+      datalen -= l;
+      rclen += rc;
+   } while (datalen > 0);
+
+   DEBUG1("returns normally with rc=%d", rclen);
+   return rclen;
+};
+
 int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, int datalen, 
 		    int flags)
 {
   char hdlbuf[9];
-  int rc;
+  int rc, datarem;
   SRBmessage srbmsg;
   int noreply;
   float timeleft;
 
   noreply = flags & MWNOREPLY;
-  DEBUG1("_mw_srbsendcall: begins");
+  DEBUG1("begins");
 
   if (conn == NULL) return -EINVAL;
 
   /* input validation done before in mw(a)call:mwclientapi.c */
-  strncpy(srbmsg.command, SRB_SVCCALL, MWMAXSVCNAME);
   srbmsg.map = NULL;
   if (noreply) {
     _mw_srb_init(&srbmsg, SRB_SVCCALL, SRB_NOTIFICATIONMARKER, NULL);
@@ -963,10 +989,13 @@ int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, 
     if (datalen == 0) {
       datalen = strlen(data);
     };
-    if (datalen > 3000) {
-      Error("Large data not yet implemented, datalen %d > 3000", datalen);
-      urlmapfree(srbmsg.map);
-      return -ENOSYS;
+    DEBUG1("datalen = %d max is %d", datalen,  srbdata_per_message());
+    if (datalen > srbdata_per_message()) {
+       _mw_srb_setfieldi(&srbmsg, SRB_DATATOTAL, datalen);
+       datarem = datalen - srbdata_per_message() ;
+       datalen = srbdata_per_message();
+    } else {
+       datarem = 0;
     };
     _mw_srb_nsetfield(&srbmsg, SRB_DATA, data, datalen);
   };
@@ -979,7 +1008,11 @@ int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, 
   
   rc = _mw_srbsendmessage(conn, &srbmsg);
   urlmapfree(srbmsg.map);
-  DEBUG1("_mw_srbsendcall: returns normally with rc=%d", rc);
+  DEBUG1("rc=%d data remainding=%d", rc, datarem);
+  if ((rc >= 0) && (datarem > 0)) {
+     rc +=  _mw_srbsenddata(conn, hdlbuf, data+datalen, datarem);
+  }
+  DEBUG1("returns normally with rc=%d", rc);
   return rc;
 };
 
@@ -1063,3 +1096,21 @@ int _mw_srb_checksrbcall(Connection * conn, SRBmessage * srbmsg)
 
   return 1;
 };
+
+static void init(void) __attribute__((constructor));
+
+static void init(void) 
+{
+   char * envp;
+   int i;
+
+   envp = getenv ("SRB_MAX_DATA");
+   if (envp) {
+      i = atoi(envp);
+      if (i > 10) {
+	 _mw_srbdata_per_message = i;
+      };
+   };
+   return;
+};
+   

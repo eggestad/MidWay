@@ -18,6 +18,17 @@
   Boston, MA 02111-1307, USA. 
 */
 
+/** @file
+
+  SRBprotocol.h defines all aspect of the SRB protocol as it's sent
+  over the line. This includes all message tags/tokens return codes,
+  port numbers, and implied limitations/restrictions.
+
+  All the internal function dealing with sending SRB messages is
+  defined here.
+
+  See the srb-protocol.ms for details. 
+*/
 #ifndef _SRBPROTOCOL_H
 #define _SRBPROTOCOL_H
 
@@ -27,16 +38,29 @@
 
 #include <mwclientapi.h>
 
+/// The SRB version number, required in SRB INIT. 
 #define SRBPROTOCOLVERSION 	"0.9"
 
+/// The maximum totoal length of an SRB message, liable to increase. 
 #define SRBMESSAGEMAXLEN 	3500
+
+static inline int srbdata_per_message(void)
+{
+   extern int _mw_srbdata_per_message;
+   return _mw_srbdata_per_message;
+};
 
 #ifdef DEBUG
 #define SRB_BROKER_PORT         1102
 #else 
+/// The port we expect the broker listening to
 #define SRB_BROKER_PORT         102
 #endif
 
+/**
+   @depreciated
+   The port we excpect the mwgwd() to listen to if it runs with a private port. 
+*/
 #define SRB_DEFAULT_PORT 	11000
 
 /*************************************************
@@ -79,7 +103,7 @@
 #define SRB_CONVERSATIONAL	"CONVERSATIONAL"
 #define SRB_COST 		"COST"
 #define SRB_DATA 		"DATA"
-#define SRB_DATACHUNKS 		"DATACHUNKS"
+#define SRB_DATATOTAL 		"DATATOTAL"
 #define SRB_DOMAIN 		"DOMAIN"
 #define SRB_EVENT 		"EVENT"
 #define SRB_EVENTID 		"EVENTID"
@@ -185,6 +209,7 @@ typedef struct {
    char * payload;
 } SRBmessage;
 
+typedef uint32_t SRBhandle_t;
 
 #ifndef _SRB_CLIENT_C
 /*extern char _mw_srbmessagebuffer;*/
@@ -219,6 +244,7 @@ int _mw_srbsendterm(Connection * conn, int grace);
 int _mw_srbsendinit(Connection * conn, mwcred_t * cred,
 		    char * name, char * domain);
 
+int _mw_srbsenddata(Connection * conn, char * handle, char * data, int datalen);
 int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, int datalen, 
 		    int flags);
 

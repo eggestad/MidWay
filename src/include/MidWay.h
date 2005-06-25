@@ -190,10 +190,27 @@ static inline void * x_realloc(void *ptr, size_t size)
 
 // timepegs which are defined in lib/utils.c
 
+/**
+@defgroup timing Timing 
+
+These macros are for use during development cycle to optimize code for
+speed. Define TIMEPEGS to enable. When timing a piece of code first to
+a timepeg_clear() to clear the trace table, the place #TIMEPEG or
+#TIMEPEGNOTE thru the code you want to time, and finally to a
+timepeg_sprint() or a timepeg_log() to get the table printed.
+
+//@{
+*/
+
 #ifdef TIMEPEGS
 
+/** Record a timepeg with a note. Use if you want a the \a note to
+    appear in he table when you print the trace.
+ */
 #define TIMEPEGNOTE(note) __timepeg(__FUNCTION__, __FILE__, __LINE__, note)
+/** Record a timepeg. */
 #define TIMEPEG() __timepeg(__FUNCTION__, __FILE__, __LINE__, NULL)
+
 void  __timepeg(char * function, char * file, int line, char * note);
 void timepeg_clear(void);
 int timepeg_sprint(char * buffer, size_t size);
@@ -217,6 +234,7 @@ void _perf_resume(void);
 
 #endif
 
+//@}
 
 // debugging  macros
 
@@ -226,11 +244,13 @@ void _perf_resume(void);
    We got a set of debugging macros defined here, first and formost we
    got a set on aliases for mwlog(MWLOG_*, ...);
 
-   The DEBUGs() print DEBUG: <function>:<linenumber>, the Info, Error, etc do not. 
+   The DEBUGs() print DEBUG<em>E<\em>: \e function : \e linenumber, the Info, Error, etc do not. 
 
-   When developing you tend to use DEBUG and DEBUG1, then after code
-   is becomming stable migrate unnecessary to DEBUG2 and DEBUG3.
-   
+   When you are developing you tend to use DEBUG and DEBUG1, then
+   after code is becomming stable migrate messages need for debugging
+   this part to DEBUG2 and DEBUG3, while leaving messages interesting
+   to the complete operation in DEBUG/DEBUG1
+
 
    To turn off all DEBUG*() define NDEBUG, it will speed up the code. 
 //@{

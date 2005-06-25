@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.18  2005/06/25 15:36:22  eggestad
+ * missed a doxygen tag ob event->returncode
+ *
  * Revision 1.17  2005/06/25 12:05:32  eggestad
  * - added doxygen doc
  * - prototype for _mw_get_caller_mwid()
@@ -366,7 +369,7 @@ struct event {
    long mtype; 
    char event[MWMAXNAMELEN]; ///< the event name if #EVENT or a string/glob/regexp in #EVENTSUBSCRIBEREQ
    int32_t eventid; ///< a sender id unique id, used to avoid routing loops, #EVENT only
-   int32_t subscriptionid; ///< the assigned subscription id, retured in #EVENTSUBSCRIBERPL, and must be set in #EVENTUNSUBSCRIBEREQ
+   int32_t subscriptionid; ///< the id for this  subscription id, set by subscriber.
    int32_t senderid; ///< the sender id of an #EVENT or EVENTSUBSCRIBEREQ/#EVENTUNSUBSCRIBEREQ
   
    int32_t datasegmentid; ///< if there is associated data, the segment id where the buffer is, ignored if datalen == 0
@@ -377,7 +380,7 @@ struct event {
    char clientname[MWMAXNAMELEN]; ///< the specific clientname the event is sent to, all clients if clientname is ""
   
    int32_t flags; ///< if a gatway received the event from a peer in the sname 
-  int32_t returncode;
+   int32_t returncode; ///< 0 on success or -errno
 };
 
 /// if a gatway received the event from a peer we don't send the event to other peer.

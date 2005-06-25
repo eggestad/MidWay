@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2005/06/25 12:06:53  eggestad
+ * added doxygen doc
+ *
  * Revision 1.10  2005/06/13 23:21:04  eggestad
  * Added doxygen comments
  *
@@ -165,6 +168,7 @@ struct _chunkhead {
    MWID ownerid; //!< The MWID thaht owns the chunk, #UNASSIGNED if free
    int64_t size; //!< in # of basechunksizes in IPC segements, bytes on mmap with one buffer 
 };
+/** A typedef for the struct _chunkhead */
 typedef struct _chunkhead chunkhead ;
 
 /**
@@ -178,6 +182,7 @@ struct _chunkfoot {
    int64_t next;  //!< next in a DDL
    int64_t prev;  //!< prev in a DDL
 };
+/** A typedef for the struct _chunkfoot */
 typedef struct _chunkfoot chunkfoot ;
 
 /**
@@ -196,10 +201,11 @@ typedef struct _chunkfoot chunkfoot ;
 struct shm_segment {
    int segmentid; //!< The segment of this shm or mmap
    int fd;        //!< the fd of the mmap'ed file, #UNASSIGNED if shm
-   void * start;  
-   void * end;
+   void * start;  //!< The top (lowest) address that mey be a buffer
+   void * end;    //!< The bottom (highest) address that mey be a buffer
 } ;
 
+/** A typedef for the struct shm_segment */
 typedef struct shm_segment seginfo_t;
 
 

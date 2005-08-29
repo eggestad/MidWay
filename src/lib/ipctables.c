@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.25  2005/08/29 13:36:44  eggestad
+ * gcc 4 fix
+ *
  * Revision 1.24  2004/11/26 16:39:15  eggestad
  * Yet another function for finding a serviceid from service name this get an IPC is possible, SRBP otherwise
  *
@@ -155,11 +158,13 @@ void _mw_set_shmadr (ipcmaininfo * im, cliententry * clt, serverentry * srv,
   convtbl = conv;
 };
 
+extern struct segmenthdr * _mwHeapInfo;
+
 int _mw_attach_ipc(key_t key, int type)
 {
   int mainid, readonly;
 
-  extern struct segmenthdr * _mwHeapInfo;
+
   /* already connected,  */
   if (ipcmain != NULL) {
     Warning(	  "Attempted to attach shm segments while already attached");
@@ -261,7 +266,6 @@ int _mw_attach_ipc(key_t key, int type)
 void
 _mw_detach_ipc(void)
 {
-  extern struct segmenthdr * _mwHeapInfo;
   
   shmdt(clttbl);
   shmdt(srvtbl);

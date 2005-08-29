@@ -3,7 +3,7 @@ Summary: The MidWay service request broker
 Name: MidWay
 Version: @MAJOR_VERSION@.@MINOR_VERSION@.@PATCH_VERSION@
 Release: 1
-Copyright: GPL,LGPL
+License: GPL,LGPL
 Group: System Environment/Base
 Source: ftp://ftp.mid-way.org/pub/sourceforge/MidWay/MidWay-%{version}.tgz
 URL: http://www.mid-way.org

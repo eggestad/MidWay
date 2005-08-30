@@ -64,7 +64,8 @@ fi
 %attr(555,root,root) /etc/rc.d/init.d/mwbd
 /usr/bin/*
 /usr/sbin/*
-/usr/lib/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@
+@libdir@/libMidWay.so.@MAJOR_VERSION@
+@libdir@/libMidWay.so.@MAJOR_VERSION@.@MINOR_VERSION@
 /usr/man/man1/*
 /usr/man/man7/*
 /usr/man/man8/*
@@ -74,7 +75,8 @@ fi
 %defattr(-,root,root)
 /usr/man/man3/*
 /usr/include/MidWay.h
-/usr/lib/libMidWay.a
-/usr/lib/liburlencode.a
+@libdir@/libMidWay.so
+@libdir@/libMidWay.a
+@libdir@/liburlencode.a
 
 %changelog

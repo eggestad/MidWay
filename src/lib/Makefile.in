@@ -33,8 +33,8 @@ distclean:
 
 install: all
 	$(INSTALL) libMidWay.so @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION)
-	@LN_S@ -f @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION)
-	@LN_S@ -f @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) @libdir@/libMidWay.so
+	@LN_S@ -f libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) @libdir@/libMidWay.so.$(MAJOR_LIB_VERSION)
+	@LN_S@ -f libMidWay.so.$(MAJOR_LIB_VERSION).$(MINOR_LIB_VERSION) @libdir@/libMidWay.so
 	$(INSTALL) -m 644 libMidWay.a @libdir@/libMidWay.a
 
 uninstall:

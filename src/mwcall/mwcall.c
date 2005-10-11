@@ -23,6 +23,10 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.11  2005/10/11 22:15:19  eggestad
+ * - return data was not printed on MWFAIL
+ * - fixed stdin
+ *
  * Revision 1.10  2004/06/21 21:31:48  eggestad
  * Input from file bug
  *
@@ -107,8 +111,18 @@ int call(int argc, char ** argv)
   /* if data on commandline */
   if (argv[1] != NULL) {
     if (strcmp(argv[1], "-") == 0) {
-      DEBUG("about to read input data from stdin");
-      exit(9);
+       int l = 4096;
+       DEBUG("about to read input data from stdin");
+       data = malloc(l);
+       do {
+	  len += fread(data + len, l - len, 1, stdin);
+	  if (len == l) { 
+	     l *= 2; 
+	     data = realloc(data, l);
+	     continue;
+	  }
+       } while(! feof(stdin));
+
     } else {
       DEBUG("about to read input data from commandline");
       len = strlen(argv[1]);
@@ -158,31 +172,32 @@ int call(int argc, char ** argv)
 
   gettimeofday(&end, NULL); 
 
-  Info("call returned in %f", 
+  Info("call returned in %f secs", 
 	 (float)(end.tv_sec - start.tv_sec) 
 	 +(float)(end.tv_usec - start.tv_usec)/1000000); 
   
-
-  if (rc != MWSUCCESS) {
-    Error("Call failed with reason %d apprc %d", rc, apprc);
-    return rc;
-  };
-
   if (rdata != NULL) {
     FILE * OF;
-    Info(	  "Call to \"%s\" succeded, returned %d bytes of data with application return code %d",  
-	    argv[0], rlen, apprc);
 
+    if (rc != MWSUCCESS) {
+       Info("Call to \"%s\" failed,   returned %d bytes of data with reason %d apprc %d", argv[0], rlen, rc, apprc);      
+    } else {
+       Info("Call to \"%s\" succeded, returned %d bytes of data with application return code %d", argv[0], rlen, apprc);
+    };
     if (outputfile) {
       OF = fopen(outputfile, "w");
     } else { 
       OF = stdout;
     };
     fwrite (rdata, rlen, 1, OF);
+    printf("\n");
     /* implisitt close on exit */
   } else {
-    Info("Call to \"%s\" succeded, returned no data with application return code %d",  
-	    argv[0], apprc);
+    if (rc != MWSUCCESS) {
+       Info("Call to \"%s\" failed,   returned no data with reason %d apprc %d", argv[0],  rc, apprc);      
+    } else {
+       Info("Call to \"%s\" succeded, returned no data with application return code %d", argv[0], apprc);
+    };
   };
 
   
@@ -211,7 +226,7 @@ void usage(int rc)
 int main(int argc, char ** argv)
 {
   int option, rc;
-  int loglevel = MWLOG_DEBUG;
+  int loglevel = MWLOG_INFO;
   extern char *optarg;
   extern int optind, opterr, optopt;
 
@@ -257,6 +272,7 @@ int main(int argc, char ** argv)
   }
   printf ("logfile = %s loglevel = %d\n", logfile, loglevel);
   mwopenlog(prog, logfile, loglevel);
+	_mw_copy_on_stderr(TRUE);
   DEBUG("mwcall client starting");
 
   if (optind >= argc) usage (-2);

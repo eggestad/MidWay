@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.22  2005/10/11 21:33:26  eggestad
+ * updated functions for getting and putting call buffers
+ * fixes to data versification and error detection
+ * general fixup
+ *
  * Revision 1.21  2005/06/13 23:21:29  eggestad
  * Added doxygen comments
  *
@@ -171,7 +176,7 @@ static int _mw_fastpath = 0;
 */
 int _mw_fastpath_enabled(void) 
 {
-  return _mw_fastpath;
+   return _mw_fastpath;
 };
 
 struct segmenthdr * _mwHeapInfo = NULL;
@@ -187,21 +192,39 @@ struct segmenthdr * _mwHeapInfo = NULL;
 */
 chunkfoot * _mwfooter(chunkhead * head)
 {
-  void * fadr;
+   void * fadr;
 
-  fadr = (void *)head + sizeof(chunkhead) + 
-    head->size * _mwHeapInfo->basechunksize;
+   fadr = (void *)head + sizeof(chunkhead) + 
+      head->size * _mwHeapInfo->basechunksize;
 
-  DEBUG3("footer for %p is at %p + %u + %lld * %d = %p",
-	head, head, sizeof(chunkhead),  head->size,  _mwHeapInfo->basechunksize,
-	fadr) ;
-  DEBUG3("head adr %p foot adr %p", head,  fadr);
-  return (chunkfoot *) fadr;
+   DEBUG3("footer for %p is at %p + %u + %lld * %d = %p",
+	  head, head, sizeof(chunkhead),  head->size,  _mwHeapInfo->basechunksize,
+	  fadr) ;
+   DEBUG3("head adr %p foot adr %p", head,  fadr);
+   return (chunkfoot *) fadr;
 };
 
 
 /************************************************************************/
 
+static void debug_segmentheader(struct segmenthdr * si) 
+{
+   int i;
+   DEBUG3("SHM SEGMENT @ %p\n"
+	  "  magic             : %hd\n"
+	  "  chunkspersize     : %hd\n"
+	  "  basechunksize     : %d\n"
+	  "  segmentsize       : %lld\n"
+	  "  top               : %lld\n"
+	  "  bottom            : %lld\n"
+	  "  inusecount        : %d\n"
+	  "  number of bins    : %d",
+	  si, si->magic, si->chunkspersize, si->basechunksize, 
+	  si->segmentsize, si->top, si->bottom, si->inusecount, si->numbins);
+   for (i = 0; i < BINS; i++) {
+      DEBUG3("    Bin %d: chunk = %d freecount = %d", i, si->chunk[i], si->freecount[i]);
+   };
+};
 
 static seginfo_t * segments = NULL;
 static int nsegments = 0;
@@ -384,7 +407,7 @@ seginfo_t * _mw_getsegment_byid(int segid)
    
    @param addr Any address
    @return he segement info struct, or NULL if the address if not within any segement. 
- */
+*/
 seginfo_t * _mw_getsegment_byaddr(void * addr)
 {
    seginfo_t * si;
@@ -440,53 +463,87 @@ void * _mwoffset2adr(long offset, seginfo_t * si)
     @return 0 of chunk is OK
 */
 
-int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg)
+int _mw_getbuffer_from_call_to_svcinfo (mwsvcinfo * svcreqinfo, Call * callmesg)
 {
-  char * ptr;
-  size_t size;
-  seginfo_t * si;
 
-  if ( (svcreqinfo == NULL) || (callmesg == NULL) ) {
-    errno = EINVAL;
-    return -1;
-  };
+   if ( (svcreqinfo == NULL) || (callmesg == NULL) ) {
+      errno = EINVAL;
+      return -1;
+   };
 
-  /* is there no data (datalen == 0), shourtcut */
-  svcreqinfo->datalen = callmesg->datalen;    
-  if (callmesg->datalen == 0) {
-    svcreqinfo->data = NULL;
-    return 0;
-  };
+   return _mw_getbuffer_from_call (callmesg, &svcreqinfo->data, &svcreqinfo->datalen);
+};
 
+/** 
+    Translate the callmesg datsbuffer info into a pointer and length of the buffer. 
 
-  si = _mw_getsegment_byid(callmesg->datasegmentid);
-  if (si == NULL) {
-     errno = EBADR;
-     Error("failed to open the associated mmap'ed buffer to call");
-     return -1;
-  }; 
+    @param callmesg The IPC call message from where we'll get the shared buffer info. 
+    @param data a pointer that will point to a data buffer or be set to point to NULL
+    @param datalen the lenght of the buffer or 0 if data == NULL
 
-  /* check that the ptr is in the heap and is of sane length (eg larger) */
-  ptr = _mwoffset2adr(callmesg->data, si);
-  size = _mwshmgetsizeofchunk(ptr);
-  if ( (size <= 0) || (size <=  callmesg->datalen)) {
-     Error("got a call with illegal data pointer buffer size = %ld datalen = %lld", 
-	   (long) size, callmesg->datalen);
-    errno = -EBADMSG;
-    return -1;
-  };
+    @return -1 w/EINVAL, EMSGMSG, or EBADR
+    @return 0 of chunk is OK
+*/
+
+int _mw_getbuffer_from_call (Call * callmesg, char ** data, size_t * datalen)
+{
+   char * ptr;
+   size_t size;
+   seginfo_t * si;
+   int l;
+
+   if ( (data == NULL) || (datalen == NULL) || (callmesg == NULL) ) {
+      errno = EINVAL;
+      return -1;
+   };
+
+   /* is there no data (datalen == 0), shortcut */
+   if (callmesg->datalen == 0) {
+      *data = NULL;
+      *datalen = 0;
+      return 0;
+   };
+
+   *datalen = callmesg->datalen;    
+
+   si = _mw_getsegment_byid(callmesg->datasegmentid);
+   if (si == NULL) {
+      errno = EBADR;
+      Error("failed to open the associated mmap'ed buffer to call");
+      return -1;
+   }; 
+
+   /* check that the ptr is in the heap and is of sane length (eg larger) */
+   ptr = _mwoffset2adr(callmesg->data, si);
+
+   l = _mwshmcheck(ptr);
+   if ( (l < 0) || (l < callmesg->datalen)) {
+      Error("got a corrupt call message, dataoffset = %lld len = %lld shmcheck() => %d", 
+	    callmesg->data, callmesg->datalen, l);
+      return -EBADMSG;
+   };
+
+   size = _mwshmgetsizeofchunk(ptr);
+   if ( (size <= 0) || (size <=  callmesg->datalen)) {
+      Error("got a call with illegal data pointer buffer size = %ld datalen = %lld", 
+	    (long) size, callmesg->datalen);
+      errno = -EBADMSG;
+      return -1;
+   };
 		    
-  /* transfer of the data buffer, unless in fastpath where we recalc the pointer. */
-  if (_mw_fastpath_enabled()) {
-    svcreqinfo->data = ptr;
-  } else {
-    svcreqinfo->data = malloc(callmesg->datalen+1);
-    memcpy(svcreqinfo->data, ptr, callmesg->datalen);
-    /* we adda trainling NUL just to be safe */
-    svcreqinfo->data[callmesg->datalen] = '\0';
-    _mwfree(ptr);
-  };    
-  return 0;
+   /* transfer of the data buffer, unless in fastpath where we recalc the pointer. */
+   if (_mw_fastpath_enabled()) {
+      DEBUG("fastpath");
+      *data = ptr;
+   } else {
+      DEBUG("no fast path copying biufer from %p to %p (len=%d)", ptr, *data, callmesg->datalen);
+      *data = malloc(callmesg->datalen+1);
+      memcpy(*data, ptr, callmesg->datalen);
+      /* we adda trainling NUL just to be safe */
+      (*data)[callmesg->datalen] = '\0';
+      _mwfree(ptr);
+   };    
+   return 0;
 };
 
 /**
@@ -502,38 +559,38 @@ int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg)
 int _mw_putbuffer_to_call (Call * callmesg, char * data, size_t len)
 {
    long dataoffset;
-  void * dbuf;
+   void * dbuf;
 
-  /* First we handle return buffer. If data is not NULL, and len is 0,
-     datat is NULL terminated. if buffer is not a shared memory
-     buffer, get one and copy over. */
+   /* First we handle return buffer. If data is not NULL, and len is 0,
+      datat is NULL terminated. if buffer is not a shared memory
+      buffer, get one and copy over. */
   
-  // we must check for a special case: we could still have a "" as
-  // data => len == 0, which we treat as NULL
-  if (data != NULL) {
-     if (len == 0) len = strlen(data);
-     if (len == 0) data = NULL;
-  };
+   // we must check for a special case: we could still have a "" as
+   // data => len == 0, which we treat as NULL
+   if (data != NULL) {
+      if (len == 0) len = strlen(data);
+      if (len == 0) data = NULL;
+   };
 
-  if (data != NULL) {
-    dataoffset = _mwshmcheck(data);
-    if (dataoffset == -1) {
-       dbuf = _mwalloc(len);
-       if (dbuf == NULL) {
-	  Error("mwalloc(%d) failed reason %d", len, (int) errno);
-	  return -errno;
-       };
-       memcpy(dbuf, data, len);
-       dataoffset = _mwshmcheck(dbuf);
-    }
+   if (data != NULL) {
+      dataoffset = _mwshmcheck(data);
+      if (dataoffset == -1) {
+	 dbuf = _mwalloc(len);
+	 if (dbuf == NULL) {
+	    Error("mwalloc(%d) failed reason %d", len, (int) errno);
+	    return -errno;
+	 };
+	 memcpy(dbuf, data, len);
+	 dataoffset = _mwshmcheck(dbuf);
+      }
 
-    callmesg->data = dataoffset;
-    callmesg->datalen = len;
-  } else {
-    callmesg->data = 0;
-    callmesg->datalen = 0;
-  }
-  return 0;
+      callmesg->data = dataoffset;
+      callmesg->datalen = len;
+   } else {
+      callmesg->data = 0;
+      callmesg->datalen = 0;
+   }
+   return 0;
 };
 
   
@@ -557,50 +614,50 @@ static size_t getchunksizebyadr(void * adr, seginfo_t * si)
       // more multi chunk segments with different base sizes.
 static int getchunksizebyadr(chunkhead * pCHead)
 {
-  int  bin, i;
-  chunkfoot *pCFoot;
-  chunkhead *pCHabove;
-  int iCHead;
-  double d;
+   int  bin, i;
+   chunkfoot *pCFoot;
+   chunkhead *pCHabove;
+   int iCHead;
+   double d;
   
-  /* if order to do this fast when OK, we want to know if
-     the above pointer in the footer points to the head.
-     If so we're OK.*/
+   /* if order to do this fast when OK, we want to know if
+      the above pointer in the footer points to the head.
+      If so we're OK.*/
 
-  /* needed for core dump (segfault) prevention */
+   /* needed for core dump (segfault) prevention */
   
-  if (check_heap_bounds(pCHead) != 0) {     
-     return -1;
-  };
+   if (check_heap_bounds(pCHead) != 0) {     
+      return -1;
+   };
 
-  d = log(pCHead->size) / log(2);
-  bin = d;
-  DEBUG3("size %d Bin = %d %f", pCHead->size, bin, d);
-  /* if corrupt pCHead->size */ 
-  if ( (bin < 0) || (bin >= _mwHeapInfo->numbins) ) {
-    pCHead->size = 0;
-    iCHead = _mwadr2offset(pCHead);
-    bin = 0;
-    for (i = 0; i < _mwHeapInfo->numbins-1; i++) {
-      if ( (iCHead > _mwHeapInfo->chunk[i]) && 
-	   (iCHead < _mwHeapInfo->chunk[i+1]) ) {
-	bin = i;
-	pCHead->size = 1<<i;
+   d = log(pCHead->size) / log(2);
+   bin = d;
+   DEBUG3("size %d Bin = %d %f", pCHead->size, bin, d);
+   /* if corrupt pCHead->size */ 
+   if ( (bin < 0) || (bin >= _mwHeapInfo->numbins) ) {
+      pCHead->size = 0;
+      iCHead = _mwadr2offset(pCHead);
+      bin = 0;
+      for (i = 0; i < _mwHeapInfo->numbins-1; i++) {
+	 if ( (iCHead > _mwHeapInfo->chunk[i]) && 
+	      (iCHead < _mwHeapInfo->chunk[i+1]) ) {
+	    bin = i;
+	    pCHead->size = 1<<i;
+	 };
       };
-    };
-    if (iCHead > _mwHeapInfo->chunk[_mwHeapInfo->numbins]) {
-      bin = _mwHeapInfo->numbins;
-      pCHead->size = 1 << _mwHeapInfo->numbins;
-    }
-  };
+      if (iCHead > _mwHeapInfo->chunk[_mwHeapInfo->numbins]) {
+	 bin = _mwHeapInfo->numbins;
+	 pCHead->size = 1 << _mwHeapInfo->numbins;
+      }
+   };
   
-  /* check for footer corruption and correct if neccessary */
-  pCFoot = _mwfooter(pCHead);
-  pCHabove = _mwoffset2adr(pCFoot->above);
-  if (pCHabove != pCHead) {
-    pCFoot->above = _mwadr2offset(pCHead);
-  };
-  return  pCHead->size;
+   /* check for footer corruption and correct if neccessary */
+   pCFoot = _mwfooter(pCHead);
+   pCHabove = _mwoffset2adr(pCFoot->above);
+   if (pCHabove != pCHead) {
+      pCFoot->above = _mwadr2offset(pCHead);
+   };
+   return  pCHead->size;
 };
 #endif
 
@@ -619,20 +676,20 @@ static int getchunksizebyadr(chunkhead * pCHead)
 */
 int _mwshmcheck(void * adr)
 {
-  size_t size;
-  int offset; 
-  seginfo_t * si;
+   size_t size;
+   int offset; 
+   seginfo_t * si;
 
-  si = findsegment_byaddr(adr);
-  if (si == NULL) return -1;
+   si = findsegment_byaddr(adr);
+   if (si == NULL) return -1;
 
-  size = getchunksizebyadr(adr, si);
-  if (size < 0)   return -1; // can't happen
+   size = getchunksizebyadr(adr, si);
+   if (size < 0)   return -1; // can't happen
 
-  DEBUG1("buffer at %p has size %d", adr, size);
+   DEBUG1("buffer at %p has size %d", adr, size);
 
-  offset = _mwadr2offset(adr, si);
-  return offset;
+   offset = _mwadr2offset(adr, si);
+   return offset;
 }
 
 /**
@@ -642,12 +699,12 @@ int _mwshmcheck(void * adr)
 */
 size_t _mwshmgetsizeofchunk(void * adr)
 {
-  seginfo_t * si;
+   seginfo_t * si;
 
-  si = findsegment_byaddr(adr);
-  if (si == NULL) return -1;
+   si = findsegment_byaddr(adr);
+   if (si == NULL) return -1;
 
-  return  getchunksizebyadr(adr, si);
+   return  getchunksizebyadr(adr, si);
 }
 
 /************************************************************************/
@@ -663,58 +720,58 @@ size_t _mwshmgetsizeofchunk(void * adr)
    obtained.*/
 static chunkhead * popchunk(int *iRoot, int * freecount, seginfo_t * si)
 { 
-  chunkhead * pCHead, *pPrev, *pNext;
-  chunkfoot * pCFoot, * ptmpfoot;;
+   chunkhead * pCHead, *pPrev, *pNext;
+   chunkfoot * pCFoot, * ptmpfoot;;
 
-  if ( (iRoot == NULL) || (freecount == NULL) ) 
-    return NULL;
+   if ( (iRoot == NULL) || (freecount == NULL) ) 
+      return NULL;
  
-  if (*freecount == 0) return NULL;
-  if (*iRoot == 0) return NULL;
+   if (*freecount == 0) return NULL;
+   if (*iRoot == 0) return NULL;
 
-  DEBUG3("root offset = %d", *iRoot);
+   DEBUG3("root offset = %d", *iRoot);
 
-  pCHead = _mwoffset2adr(*iRoot, si);
-  pCFoot = _mwfooter(pCHead); 
+   pCHead = _mwoffset2adr(*iRoot, si);
+   pCFoot = _mwfooter(pCHead); 
 
-  DEBUG3("head at %p footer at %p", pCHead, pCFoot);
-  DEBUG3("footer: above = %lld prev %lld next %lld", pCFoot->above, pCFoot->next, pCFoot->prev);
+   DEBUG3("head at %p footer at %p", pCHead, pCFoot);
+   DEBUG3("footer: above = %lld prev %lld next %lld", pCFoot->above, pCFoot->next, pCFoot->prev);
 
-  if (*freecount == 1)  { /*last free*/
-    pCFoot->next = 0;
-    pCFoot->prev = 0;
-    *iRoot = 0;
-    (*freecount) --;
-    return pCHead;
-  };
+   if (*freecount == 1)  { /*last free*/
+      pCFoot->next = 0;
+      pCFoot->prev = 0;
+      *iRoot = 0;
+      (*freecount) --;
+      return pCHead;
+   };
 
-  /* close the remaing ring. */
-  pPrev = _mwoffset2adr(pCFoot->prev, si);
-  pNext = _mwoffset2adr(pCFoot->next, si);
-  ptmpfoot = _mwfooter(pPrev);
-  ptmpfoot->next = _mwadr2offset(pNext, si);
-  ptmpfoot = _mwfooter(pNext);
-  ptmpfoot->prev = _mwadr2offset(pPrev, si);
+   /* close the remaing ring. */
+   pPrev = _mwoffset2adr(pCFoot->prev, si);
+   pNext = _mwoffset2adr(pCFoot->next, si);
+   ptmpfoot = _mwfooter(pPrev);
+   ptmpfoot->next = _mwadr2offset(pNext, si);
+   ptmpfoot = _mwfooter(pNext);
+   ptmpfoot->prev = _mwadr2offset(pPrev, si);
 
-  *iRoot = pCFoot->next;
-  (*freecount) --;
-  DEBUG3("root offset now = %d", *iRoot);
+   *iRoot = pCFoot->next;
+   (*freecount) --;
+   DEBUG3("root offset now = %d", *iRoot);
 
-  /* disconnect the chunk */
-  pCFoot->next = 0;
-  pCFoot->prev = 0;
-  DEBUG3("returning head at %p ", pCHead);
-  return pCHead;
+   /* disconnect the chunk */
+   pCFoot->next = 0;
+   pCFoot->prev = 0;
+   DEBUG3("returning head at %p ", pCHead);
+   return pCHead;
 };
 
 static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount, seginfo_t * si)
- {
+{
    chunkhead *pPrev, *pNext;
    chunkfoot * pCFoot;
    int iInsert, iNext, iPrev;
 
    if ( (pInsert == NULL) || (iRoot == NULL) || (freecount == NULL) ) 
-     return -EINVAL;
+      return -EINVAL;
 
    iInsert = _mwadr2offset(pInsert, si);
 
@@ -723,8 +780,8 @@ static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount, seginfo_
    pCFoot = _mwfooter(pInsert);
 
    if (_mwoffset2adr(pCFoot->above, si) != pInsert) {
-     Warning("possible shm buffer corruption, error in chunk at %p", pInsert);
-     pCFoot->above = iInsert;
+      Warning("possible shm buffer corruption, error in chunk at %p", pInsert);
+      pCFoot->above = iInsert;
    };
 
    /* if ring is empty */
@@ -753,16 +810,16 @@ static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount, seginfo_
    _mwfooter(pPrev)->next = iInsert;
    (*freecount)++;
    return 0;
- };
+};
 
 
- /* lock and unlock of heap info, and chunk rings, 
-    arg 0 means the common data, including inuse ring.
-    arg 1-n mean lock of the free chunk lists.
- */
+/* lock and unlock of heap info, and chunk rings, 
+   arg 0 means the common data, including inuse ring.
+   arg 1-n mean lock of the free chunk lists.
+*/
 
- static int lock(int id)
- {
+static int lock(int id)
+{
    struct sembuf sops[2];
 
    if (_mwHeapInfo == NULL) return -EILSEQ;
@@ -770,10 +827,10 @@ static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount, seginfo_
    sops[0].sem_op = -1;
    sops[0].sem_flg = 0;
    return semop(_mwHeapInfo->semid, sops, 1);
- };
+};
 
- static int unlock(int id)
- {
+static int unlock(int id)
+{
    struct sembuf sops[2];
 
    if (_mwHeapInfo == NULL) return -EILSEQ;
@@ -781,36 +838,36 @@ static int pushchunk(chunkhead * pInsert, int * iRoot, int * freecount, seginfo_
    sops[0].sem_op = 1;
    sops[0].sem_flg = 0;
    return semop(_mwHeapInfo->semid, sops, 1);
- };
+};
 
- static inline int attachheap(void)
- {
+static inline int attachheap(void)
+{
    struct ipcmaininfo * ipcmain;
 
    if (_mwHeapInfo != NULL ) return 0;
 
    ipcmain = _mw_ipcmaininfo(); 
    if (ipcmain == NULL) {
-     Error("_mwalloc: It seems there are no mwd running, no main shm info attached.");
-     return -ENOENT;
+      Error("_mwalloc: It seems there are no mwd running, no main shm info attached.");
+      return -ENOENT;
    };
    _mwHeapInfo = shmat (ipcmain->heap_ipcid, NULL, 0);
    /* the manual says that shmat return -1 on failure, but
       that seem not natural to me since it return a pointer. */
    if ((_mwHeapInfo == (void *) -1) || (_mwHeapInfo == NULL)) {
-     Error("_mwalloc: failed to attach the shm heap, erno = %d.", errno);
-     return -errno;
+      Error("_mwalloc: failed to attach the shm heap, erno = %d.", errno);
+      return -errno;
    };
    /* the magic numer is "MW" thus 0x4D57 */
    if (_mwHeapInfo->magic != 0x4D57) {
-     Error("_mwalloc: The shm heap seem not to be formated, wrong magic header");
-     shmdt(_mwHeapInfo);
-     return -EUCLEAN;;
+      Error("_mwalloc: The shm heap seem not to be formated, wrong magic header");
+      shmdt(_mwHeapInfo);
+      return -EUCLEAN;;
    };
 
    addsegment(0, -1, _mwHeapInfo, _mwHeapInfo + _mwHeapInfo->segmentsize);
    return 0;
- };
+};
 
 
 /**
@@ -881,112 +938,117 @@ void * _mwalloc(size_t size)
    int bin, i, rc;
    seginfo_t * si;
    
+   ENTER();
    if (size <= 0) {
       errno = ENOMEM;
       return NULL;
    };
 
 
-  /*
-    now we need to know how many base chunks we need.
-    Remember that I have for each group of chunks doubled 
-    the chunk size. thats: 1*basesize 2*basesize, 4*basesize, etc.
-    Then the references to these chunk groups are in an array.
-    We then find the inde for the arrays by doing ln2(n) where 
-    n is the number of basesizes needed to hold the requested size.
+   /*
+     now we need to know how many base chunks we need.
+     Remember that I have for each group of chunks doubled 
+     the chunk size. thats: 1*basesize 2*basesize, 4*basesize, etc.
+     Then the references to these chunk groups are in an array.
+     We then find the inde for the arrays by doing ln2(n) where 
+     n is the number of basesizes needed to hold the requested size.
  
-  */
-  si = findsegment_byid(0); // 0 is the ipcshm heap. 
-  bin = find_bin(size, si);
-  for (i = bin; i < _mwHeapInfo->numbins; i++) {
+   */
+   si = findsegment_byid(0); // 0 is the ipcshm heap. 
+   debug_segmentheader(_mwHeapInfo);
 
-    /* there are no free chunk at the right size, we try the larges ones. */
-     if (_mwHeapInfo->freecount[i] > 0) {
+   bin = find_bin(size, si);
+   for (i = bin; i < _mwHeapInfo->numbins; i++) {
+
+      /* there are no free chunk at the right size, we try the larges ones. */
+      if (_mwHeapInfo->freecount[i] > 0) {
  
-      rc = lock(i);
-      if (rc < 0) {
-	Error("_mwalloc: lock of bin %d failed erro=%d", i, errno);
-	return NULL;
-      }
+	 rc = lock(i);
+	 if (rc < 0) {
+	    Error("_mwalloc: lock of bin %d failed erro=%d", i, errno);
+	    return NULL;
+	 }
 
-      /* We now have a lock for the chunks of 1 * basesize */
-      DEBUG3("first chunk %d freecount %d", 
-	     _mwHeapInfo->chunk[i], _mwHeapInfo->freecount[i]);
-      pCHead = popchunk(&_mwHeapInfo->chunk[i], 
-			&_mwHeapInfo->freecount[i], si);
-      DEBUG3("first chunk %d freecount %d", 
-	     _mwHeapInfo->chunk[i], _mwHeapInfo->freecount[i]);
+	 /* We now have a lock for the chunks of 1 * basesize */
+	 DEBUG3("first chunk %d freecount %d", 
+		_mwHeapInfo->chunk[i], _mwHeapInfo->freecount[i]);
+	 pCHead = popchunk(&_mwHeapInfo->chunk[i], 
+			   &_mwHeapInfo->freecount[i], si);
+	 DEBUG3("first chunk %d freecount %d", 
+		_mwHeapInfo->chunk[i], _mwHeapInfo->freecount[i]);
 
-      rc = unlock(i);
+	 rc = unlock(i);
       
-      if (pCHead == NULL) continue;
+	 if (pCHead == NULL) continue;
       
-      DEBUG3("chunk has size in chunks %lld ownerid = %x", pCHead->size, pCHead->ownerid);
+	 DEBUG3("chunk has size in chunks %lld ownerid = %x", pCHead->size, pCHead->ownerid);
       
-      _mwHeapInfo->inusecount ++;
-      if (_mwHeapInfo->inusecount > _mwHeapInfo->inusehighwater) 
-	_mwHeapInfo->inusehighwater = _mwHeapInfo->inusecount;
+	 _mwHeapInfo->inusecount ++;
+	 if (_mwHeapInfo->inusecount > _mwHeapInfo->inusehighwater) 
+	    _mwHeapInfo->inusehighwater = _mwHeapInfo->inusecount;
       
-      /* really should be CLIENTID or SERVERID or GATEWAYID ... */
-      pCHead->ownerid = _mw_get_my_mwid(); 
-      if (pCHead->size != 1<<i) {
-	Error("mwalloc: retrived chunk is of size %lld*%d != %d*%d chunk at offset %ld",
-	      pCHead->size, 
-	      _mwHeapInfo->basechunksize , 
-	      1<<i, 
-	      _mwHeapInfo->basechunksize, 
-	      _mwadr2offset(pCHead, si));
-	Error ("get cgetchunksizebyadr = %d", getchunksizebyadr(pCHead, si));
+	 /* really should be CLIENTID or SERVERID or GATEWAYID ... */
+	 pCHead->ownerid = _mw_get_my_mwid(); 
+	 if (pCHead->size != 1<<i) {
+	    Error("mwalloc: retrived chunk is of size %lld*%d != %d*%d chunk at offset %ld",
+		  pCHead->size, 
+		  _mwHeapInfo->basechunksize , 
+		  1<<i, 
+		  _mwHeapInfo->basechunksize, 
+		  _mwadr2offset(pCHead, si));
+	    Error ("get cgetchunksizebyadr = %d", getchunksizebyadr(pCHead, si));
+	 };
+
+	 DEBUG1("_mwalloc(%ld) return a chunk with size %lld at %p ", 
+		(long) size, pCHead->size*_mwHeapInfo->basechunksize, (void*) pCHead + sizeof(chunkhead));
+
+	 /* NB: wr return the addresss to the data area NOT to the head of chunk.
+	  */
+	 debug_segmentheader(_mwHeapInfo);
+	 LEAVE();
+	 return (void*) pCHead + sizeof(chunkhead);
       };
-
-      DEBUG1("_mwalloc(%ld) return a chunk with size %lld at %p ", 
-	     (long) size, pCHead->size*_mwHeapInfo->basechunksize, (void*) pCHead + sizeof(chunkhead));
-
-      /* NB: wr return the addresss to the data area NOT to the head of chunk.
-       */
-      return (void*) pCHead + sizeof(chunkhead);
-    };
-  };
+   };
   
-  // request large buffer from mwd
-  {
-     Alloc allocmesg;
-     int len;
-     void * ptr;
-     seginfo_t * si;
-     allocmesg.mtype = ALLOCREQ;
-     allocmesg.mwid = _mw_get_my_mwid();
-     allocmesg.size = size;
-     allocmesg.bufferid = UNASSIGNED;
+   // request large buffer from mwd
+   {
+      Alloc allocmesg;
+      int len;
+      void * ptr;
+      seginfo_t * si;
+      allocmesg.mtype = ALLOCREQ;
+      allocmesg.mwid = _mw_get_my_mwid();
+      allocmesg.size = size;
+      allocmesg.bufferid = UNASSIGNED;
 
-     rc = _mw_ipc_putmessage(0, (void *) &allocmesg, sizeof(Alloc), 0);
-     DEBUG1("sendt alloc request to mwd rc=%d", rc);
-     Assert(rc == 0);
+      rc = _mw_ipc_putmessage(0, (void *) &allocmesg, sizeof(Alloc), 0);
+      DEBUG1("sendt alloc request to mwd rc=%d", rc);
+      Assert(rc == 0);
 
-     len = sizeof(Alloc);
-     rc = _mw_ipc_getmessage((void*) &allocmesg, &len, ALLOCRPL, 0);
-     DEBUG1("Got alloc reply, rc=%d", rc);
-     Assert(rc == 0);
-     Assert (len  == sizeof(Alloc));
-     DEBUG("size=%lld pages=%lld id=%d", allocmesg.size, allocmesg.pages, allocmesg.bufferid);
+      len = sizeof(Alloc);
+      rc = _mw_ipc_getmessage((void*) &allocmesg, &len, ALLOCRPL, 0);
+      DEBUG1("Got alloc reply, rc=%d", rc);
+      Assert(rc == 0);
+      Assert (len  == sizeof(Alloc));
+      DEBUG("size=%lld pages=%lld id=%d", allocmesg.size, allocmesg.pages, allocmesg.bufferid);
 
-     if (allocmesg.bufferid < LOW_LARGE_BUFFER_NUMBER) {
-	Error("Out of memory (from mwd)");
-	errno = -ENOMEM;
-	return NULL;
-     } else {
-	si = attach_mmap(allocmesg.bufferid);
-	if (si == NULL) {
-	   Error("failed to allocate a large shared buffer, reason %s", strerror(errno));
-	   return NULL;
-	};
-	ptr = si->start + sizeof(chunkhead);
-	return ptr;
-     };
-  };
-  Error("out of memory");
-  errno = -ENOMEM;
-  return NULL;
+      if (allocmesg.bufferid < LOW_LARGE_BUFFER_NUMBER) {
+	 Error("Out of memory (from mwd)");
+	 errno = -ENOMEM;
+	 return NULL;
+      } else {
+	 si = attach_mmap(allocmesg.bufferid);
+	 if (si == NULL) {
+	    Error("failed to allocate a large shared buffer, reason %s", strerror(errno));
+	    return NULL;
+	 };
+	 ptr = si->start + sizeof(chunkhead);
+	 return ptr;
+      };
+   };
+   Error("out of memory");
+   errno = -ENOMEM;
+   return NULL;
 };
 
 /**
@@ -1000,31 +1062,38 @@ void * _mwalloc(size_t size)
 */
 void * _mwrealloc(void * adr, size_t newsize) 
 {
-  size_t size, copylength;
-  void * newbuffer;
+   size_t size, copylength;
+   void * newbuffer;
 
-  if (adr == NULL ) return _mwalloc(newsize); 
+   ENTER();
+   if (adr == NULL ) return _mwalloc(newsize); 
 
-  size =  _mwshmgetsizeofchunk(adr);
-  if (size > 0) {
-    DEBUG1("newsize = %d oldsize = %d", newsize, size);
+   size =  _mwshmgetsizeofchunk(adr);
+   if (size > 0) {
+      DEBUG1("newsize = %d oldsize = %d", newsize, size);
 
-    /* check to see if newsize need the same size of buffer. */
-    if (newsize < size) 
-       return adr;
+      /* check to see if newsize need the same size of buffer. */
+      if (newsize < size) {
+	 LEAVE();
+	 return adr;
+      };
     
-    newbuffer = _mwalloc(newsize);
-    if (newbuffer == NULL) return NULL;
-    
-    if (size < newsize) copylength = size;
-    else copylength = newsize;
-    memcpy(newbuffer, adr, copylength);
-    _mwfree(adr);
-    return newbuffer;
-  }
+      newbuffer = _mwalloc(newsize);
+      if (newbuffer == NULL) {
+	 LEAVE();
+	 return NULL;
+      };
+      if (size < newsize) copylength = size;
+      else copylength = newsize;
+      memcpy(newbuffer, adr, copylength);
+      _mwfree(adr);
+      LEAVE();
+      return newbuffer;
+   }
   
-  if (adr) _mwfree(adr);
-  return NULL;
+   if (adr) _mwfree(adr);
+   LEAVE();
+   return NULL;
 };
 
 /**
@@ -1035,9 +1104,9 @@ static int _mwfree0(seginfo_t * si, void * adr)
    long offset, off, l, s, n, t;
    chunkhead *pCHead;
    int bin, rc;
-   double d;
 
-   // this is a protection of the segment header
+   // this is a protection of the segment header, needs si, not
+   // _mwHeapInfo, but we know that si->segementid == 0
    DEBUG1("checking to see if the address is in the chuck area of the heap");
    offset = (unsigned long) adr - (unsigned long) _mwHeapInfo;
    DEBUG1("top = %lld < adr = %ld < %lld, bottom", _mwHeapInfo->top, offset, _mwHeapInfo->bottom);
@@ -1049,21 +1118,20 @@ static int _mwfree0(seginfo_t * si, void * adr)
    /* adr point to the data area of a chunk, which lies between the
       chunkhead and chunkfoot*/
    pCHead = adr - sizeof(chunkhead);;
-   offset -= sizeof(chunkhead); //offset now it at the beginning of a chunk;
+   offset -= sizeof(chunkhead); //offset now it at the beginning of the chunkhead
    rc = getchunksizebyadr(adr, si);
    if (rc < 0) {
       DEBUG1("ENOENT");
       return -ENOENT;
    };
 
-   // black out buffer
-   s = _mwHeapInfo->basechunksize * pCHead->size;
-   DEBUG1("Clearinbg buffer %ld bytes", s);
-   memset(adr, 0, s);
-   
-   d = log(pCHead->size) / log(2);
-   bin = d;
-   DEBUG1("d = %f, bin = %d", d, bin);
+   // find the bin from the chunk size
+   {
+      double d;
+      d = log(pCHead->size) / log(2);
+      bin = d;
+      DEBUG1("d = %f, bin = %d", d, bin);
+   };
 
    /* check that the pointer is at a start of a chunk
       first get the byte offset into the chunk area, then we do two checks:
@@ -1071,20 +1139,30 @@ static int _mwfree0(seginfo_t * si, void * adr)
       2. the offset into chunk area / by size_of_chunk + CHUNKOVERHEAD must be within chunks per size
    */
    t = _mw_gettopofbin(_mwHeapInfo, bin);
-   off = offset - t;
+   off = offset - t; // off is the offset into the chunk-bin area
+
+   // s is the size of the chunk plus header and footer 
    s =  (_mwHeapInfo->basechunksize *pCHead->size)+ CHUNKOVERHEAD;
 
+   
    DEBUG1("bin %d start %ld, %ld bytes per chunk, %ld bytes offset into chunk area", 
 	  bin, t, s, off);
+
+   // l is the index of the chunk into the area for this chunk size. (array of chunks)
    l = off / s;
+
+   // n is the number of chunks in this bin, we have twice the number in the first bin. 
    n =  bin  ? _mwHeapInfo->chunkspersize :  _mwHeapInfo->chunkspersize *2;
    DEBUG1("bin %d chunk index %ld of %ld", bin, l, n);
+
+   // now test to see if 0 <= l < n, the index canæt be bigger than the array. 
    if ( (l < 0) || (l > n)) {
       Error ("Possible shm buffer corruption 0 < %ld < %ld fails for adr %p offset %ld", l,  n, adr, off);
       errno = EINVAL;
       return -1;
    };
-   
+
+   // check that the adr is at the beginning of a chunk
    l = off % s;
    DEBUG1 ("%ld %% %ld = %ld shall be 0", off, s, l);
    if (l != 0) {
@@ -1094,8 +1172,23 @@ static int _mwfree0(seginfo_t * si, void * adr)
    };
 
 
-   DEBUG1("size %lld ownerid=%s Bin = %d %d %f", pCHead->size, _mwid2str(pCHead->ownerid, NULL), rc, bin, d);
+   DEBUG1("size %lld ownerid=%s Bin = %d %d", pCHead->size, _mwid2str(pCHead->ownerid, NULL), rc, bin);
+   if (pCHead->ownerid == UNASSIGNED) {
+      Warning("freeing an already freed shared memory buffer");
+      errno = EINVAL;
+      return -1;
+   };
+
+   // chunk is now OK to clear and free
    pCHead->ownerid = UNASSIGNED;
+
+   // black out buffer
+   {
+      int s;
+      s = _mwHeapInfo->basechunksize * pCHead->size;
+      DEBUG1("Clearinbg buffer %ld bytes", s);
+      memset(adr, 0, s);
+   };
    
    rc = lock(bin); /* lock sem for bin */
    rc = pushchunk(pCHead, &_mwHeapInfo->chunk[bin], 
@@ -1147,18 +1240,21 @@ int _mwfree_mmap(seginfo_t * si, void * adr)
 int _mwfree(void * adr)
 {
    seginfo_t * si;
-   
+   int rc;
    si = findsegment_byaddr(adr);
    
    if (si == NULL) return -ENOENT;
-   
+   debug_segmentheader(_mwHeapInfo);
+
    if (si->segmentid == 0) {
       DEBUG3("shm buffer");
-      return _mwfree0(si, adr);
+      rc = _mwfree0(si, adr);
+      debug_segmentheader(_mwHeapInfo);
    } else {
       DEBUG3("mmap'ed buffer");
-      return _mwfree_mmap(si, adr);
+      rc = _mwfree_mmap(si, adr);
    };
+   return rc;
 };
 
 #ifdef SHMDEBUG
@@ -1201,9 +1297,9 @@ int _mw_gettopofbin(struct segmenthdr * seghdr, int bin)
 };
 
 /* Emacs C indention
-Local variables:
-c-basic-offset: 3
-End:
+   Local variables:
+   c-basic-offset: 3
+   End:
 */
 
    

@@ -23,6 +23,11 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.12  2005/10/11 21:33:26  eggestad
+ * updated functions for getting and putting call buffers
+ * fixes to data versification and error detection
+ * general fixup
+ *
  * Revision 1.11  2005/06/25 12:06:53  eggestad
  * added doxygen doc
  *
@@ -259,7 +264,8 @@ void * _mwalloc(size_t size);
 void * _mwrealloc(void * adr, size_t newsize);
 int _mwfree(void * adr);
 
-int _mw_getbuffer_from_call (mwsvcinfo * svcreqinfo, Call * callmesg);
+int _mw_getbuffer_from_call_to_svcinfo (mwsvcinfo * svcreqinfo, Call * callmesg);
+int _mw_getbuffer_from_call (Call * callmesg, char ** data, size_t * len);
 int _mw_putbuffer_to_call (Call * callmesg, char * data, size_t len);
 
 int _mw_fastpath_enabled(void) ;

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.3  2005/10/11 22:29:07  eggestad
+ * moved call trace to MidWay.h
+ *
  * Revision 1.2  2003/07/09 11:52:10  eggestad
  * *** empty log message ***
  *
@@ -51,8 +54,6 @@ static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 #ifdef MWLOG_DEBUG3
 
 #define EXTDEBUG
-#define ENTER() 
-#define LEAVE() 
 
 #else 
 static int debugflag = 0;
@@ -64,11 +65,6 @@ printf(m); printf ("\n"); } while(0)
 printf(m); printf ("\n"); abort();} while(0)
 
 static int calllevel = 0;
-#define ENTER() do { if (!debugflag) break; printf ("%.*s ENTER :%s\n", ++calllevel, enterstr, __FUNCTION__);} while(0)
-#define LEAVE() do { if (!debugflag) break; printf ("%.*s LEAVE :%s\n", calllevel--, leavestr, __FUNCTION__);} while(0)
-
-static char * enterstr = ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
-static char * leavestr = "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<";
 
 #endif
 

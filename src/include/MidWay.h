@@ -304,6 +304,30 @@ static inline int _DEBUGN(int N, const char * func, const char * file, int line,
   timepeg_resume(); 
   return 0;
 };
+
+static inline int _CALLTRACE(int up_down, const char * func)
+{
+  char buffer[128];
+  static  __thread int calllevel = 0;
+
+  static char * enterstr = ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>";
+  static char * leavestr = "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<";
+
+  if (debuglevel == NULL) debuglevel = _mwgetloglevel();
+  if (*debuglevel < MWLOG_DEBUG1) return 0;
+
+  timepeg_pause(); // we're attempting to remove debugging overhead from timepegs bookkeeping
+  
+  if (up_down) calllevel++;
+  else calllevel--;
+  
+  sprintf(buffer, "%s%*.*s[%d] %s", up_down?">Enter":">Leave", calllevel, calllevel, up_down?enterstr:leavestr, calllevel, func);
+
+  mwlog(MWLOG_DEBUG1, buffer);
+  
+  timepeg_resume(); 
+  return 0;
+};
 /** Debug level 0, to be used in non verbose debugging from utiliies */
 #define DEBUG(m...)  _DEBUGN(0, __FUNCTION__, __FILE__, __LINE__, m)
 /** Debug level 1, to be used in non verbose debugging from libraries */
@@ -315,12 +339,16 @@ static inline int _DEBUGN(int N, const char * func, const char * file, int line,
 /** Debug level 4, to be used in really really verbose debugging */
 #define DEBUG4(m...) _DEBUGN(4, __FUNCTION__ , __FILE__, __LINE__, m)
 
+#define ENTER(m...) _CALLTRACE(1, __FUNCTION__ , ## m)
+#define LEAVE(m...) _CALLTRACE(0, __FUNCTION__ , ## m)
 #else  // ifndef NDEBUG
 #define DEBUG(m...)
 #define DEBUG1(m...)
 #define DEBUG2(m...)
 #define DEBUG3(m...)
 #define DEBUG4(m...)
+#define ENTER(m...) 
+#define LEAVE(m...)
 #endif // ifndef NDEBUG
 
 #ifndef DEPRECATED

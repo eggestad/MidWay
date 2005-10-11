@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.27  2005/10/11 22:23:22  eggestad
+ * fix for memory leak on setting filename
+ *
  * Revision 1.26  2005/06/13 23:23:10  eggestad
  * Added doxygen comments
  *
@@ -547,9 +550,11 @@ void mwsetlogprefix(char * lfp)
   if ( (logprefix != NULL) && (lfp == NULL) ) return;
   loginited = 1;
 
+  if (logfilename) free(logfilename);
+
   if (lfp != NULL) {
-    char * tmp = strdup(lfp); 
     char * slash;
+    tmp = strdup(lfp); 
     slash = strrchr(tmp, '/'); 
     if (slash == NULL) 
       logfilename = tmp;
@@ -569,6 +574,7 @@ void mwsetlogprefix(char * lfp)
 	getcwd(logdir, PATH_MAX);
 	strncat(logdir, "/", PATH_MAX-strlen(logdir));
       };
+      free(tmp);
       strncat(logdir, tmp, PATH_MAX-strlen(logdir));
       logdir[PATH_MAX-1] = '\0';
     };

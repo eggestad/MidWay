@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.37  2005/10/11 22:19:40  eggestad
+ * doc fix
+ *
  * Revision 1.36  2005/06/25 15:35:33  eggestad
  * - added  _mw_get_caller_mwid()
  * - added doxygen doc
@@ -1619,7 +1622,7 @@ int _mw_ipcsend_subscribe (char * pattern, int subid, int flags)
 
    @param subid the subscription id of the subscription. 
    @return 0 on success or -errno
-};
+*/
 int _mw_ipcsend_unsubscribe (int subid)
 {
   MWID id;
@@ -1665,7 +1668,8 @@ int _mw_ipcsend_unsubscribe (int subid)
    @param fromid if #UNASSIGNED we use our own clientid, intened for mwgwd() to set clientid of the network cliennt sending the event, or the gateway for imported events.  
    @param remoteflag if the event came from a peer gateway.
    @return 0 on success or -errno
-};
+*/
+
 int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, char * clientname, 
 		       MWID fromid, int remoteflag)
 {

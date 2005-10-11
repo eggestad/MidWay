@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.23  2005/10/11 22:22:32  eggestad
+ * fix for not allowing negative handles
+ *
  * Revision 1.22  2005/06/14 23:07:05  eggestad
  * Fix on next handle, it didn't wrap bit got a new random value on wrap, which could be a recently used value.
  *
@@ -123,6 +126,7 @@
 
 #include <MidWay.h>
 #include <address.h>
+#include <utils.h>
 #include <ipcmessages.h>
 #include <ipctables.h>
 #include <shmalloc.h>
@@ -330,19 +334,17 @@ DECLAREMUTEX(callhandle);
 mwhandle_t _mw_nexthandle(void)
 {
   LOCKMUTEX(callhandle);
-  handle++;
-  if (handle > 0)  goto out;
 
   /* test for overflow (or init) */
   if (handle == -1) {
-     while(handle < 1) {
-	srand(time(NULL));
-	handle = rand() + 1;
-     }; 
-  } else {
+     handle = _mw_irand(INT_MAX/2);
+  } 
+
+  handle++;
+  if (handle < 0) {
      handle = 1;
   };
- out:
+
   UNLOCKMUTEX(callhandle);
   return handle;
 };

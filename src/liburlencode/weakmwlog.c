@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.2  2005/10/11 22:28:11  eggestad
+ * Added URLENCODEVERBOSE for setting loglevel in the lib
+ *
  * Revision 1.1  2003/06/12 07:17:08  eggestad
  * added weak syms for mwlog and timepegs, allowing for intergrated logging and profileing with rest of MW
  *
@@ -27,12 +30,15 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 
 /************************************************************************
  this is a dummy module just to be able to get debugging in the midway
 log output from the url lib while linked with libMidWay.a, if used
 standalone we get the functions below, which uses stderr.
 ************************************************************************/
+
+static int loglevel = -1;
 
 void mwlog(int level, char * format, ...);
 #pragma weak mwlog
@@ -41,7 +47,19 @@ void mwlog(int level, char * format, ...)
 {
   va_list ap;
   char c;
+  
+  if (loglevel == -1) {
+     char * env = getenv("URLENCODEVERBOSE");
+     if (env) {
+	loglevel = atoi(env);
+     } else {
+	loglevel = 0;
+     };
+  };
+  if (loglevel == 0) return;
+
   va_start(ap, format);
+
   
   switch(level) {
   case 0:
@@ -101,6 +119,10 @@ int mwsetloglevel(int level);
 
 int mwsetloglevel(int level)
 {
+   int old;
+   old = loglevel;
+   loglevel = level;
+   return old;
 };
 
 

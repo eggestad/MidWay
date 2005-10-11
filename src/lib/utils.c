@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.12  2005/10/11 22:26:36  eggestad
+ * additional debugging in _mw_setrealtimer
+ *
  * Revision 1.11  2005/06/19 13:36:01  eggestad
  * Added doxygen comments
  *
@@ -130,6 +133,11 @@ unsigned long long _mw_lltimes(void)
   return now;
 };
 
+static void printitv(struct itimerval * itv) {
+   DEBUG1("itimeval interval: %d.%06d value: %d.%06d", 
+	   itv->it_interval.tv_sec, itv->it_interval.tv_usec, 
+	   itv->it_value.tv_sec, itv->it_value.tv_usec);
+};
 /**
    Set at timer (wall clock). A wrapper to setitimer.  
 
@@ -148,6 +156,8 @@ void _mw_setrealtimer(long long usecs)
   // long time (1 minute) into the future we ensure that we got a
   // way out of the race.
 
+  DEBUG1("set realtimer to %lldus (%f s)", usecs, (1.0 * usecs) / 1e6);
+
   itv.it_interval.tv_sec = 60;
   itv.it_interval.tv_usec = 0;
 
@@ -162,7 +172,8 @@ void _mw_setrealtimer(long long usecs)
      itv.it_interval.tv_usec = 0;
      
      DEBUG1("Disable timer");
-     usecs = usecs - _mw_llgtod();
+
+     printitv(&itv);
      rc = setitimer(ITIMER_REAL,  &itv, NULL);
      if (rc != 0) {
 	Fatal("failed to disable the real timer, reason, %s", 
@@ -171,9 +182,10 @@ void _mw_setrealtimer(long long usecs)
      return;
   };
   
-  // convert into usec into the future we schall expire. 
+  // convert into usec into the future we shall expire. 
   usecs = usecs - _mw_llgtod();
 
+  DEBUG1("expire in %lld us", usecs);
   // minimun 1ms
   if (usecs < 1000)
      usecs = 1000;
@@ -182,9 +194,7 @@ void _mw_setrealtimer(long long usecs)
   itv.it_value.tv_sec = usecs / (long) 1e6;
   itv.it_value.tv_usec = usecs % (long) 1e6;
 
-  DEBUG1("timer at usecs = %lld tv = { %ld . %06ld }", usecs, 
-	itv.it_value.tv_sec, itv.it_value.tv_usec);
-
+  printitv(&itv);
   rc = setitimer(ITIMER_REAL,  &itv, NULL);
 
   if (rc != 0) {
@@ -258,6 +268,7 @@ struct perfdata {
   int perfidx;
 };
 
+/// @todo use gcc __thread instead for gcc that support it
 
 #ifdef USETHREADS
 static pthread_key_t data_key;

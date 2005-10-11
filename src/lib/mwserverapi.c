@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.23  2005/10/11 22:24:23  eggestad
+ * change in API for putting buffer to svcinfo
+ *
  * Revision 1.22  2004/12/29 19:59:01  eggestad
  * handle datatype fixup
  *
@@ -675,7 +678,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
      TODO: this is a DoS bug, send enough junk messages, and a server crashed due to stack overrun
 
    */ 
-  rc = _mw_getbuffer_from_call(svcreqinfo, callmesg);
+  rc = _mw_getbuffer_from_call_to_svcinfo(svcreqinfo, callmesg);
   if (rc != 0) {
     mwreply(NULL, 0, -1, 0, 0);
     free(svcreqinfo); 

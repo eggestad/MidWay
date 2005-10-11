@@ -44,6 +44,12 @@
 /// The maximum totoal length of an SRB message, liable to increase. 
 #define SRBMESSAGEMAXLEN 	3500
 
+/**
+ * The max number of data octets (before urlencoding) that we may send
+ * in one srb message. There is a maximum total SRB message
+ * length. The data field may be completely % escaped. 
+ * @return the max data length
+ */
 static inline int srbdata_per_message(void)
 {
    extern int _mw_srbdata_per_message;

@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.6  2005/10/11 22:25:31  eggestad
+ * added an implicit mwdotasks() at the end of addtask
+ *
  * Revision 1.5  2004/10/07 22:00:38  eggestad
  * task API updates
  *
@@ -144,7 +147,7 @@ static int schedule(void)
     DEBUG1("schedule => runnable = %d newrunnable = %d", runnable, newrunnable);
   } else {
     _mw_setrealtimer(nexttasktime);
-    DEBUG1("schedule => new schedule %lld, in %lld us", nexttasktime, nexttasktime - _mw_llgtod());
+    DEBUG1("new schedule %lld, in %lld us", nexttasktime, nexttasktime - _mw_llgtod());
     runnable = 0;
   };
   DEBUG1("end");
@@ -305,7 +308,8 @@ int mwdotasks(void)
 	  if (t->state == TASK_RUN) {
 	    t->state = TASK_WAIT;
 	  };
-	  t->nextsched = _mw_llgtod() + t->interval * 1e6;
+	  tt = _mw_llgtod();
+	  t->nextsched = tt + t->interval * 1e6;
 	  DEBUG1("task complete nextsched = %lld, runnable %d", t->nextsched, runnable);
 	}
       };
@@ -512,7 +516,7 @@ PTask _mwaddtaskdelayed(taskproto_t function, char * name, double interval, doub
   LOCKMUTEX(tasklock);
 
   DEBUG1("tasks %d", tasks);
-  DEBUG1("interval %g", interval);
+  DEBUG1("interval %g delay", interval, initialdelay);
 
   if (tasks == -1) inittasks();
   tasklist = realloc(tasklist, (tasks+1)*sizeof(Task));
@@ -549,10 +553,14 @@ PTask _mwaddtaskdelayed(taskproto_t function, char * name, double interval, doub
   t->calls = 0;
   t->timespend = 0;
 
-  runnable = schedule();
+
   DEBUG("complete");
 
   UNLOCKMUTEX(tasklock);
+  runnable = schedule();
+  while(runnable) {
+    runnable = mwdotasks() ;
+  };
   return  idx + PTASKMAGIC;
 };
 

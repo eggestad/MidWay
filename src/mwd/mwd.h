@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2005/10/11 22:30:12  eggestad
+ * removed unused externs
+ *
  * Revision 1.7  2004/08/11 20:32:30  eggestad
  * - daemonize fix
  * - umask changes (Still wrong, but better)
@@ -69,10 +72,9 @@ typedef struct {
 
 #ifndef _MWD_C
 #include <ipctables.h>
-extern Flags flags;
+
 extern ipcmaininfo * ipcmain;
 extern char * uri;
-extern char * mwhome;
 extern char * instancename;
 #endif
 

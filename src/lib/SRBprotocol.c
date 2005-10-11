@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.18  2005/10/11 22:17:35  eggestad
+ * fix for large data
+ *
  * Revision 1.17  2005/06/25 12:08:24  eggestad
  * - added large data
  *
@@ -938,6 +941,21 @@ int _mw_srbsendinit(Connection * conn, mwcred_t *cred,
 /************************************************************************/ 
 // SERVICE call/reply 
 
+/**
+ * Send additional data with a service call/reply. This function will
+ * divide out into the needed number of messages, so call this only
+ * once per additional data.
+ *
+ * @todo for really large data we need to place the meessages on a
+ * queue on the Connection, giving priority to other traffic. The only
+ * thing that has lower priority is event data.
+ *
+ * @param conn The Connection to send on
+ * @param call handle
+ * @param data a pointer to the data, may not be NULL
+ * @param datalen may not be 0 (or neg)
+ * @return the total number of octets written on the Connection or -errno
+ */
 int _mw_srbsenddata(Connection * conn, char * handle, char * data, int datalen)
 {
    int l, rc, rclen = 0;
@@ -961,11 +979,22 @@ int _mw_srbsenddata(Connection * conn, char * handle, char * data, int datalen)
    return rclen;
 };
 
+/**
+  send a SVC CALL srb message. 
+
+  @param conn The Connection to send on
+  @param call handle
+  @param svcname the service name
+  @param data a pointer to the data, may be NULL
+  @param datalen the number of octets in data, if 0 data is nul terminated, must be 0 if data == NULL. 
+  @param flags 
+  @return the total number of octets written on the Connection or -errno
+ */
 int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, int datalen, 
 		    int flags)
 {
   char hdlbuf[9];
-  int rc, datarem;
+  int rc, datarem = 0;
   SRBmessage srbmsg;
   int noreply;
   float timeleft;

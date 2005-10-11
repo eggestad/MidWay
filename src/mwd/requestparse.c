@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.18  2005/10/11 22:30:39  eggestad
+ * change in API for putting buffer to svcinfo
+ *
  * Revision 1.17  2004/10/13 18:41:23  eggestad
  * task API updates
  *
@@ -651,7 +654,7 @@ static int do_call(void * mp)
   memset(svcinfo.service, 0, MWMAXSVCNAME);
   strncpy(svcinfo.service, callmsg->service, MWMAXSVCNAME);
 
-  _mw_getbuffer_from_call(&svcinfo, callmsg);
+  _mw_getbuffer_from_call_to_svcinfo(&svcinfo, callmsg);
 
 
   _mw_set_my_status(callmsg->service);

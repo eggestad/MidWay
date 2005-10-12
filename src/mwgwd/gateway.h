@@ -1,6 +1,6 @@
 /*
   MidWay
-  Copyright (C) 2000 Terje Eggestad
+  Copyright (C) 2000-2005 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.10  2005/10/12 22:46:27  eggestad
+ * Initial large data patch
+ *
  * Revision 1.9  2004/03/20 18:57:47  eggestad
  * - Added events for SRB clients and proppagation via the gateways
  * - added a mwevent client for sending and subscribing/watching events
@@ -57,6 +60,11 @@
 #ifndef _GATEWAY_H
 #define _GATEWAY_H
 
+/** @file 
+    This is the include for gateway,c. The gateway module keep
+    track of peers and clients.
+*/
+
 #include <urlencode.h>
 #include <sys/types.h>
 
@@ -64,12 +72,22 @@
 #include <connection.h>
 #include <SRBprotocol.h>
 
+/**
+   The global variables. We put them in a separate struct for
+   readability.
+*/
 typedef struct {
   int shutdownflag;
   char * mydomain;
   char * myinstance;
   pid_t tcpserverpid;
   pid_t ipcserverpid;
+   /**
+      The big lock indicator. Used for a work-around for locking bugs,
+      this ensure that only the IPC thread or the SRB thread run at the
+      same time. The correct normal operation is that the fine granular
+      lock shall be correct.
+   */
   int biglock;
 } globaldata;
 
@@ -103,6 +121,7 @@ int gwdetachclient(int);
 int gwattachgateway(char *);
 int gwdetachgateway(int);
 
+void gw_setmystatus(int status);
 GATEWAYID allocgwid(int location, int role);
 void freegwid(GATEWAYID gwid);
 

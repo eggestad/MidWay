@@ -1,6 +1,6 @@
 /*
   MidWay
-  Copyright (C) 2000-2004 Terje Eggestad
+  Copyright (C) 2000-2005 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.24  2005/10/12 22:46:27  eggestad
+ * Initial large data patch
+ *
  * Revision 1.23  2004/12/29 20:00:59  eggestad
  * Large data  protocol fix up
  * handle datatype fixup
@@ -124,8 +127,6 @@
 #include <MidWay.h>
 #include <version.h>
 #include <SRBprotocol.h>
-#include <ipctables.h>
-#include <ipcmessages.h>
 
 #include <urlencode.h>
 
@@ -134,9 +135,11 @@
 #include "gateway.h"
 #include "connections.h"
 #include "store.h"
+#include "callstore.h"
 #include "impexp.h"
 #include "shmalloc.h"
 #include "srbevents.h"
+#include "ipcserver.h"
 
 extern globaldata globals;
 
@@ -149,7 +152,7 @@ static void srbcall_req(Connection *, SRBmessage * );
 static void srbcall_rpl(Connection *, SRBmessage * );
 static void srbsvcdata(Connection *, SRBmessage * );
 
-/* is it even used anymore ??? */
+/* @todo is it even used anymore ??? */
 char * srbmessageencode(SRBmessage * srbmsg)
 {
   int len;
@@ -478,149 +481,20 @@ static void srbunprovide(Connection * conn, SRBmessage * srbmsg)
 };
 
 
-/* this is a wrapper to _mw_ipc_putmessage() that handles full
-   queues. If a queue is full, we do a single 100us-1ms sleep to allow
-   the scheduler the possibility to schedule the receipient process to
-   process it's message queue, then we put it into a fifo queue of
-   pending messages and schedule a tasklet to retry in the future. The
-   tasklet must be active as long there are messages in the queue. We
-   use a FIFO ensure that messages to a single recepient are delivered
-   in order. For this reason we must always try to flush the FIFO
-   every time called. We make a seperate function to flush the fifo,
-   srb_flush_ipc_fifo() that return the number if pending messages in the quere. 
- */
-struct ipcfifo {
-   MWID mwid;
-   void * message;
-   int msglen;
-   struct ipcfifo * next, * prev;
-};
-static struct ipcfifo * head = NULL, * tail = NULL;
-static int ipcfifolen = 0;
-
-static inline struct ipcfifo * del_fifo_entry(struct ipcfifo * qe)
-{
-   free(qe->message);
-   if (qe->next) qe->next->prev  = qe->prev;
-   if (qe->prev) qe->prev->next  = qe->next;
-   if (qe == head) head = qe->prev;
-   if (qe == tail) tail = qe->next;
-   free(qe);
-   ipcfifolen--;
-   return qe->next;
-};
-
-int srb_flush_ipc_fifo(void)
-{
-   struct ipcfifo * qe;
-   Call * cmsg;
-   seginfo_t * dataseg;
-   int rc;
-
-   if (ipcfifolen == 0) return 0;
-   
-   DEBUG("flushing ipc fifo which has %d entries",ipcfifolen); 
-
-   qe = tail;
-   while (qe != NULL) {
-      DEBUG("entry has dest %x", qe->mwid);
-      rc = _mw_ipc_putmessage(qe->mwid, qe->message, qe->msglen, IPC_NOWAIT);
-      switch(rc) {
-      case 0: // message sent OK
-	 DEBUG("message sent, removing entry");
-	 qe = del_fifo_entry(qe);
-	 break;
-	 
-      case -EAGAIN:
-      case -ENOMEM: // should never happen, but is a retry case
-	 qe = qe->next;
-	 break;
-	 
-      default:
-	 // all other errors are drop message;
-	 Error("failed to send message to %#x errno = %d", qe->mwid, rc);
-	 cmsg  = (Call *) qe->message;
-	 dataseg = _mw_getsegment_byid(cmsg->datasegmentid);
-	 _mwfree(_mwoffset2adr(cmsg->data, dataseg));
-	 if (cmsg->datasegmentid > LOW_LARGE_BUFFER_NUMBER) _mw_detach_mmap(dataseg);
-	 qe = del_fifo_entry(qe);
-	 break;
-      }
-   }
-   return ipcfifolen;
-};
-
-static void ipc_sendmessage(MWID id, void * message, int mesgsize)
-{
-   int rc, retry_count = 0;
-   Call * cmsg;
-   struct ipcfifo * qe;
-   cmsg = (Call *) message;
-   seginfo_t * dataseg;
-
-   srb_flush_ipc_fifo();
-
-   dataseg = _mw_getsegment_byid(cmsg->datasegmentid);
-   
- retry:
-   DEBUG("Sending message retry = %d", retry_count);
-   rc = _mw_ipc_putmessage(id, message, mesgsize, IPC_NOWAIT);
-   
-   if (rc == 0) {
-      DEBUG("Message sent OK");
-      if (cmsg->datasegmentid > LOW_LARGE_BUFFER_NUMBER) 
-	 _mw_detach_mmap(dataseg);
-      return;
-   };
-   
-   if (rc == -EAGAIN) {
-      if (retry_count < 2) {
-	 retry_count++;
-	 usleep(1000); // 1 mS sleep
-	 goto retry;
-      };
-      
-      qe = malloc(sizeof(struct ipcfifo));
-      qe->mwid = id;
-      qe->message = message;
-      qe->msglen = mesgsize;
-
-      DEBUG("message send failed due to queue full, enqueing"); 
-      qe->next = NULL;   
-      
-      if (head == NULL) {
-	 qe->prev = NULL;
-	 head = tail = qe;
-      };
-      ipcfifolen++;
-      head->next = qe;
-      qe->prev = head;
-      head = qe;
-      wake_fast_task();
-      return;
-   };
-   Error("failed to send message to %#x errno = %d", id, rc);
-   _mwfree(_mwoffset2adr(cmsg->data, dataseg));
-   if (cmsg->datasegmentid > LOW_LARGE_BUFFER_NUMBER) _mw_detach_mmap(dataseg);
-   return;
- };
-
 static void srbcall_rpl(Connection * conn, SRBmessage * srbmsg)
 {
-  int rc;
-  Call cmsg = { 0 };
-  Connection * cltconn;
   MWID mwid = UNASSIGNED; 
 
   char * svcname;
   char * data = NULL;
-  int datachunks = -1;
   char * instance = NULL;
   int datalen = 0;
-  int sectolive = -1;
+  int datatotal = -1;
   char * domain = NULL;
   int hops = 0;
   int maxhops = 30;
+  SRBhandle_t handle;
+  int returncode, appreturncode;
 
   /* I don't like having to hardcode the offset into the fields in the
      message like this, but is quite simple... */
@@ -635,8 +509,6 @@ static void srbcall_rpl(Connection * conn, SRBmessage * srbmsg)
 
   dbg_srbprintmap(srbmsg); 
 
-  cmsg.mtype = SVCREPLY;
-
   /* first we get the field that are identical on requests as well as
      replies. */
   if (!(svcname =     szGetReqField(conn, srbmsg, SRB_SVCNAME))) {
@@ -647,10 +519,8 @@ static void srbcall_rpl(Connection * conn, SRBmessage * srbmsg)
     _mw_srbsendreject(conn, srbmsg, SRB_SVCNAME, svcname, SRB_PROTO_ILLEGALVALUE);
     return;
   };
-  
-  strncpy(cmsg.service, svcname,MWMAXSVCNAME ); 
-  
-  
+
+#if 0  // move to callstore
   if (!(instance =     szGetReqField(conn, srbmsg, SRB_INSTANCE))) {
     return;
   };
@@ -673,146 +543,81 @@ static void srbcall_rpl(Connection * conn, SRBmessage * srbmsg)
 
   // this is where we inc hops counter. This means that SRB client svc
   // calls has always hops=1 and that replies has hops 0 when the
-  // gateway receive the IPC message from the repliting server.
+  // gateway receive the IPC message from the replying server.
   hops++;
-  cmsg.hops = hops;
+#endif
   
-  mwid = UNASSIGNED;
-  if (iGetOptField(conn, srbmsg,  SRB_CALLERID, &mwid) == -1) {
+
+  if (xGetReqField(conn, srbmsg,  SRB_HANDLE, &handle) == -1) {
     return;
   };
-
-  cmsg.cltid = CLTID(mwid);
-  cmsg.srvid = SRVID(mwid);
-  cmsg.callerid = mwid;
-
-  //TODO paassing on to a gateway not a client
-
-  if (xGetReqField(conn, srbmsg,  SRB_HANDLE, (SRBhandle_t *) &cmsg.handle) == -1) {
+  
+  if (iGetReqField(conn, srbmsg,  SRB_RETURNCODE, &returncode) == -1) {
     return;
   };
-
-  if (iGetReqField(conn, srbmsg,  SRB_RETURNCODE, &cmsg.returncode) == -1) {
+  
+  if (iGetOptField(conn, srbmsg,  SRB_APPLICATIONRC, &appreturncode) == -1) 
     return;
-  };
 
-  if (iGetOptField(conn, srbmsg,  SRB_APPLICATIONRC, &cmsg.appreturncode) == -1) 
-    return;
 
   DEBUG("got a service reply instance %s, callerid %#x", 
 	instance, mwid);
 
-  if (strcmp(instance, globals.myinstance) == 0) {
-    DEBUG("got a service reply that originated in this instance");
-    cltconn = gwlocalclient(mwid);
-    if (cltconn != NULL) {
-      SRBmessage srborigmsg;
-      char * handle;
-      int freemap = 0;
-
-      DEBUG("got a call reply to a local client %d. shortcutting", CLTID2IDX(mwid));
-
-      /* Now we must get the stored original srb message from client
-	 to get the clients handle. The handle we get in return from
-	 the gateway is our ipchandle */
-
-      storeLockCall();
-      if (cmsg.returncode == MWMORE) {
-	rc = storeGetCall(mwid, cmsg.handle, NULL, &srborigmsg.map);
-	DEBUG2("storeGetCall returned %d, address of old map is %p", 
-	       rc, srborigmsg.map);
-      } else {
-	rc = storePopCall(mwid, cmsg.handle, NULL, &srborigmsg.map);
-	DEBUG2("storePopCall returned %d, address of old map is %p", 
-	       rc, srborigmsg.map);
-	freemap = 1;
-      };
-      if (rc != 1) {
-	Warning("failed to get call message from client %d", cmsg.cltid);
-      } else {
-	handle = urlmapgetvalue(srborigmsg.map, SRB_HANDLE);
-	if (handle == NULL) {
-	  Error("got original SRB  call message from client %d, but it has no Handle!", cmsg.cltid);
-	} else {
-	  handle = strdup(handle);
-	};
-      };
-      storeUnLockCall();
-
-      DEBUG("replacing handle %s with %s", urlmapgetvalue(srbmsg->map, SRB_HANDLE), handle);
-      urlmapset(srbmsg->map, SRB_HANDLE, handle);
-
-      _mw_srbsendmessage(cltconn, srbmsg);
-      if (freemap) {
-	DEBUG("freeing map after pop");
-	urlmapfree(srborigmsg.map);
-      };
-      return;
-
-    } else {
-      DEBUG("got a call reply to ipc client %d", CLTID2IDX(mwid));
-      cmsg.cltid = mwid;
-    };
-  } else {
-    DEBUG("got a service reply that originated in  instance %s, routing to gw %d", 
-	  instance, GWID2IDX(mwid));
-    cmsg.gwid = mwid;
-  };
-  
   vGetOptBinField(conn, srbmsg, SRB_DATA, &data, &datalen);
-  if (data == NULL) datalen = 0;
-  else {
-    _mw_putbuffer_to_call(&cmsg, data, datalen);
-  };
   
+  iGetOptField(conn, srbmsg, SRB_DATATOTAL, &datatotal);
+  if (datatotal == 0) datatotal = datalen;
 
-  // TODO: datachunks 
-  /*
-  iGetOptField(conn, srbmsg, SRB_DATACHUNKS, &datachunks);
-  */
+  storeSRBReply(mwid, handle, srbmsg->map, returncode, appreturncode, datatotal);
+  if (datalen > 0) storeSRBData(mwid, handle, data, datalen);
+
+  // the map now belongs to the store
+  srbmsg->map = NULL;
+
   //  iGetOptField(conn, srbmsg,  SRB_SECTOLIVE, &sectolive);
-
-  ipc_sendmessage(mwid, (void *) &cmsg, sizeof(Call));
   return;
      
 };
 
-static appenddata(Connection * conn, mwhandle_t handle);
+//static appenddata(Connection * conn, mwhandle_t handle);
 
-static void srbdata(Connection * conn, SRBmessage * srbmsg)
+static void srbsvcdata(Connection * conn, SRBmessage * srbmsg)
 {
-  int rc;
   char * data = NULL;
   int datalen = 0;
-  mwhandle_t handle = 0xffffffff;
-  char * instance = NULL;
+  SRBhandle_t handle = 0xffffffff;
+  MWID mwid;
 
+  DEBUG("Got a SVCDATA from %s", conn->peeraddr_string);    
+
+  conn_getinfo(conn->fd, &mwid, NULL, NULL, NULL);
+  if (xGetReqField(conn, srbmsg,  SRB_HANDLE, &handle) == -1) {
+    return;
+  };
+
+  vGetOptBinField(conn, srbmsg, SRB_DATA, &data, &datalen);
+  storeSRBData(mwid, handle, data, datalen);
 };
 
 static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
 {
-  int rc;
   char * tmp;
   
   MWID mwid = UNASSIGNED; 
 
   char * svcname;
   char * data = NULL;
-  int datatotal = -1;
   char * instance = NULL;
   char * clientname = NULL;
-  mwhandle_t handle = 0xffffffff;
+  char * domain = NULL;
   long flags = 0;
   int datalen = 0;
+  int datatotal = 0;
   int noreply = 0;
-  int multiple = 0;
-  int sectolive = -1;
-  char * domain = NULL;
-  int callerid;
+  int secstolive = -1;
   int hops = 0;
   int maxhops = 30;
-
-  TIMEPEG();
+  SRBhandle_t handle;
 
   conn_getinfo(conn->fd, &mwid, NULL, NULL, NULL);
   if (mwid == UNASSIGNED) {
@@ -845,12 +650,16 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
   hops++;
 
   vGetOptBinField(conn, srbmsg, SRB_DATA, &data, &datalen);
+  iGetOptField(conn, srbmsg, SRB_DATATOTAL, &datatotal);
 
   if (data == NULL) datalen = 0;
-  
+
+  if (datatotal == 0) datatotal = datalen;
+
   iGetOptField(conn, srbmsg, SRB_DATATOTAL, &datatotal);
+
   instance =    szGetOptField(conn, srbmsg, SRB_INSTANCE);
-  iGetOptField(conn, srbmsg,  SRB_SECTOLIVE, &sectolive);
+  iGetOptField(conn, srbmsg,  SRB_SECTOLIVE, &secstolive);
 
   if (srbmsg->marker == SRB_NOTIFICATIONMARKER) {
     /* noreply  */
@@ -864,89 +673,46 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
     DEBUG("Got a SVCCALL service=%s from %s", 
 	  svcname, conn->peeraddr_string);
     
-    /* handle is optional iff noreply */
-    if (!(tmp =         szGetReqField(conn, srbmsg, SRB_HANDLE))) {
+    /* handle is optional iff noreply and no pending data frames*/
+    if (!(tmp = szGetReqField(conn, srbmsg, SRB_HANDLE))) {
       return;
     };
-    if ( (tmp == NULL) || (sscanf(tmp,"%lx", &handle) != 1) ) {
+    if ( (tmp == NULL) || (sscanf(tmp,"%x", &handle) != 1) ) {
       _mw_srbsendreject(conn, srbmsg, SRB_HANDLE, tmp, SRB_PROTO_ILLEGALVALUE);
       return;
     };
   };
-  
-  /* TODO: are these req if peer is a gw? */
-  domain =      szGetOptField(conn, srbmsg, SRB_DOMAIN);
-  callerid = UNASSIGNED;
-  iGetOptField(conn, srbmsg, SRB_CALLERID, &callerid);
-  
-  clientname =  szGetOptField(conn, srbmsg, SRB_CLIENTNAME);
-  
-  tmp =         szGetOptField(conn, srbmsg, SRB_MULTIPLE);
+
+  tmp = szGetOptField(conn, srbmsg, SRB_NOREPLY);
   if (tmp)
-    if (strcasecmp(tmp, SRB_YES) == 0) multiple = 1;
-    else if (strcasecmp(tmp, SRB_NO) == 0) multiple = 0;
+    if (strcasecmp(tmp, SRB_YES) == 0) flags |= MWNOREPLY;
+    else if (strcasecmp(tmp, SRB_NO) == 0) flags  &= ~MWNOREPLY;
     else {
       _mw_srbsendreject(conn, srbmsg,
-			SRB_MULTIPLE, tmp, SRB_PROTO_ILLEGALVALUE);
-
+			SRB_NOREPLY, tmp, SRB_PROTO_ILLEGALVALUE);
+      
       return;
     };
   
+  /* TODO: are these req if peer is a gw? */
+  domain =      szGetOptField(conn, srbmsg, SRB_DOMAIN);
+  
+  clientname =  szGetOptField(conn, srbmsg, SRB_CLIENTNAME);
+  
   iGetOptField(conn, srbmsg,  SRB_MAXHOPS, &maxhops);
   TIMEPEG();
+  
+  if (secstolive > 0) 
+    secstolive *= 1000; // milli secs
 
-  /* 
-     This is the special case where we don't have any chunks.
-     we can do the call directly.
-  */
-  if ((datatotal == -1) || (datatotal == datalen)) {
+  storeSRBCall(mwid, handle, srbmsg->map, conn, datatotal, svcname, instance, domain, "Xclient", secstolive, flags);
+  if (datalen > 0) storeSRBData(mwid, handle, data, datalen);
 
-    DEBUG("SVCCALL was complete doing _mwacallipc");      
-    
-    /* we must lock since it happens that the server replies before
-       we do storeSetIpcCall() */
-    TIMEPEG();    
-    storeLockCall();
-    TIMEPEG();
+  // the map now belongs to the store
+  srbmsg->map = NULL;
 
-    // TODO: (?)
-    // We do actually send to ourselves if we're the only one
-    // providing the service. It's inefficient, but clean, and it's
-    // only _mwacallipc() theat do the _mw_get_services_byname() call
-    // which is heavy.
+  TIMEPEG();
 
-    if (conn->type == CONN_TYPE_GATEWAY) {
-       DEBUG("got call from a gateway, setting ipc only flag for mwacallipc");
-       flags |= MWIPCONLY;
-    };
-
-    TIMEPEGNOTE("doing _mwacallipc");
-    rc = _mwacallipc (svcname, data, datalen, flags, mwid, instance, domain, callerid, hops);
-    TIMEPEGNOTE("done _mwacallipc");
-    if (rc > 0) {
-      DEBUG("_mwacallipc succeeded");  
-
-      if ( ! noreply) {
-	storePushCall(mwid, handle, conn->fd, srbmsg->map);
-	srbmsg->map = NULL;
-	DEBUG(
-	      "Storing call fd=%d nethandle=%u mwid=%#x ipchandle=%d",
-	      conn->fd, handle, mwid, rc);
-	TIMEPEG();
-	
-	rc = storeSetIPCHandle(mwid, handle, conn->fd, rc);
-	  
-	DEBUG("storeSetIPCHandle returned %d", rc);
-	DEBUG("srbsvccall returns good");  
-      };
-    } else {
-      DEBUG("_mwacallipc failed with %d ", rc);   
-      _mw_srbsendcallreply(conn, srbmsg, NULL, 0, 0, _mw_errno2srbrc(rc), 0);
-    };
-    TIMEPEG();
-    storeUnLockCall();
-    TIMEPEG();
-  };
   return;  
 };
 
@@ -1349,7 +1115,7 @@ int srbDoMessage(Connection * conn, SRBmessage * srbmsg)
       else if (srbmsg->marker == SRB_RESPONSEMARKER)
 	srbcall_rpl(conn, srbmsg);
       else 
-	// TODO: reject
+	/// @todo: reject
 	;
 
       break;
@@ -1358,6 +1124,11 @@ int srbDoMessage(Connection * conn, SRBmessage * srbmsg)
       srbprovide(conn, srbmsg);
       break;
     }
+    if ( strcasecmp(srbmsg->command, SRB_SVCDATA) == 0) {
+      TIMEPEG();  
+      srbsvcdata(conn, srbmsg);
+      break;
+    };
     break;
 
   case 8:
@@ -1426,10 +1197,10 @@ int _mw_srbsendinitreply(Connection * conn, SRBmessage * srbmsg, int rcode, char
   return rc;;
 };
 
-int _mw_srbsendcallreply(Connection * conn, SRBmessage * srbmsg, char * data, int len, 
+int _mw_srbsendcallreply(Connection * conn, SRBmessage * srbmsg, char * data, int datalen, 
 			     int apprcode, int rcode, int flags)
 {
-  int rc;
+  int rc = 0, datarem = 0;
 
   DEBUG2("_mw_srbsendcallreply: begins fd=%d appcode=%d, rcode=%d", 
 	conn->fd, apprcode, rcode);
@@ -1438,9 +1209,21 @@ int _mw_srbsendcallreply(Connection * conn, SRBmessage * srbmsg, char * data, in
 
   srbmsg->marker = SRB_RESPONSEMARKER;
 
-  /* first update the data field, or remove as appropreate */
-  if ( (data != NULL) && (len > 0) ) {
-    _mw_srb_nsetfield(srbmsg, SRB_DATA,data, len);
+  /* first update the data field, or remove as appropreate, if we're
+     going to send srbdata, set datatotal */
+  if (data != NULL) {
+    if (datalen == 0) {
+      datalen = strlen(data);
+    };
+    DEBUG1("datalen = %d max is %d", datalen,  srbdata_per_message());
+    if (datalen > srbdata_per_message()) {
+      _mw_srb_setfieldi(srbmsg, SRB_DATATOTAL, datalen);
+      datarem = datalen - srbdata_per_message() ;
+      datalen = srbdata_per_message();
+    } else {
+      datarem = 0;
+    };
+    _mw_srb_nsetfield(srbmsg, SRB_DATA, data, datalen);
   } else {
     _mw_srb_delfield(srbmsg, SRB_DATA);
   };
@@ -1459,8 +1242,13 @@ int _mw_srbsendcallreply(Connection * conn, SRBmessage * srbmsg, char * data, in
   _mw_srb_delfield(srbmsg, SRB_MULTIPLE);
   //_mw_srb_delfield(srbmsg, SRB_MAXHOPS);
 
+  
   DEBUG2("_mw_srbsendcallreply: sends message");
   rc = _mw_srbsendmessage(conn, srbmsg);
+  DEBUG1("rc=%d data remainding=%d", rc, datarem);
+  if ((rc >= 0) && (datarem > 0)) {
+     rc +=  _mw_srbsenddata(conn, _mw_srb_getfield(srbmsg, SRB_HANDLE), data+datalen, datarem);
+  }
   return rc;
 };
 

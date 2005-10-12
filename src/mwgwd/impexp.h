@@ -1,6 +1,6 @@
 /*
   The MidWay API
-  Copyright (C) 2002 Terje Eggestad
+  Copyright (C) 2002,2005 Terje Eggestad
 
   The MidWay API is free software; you can redistribute it and/or
   modify it under the terms of the GNU Library General Public License as
@@ -18,11 +18,16 @@
   Boston, MA 02111-1307, USA. 
 */
 
+/* $Id$ */
+
 /*
  * $Id$
  * $Name$
  * 
  * $Log$
+ * Revision 1.7  2005/10/12 22:46:27  eggestad
+ * Initial large data patch
+ *
  * Revision 1.6  2002/11/18 00:23:10  eggestad
  * - added prototype for impexp_cleanuppeer()
  *

@@ -1,7 +1,6 @@
-
 /*
   MidWay
-  Copyright (C) 2001,2005 Terje Eggestad
+  Copyright (C) 2005 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -21,20 +20,15 @@
 
 /* $Id$ */
 
-/* 
+/*
  * $Log$
- * Revision 1.2  2005/10/12 22:46:27  eggestad
+ * Revision 1.1  2005/10/12 22:46:27  eggestad
  * Initial large data patch
  *
- * Revision 1.1  2001/09/15 23:40:09  eggestad
- * added the broker daemon
  *
  */
 
-#ifndef _BROKER_H
-#define _BROKER_H
+int ipcmainloop(void);
 
-int connectbroker(char * domain, char * instance);
-int read_with_fd(int s, char * message, int len, int * fd);
-
-#endif
+int flush_ipc_fifo(void);
+void ipc_sendmessage(MWID id, void * message, int mesgsize);

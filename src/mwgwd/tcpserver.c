@@ -1,6 +1,6 @@
 /*
   MidWay
-  Copyright (C) 2000 Terje Eggestad
+  Copyright (C) 2000,2005 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.21  2005/10/12 22:46:27  eggestad
+ * Initial large data patch
+ *
  * Revision 1.20  2004/11/17 20:38:18  eggestad
  * fix for a bad menory leak, kept allocing new connection message buffers.
  *
@@ -108,6 +111,7 @@
 #include <tasks.h>
 #include "tcpserver.h"
 #include "gateway.h"
+#include "ipcserver.h"
 #include "connections.h"
 #include "broker.h"
 #include "srbevents.h"
@@ -207,9 +211,9 @@ int tcpstartlisten(int port, int role)
    and pace it into the list of sockets to do select on.*/
 static Connection *  tcpnewconnection(Connection * listensocket)
 {
-  int mtu=-1, rc, fd, len;
+  int mtu=-1, rc, fd;
   SockAddress addr;
-
+  socklen_t len;
   Connection * conn;
 
   /* fom gateway.c */
@@ -526,7 +530,7 @@ int timer_task_2(PTask pt)
 
   DEBUG("vvvvvvvvvv starting fast timer task");
 
-  rc = srb_flush_ipc_fifo();
+  rc = flush_ipc_fifo();
   DEBUG("fifo queue = %d", rc);
   if (rc == 0) {
      DEBUG("suspending fast task");

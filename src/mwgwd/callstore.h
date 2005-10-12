@@ -1,7 +1,6 @@
-
 /*
   MidWay
-  Copyright (C) 2001,2005 Terje Eggestad
+  Copyright (C) 2005 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -21,20 +20,22 @@
 
 /* $Id$ */
 
-/* 
+/*
  * $Log$
- * Revision 1.2  2005/10/12 22:46:27  eggestad
+ * Revision 1.1  2005/10/12 22:46:27  eggestad
  * Initial large data patch
  *
- * Revision 1.1  2001/09/15 23:40:09  eggestad
- * added the broker daemon
  *
  */
 
-#ifndef _BROKER_H
-#define _BROKER_H
+#include <MidWay.h> 
+#include <urlencode.h>
+#include <ipcmessages.h>
+#include <SRBprotocol.h>
 
-int connectbroker(char * domain, char * instance);
-int read_with_fd(int s, char * message, int len, int * fd);
-
-#endif
+int storeSRBCall(MWID mwid, SRBhandle_t nethandle, urlmap *map, Connection * conn, int datatotal, 
+		 char * service, char * instance, char * domain, char * clientname, int timeout, int flags);
+int storeSRBData(MWID mwid, SRBhandle_t nethandle, char * data, int datalen);
+int storeSRBReply(MWID mwid, SRBhandle_t nethandle, urlmap *map, int rcode, int apprcode, int datatotal);
+int storeIPCCall(Call * cmsg, Connection *conn);
+int storeIPCReply(Call * cmsg, Connection ** pconn, urlmap ** pmap);

@@ -1,6 +1,6 @@
 /*
   MidWay
-  Copyright (C) 2000,2001,2002 Terje Eggestad
+  Copyright (C) 2000,2001,2002,2005 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.27  2005/10/12 22:46:27  eggestad
+ * Initial large data patch
+ *
  * Revision 1.26  2004/11/17 20:58:08  eggestad
  * Large data buffers for IPC
  *
@@ -159,6 +162,7 @@
 #include "toolbox.h"
 #include "impexp.h"
 #include "srbevents.h"
+#include "ipcserver.h"
 
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$";
@@ -181,12 +185,19 @@ static char * RCSName UNUSED = "$Name$";
  the two. So far we only use 1.
  ***********************************************************************/
 
-ipcmaininfo * ipcmain = NULL;
-gatewayentry * gwtbl = NULL;
+static gatewayentry * gwtbl = NULL;
 
+static ipcmaininfo * ipcmain = NULL;
+
+
+/**
+   We keep a struct for all global data variables.
+*/
 globaldata globals = { 0 };
 
-
+/**
+   If the arguments are wrong, print this. 
+*/
 void usage(char * arg0)
 {
   printf ("%s: [-A uri] [-l level] [-L logprefix] [-c clientport] [-g gatewayport] [-p commonport] [domainname]\n",
@@ -206,473 +217,6 @@ void usage(char * arg0)
 DECLAREMUTEX(peersmutex);
 
 DECLAREGLOBALMUTEX(bigmutex);
-
-/************************************************************************
- * functions to handle the different IPC messages, and the ipcmainloop
- * that don't  do anything but just receive  IPC messages and dispatch
- * them.
- ************************************************************************/
-static void do_event_message(char * message, int len)
-{
-  Event *          evmsg  = (Event *)          message;
-  int newsvc, delsvc; 
-  serviceentry * svcent;
-  mwprovideevent * pe;
-	  
-  DEBUG("Got an event %s", evmsg->event);
-
-  /* only events that don't start with a. is passed on too peers */
-  if (evmsg->event[0] != '.') {
-     do_srb_event_dispatch(evmsg);
-     return; // only event beginning with . is processed below
-  };
-
-  /* special handle for .mw(un)provide messages */
-  newsvc = strcmp(evmsg->event, NEWSERVICEEVENT);
-  delsvc = strcmp(evmsg->event, DELSERVICEEVENT);
-  
-  if ( (newsvc == 0) || (delsvc == 0) ){
-    
-    if (evmsg->datalen != sizeof(mwprovideevent)) {
-      Error("in datalength with provide event (%lld != %ld), probably an error in mwd(1)", 
-	    evmsg->datalen, (long) sizeof(mwprovideevent));
-      return;
-    };
-    
-    pe = _mwoffset2adr(evmsg->data, _mw_getsegment_byid(evmsg->datasegmentid));
-    if (pe == NULL) {
-      Error("in getting data with provide event, probably an error in mwd(1)");
-      return;
-    };
-	  
-    DEBUG("Got an event %s: for service %s provider %#x svcid = %d", 
-	  evmsg->event, pe->name, pe->provider, pe->svcid);
-    
-    svcent = _mw_get_service_byid(pe->svcid);
-    if ( (svcent != NULL) && (svcent->location == GWPEER) ) {
-      DEBUG("(un)provide event for foreign service in my own domain, ignoring");
-      goto ack;
-    };
-    
-    /* after this point we must send an ack. */
-    if (pe->provider == _mw_get_my_gatewayid()) {
-      DEBUG("(un)provide event from my self, ignoring");
-      goto ack;
-    } 
-    
-    if (newsvc == 0) {
-      serviceentry * se;
-      se = _mw_get_service_byid(pe->svcid);
-    
-      if (!se) {
-	DEBUG("Got an provide event for a service that no longer exist, ignoring");
-	goto ack;
-      };
-
-      if (se->location == GWLOCAL) {
-	doprovideevent(pe->name);
-      } else {
-	DEBUG("we got a provide event for a foreign service, ignoring");
-      }
-    } else // delsvc == 0
-      dounprovideevent(pe->name);
-  } else {
-     DEBUG("Ignoring event %s", evmsg->event);
-  };
-  ack:
-  // we only ack messages with acompanying buffers
-  if (evmsg->data) {
-     evmsg->mtype = EVENTACK;
-     DEBUG("acking event to mwd"); 
-     _mw_ipc_putmessage(MWD_ID, message, len, 0);
-  };
-  return;
-};
-
-static void do_svcreply(Call * cmsg, int len);
-
-static void do_svccall(Call * cmsg, int len)
-{
-  SRBmessage srbmsg;
-  Connection * conn;
-  unsigned char marker;
-  void * data = NULL;
-  int rc, l;
-
-  TIMEPEGNOTE("enter do_svccall");
-  if (cmsg == NULL) {
-    Error("Internal Error: do_svccall called with NULL pointer, this can't happen");
-    return;
-  };
-
-  DEBUG2("%s", conn_print());
-  DEBUG("got a call to service %s svcid %#x", cmsg->service, cmsg->svcid);
-  TIMEPEG();
-  conn = impfindpeerconn(cmsg->service, cmsg->svcid);
-
-  //  DEBUG2("%s", conn_print());
-
-  TIMEPEG();
-
-  if (conn == NULL) {
-    Warning("Hmm got a svccall for service %s svcid %#x, but I've got no such import, returning error", 
-	    cmsg->service, cmsg->svcid);
-    cmsg->returncode = -ENOENT;
-    if (cmsg->gwid != UNASSIGNED) {
-      // if we ourselves managed to send this, we short cut the reply,
-      // or else we get an infinite loop. We do actually send to
-      // ourselves if we're the only one providing the service. It's
-      // inefficient, but clean, and it's only _mwacallipc() theat do
-      // the _mw_get_services_byname() call which is heavy.
-      if (cmsg->gwid == _mw_get_my_gatewayid()) {
-	do_svcreply(cmsg, len);
-	return;
-      };
-      _mw_ipc_putmessage(cmsg->gwid, (char *) cmsg, len, 0);
-    } else {
-      _mw_ipc_putmessage(cmsg->cltid, (char *) cmsg, len, 0);
-    };
-    return;
-  };
-
-
-  DEBUG2("service is on connection %p", conn);
-  //  DEBUG2("service is on connection %p", conn);
-  //  DEBUG2("%s", conn_print());
-
-  DEBUG("service is on connection with fd=%d at %s, gwid=%d", 
-	conn->fd, conn->peeraddr_string, GWID2IDX(conn->gwid));
-
-  if (conn->peerinfo) {
-    Connection * pconn;
-    pconn = ((struct gwpeerinfo *) conn->peerinfo)->conn;
-    Assert(conn == pconn);
-  }
-
-  TIMEPEG();
-
-  // TODO: handle arbitrary long data
-  if (cmsg->datalen != 0) {
-    data = _mwoffset2adr(cmsg->data, _mw_getsegment_byid(cmsg->datasegmentid));
-    if (!data) {
-      Error("got a corrupt svccall message, dataoffset = %lld ", 
-	    cmsg->data);
-      return;
-    };
-
-    TIMEPEG();
-
-    l = _mwshmcheck(data);
-    if ( (l < 0) || (l < cmsg->datalen)) {
-      Error("got a corrupt svccall message, dataoffset = %lld len = %lld shmcheck() => %d", 
-	    cmsg->data, cmsg->datalen, l);
-      return;
-    };
-  } 
-
-  if (cmsg->flags & MWNOREPLY) 
-    marker = SRB_NOTIFICATIONMARKER;
-  else 
-    marker = SRB_REQUESTMARKER;
-
-  TIMEPEG();
-
-  _mw_srb_init(&srbmsg, SRB_SVCCALL, marker, 
-	       SRB_SVCNAME, cmsg->service, 
-	       SRB_INSTANCE, globals.myinstance, 
-	       SRB_DOMAIN, globals.mydomain, 
-	       NULL, NULL);
-  TIMEPEG();
-
-  if (data != NULL) {
-    _mw_srb_nsetfield(&srbmsg, SRB_DATA, data, cmsg->datalen);
-    _mwfree(data);
-  };
-
-  _mw_srb_setfieldi(&srbmsg, SRB_HOPS, cmsg->hops);
-		 
-  _mw_srb_setfieldi(&srbmsg, SRB_CALLERID, cmsg->cltid);
-
-  _mw_srb_setfieldx(&srbmsg, SRB_HANDLE, cmsg->handle);
-
-  TIMEPEG();
-  rc = _mw_srbsendmessage(conn, &srbmsg);
-
-  TIMEPEG();
-  
-  urlmapfree(srbmsg.map);
-  TIMEPEGNOTE("normal leave do_svccall");
-  return;
-  
-};
-  
-static void do_svcreply(Call * cmsg, int len)
-{
-  int rc;
-  char * data;
-  SRBmessage srbmsg;
-  int fd;
-  Connection * conn;
-  MWID mwid;
-
-  DEBUG("Got a svcreply service %s from server %d for client %d, gateway %d ipchandle=%#x callerid=%x instrance=%s", 
-	cmsg->service, SRVID2IDX(cmsg->srvid),
-	CLTID2IDX(cmsg->cltid), GWID2IDX(cmsg->gwid), cmsg->handle, cmsg->callerid, cmsg->instance);
-
-  
-  /* we must lock since it happens that the server replies before
-     we do storeSetIpcCall() in SRBprotocol.c */
-  strcpy(srbmsg.command, SRB_SVCCALL);
-  srbmsg.marker = SRB_RESPONSEMARKER;
-  
-  storeLockCall();
-  /* there are more replies, we get and not pop the map from the
-     pending call list */
-
-  if (cmsg->cltid != UNASSIGNED) 
-    mwid = cmsg->cltid;
-  else 
-    mwid = cmsg->gwid;
-
-  DEBUG("fetching SRB map from store for %#x handle = %x", mwid, cmsg->handle);
-  if (cmsg->returncode == MWMORE) {
-    rc = storeGetCall(mwid, cmsg->handle, &fd, &srbmsg.map);
-    DEBUG2("storeGetCall returned %d, address of old map is %p", 
-	   rc, srbmsg.map);
-    srbmsg.map = urlmapdup(srbmsg.map);
-    DEBUG2("dup map: new map at %p", srbmsg.map);
-  } else {
-    rc = storePopCall(mwid, cmsg->handle, &fd, &srbmsg.map);
-    DEBUG2("storePopCall returned %d, address of old map is %p", 
-	   rc, srbmsg.map);
-  };
-  storeUnLockCall();
-  
-  if (!rc ) {
-    DEBUG("Couldn't find a waiting call for this message, possible quite normal");
-    return;
-  };
-
-  dbg_srbprintmap(&srbmsg);
-
-  if (cmsg->flags & MWNOREPLY) {
-    DEBUG( "Noreply flags set, ignoring");
-    _mwfree(_mwoffset2adr(cmsg->data, _mw_getsegment_byid(cmsg->datasegmentid)));
-    return;
-  };
-  
-  if (cmsg->datalen == 0) {
-    data = NULL;
-    len = 0;
-  } else {
-    len = cmsg->datalen;
-    data = _mwoffset2adr(cmsg->data, _mw_getsegment_byid(cmsg->datasegmentid));
-  };
-  
-  DEBUG( "sending reply on fd=%d", fd);
-  conn = conn_getentry(fd);
-  
-  switch (cmsg->returncode) {
-  case MWSUCCESS:
-  case MWFAIL:
-  case MWMORE:
-    rc = cmsg->returncode;
-    break;
-    
-  default:
-    rc = _mw_errno2srbrc(cmsg->returncode);
-  };
-  
-  _mw_srbsendcallreply(conn, &srbmsg, data, len, 
-		       cmsg->appreturncode,  rc, 
-		       cmsg->flags); 
-  DEBUG( "reply sendt");
-  
-  /* if there are no more replies to this call, we called
-     storePopCall() above, and we must free the map. */
-  urlmapfree(srbmsg.map);
-  
-  _mwfree(_mwoffset2adr(cmsg->data, _mw_getsegment_byid(cmsg->datasegmentid)));
-  /* may be either a client or gateway, if clientid is myself,
-     then gateway. */
-  return;
-};
-
-int biglock = 1;
-int ipcmainloop(void)
-{
-  int i, rc, errors, len;
-  char message[MWMSGMAX];
-  int fd, connid;
-  SRBmessage srbmsg;
-  cliententry * cltent;
-  Connection * conn;
-
-  /* really a union with the message buffer*/
-  long *           mtype  = (long *)           message;
-  
-  Attach *         amsg   = (Attach *)         message;
-  Administrative * admmsg = (Administrative *) message;
-  Provide *        pmsg   = (Provide *)        message;
-  Call *           cmsg   = (Call *)           message;
-
-  memset (&srbmsg, '\0', sizeof(SRBmessage));
-  i = GWID2IDX(_mw_get_my_gatewayid());
-  gwtbl[i].status = MWREADY;
-  Info("Ready.");
-  
-  errors = 0;
-  while(!globals.shutdownflag) {
-    len = MWMSGMAX;
-
-    TIMEPEGNOTE("end ipc");
-    timepeg_log();
-    DEBUG( "/\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ /\\ ");
-    DEBUG("doing _mw_ipc_getmessage()");
-
-    UNLOCK_BIGLOCK();
-
-    rc = _mw_ipc_getmessage(message, &len, 0, 0);
-
-    LOCK_BIGLOCK();
-
-
-    DEBUG( "\\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ \\/ ");
-    DEBUG( "_mw_ipc_getmessage() returned %d", rc);
-    TIMEPEGNOTE("startipc");
-    TIMEPEGNOTE("start");
-    
-    if (rc == -EIDRM) {
-      globals.shutdownflag = TRUE;
-      break;
-    };
-    if (rc == -EINTR) 
-      continue;
-    if (rc < 0) {
-      errors++;
-      if (errors > 10) {
-	Error("To many errors while trying to read message queue");
-	return -rc; /* going down on error */
-      };
-    }
-
-    //    _mw_dumpmesg(message);
-
-    switch (*mtype) {
-    case ATTACHREQ:
-    case DETACHREQ: 
-      /*  it  is  consiveable  that  we may  add  the  possibility  to
-         disconnect  spesific clients, but  that may  just as  well be
-         done  thru  a  ADMREQ.  We  have so  fare  no  provition  for
-         disconnecting clients other than mwd marking a client dead in
-         shm tables. */
-      Warning("Got a attach/detach req from pid=%d, ignoring", amsg->pid);
-      break;
-
-    case ATTACHRPL:
-      /*  now this  is in  response to  an attach.  mwd must  reply in
-	 sequence, so this is the  reply to my oldest pending request.
-	 (not that it matters)*/
-      strcpy(srbmsg.command, SRB_INIT);
-      srbmsg.marker = SRB_RESPONSEMARKER;
-      rc = storePopAttach(amsg->cltname, &connid, &fd, &srbmsg.map);
-      cltent = _mw_get_client_byid(amsg->cltid);
-
-      if (rc != 1) {
-	Warning("Got a Attach reply that I was not expecting! clientname=%s gwid=%#x srvid=%#x", amsg->cltname, amsg->gwid, amsg->srvid); 
-
-	/* we don't bother mwd with detaches, mwd will reuse if
-           cltent->status == UNASSIGNED */
-	if (cltent != NULL) {
-	  cltent->location = UNASSIGNED;
-	  cltent->type = UNASSIGNED;
-	  cltent->pid = UNASSIGNED;
-	  cltent->mqid = UNASSIGNED;
-	  cltent->clientname[0] = '\0';
-	  cltent->username[0] = '\0';
-	  /* hand over to mwd */
-	  cltent->status = UNASSIGNED;
-	};
-	amsg->cltid |= MWCLIENTMASK;
-	conn_setinfo(fd, &amsg->cltid, NULL, NULL, NULL);
-	/* nothing more to do */
-	break;
-      };
-
-      DEBUG( "connection for clientname %s on fd=%d is assigned the clientid %#x", 
-	    amsg->cltname, fd, amsg->cltid);
-      /* now assign the CLIENTID to the right connection. */
-      conn_setinfo(fd, &amsg->cltid, NULL, NULL, NULL);
-      conn = conn_getentry(fd);
-
-      /* copy peer socket addr into the ICP table */ 
-      conn_setpeername(conn);
-
-      _mw_srbsendinitreply(conn, &srbmsg, SRB_PROTO_OK, NULL);
-      urlmapfree(srbmsg.map);
-      
-      break;
-      
-    case DETACHRPL:
-      /* do I really care? */
-      break;
-
-    case SVCCALL:
-    case SVCFORWARD:
-      do_svccall(cmsg, len);
-      /* gateway only, we have imported a service, find the remote gw
-         and send the call */
-      break;
-
-    case SVCREPLY:
-      do_svcreply(cmsg, len);
-      break;
-
-    case ADMREQ:
-      /* the only adm request we accept right now is shutdown, we may
-         later accept reconfig, and connect/disconnect gateways. */
-      if (admmsg->opcode == ADMSHUTDOWN) {
-	Info("Received a shutdown command from clientid=%d", 
-	      CLTID2IDX(admmsg->cltid));
-	return 2; /* going down on command */
-      }; 
-      break;
-
-    case PROVIDEREQ:
-      Warning("Got a providereq from serverid=%d, sending rc=EBADRQC", 
-	    pmsg->srvid&MWINDEXMASK);
-      pmsg->returncode = -EBADRQC;
-      _mw_ipc_putmessage(pmsg->srvid, message, len, IPC_NOWAIT);
-      break;
-
-    case PROVIDERPL:
-      impsetsvcid(pmsg->svcname, pmsg->svcid, pmsg->gwid);
-      break;
-
-    case UNPROVIDEREQ:
-      Warning("Got a providereq from serverid=%d, sending rc=EBADRQC", 
-	    pmsg->srvid&MWINDEXMASK);
-      pmsg->returncode = -EBADRQC;
-      _mw_ipc_putmessage(pmsg->srvid, message, len, IPC_NOWAIT);
-      break;
-
-     case UNPROVIDERPL:
-      /* do I really care? */
-      break;
-
-       /* events */
-    case EVENT:
-      do_event_message(message, len);
-      break;
-
-    default:
-      Warning("got a unknown message with message type = %#lx", *mtype);
-    } /* end switch */
-  } /* end while */
-  UNLOCK_BIGLOCK();
-  return 1; /* going down on signal */
-  
-};
 
 /************************************************************************
  *  
@@ -791,6 +335,17 @@ static int lockgwtbl(int lock_unlock)
   return semop(ipcmain->gwtbl_lock_sem, sop, 1);
 };
 
+/** 
+    Set my status in the gwtable. This opens myself(the gw) for
+    buisness.
+*/
+void gw_setmystatus(int status)
+{
+   int i;
+   i = GWID2IDX(_mw_get_my_gatewayid());
+   gwtbl[i].status = status;
+}
+
 GATEWAYID allocgwid(int location, int role)
 {
   int rc, i, idx;
@@ -853,7 +408,7 @@ void gw_setipc(struct gwpeerinfo * pi)
     DEBUG("Hmm remote domain with domainid == %d", pi->domainid);
     gwent->location = GWREMOTE;
     strcpy(gwent->domainname, "FOREIGN"); 
-    //* TODO: remote domainname     
+    /// @todo: remote domainname     
   }
 
   gwent->status = MWREADY;
@@ -1297,7 +852,7 @@ int gw_getcostofservice(char * service)
   return cost;
 };
 
-/* TODO: I'm not happy about clean up, who are resp for sending TERM,
+/** @todo: I'm not happy about clean up, who are resp for sending TERM,
    closing, etc, need a policy */
 void gw_closegateway(Connection * conn) 
 {
@@ -1317,7 +872,7 @@ void gw_closegateway(Connection * conn)
      pi = getKnownPeerByGWID(gwid);
      if (pi != NULL) {
 	
-	/* TODO: first of all we must unprovde all services importet from peer. */
+	/** @todo: first of all we must unprovde all services imported from peer. */
 	impexp_cleanuppeer(pi);
 	
 	conn = pi->conn;

@@ -1,6 +1,6 @@
 /*
   MidWay
-  Copyright (C) 2000 Terje Eggestad
+  Copyright (C) 2000,2005 Terje Eggestad
 
   MidWay is free software; you can redistribute it and/or
   modify it under the terms of the GNU General Public License as
@@ -22,6 +22,9 @@
 
 /*
  * $Log$
+ * Revision 1.4  2005/10/12 22:46:27  eggestad
+ * Initial large data patch
+ *
  * Revision 1.3  2002/10/17 22:18:27  eggestad
  * fix to handle calls from a gateway, not just clients
  *
@@ -33,19 +36,28 @@
  *
  */
 
+#define CALLFLAG 1
+#define REPLYFLAG 0
+#define CALLREPLYSTR(f) (f==CALLFLAG?"call":"reply")
 
+
+
+#if 0
+void storePushCall(MWID mwid, int handle, int fd, urlmap *, 
+		   char * svcname, MWID mwid, MWID, callerid, 
+		   char * data, int datalen, int totallen, 
+		   char * domain, char * instance, SRBhandle_t handle, int hops, int flags);
 void storePushCall(MWID mwid, int handle, int fd, urlmap *);
 int  storePopCall(MWID mwid, int handle, int * fd,  urlmap **);
 int  storeGetCall(MWID mwid, int ipchandle, int * fd,  urlmap **map);
 int  storeSetIPCHandle(MWID mwid, int nethandle, int fd, int ipchandle);
-void storeLockCall(void);
-void storeUnLockCall(void);
 
 void storePushDataBuffer(unsigned int nethandle, int fd, char * data, int datalen);
 int  storePopDataBuffer(unsigned int nethandle, int fd, char ** data, int *datalen);
 int  storeAddDataBufferChunk(unsigned int nethandle, int fd, char * data, int len);
 int  storeGetDataBufferChunk(unsigned int nethandle, int fd);
 int  storeSetDataBufferChunk(unsigned int nethandle, int fd, int chunk);
+#endif
 
 void storePushAttach(char * cltname, int connectionid, int fd, urlmap *);
 int  storePopAttach(char * cltname, int * connectionid, int * fd, urlmap **);

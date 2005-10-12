@@ -16,8 +16,8 @@ LDFLAGS = -L../lib -L../liburlencode
 
 EXE = mwgwd
 
-OBJS = SRBprotocolServer.o connections.o tcpserver.o gateway.o store.o broker.o \
-       acl.o pattern.o xmlconfig.o remdomains.o toolbox.o impexp.o srbevents.o
+OBJS = SRBprotocolServer.o connections.o tcpserver.o gateway.o store.o callstore.o broker.o \
+       acl.o pattern.o xmlconfig.o remdomains.o toolbox.o impexp.o srbevents.o ipcserver.o
 
 all: $(EXE) 
 

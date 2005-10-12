@@ -24,6 +24,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.26  2005/10/12 22:46:27  eggestad
+ * Initial large data patch
+ *
  * Revision 1.25  2005/08/29 13:36:44  eggestad
  * gcc 4 fix
  *
@@ -111,6 +114,7 @@
  *
  */
 
+#include <stdio.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
@@ -125,6 +129,8 @@
 #include <ipctables.h>
 #include <ipcmessages.h>
 #include <shmalloc.h>
+#include <utils.h>
+
 
 static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
@@ -143,8 +149,15 @@ static SERVERID  myserverid  = UNASSIGNED;
 static CLIENTID  myclientid  = UNASSIGNED;
 static GATEWAYID mygatewayid = UNASSIGNED;
 
+/** @file 
+ 
+ This is the module that provide the interface to the IPC
+ bulletinboard tables. Some modules have specialized access methods
+ (read mwd and mwgwd), these are what applications should need.
 
-/* I don't want tp make ipcmain a global var, and _mw_attach_ipc are
+*/
+
+/** I don't want tp make ipcmain a global var, and _mw_attach_ipc are
    never called in mwd, thus this function are for mwd only */
 
 void _mw_set_shmadr (ipcmaininfo * im, cliententry * clt, serverentry * srv, 
@@ -158,6 +171,15 @@ void _mw_set_shmadr (ipcmaininfo * im, cliententry * clt, serverentry * srv,
   convtbl = conv;
 };
 
+
+/**
+   Attach the IPC tables. Called by mwattach(). 
+
+   @param key the IPC key for the main instance table, ultimatly what distinguish instances.
+   @param type the type of member an or'ed set of #MWIPSERVER, #MWIPCCLIENT, or #MWIPCSERVER, or #MWIPCGATEWAY.
+   
+   @return 0 on OK, or a -errno, 
+*/
 extern struct segmenthdr * _mwHeapInfo;
 
 int _mw_attach_ipc(key_t key, int type)
@@ -261,10 +283,10 @@ int _mw_attach_ipc(key_t key, int type)
   return 0;
 };
 
-#include <stdio.h>
-
-void
-_mw_detach_ipc(void)
+/**
+   Detach an IPC instance. Called by mwdetach().
+*/
+void _mw_detach_ipc(void)
 {
   
   shmdt(clttbl);
@@ -284,12 +306,18 @@ _mw_detach_ipc(void)
   msgctl(my_mqid, IPC_RMID, NULL);
   my_mqid = UNASSIGNED;
 };
-  
+
+/**
+   The SYSV IPC message queue id for our MWID. 
+*/
 int _mw_my_mqid()
 {
   return my_mqid;
 };
 
+/**
+   The SYSV IPC message queue id for mwd. 
+*/
 int _mw_mwd_mqid()
 {
   if (ipcmain == NULL) return -EILSEQ;
@@ -300,7 +328,7 @@ int _mw_mwd_mqid()
 
 /* functions dealing with ID's */
 
-void _mw_set_my_serverid(SERVERID sid)
+void _mw_set_my_serverid(SERVERID sid) 
 {
   myserverid = MWSERVERMASK | sid;
   return ;
@@ -333,6 +361,9 @@ GATEWAYID _mw_get_my_gatewayid()
   return mygatewayid;
 };
 
+/**
+   Get my own primary MWID. 
+*/
 MWID _mw_get_my_mwid(void)
 {
   if (myclientid != UNASSIGNED) return myclientid;
@@ -343,10 +374,16 @@ MWID _mw_get_my_mwid(void)
 
 /* functions dealing with shm info */
 
+/**
+   Get the IPC main info structure. 
+   @return the address of the IPC shared memory struct, or NULL if unconnected. 
+*/
 ipcmaininfo * _mw_ipcmaininfo(void)
 {
   return ipcmain;
 };
+
+/** @todo missing much doxygen */
 
 cliententry * _mw_getcliententry(int i)
 {
@@ -737,12 +774,18 @@ int _mw_list_services_byglob (char * glob, char *** plist, int inflags)
    return n; 
 };
 
-/* this is a simplified version of _mw_get_services_byname().
-   _mw_get_services_byname() get the complete list to avoid multiple
-   scans thru the service list.  This function just gived the first
-   service with the name, but gives preferences to local services if
-   they exist. For example of a service S is both a local service and
-   an imported one, the local is returned.
+/** Get the best service. This is a simplified version of
+   _mw_get_services_byname().  _mw_get_services_byname() get the
+   complete list to avoid multiple scans thru the service list.  This
+   function just gived the first service with the name, but gives
+   preferences to local services if they exist. For example of a
+   service S is both a local service and an imported one, the local is
+   returned.
+
+   @param svcname the service name (may not be a glob, muts be exact. 
+   @param To distinguish between converational services. 
+
+   @return the MWID for the service, or UNASSIGNED if not such service exist. 
 */
 SERVICEID _mw_get_best_service (char * svcname, int flags)
 {
@@ -758,6 +801,11 @@ SERVICEID _mw_get_best_service (char * svcname, int flags)
   DEBUG3("we start at the random entry in the svctbl %d", x);
   
   
+  if (convflag)
+    type = MWCONVSVC;
+  else 
+    type = MWCALLSVC;
+
   for (i = 0; i < ipcmain->svctbl_length; i++) {
 
     /* we begin in  a random place in the table, in  order not to give
@@ -917,8 +965,11 @@ gatewayentry * _mw_get_gateway_byid (GATEWAYID gwid)
   return gwent;
 };
 
-/* given a MW id, return the messaeg queue id for the id, or -ENOENT if
-   No agent with that ID, or -EBADR if mwid is out of range. */
+/** Given a MWID, return the IPC message queue id for the id. 
+
+   @param dest A MWID
+   @return the ipc id or -ENOENT if No agent with that ID, or -EBADR if mwid is out of range. 
+*/
 int _mw_get_mqid_by_mwid(int dest)
 {
   int qid;

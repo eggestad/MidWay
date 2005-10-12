@@ -22,23 +22,34 @@
 
 /*
  * $Log$
- * Revision 1.7  2005/10/12 22:46:27  eggestad
+ * Revision 1.1  2005/10/12 22:46:27  eggestad
  * Initial large data patch
  *
  */
 
-#include <SRBprotocol.h>
-#include <connection.h>
+#ifndef _CALL_PENDING_DATA_H
+#define _CALL_PENDING_DATA_H
 
-extern char * _mw_srbmessagebuffer;
+#include <ipcmessages.h>
 
-int _mw_srbsendready(Connection * conn, char * domain);
-int _mw_srbsendinitreply(Connection * conn, SRBmessage * srbmsg, int rcode, char * field);
-int _mw_srbsendcallreply(Connection * conn, SRBmessage * srbmsg, char * data, int len, 
-			 int apprcode, int rcode, int flags);
-int _mw_srbsendready(Connection * conn, char * domain);
-int _mw_srbsendprovide(Connection * conn, char * service, int cost);
-int _mw_srbsendunprovide(Connection * conn, char * service);
-int _mw_srbsendgwinit(Connection * conn);
+#define CALLFLAG 1
+#define REPLYFLAG 0
+#define CALLREPLYSTR(f) (f==CALLFLAG?"call":"reply")
 
-int srbDoMessage(Connection * conn, SRBmessage * srbmsg);
+int add_pending_call_data(char * svcname, int totaldatalen, int flags,  
+		      MWID mwid, char * instance, char * domain, MWID callerid, 
+		      SRBhandle_t handle, int hops);
+
+void del_pending_call_data(MWID mwid, SRBhandle_t handle);
+
+
+int add_pending_reply_data(MWID mwid, SRBhandle_t handle, Call * cmsg, int totallen); 
+
+void del_pending_reply_data(MWID mwid, SRBhandle_t handle);
+
+int append_pending_call_data(MWID mwid, SRBhandle_t handle, char * data, int datalen);
+int append_pending_reply_data(MWID mwid, SRBhandle_t handle, char * data, int datalen);
+
+void clear_pending_data(MWID mwid);
+
+#endif // _CALL_PENDING_DATA_H

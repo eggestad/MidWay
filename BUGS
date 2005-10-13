@@ -18,7 +18,7 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 * addtitonal fixup, have now created a shutdown task, but still need
   to look at the correct sequencing.
 
-* mwadm don't detach ipc when issuing a shutdown command.
+FIXED * mwadm don't detach ipc when issuing a shutdown command.
 
 (watchdog made) * Propper clean up of kill -9 and core dumping servers.
   garbage collect in mwd.
@@ -81,6 +81,12 @@ NON CRITICAL BUGS LIST, needed for production 1.0.0
 * in mwd.c::set_instanceid() we use the wrong method to list all interfaces
 
 * in discovery, we broadcast/multicast on one interface only.  
+
+* When we flood enought events so the mwd get full queue on a
+  recipient, mwd() enqueue the event on a pending queue for delivery
+  at the next task interval. Subsequent event to the recipient before
+  the next intervakl bypasses the pending queue. The result is that
+  events are delivered to recipient out of order.
 
 -----------------------------------------------------------------------
 
@@ -149,6 +155,8 @@ REL 0.11.0
   (needed for fast path)
 
 * umask behavior in mwd is not working. 
+
+* mwlog() fail badliy on 2GB logfiles
 
 -----------------------------------------------------------------------
 

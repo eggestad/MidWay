@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.13  2005/10/13 22:26:40  eggestad
+ * fix for propper attach/detach with boot/shutdown
+ *
  * Revision 1.12  2004/11/17 20:52:08  eggestad
  * expanded the buffers command in mwadm to show buffers in use,and optionally the data in the buffer
  *
@@ -342,8 +345,9 @@ int attach(int argc, char ** argv)
     ipcmain = _mw_ipcmaininfo();
   } else {
     printf ("System is not up\n");
+    rc  = -1;
   };
-  return 0;
+  return rc;
 }
 
 int detach(int argc, char ** argv)

@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.19  2005/10/13 22:26:40  eggestad
+ * fix for propper attach/detach with boot/shutdown
+ *
  * Revision 1.18  2004/11/17 20:51:59  eggestad
  * expanded the buffers command in mwadm to show buffers in use,and optionally the data in the buffer
  *
@@ -662,6 +665,9 @@ int boot(int argc, char ** argv)
       };
    } 
    wait(&status);
+   
+   while(( rc= attach(0, NULL)) < 0) usleep(100000);;
+
    return 0;
 };
 
@@ -674,9 +680,12 @@ int cmd_shutdown (int argc, char ** argv)
    admmesg.opcode = ADMSHUTDOWN;
    admmesg.delay = 0;
    admmesg.cltid = _mw_get_my_clientid();
-  
+
    rc = _mw_ipc_putmessage(0, (char *) &admmesg, sizeof(Administrative), 0);
-   if (rc != 0) fprintf(stderr, "shutdown failed, reason %d", rc);
+   if (rc != 0) 
+      fprintf(stderr, "shutdown failed, reason %d", rc);
+   else 
+      detach(0, NULL);
    return rc;
 };
 

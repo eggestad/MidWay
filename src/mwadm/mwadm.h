@@ -21,3 +21,5 @@
 extern int dbgflag;
 
 #define debug(fmt, ...) do { if (dbgflag) fprintf (stderr, "%s(%d)" fmt "\n", __func__, __LINE__, ## __VA_ARGS__); } while(0)
+int attach        (int argc, char ** argv);
+int detach        (int argc, char ** argv);

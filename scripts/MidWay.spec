@@ -1,7 +1,7 @@
 # -*- RPM-SPEC -*- 
 Summary: The MidWay service request broker
 Name: MidWay
-Version: 0.13.2
+Version: 0.14.0
 Release: 1
 Copyright: GPL,LGPL
 Group: System Environment/Base
@@ -43,22 +43,31 @@ sed s+${RPM_BUILD_ROOT}++g ${RPM_BUILD_ROOT}/usr/sbin/midway.rc > ${RPM_BUILD_RO
 rm -rf $RPM_BUILD_ROOT
 
 %post 
-ln -sf /usr/lib/libMidWay.so.0.13 /usr/lib/libMidWay.so.0
-chkconfig --add mwbd
-service mwbd restart
+ln -sf /usr/lib/libMidWay.so.0.14 /usr/lib/libMidWay.so.0
+if [[ $1 > 1 ]]; then 
+  service mwbd restart	
+else 
+  chkconfig --add mwbd
+  service mwbd start	
+fi
 
 %preun
-if [ 0 == $1 ]; then
-service mwbd stop
-chkconfig --del mwbd
-rm -f /usr/lib/libMidWay.so.0
+if [[ 0 == $1 ]]; then
+  service mwbd stop
+  chkconfig --del mwbd
+  rm -f /usr/lib/libMidWay.so.0
 fi
 
 %post devel
-ln -sf /usr/lib/libMidWay.so.0.13 /usr/lib/libMidWay.so
+
+ln -sf /usr/lib/libMidWay.so.0.14 /usr/lib/libMidWay.so
 
 %preun devel 
-rm -f /usr/lib/libMidWay.so
+if [[ 0 == $1 ]]; then
+  rm -f /usr/lib/libMidWay.so
+fi
+
+
  
 %files
 %defattr(-,root,root)
@@ -67,10 +76,11 @@ rm -f /usr/lib/libMidWay.so
 %attr(555,root,root) /etc/rc.d/init.d/mwbd
 /usr/bin/*
 /usr/sbin/*
-/usr/lib/libMidWay.so.0.13
+/usr/lib/libMidWay.so.0.14
 /usr/man/man1/*
 /usr/man/man7/*
 /usr/man/man8/*
+
 
 %files devel
 %defattr(-,root,root)

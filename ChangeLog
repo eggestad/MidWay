@@ -1,3 +1,7 @@
+2005-10-19    <terje.eggestad@iname.com>
+
+	* added support for receiveing large data in client srbp lib
+
 2005-10-14    <terje.eggestad@iname.com>
 
 	* fixed boot and shutdown command in mwad, auto attach/detach now works

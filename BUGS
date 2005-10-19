@@ -49,7 +49,7 @@ FIXED * mwadm don't detach ipc when issuing a shutdown command.
 * in start_watch_dog we don't check for heap being attached. (It's a
   CANTHAPPEN anyway).
 
-* The shutdown command in mwadm don't indicate if successfull, and
+(fixed) * The shutdown command in mwadm don't indicate if successfull, and
   should detach IPC resources.
 
 * SRBP imp don't support SVCDATA. (thus max datalen 3000 octets)
@@ -105,7 +105,7 @@ Minor BUGS:
 
 * in mwadm R&D commands are available when not in R&D mode.
 
-* mwadm boot should do a implicit mwattach. 
+(fixed) * mwadm boot should do a implicit mwattach. 
 
 * Outside lib's and mw programs SERVERID, CLIENTID and SERVICEID
   should have stripped the prefix, leaving only the "index" .

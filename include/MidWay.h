@@ -41,12 +41,13 @@
  */
 #define UNASSIGNED  -1
 
-/* Service name length is max 32, historic to be 
- * tuxedo compatible, really should be the same here.
+/**
+   Service name max length is 32, historic to be tuxedo compatible,
+   really should be #MWMAXNAMELEN. This define is the max size plus
+   one byte for nul termination.
  */
-//* The minumum allocated area needed to hold a service name
 #define MWMAXSVCNAME (32 + 1)
-//* The minumum allocated area needed to hold a name of any other kind, like clientname. 
+/// The minumum allocated area needed to hold a name of any other kind, like clientname. 
 #define MWMAXNAMELEN (64 + 1)
 
 /**

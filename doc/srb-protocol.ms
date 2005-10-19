@@ -554,7 +554,7 @@ APPLICATIONRC;1*10DIGIT;n/a;m;
 .ti 1
 SVCDATA
 event !
-used in the case DATACHUNKS is set in SVCCALL, this is the way we 
+used in the case DATATOTAL is set in SVCCALL, this is the way we 
 send large amount of data.
 
 .TS
@@ -563,11 +563,8 @@ l | l | l | l | l |
 -----
 l | l | l | l | l |.
 Parameter name;value ABNF;req;rpy;comment
-SVCNAME;1*32token;m;m;
 DATA;1*3000token;o;o;
-INSTANCE;1*64token;m;m;See **
 HANDLE;8HEXDIG;o;m;optional only if
-;;;;NOREPLY=YES
 .TE
 
 

@@ -3,9 +3,6 @@
      MAJOR TODO LIST
 =======================================================================
 
- (now done in IPC, not SRB yet.) * Events - sent from servers to clients
-   Haven't decided on an API yet.
-
  * Conversations - statefull clients server communicaion.
 
  PARTIAL * SRBP (TCP/IP) clients and gateways between MW instances.
@@ -18,15 +15,17 @@
      * A SRBP module partial ready
      * native module ready
 
- * Python module
+(OK) * Python module
 
- * TCL bindings
+(OBSOLETE) * TCL bindings
 
  * PHP bindings 
 
  * A GNOME mwadm
 
  * Java TCP/IP Client API
+
+ * Java RMI bindings
 
  * Transaction support
 
@@ -36,7 +35,7 @@
 
  * Staticstics
 
- * trace facility
+OK * trace facility
 
  * SRB trace need better peer info. (_mw_srb_trace)
 
@@ -62,15 +61,24 @@
 	client. Also, return code on mwreply() can now be either 
 	MWFAIL, MWSUCCESS, or MWMORE. MWMORE in flag is depreciated.
 
- * After      introducing      the      [SVC|SRV|GW]ID2MWID()      and
-   MWID2[SVC|SRV|GW]ID()  macros,  shich  really  enhanced  a  lot  on
-   readability, and  propper casting, there is now  confusion on where
+ * After introducing the [SVC|SRV|GW]ID2MWID() and
+   MWID2[SVC|SRV|GW]ID() macros, shich really enhanced a lot on
+   readability, and propper casting, there is now confusion on where
    the masks (see MidWay.h) are used and where they're not.  we should
-   really introduce a  MWID datatype where the masks  are set, and NOT
+   really introduce a MWID datatype where the masks are set, and NOT
    use the mask in the SERVICEID, SERVERID, and GATEWAYID. It may be a
-   good idea  to make  the MWID  a long long  to enforce  this casting
+   good idea to make the MWID a long long to enforce this casting
    propperly.
 
-* the _mwacall() in lib  choose randomly among services, regardless if
+(OK?) * the _mwacall() in lib  choose randomly among services, regardless if
   they're local or  remote. Is this right, or should  we have a policy
   on this?
+
+* urlmap speed
+  It appear that the urlmap encode/decode is way too heavy; propose two fixes:
+  1) extend SRB protocol with DATAINLINE=<octets> and send <octets> after the delimiting \r\n
+  and delimit the end of the data with \r\n e.g:
+  SRBDATA!HANDLE=12345678&DATAINLINE=8\r\nDATADATA\r\n
+  In this form the data shall not be encoded. 
+  2) it appear that the malloc's of all the buffers in the map is hysterically expensive
+  we need to alloc largers chunks and keep track of what is used. 

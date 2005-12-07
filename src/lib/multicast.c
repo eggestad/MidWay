@@ -21,6 +21,9 @@
 
 /* 
  * $Log$
+ * Revision 1.12  2005/12/07 11:44:16  eggestad
+ * large data SRB patch
+ *
  * Revision 1.11  2004/11/17 20:49:13  eggestad
  * fix for null term of message buffer
  *
@@ -297,7 +300,7 @@ int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
   _mw_srb_trace(SRB_TRACE_IN, &pseudoconn, buffer, rc);
   DEBUG1("got a message %d bytes long", rc);
 
-  srbrpy = _mw_srbdecodemessage(&pseudoconn, buffer);
+  srbrpy = _mw_srbdecodemessage(&pseudoconn, buffer, rc);
   if (srbrpy == NULL) {
     DEBUG1("failed to decode, discarding");
     errno = EBADMSG;

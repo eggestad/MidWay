@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.19  2005/12/07 11:44:16  eggestad
+ * large data SRB patch
+ *
  * Revision 1.18  2005/10/11 22:30:39  eggestad
  * change in API for putting buffer to svcinfo
  *
@@ -503,7 +506,7 @@ static int do_alloc(void * mp)
       return -ENOMEM;
    };
    s = allocmesg->size + sizeof(chunkhead);
-   ps =  s / get_pagesize() + ((s % get_pagesize())?0:1);
+   ps =  s / get_pagesize() + ((s % get_pagesize())?1:0);
    DEBUG("size=%ld needed pages = %ld", s, ps);
 
    snprintf(path, 256, "%s/%d", ipcmain->mw_bufferdir, id);  

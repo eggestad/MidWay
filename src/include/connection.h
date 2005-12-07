@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.8  2005/12/07 11:44:15  eggestad
+ * large data SRB patch
+ *
  * Revision 1.7  2004/11/26 16:38:00  eggestad
  * added mutexes to Connection
  *
@@ -103,8 +106,9 @@ struct Connection {
 
   char * messagebuffer;
   int    leftover;  
-  int    possible_message_in_buffer;
-
+  char * next_message_boundry_marker;
+  //  int    possible_message_in_buffer;
+  char * som; //StartOfMessage
   /* the latter is used by the gateway only */
   int connectionid;
   CLIENTID  cid;

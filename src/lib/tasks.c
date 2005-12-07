@@ -20,6 +20,9 @@
 
 /*
  * $Log$
+ * Revision 1.7  2005/12/07 11:44:16  eggestad
+ * large data SRB patch
+ *
  * Revision 1.6  2005/10/11 22:25:31  eggestad
  * added an implicit mwdotasks() at the end of addtask
  *
@@ -516,7 +519,7 @@ PTask _mwaddtaskdelayed(taskproto_t function, char * name, double interval, doub
   LOCKMUTEX(tasklock);
 
   DEBUG1("tasks %d", tasks);
-  DEBUG1("interval %g delay", interval, initialdelay);
+  DEBUG1("interval %g delay %g", interval, initialdelay);
 
   if (tasks == -1) inittasks();
   tasklist = realloc(tasklist, (tasks+1)*sizeof(Task));

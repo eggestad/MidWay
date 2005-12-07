@@ -20,6 +20,9 @@
 
 /* 
  * $Log$
+ * Revision 1.11  2005/12/07 11:44:16  eggestad
+ * large data SRB patch
+ *
  * Revision 1.10  2004/08/11 20:30:09  eggestad
  * daemonize fix
  *
@@ -165,13 +168,14 @@ void read_from_client(int fd, struct fd_info * cinfo)
   DEBUG("reading data from client on %d", fd);
   buflen = read(fd, buffer, SRBMESSAGEMAXLEN);
   if (buflen == -1) return;
+  if (buflen == 0) goto clean;
   if (buflen == SRBMESSAGEMAXLEN) {
     Error("received a message exceeding %d bytes, discarding and disconnecting", 
 	  SRBMESSAGEMAXLEN);
     _mw_srbsendreject_sz(&pseudoconn, "Message too long", SRBMESSAGEMAXLEN);
     goto clean;
   };
-  srbmsg = _mw_srbdecodemessage(&pseudoconn, buffer);
+  srbmsg = _mw_srbdecodemessage(&pseudoconn, buffer, buflen);
   if (srbmsg == NULL) {
     Error("received an undecodable message");
     _mw_srbsendreject_sz(&pseudoconn, "Expected SRB INIT?....", 0);
@@ -295,7 +299,7 @@ static void  do_udp_dgram(int sd)
 
   _mw_srb_trace(SRB_TRACE_IN, &pseudoconn, buffer, rc);
   
-  srbmsg_req = _mw_srbdecodemessage(&pseudoconn, buffer);
+  srbmsg_req = _mw_srbdecodemessage(&pseudoconn, buffer, rc);
   if (srbmsg_req == NULL) {
     DEBUG("unintelligble messgage, ignoring");
     return;
@@ -463,7 +467,7 @@ void recv_gw_data(int fd, struct fd_info * gwinfo)
     };
 
 
-    srbmsg = _mw_srbdecodemessage(&pseudoconn, buffer);
+    srbmsg = _mw_srbdecodemessage(&pseudoconn, buffer, len);
 
     if (srbmsg == NULL) {
       Error ("got an incomprehensible message");

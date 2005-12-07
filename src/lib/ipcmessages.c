@@ -21,6 +21,9 @@
 /*
  * 
  * $Log$
+ * Revision 1.38  2005/12/07 11:44:16  eggestad
+ * large data SRB patch
+ *
  * Revision 1.37  2005/10/11 22:19:40  eggestad
  * doc fix
  *
@@ -1462,7 +1465,6 @@ int _mwfetchipc (mwhandle_t * hdl, char ** data, int * len, int * appreturncode,
 	_mwshmgetowner(shmbuf, &id);	
 	DEBUG1("owner id of data is %s", _mwid2str(id, NULL));
 	_mwfree(shmbuf);
-	_mwshmgetowner(shmbuf, &id);	
      } else {
 	*data = _mwoffset2adr(callmesg->data, si);
 	_mwshmgetowner(*data, &id);	

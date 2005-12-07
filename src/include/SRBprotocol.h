@@ -69,6 +69,8 @@ static inline int srbdata_per_message(void)
 */
 #define SRB_DEFAULT_PORT 	11000
 
+// the marker between messages
+#define SRB_MESSAGEBOUNDRY      "\r\n"
 /*************************************************
  * SRB commands
  *************************************************/
@@ -235,7 +237,7 @@ char * _mw_srb_getfield (SRBmessage * srbmsg, char * key);
 void _mw_srb_delfield   (SRBmessage * srbmsg, char * key); 
 
 /* encode decode */
-SRBmessage * _mw_srbdecodemessage(Connection * conn, char * message);
+SRBmessage * _mw_srbdecodemessage(Connection * conn, char * message, int msglen);
 SRBmessage * _mw_srb_recvmessage(Connection * conn, int flags);
 
 int _mw_srbsendmessage(Connection * conn, SRBmessage * srbmsg);

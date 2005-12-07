@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.22  2005/12/07 11:44:16  eggestad
+ * large data SRB patch
+ *
  * Revision 1.21  2005/10/12 22:46:27  eggestad
  * Initial large data patch
  *
@@ -454,7 +457,7 @@ int tcp_do_read_condiion(Connection * conn)
     free(msg);
     TIMEPEG();
 
-    srbmsg = _mw_srbdecodemessage(conn, conn->messagebuffer);
+    srbmsg = _mw_srbdecodemessage(conn, conn->messagebuffer, len);
 
     if (srbmsg) {
        srbDoMessage(conn, srbmsg);

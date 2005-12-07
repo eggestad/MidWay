@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.20  2005/12/07 11:44:16  eggestad
+ * large data SRB patch
+ *
  * Revision 1.19  2004/12/29 19:57:56  eggestad
  * Large data  protocol fix up
  *
@@ -163,7 +166,8 @@ static void cltcloseconnect(void)
 struct _srb_callreplyqueue_element {
    char * handle;
    urlmap * map;
-   int datachunksleft;
+   int dataoctetsleft;
+   int datatotal;
    char * data;
    struct _srb_callreplyqueue_element  * next;
 } * callreplyqueue = NULL, * callreplyqueue_waiting = NULL;
@@ -186,45 +190,117 @@ static int pushCRqueue(urlmap * map)
    /* create the queue entry and enter the members */
    crelm = malloc(sizeof(struct _srb_callreplyqueue_element));
    /* just to be safe */
-   memset(crelm, sizeof(struct _srb_callreplyqueue_element), '\0');
+   memset(crelm, '\0', sizeof(struct _srb_callreplyqueue_element));
 
    crelm->map = map;
    crelm->handle = map[idx].value;
-   DEBUG3("pushCRqueue: handle = %s map=%p", crelm->handle, map);
- 
-   idx = urlmapget(map, SRB_DATATOTAL);
-   if (idx != -1) {
-      // FIXME
-      crelm->datachunksleft = atoi(map[idx].value);
-   } else {
-      crelm->datachunksleft = 0;
-   };
-   DEBUG3("pushCRqueue: SVCCALL reply message has %d datachunks to go", 
-	  crelm->datachunksleft);
+   DEBUG1("handle = %s map=%p", crelm->handle, map);
 
    /* used only to hold the rest of the data iff more data */
    crelm->data = NULL;
+ 
+   idx = urlmapget(map, SRB_DATATOTAL);
+   if (idx != -1) {      
+      int l;
+      crelm->dataoctetsleft = atoi(map[idx].value);
+      crelm->datatotal = crelm->dataoctetsleft;
+      crelm->data = malloc(crelm->dataoctetsleft);
+
+      idx = urlmapget(map, SRB_DATA);
+      if (idx != -1) {
+	 l = map[idx].valuelen;
+	 DEBUG3("got %d octets of data in call message", l);
+	 memcpy(crelm->data, map[idx].value, l);
+	 crelm->dataoctetsleft -= l;
+      } else {
+	 DEBUG1("no data in call message but %d octets pending", crelm->dataoctetsleft);
+      };
+   } 
+
+   DEBUG3("SVCCALL reply message has %d dataoctets to go", 
+	  crelm->dataoctetsleft);
+
 
    /* push it, on wait queue if more data chunks comming. */
-   if (crelm->datachunksleft > 0) {
+   if (crelm->dataoctetsleft > 0) {
       crelm->next = callreplyqueue_waiting;
       callreplyqueue_waiting = crelm;
-      DEBUG3(	  "pushCRqueue: reply with handle %s placed in waiting queue, datachunks = %d",
-		  crelm->handle, crelm->datachunksleft);
+      DEBUG3("reply with handle %s placed in waiting queue, dataoctets = %d",
+	     crelm->handle, crelm->dataoctetsleft);
    } else {
       crelm->next = callreplyqueue;
       callreplyqueue = crelm;
-      DEBUG3("pushCRqueue: complete!");
+      DEBUG3("complete!");
    } 
    TIMEPEGNOTE("end");
    return 1;
 };
 
-static int pushCRqueueDATA(urlmap * map);
-static urlmap * popCRqueue(char * handle)
+/* like puchCRqueue we do not expect the caller to free */
+static int pushCRqueueDATA(urlmap * map)
+{
+   char * data, * hdl;
+   int dataidx;
+   int datalen;
+   struct _srb_callreplyqueue_element * crelm, **crptr;
+
+   dataidx = urlmapget(map, SRB_DATA);
+
+   if (dataidx == -1) {
+      Warning("got a SVCDATA message with out required data");
+      urlmapfree(map);
+      return -EINVAL;
+   }
+   hdl  = urlmapgetvalue(map, SRB_HANDLE);
+   if (hdl == NULL) {
+      Warning("got a SVCDATA message with out required handle");
+      urlmapfree(map);
+      return -1;
+   };
+
+   DEBUG1("got a data part for handle %s with len %d", hdl , map[dataidx].valuelen);
+   data = map[dataidx].value;
+   datalen = map[dataidx].valuelen;
+
+   crptr = & callreplyqueue_waiting;
+   while(*crptr != NULL) {
+      crelm = *crptr;
+      off_t offset;
+
+      DEBUG3("checking waiting element handel %s for this handle %s", crelm->handle, hdl);
+      if (strcasecmp(crelm->handle, hdl) == 0) {
+	 DEBUG1("found waiting element for key %s ", hdl);
+	 DEBUG1("pending data = %d new data = %d remanding %d", crelm->dataoctetsleft, datalen,  crelm->dataoctetsleft - datalen);
+	 if ( (crelm->dataoctetsleft - datalen) < 0) {
+	    Error("peer has sent to much data, disconnecting");
+	    // TODO: cleanup
+	    return -EBADMSG;
+	 };
+
+	 offset = crelm->datatotal - crelm->dataoctetsleft;
+	 memcpy(crelm->data+offset, data, datalen);
+	 crelm->dataoctetsleft -= datalen;
+	 //	 printf ("at %ld len %d left %d\n", offset, datalen, crelm->dataoctetsleft);
+
+	 if ( crelm->dataoctetsleft == 0) {
+	    // dequeue wait queue
+	    *crptr = crelm->next;
+	    // enqueue complete queue
+	    crelm->next = callreplyqueue;
+	    callreplyqueue = crelm;
+	 };
+	 break;
+      }
+      crptr = &crelm->next;
+   }
+   urlmapfree(map);
+   return 0;
+};
+
+static struct _srb_callreplyqueue_element *  popCRqueue(char * handle)
 {
    struct _srb_callreplyqueue_element * crethis, * creprev, **creprevmatch;
-   urlmap * map;
+   
 
    TIMEPEGNOTE("begin");
    if (callreplyqueue == NULL) {
@@ -243,12 +319,11 @@ static urlmap * popCRqueue(char * handle)
 	    return NULL;
 	 }
       };
-      map = callreplyqueue->map;
-      free(callreplyqueue);
+      crethis = callreplyqueue;
       callreplyqueue = NULL;
       DEBUG3("popCRqueue: poped the only (and correct) element");
       TIMEPEGNOTE("end one and only");
-      return map;
+      return crethis;
    };
 
    /* if handle == NULL, get the last, and return */
@@ -260,11 +335,10 @@ static urlmap * popCRqueue(char * handle)
 	 crethis = crethis->next;
       };
       creprev->next = NULL;
-      map = crethis->map;
-      free (crethis);
+      
       DEBUG3("popCRqueue: poped the oldest");
       TIMEPEGNOTE("end any");
-      return map;
+      return crethis;
    };
 
    /* search thru for the handle, but we most get the oldest, (at the end) */
@@ -292,150 +366,12 @@ static urlmap * popCRqueue(char * handle)
    crethis = *creprevmatch;
    *creprevmatch = crethis->next;
 
-   map = crethis->map;
-   free(crethis);
-   DEBUG3("popCRqueue: poped the reply for handle %s map=%p", handle, map);
+   DEBUG3("popCRqueue: poped the reply for handle %s", handle);
    TIMEPEGNOTE("end found");
-   return map;
+   return crethis;
 };
 
 
-#if 0
-static char * recvbuffer = NULL;
-static int recvbufferoffset = 0;
-static int recvbufferend = 0;
-
-/* the logic in this function is a bit confusing. The reason is that
-   we try to get as much as possible from the TCP queue into the
-   recvbuffer before returning. THis is just to be nice to the
-   mwgwd.*/
-static SRBmessage * readmessage(Connection * conn, int blocking)
-{
-   int rc; 
-   static int count = 0;
-   char * szTmp;
-   SRBmessage * srbmsg = NULL;
-
-   TIMEPEGNOTE("begin");
-
-   if (recvbuffer == NULL) recvbuffer = malloc(SRBMESSAGEMAXLEN);
-   if (recvbuffer == NULL) return NULL;
-
-   DEBUG3("client readmessage: STARTING count=%d recvbufferoffset=%d recvbufferend=%d",
-	  count, recvbufferoffset,  recvbufferend);
-   szTmp = recvbuffer+recvbufferoffset;
-   DEBUG1("client readmessage(%s)", blocking?"blocking":"nonblocking");
-
-   /* we're called blocking and there is atleast a message in the
-      buffer, switch to non blocking. If we didn't we would be blocking
-      in read() while the message we're seeking is in the buffer. (I
-      just spent 2 hours last night trying to figure that one out (HEY!
-      is was 1 am!) */
-   if ((count > 0) && (blocking)) blocking = 0;
-   if (blocking) blockingmode(cltconn.fd);
-
-   /* while there is more to come, we set rc = 1 to "fake" that we just
-      read somthing */
-   rc = 1;
-   while (rc > 0) {
-      DEBUG3("client readmessage: calling read(fd=%d) with %d bytes in the buffer",
-	     cltconn.fd, recvbufferend-recvbufferoffset);
-
-      TIMEPEGNOTE("doing read");
-
-      rc = read(cltconn.fd, 
-		recvbuffer+recvbufferend,
-		9000-recvbufferend);
-
-      TIMEPEGNOTE("done");
-
-      if (rc == -1) {
-	 if (errno == EINTR) break;
-	 if (errno == EAGAIN) break;
-	 /* we really need to check to see if the last message was a
-	    TERM, if it is still in the recvbuffer */
-	 Error(	    "client readmessage: connection broken when reading SRB message errno=%d",
-		    errno);
-	 close(cltconn.fd);
-	 cltconn.fd = -1;
-	 errno = EPIPE;
-	 TIMEPEGNOTE("end NULL");
-	 return NULL;
-      };
-      DEBUG3("client readmessage: read %d bytes: \"%s\"", 
-	     rc, recvbuffer); 
-      if (rc > 0)
-	 recvbufferend += rc;
-
-      /* count all *new* message terminators */
-      while( (szTmp = strstr(szTmp, "\r\n")) != 0) {
-	 DEBUG3("found a message terminator at %ld", 
-		(long) ((void*)szTmp - (void*)(recvbuffer))); 
-	 szTmp += 2;
-	 count++;
-      };
-      if (count == 0) DEBUG3("No complete message, blocking = %d", blocking);
-
-      /* if blocking eq 0, get all, and we're happy with none, if !0, get
-	 atleast one, */
-      DEBUG3("(blocking = %d && count=%d) == %d", 
-	     blocking, count, (blocking && !count));
-      if (blocking && count) {
-	 DEBUG3("blocking mode and %d messages, breaking out", count);
-	 rc = 0;
-      };
-    
-      /* if buffer is full, and no complete message. */
-      if ( (recvbufferend >= SRBMESSAGEMAXLEN) && !count) {
-      
-	 /* if there is free space at the beginning, move the full buffer
-	    (this better not happen too often */
-	 if (recvbufferoffset > 0) {
-	    DEBUG1("client readmessage: Moving %d bytes to the beginning of the recvbuffer", 
-		   SRBMESSAGEMAXLEN - recvbufferoffset);
-	    memmove(recvbuffer, recvbuffer + recvbufferoffset, 
-		    SRBMESSAGEMAXLEN - recvbufferoffset);
-	 } else {
-	    Error(	      "client readmessage: SRB message not complete within 9000 bytes, closing");
-	    close(cltconn.fd);
-	    cltconn.fd = -1;
-	    recvbufferoffset = recvbufferend = 0;
-	    errno = EPROTO;
-	    TIMEPEGNOTE("end broken mesg");
-	    return NULL;
-	 };
-      };
-   };
-
-   if (blocking) nonblockingmode(cltconn.fd);
-
-   DEBUG3("client readmessage: has %d messages ready", count);
-
-   /* now if we have messages in the buffer */
-   if (count) {
-      DEBUG3("client readmessage: picking message, offset = %d, end = %d",
-	     recvbufferoffset, recvbufferend);
-      szTmp = strstr(recvbuffer + recvbufferoffset, "\r\n");
-      /* szTmp can't be NULL*/
-      * szTmp = '\0';
-
-      _mw_srb_trace(1, &cltconn, recvbuffer + recvbufferoffset, 0);
-      srbmsg = _mw_srbdecodemessage(recvbuffer + recvbufferoffset);
-      count--;
-      DEBUG3("client readmessage: recvbufferoffset = szTmp - recvbuffer + 2: %d = %p - %p +2 (=%ld)", 
-	     recvbufferoffset, szTmp, recvbuffer, (long)((void*)szTmp - (void*)recvbuffer + 2));
-      recvbufferoffset = (long) ((void*)szTmp - (void*)recvbuffer + 2);
-      if (recvbufferoffset == recvbufferend) {
-	 recvbufferoffset = recvbufferend = 0;
-	 recvbuffer[0] = '\0';
-	 DEBUG3("client readmessage: recvbuffer now empty with count = %d", count);
-	 count = 0; /* just in case */
-      };
-   }
-   TIMEPEGNOTE("end good messgae");
-   return srbmsg ;
-};
-#endif
 
   
 /**********************************************************************
@@ -448,6 +384,7 @@ int _mwattach_srb(int type, mwaddress_t *mwadr, char * name, mwcred_t * cred, in
    SRBmessage * srbmsg;
    if (mwadr == NULL) return -EINVAL;
 
+   _mw_srb_traceon(NULL);
    /* connect */
    if (mwadr->ipaddress.sin4 != NULL) {
       DEBUG3("_mwattach_srb: connecting to IP4 address");
@@ -681,7 +618,7 @@ int _mw_drain_socket(int flags)
 
       /* special handling of svccall replies */
       if (strcmp(srbmsg->command, SRB_SVCCALL) == 0) {
-	 DEBUG1("got a SRBCALL message\"%s%c\"",  
+	 DEBUG1("got a SRBCALL message\"%s marker=%c\"",  
 		srbmsg->command, srbmsg->marker);
 	 if (srbmsg->marker != SRB_RESPONSEMARKER) {
 	    Error("got a call request in TCP queue!");
@@ -698,19 +635,28 @@ int _mw_drain_socket(int flags)
 	 srbmsg->map = NULL;
 	 flags |= MWNOBLOCK;
 	 rc++;
+	 continue; /* do loop */ 
       } 
 
+      if (strcmp(srbmsg->command, SRB_SVCDATA) == 0) {
+	  DEBUG1("got a SRBDATA message\"%s%c\"",  
+		srbmsg->command, srbmsg->marker);
+	  pushCRqueueDATA(srbmsg->map);	 
+	  srbmsg->map = NULL;
+	  continue;
+      };
       /* this is a message other than SVCCALL, the only one we
 	 recognize is TERM */
-      else if (strcmp(srbmsg->command, SRB_TERM) == 0) {
+      if (strcmp(srbmsg->command, SRB_TERM) == 0) {
 	 DEBUG1("got a TERM message\"%s\"",  srbmsg->command);
 	 cltcloseconnect();
 	 return -EPIPE;
-      } else {
-	 Warning("an unexpected SRB message\"%s\"", srbmsg->command);
-	 /* TODO: we should reject it */
-	 continue;
-      };
+      }
+      
+      Warning("an unexpected SRB message\"%s\"", srbmsg->command);
+      /* TODO: we should reject it */
+      continue;
+      
    } while(1);
    
    TIMEPEGNOTE("end");
@@ -720,7 +666,7 @@ int _mw_drain_socket(int flags)
   
 int _mwfetch_srb(int *hdl, char ** data, int * len, int * appreturncode, int flags)
 {
-   urlmap * map = NULL;
+   struct _srb_callreplyqueue_element * callreqelm;
    char * szHdl, buffer[9];;
    int idx= -1, rc;
    int handle = *hdl;
@@ -742,26 +688,27 @@ int _mwfetch_srb(int *hdl, char ** data, int * len, int * appreturncode, int fla
       szHdl = buffer;
       sprintf (szHdl, "%8.8x", handle);
    };
-   map = popCRqueue(szHdl);
+   callreqelm = popCRqueue(szHdl);
 
   
    DEBUG1("pop in the CR queue for handle \"%s\"(%d) %s", 
-	  szHdl, handle, map?"found a match":"had no match");
+	  szHdl, handle, callreqelm?"found a match":"had no match");
 
    // if nonblocking and no reply at this point we return
-   if ( (map == NULL) && (flags&MWNOBLOCK) ) return -EAGAIN;
+   if ( (callreqelm == NULL) && (flags&MWNOBLOCK) ) return -EAGAIN;
 
-   while (map == NULL) {
+   while (callreqelm == NULL) {
       DEBUG1("no SVCCALL with right handle waiting and MWNOBLOCK=%d",
 	     (flags&MWNOBLOCK));
       
       rc = _mw_drain_socket(1);
+      DEBUG3("drain socket returned %d", rc);
       if (rc < 0) return rc;
       if (rc == 0) continue;
-      map = popCRqueue(szHdl);
+      callreqelm = popCRqueue(szHdl);
    } 
    
-   rc = _mw_get_returncode(map);
+   rc = _mw_get_returncode(callreqelm->map);
 
    DEBUG1("RETURNCODE=%d", rc);
   
@@ -790,43 +737,51 @@ int _mwfetch_srb(int *hdl, char ** data, int * len, int * appreturncode, int fla
    DEBUG1("about to return %d bytes of data and RC=%d", * len, rc);
    TIMEPEGNOTE("getting return params");
 
-   idx = urlmapget(map, SRB_DATA);
-   if (idx != -1) {
-      *data = map[idx].value;
-      map[idx].value = NULL;
-      *len = map[idx].valuelen;
-      map[idx].valuelen = 0;
+   if (callreqelm->data != NULL) {
+      *data = callreqelm->data;
+      *len = callreqelm->datatotal;
    } else {
-      *data = NULL;
-      *len = 0;
+      urlmap * map = callreqelm->map;
+      idx = urlmapget(map, SRB_DATA);
+      if (idx != -1) {
+	 // TODO: this will break in future rewrite of urlmap alloc we should go to inline data at the same time
+	 *data = map[idx].value;
+	 map[idx].value = NULL;
+	 *len = map[idx].valuelen;
+	 map[idx].valuelen = 0;
+      } else {
+	 *data = NULL;
+	 *len = 0;
+      };
    };
   
-   idx = urlmapget(map, SRB_APPLICATIONRC);
+   idx = urlmapget(callreqelm->map, SRB_APPLICATIONRC);
    if (idx != -1) {
       /* negative?? */
-      *appreturncode = atoi(map[idx].value);
+      *appreturncode = atoi(callreqelm->map[idx].value);
    } else {
       *appreturncode = 0;
    };
 
-   idx = urlmapget(map, SRB_APPLICATIONRC);
+   idx = urlmapget(callreqelm->map, SRB_APPLICATIONRC);
    if (idx != -1) {
       /* negative?? */
-      *appreturncode = atoi(map[idx].value);
+      *appreturncode = atoi(callreqelm->map[idx].value);
    } else {
       *appreturncode = 0;
    };
 
-   idx = urlmapget(map, SRB_HANDLE);
+   idx = urlmapget(callreqelm->map, SRB_HANDLE);
    if (idx == -1) {
       Fatal("failed to find HANDLE in a SRB CALL reply");
    };
-   handle = strtol(map[idx].value, NULL, 16);
-   DEBUG1("handle = %s => %#x", map[idx].value, handle);
+   handle = strtol(callreqelm->map[idx].value, NULL, 16);
+   DEBUG1("handle = %s => %#x", callreqelm->map[idx].value, handle);
    *hdl = handle;
 
  errout:
-   if (map) urlmapfree(map);
+   if (callreqelm->map) urlmapfree(callreqelm->map);
+   free(callreqelm);
    TIMEPEGNOTE("end");
    DEBUG1("LEAVE ");
    return rc; 

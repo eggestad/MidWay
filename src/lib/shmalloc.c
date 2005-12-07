@@ -23,6 +23,9 @@
  * $Name$
  * 
  * $Log$
+ * Revision 1.23  2005/12/07 11:44:16  eggestad
+ * large data SRB patch
+ *
  * Revision 1.22  2005/10/11 21:33:26  eggestad
  * updated functions for getting and putting call buffers
  * fixes to data versification and error detection
@@ -363,6 +366,7 @@ int _mw_detach_mmap(seginfo_t * si)
    
    munmap(si->start, si->end - si->start);
    delsegment(si->segmentid, si->fd);
+   close(si->fd);
    return 0;
 }
 
@@ -536,7 +540,7 @@ int _mw_getbuffer_from_call (Call * callmesg, char ** data, size_t * datalen)
       DEBUG("fastpath");
       *data = ptr;
    } else {
-      DEBUG("no fast path copying biufer from %p to %p (len=%d)", ptr, *data, callmesg->datalen);
+      DEBUG("no fast path copying biufer from %p to %p (len=%lld)", ptr, *data, callmesg->datalen);
       *data = malloc(callmesg->datalen+1);
       memcpy(*data, ptr, callmesg->datalen);
       /* we adda trainling NUL just to be safe */
@@ -559,7 +563,8 @@ int _mw_getbuffer_from_call (Call * callmesg, char ** data, size_t * datalen)
 int _mw_putbuffer_to_call (Call * callmesg, char * data, size_t len)
 {
    long dataoffset;
-   void * dbuf;
+   void * dbuf = NULL;;
+   seginfo_t * seginfo;
 
    /* First we handle return buffer. If data is not NULL, and len is 0,
       datat is NULL terminated. if buffer is not a shared memory
@@ -580,12 +585,20 @@ int _mw_putbuffer_to_call (Call * callmesg, char * data, size_t len)
 	    Error("mwalloc(%d) failed reason %d", len, (int) errno);
 	    return -errno;
 	 };
+	 DEBUG("copying data from %p to %p-%p", data, dbuf, dbuf+len);
 	 memcpy(dbuf, data, len);
 	 dataoffset = _mwshmcheck(dbuf);
-      }
+	 seginfo = _mw_getsegment_byaddr(dbuf);
+      } else {
+	 seginfo = _mw_getsegment_byaddr(data);
+      };
 
+      DEBUG("data offset = %d", dataoffset);
+      callmesg->datasegmentid = seginfo->segmentid;
+ 
       callmesg->data = dataoffset;
       callmesg->datalen = len;
+      
    } else {
       callmesg->data = 0;
       callmesg->datalen = 0;
@@ -1186,7 +1199,7 @@ static int _mwfree0(seginfo_t * si, void * adr)
    {
       int s;
       s = _mwHeapInfo->basechunksize * pCHead->size;
-      DEBUG1("Clearinbg buffer %ld bytes", s);
+      DEBUG1("Clearinbg buffer %d bytes", s);
       memset(adr, 0, s);
    };
    

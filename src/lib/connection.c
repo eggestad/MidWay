@@ -21,6 +21,9 @@
 
 /*
  * $Log$
+ * Revision 1.3  2005/12/07 11:44:16  eggestad
+ * large data SRB patch
+ *
  * Revision 1.2  2003/09/25 19:36:17  eggestad
  * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
  * - also improved logic in blocking/nonblocking of reading on Connection objects
@@ -48,41 +51,61 @@ static char * RCSId UNUSED = "$Id$";
    as a stream connection. */
 int _mw_conn_read(Connection * conn, int blocking)
 {
-  int rc, l;
+   int rc; 
+   socklen_t l;
   int flags;
   char buffer[64];
-
+  char * remaddr;
+  unsigned long maxrecvlen;
   flags = MSG_NOSIGNAL;
   if (!blocking)
      flags |= MSG_DONTWAIT;
 
+  if (conn->fd == -1) return 0;
   /* if it is the mcast socket, this is a UDP socket and we use
      recvfrom. The conn->peeraddr wil lthen always hold the address of
      sender for the last recv'ed message, which is OK, with UDPO we
      must either get the whole message or not at all. */
 
   if (conn->type == CONN_TYPE_MCAST) {
-    DEBUG("UDP recv, leftover = %d, better be 0!", conn->leftover); 
-    assert ( conn->leftover == 0);
-    l = sizeof(conn->peeraddr);
-    TIMEPEGNOTE("doing recvfrom");
-    rc = recvfrom(conn->fd, conn->messagebuffer+conn->leftover, 
-	      SRBMESSAGEMAXLEN-conn->leftover, flags, &conn->peeraddr.sa, &l);
-    TIMEPEGNOTE("done");
-    DEBUG("UDP: read %d bytes from %s:%d", rc, 
-	  inet_ntop(AF_INET, &conn->peeraddr.sin4.sin_addr, buffer, 64),
-	  ntohs(conn->peeraddr.sin4.sin_port)); 
-  } else {    
-    TIMEPEGNOTE("doing recvfrom stream");
-    DEBUG3("doing recvfrom stream fd=%d dst=%p maxlen=%d flags=%#x", 
-	   conn->fd, conn->messagebuffer+conn->leftover,
-	   SRBMESSAGEMAXLEN - conn->leftover, flags);
-    errno = 0;
-    rc = recvfrom(conn->fd, conn->messagebuffer+conn->leftover, 
-		  SRBMESSAGEMAXLEN - conn->leftover, flags, NULL, &l);
-    DEBUG3("recvfrom => %d errno = %d", rc, errno);
-    TIMEPEGNOTE("done");
+     remaddr = (char *) &conn->peeraddr.sa;
+     l = sizeof(conn->peeraddr);     
+     DEBUG("UDP recv, leftover = %d, better be 0!", conn->leftover);      
+     assert ( conn->leftover == 0);
+  } else {
+     
+     remaddr = NULL;
+     l = 0;
   };
+  
+  TIMEPEGNOTE("doing recvfrom");
+  
+  
+  if (remaddr != NULL) {
+     DEBUG("UDP: read %d bytes from %s:%d", rc, 
+	     inet_ntop(AF_INET, &conn->peeraddr.sin4.sin_addr, buffer, 64),
+	   ntohs(conn->peeraddr.sin4.sin_port)); 
+  };
+  
+  DEBUG3("doing recvfrom stream fd=%d buf=%p start=%p leftover=%d flags=%#x", 
+	 conn->fd, conn->messagebuffer, conn->som, conn->leftover, flags);
+  errno = 0;
+  
+  maxrecvlen =  SRBMESSAGEMAXLEN;
+  maxrecvlen -= (conn->som+conn->leftover) - conn->messagebuffer;
+  DEBUG3("there is %lu octets left in the message buffer", maxrecvlen);
+  
+  DEBUG3("doing recvfrom stream fd=%d buf=%p insert@%p max=%lu flags=%#x", 
+	 conn->fd, conn->messagebuffer, conn->som+conn->leftover, maxrecvlen, flags);
+  
+  rc = recvfrom(conn->fd, conn->som+conn->leftover,  maxrecvlen, flags, (struct sockaddr *)remaddr, &l);
+  if (rc > 0) {
+       conn->leftover += rc;
+       conn->som[conn->leftover] = '\0';  
+  };
+
+  DEBUG3("recvfrom => %d errno = %d", rc, errno);
+  TIMEPEGNOTE("done");
   return rc;
 };
 

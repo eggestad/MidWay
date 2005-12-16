@@ -13,7 +13,7 @@ mwlog, mwopenlog, mwloglevel, mwlogprefix \- MidWay logging facility
 .sp
 .BI "void mwlog(int level, char * fmt, ...);"
 .sp
-.BI "int mwloglevel(int level);"
+.BI "int mwsetloglevel(int level);"
 .br
 .BI "void mwopenlog(char * progname, chat * fileprefix, int level);"
 .br

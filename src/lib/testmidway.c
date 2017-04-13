@@ -52,6 +52,8 @@ static char * RCSName = "$Name$"; /* CVS TAG */
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
+ #include <unistd.h>
+#include <sys/types.h>
 
 int serverhandler1(mwsvcinfo * si)
 {
@@ -114,7 +116,7 @@ void sighandler(int sig)
   exit(-sig);
 };
 
-main()
+int main()
 {
   
   int rc ;

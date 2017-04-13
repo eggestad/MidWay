@@ -281,7 +281,7 @@ int quit(int argc, char ** argv)
   However things like help have hardcoded what the first arg may be.
   THese hardcodings must be closely synced with commands.c */
 
-char * command_generator(char * text, int state)
+char * command_generator(const char * text, int state)
 {
   static int index;
   static int len;
@@ -298,13 +298,13 @@ char * command_generator(char * text, int state)
   return NULL;
 };
   
-char ** command_completion(char * text, int start, int end)
+char ** command_completion(const char * text, int start, int end)
 {
   char ** matches = NULL;
 
   if (start != 0) return NULL;
 
-  matches = completion_matches(text,command_generator);
+  matches = rl_completion_matches( text, command_generator);
   return matches;
 };
 

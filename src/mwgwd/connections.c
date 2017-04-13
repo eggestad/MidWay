@@ -620,7 +620,7 @@ Connection * conn_add(int fd, int role, int type)
       2^31. Just need to make sure is stays positive */
    if (fd < 0) {
      Error("conn_add on fd %d", fd);
-     return;
+     return NULL;
    };
 
 

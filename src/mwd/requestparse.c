@@ -97,6 +97,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <limits.h>
 
 #include <MidWay.h> 
 #include <ipcmessages.h>

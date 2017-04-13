@@ -10,7 +10,7 @@
 
 
 
-main(int argc, char ** argv)
+int main(int argc, char ** argv)
 {
   int rc;
   struct testdata td, *rd;

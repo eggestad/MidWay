@@ -604,7 +604,7 @@ int storeIPCCall(Call * cmsg, Connection *conn)
 {
    struct PendingCall * pc;
    char * data;
-   int datalen, rc;
+   size_t datalen, rc;
 
    ENTER();
    storeLockCall();

@@ -326,12 +326,12 @@ int smgrBeginServer(char * name)
 
     if ((strcmp(name, this->name) == 0)) {
       currentserver = this;
-      return;
+      return 0;
     };    
     top = &((*top)->next);
   };
 
-  /* craet a new server if we get here */
+  /* create a new server if we get here */
   this = (struct Server * ) malloc(sizeof(struct Server));
   *top = this;
   this->name = strdup(name);

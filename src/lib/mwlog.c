@@ -127,6 +127,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <limits.h>
 
 #include <MidWay.h>
 #include <ipctables.h>
@@ -492,7 +493,7 @@ int mwsetloglevel(int level)
      level = _mwstr2loglevel(tmp);
   };
 
-  if ( (level < MWLOG_FATAL) || (level > MWLOG_DEBUG4) ) return ;
+  if ( (level < MWLOG_FATAL) || (level > MWLOG_DEBUG4) ) return -EINVAL;
   oldlevel = loglevel;
   loglevel = level;
   DEBUG("loglevel is now %s", levelheader[level]);

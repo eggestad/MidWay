@@ -93,7 +93,7 @@ typedef struct {
   SERVERID srvid;
   SERVICEID svcid;
   char * data;
-  int datalen;
+  size_t datalen;
   int flags;
   int appreturncode;
   char service[MWMAXSVCNAME];

@@ -19,107 +19,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.27  2005/10/11 22:23:22  eggestad
- * fix for memory leak on setting filename
- *
- * Revision 1.26  2005/06/13 23:23:10  eggestad
- * Added doxygen comments
- *
- * Revision 1.25  2004/11/17 20:50:52  eggestad
- * added function  _mwid2str helper for debugging
- *
- * Revision 1.24  2004/08/11 20:28:42  eggestad
- * changed loglevel env var name
- *
- * Revision 1.23  2004/03/21 19:23:31  eggestad
- * added envs to override code on logging
- *
- * Revision 1.22  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.21  2003/12/08 17:18:04  eggestad
- * segv with efence fix
- *
- * Revision 1.20  2003/09/25 19:33:45  eggestad
- * loglevel fixup
- *
- * Revision 1.19  2003/07/13 20:32:13  eggestad
- * - increased the maximum log message length from LINE_MAX to 64k, timepegs got way longer than LINE_MAX.
- *
- * Revision 1.18  2003/06/05 21:52:56  eggestad
- * commonized handling of -l option
- *
- * Revision 1.17  2003/03/16 23:53:53  eggestad
- * bug fixes
- *
- * Revision 1.16  2003/01/07 08:26:58  eggestad
- * * reset log suffix for earlier debugging that where committed
- * * added a hidden _mwgetloglevel() that return the pointer to debuglevel, for faster DEBUGN
- *
- * Revision 1.15  2002/12/12 22:45:58  eggestad
- * last fixed was incomplete
- *
- * Revision 1.14  2002/12/12 16:09:31  eggestad
- * We used ap in two v*printf in _mw_vlogf, and on hammer the second time continued on the stack. Turns out that it's illegal to use it twice.
- *
- * Revision 1.13  2002/11/19 12:43:53  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.12  2002/11/18 00:10:55  eggestad
- * - Made vt100 colors more readable, replaceable, and potentially configurable
- *
- * Revision 1.11  2002/11/13 16:30:18  eggestad
- * rewamped _mw_vlogf to format the whole message in a buffer, and writeit out at once. Better performance, and we got rid of the mutex locks
- *
- * Revision 1.10  2002/11/08 00:12:58  eggestad
- * Major fixup on default logfile
- *
- * Revision 1.9  2002/10/22 21:58:20  eggestad
- * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
- *
- * Revision 1.8  2002/10/03 21:10:42  eggestad
- * - switchlog() didn't switch log on mwsetlogprefix()
- *
- * (still not quite happy on default logfiles)
- *
- * Revision 1.7  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.6  2002/08/07 23:54:06  eggestad
- * fixup for DEBUGs so we're C99 compliant
- *
- * Revision 1.5  2002/07/07 22:35:20  eggestad
- * *** empty log message ***
- *
- * Revision 1.4  2002/02/17 14:14:22  eggestad
- * missing include added
- *
- * Revision 1.3  2000/09/21 18:42:39  eggestad
- * Changed a bit the copy_on_stdout to be either stderr or stdout.
- *
- * Revision 1.2  2000/07/20 19:26:59  eggestad
- * - progname added til logline.
- * - mwlog() now threadsafe.
- * - diffrent unspecified log file name.
- * - New loglevels.
- * - new function mwopenlog().
- *
- * Revision 1.1.1.1  2000/03/21 21:04:12  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
-
-
 #include <string.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -574,10 +473,11 @@ void mwsetlogprefix(char * lfp)
       if (tmp[0] != '/') { // leading / means absolute 
 	getcwd(logdir, PATH_MAX);
 	strncat(logdir, "/", PATH_MAX-strlen(logdir));
-      };
-      free(tmp);
+      } 
       strncat(logdir, tmp, PATH_MAX-strlen(logdir));
       logdir[PATH_MAX-1] = '\0';
+      free(tmp);
+
     };
   } else {
     // ok called with NULL, attempting to set default

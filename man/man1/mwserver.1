@@ -33,12 +33,14 @@ Given a C file example.c:
 .nf
 #include <MidWay.h>
 
-void _init(void) 
+int SERVICE1(mwsvcinfo *si) ;
+
+__attribute__((constructor))  void yourinit(void) 
 {
    mwprovide("SERVICE", SERVICE1, 0);
 };
 
-void _fini(void)
+__attribute__((destructor)) void finalizer(void)
 {
    mwunprovide("SERVICE");
 };

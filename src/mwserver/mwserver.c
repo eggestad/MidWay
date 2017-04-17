@@ -81,7 +81,7 @@ void sighandler(int sig)
 
 void usage(void) 
 {
-  fprintf(stderr, "mwserver [-l loglevel] [-A uri] [-L logprefix] [-n name] {-s service[:function]} dynamiclibraries...\n");
+  fprintf(stderr, "mwserver [-l loglevel] [-A uri] [-L logprefix] [-n name] [-s service[:function]] dynamiclibraries...\n");
   fprintf(stderr, "    loglevel is one of error, warning, info, debug, debug1, debug2\n");
   fprintf(stderr, "    uri is the address of the MidWay instance e.g. ipc:12345\n");
   fprintf(stderr, "    logprefix is the path inclusive the beginning of the file name the logfile shall have.\n");

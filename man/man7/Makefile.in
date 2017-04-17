@@ -14,11 +14,11 @@ distclean:: clean
 	rm -f Makefile *~
 
 install::
-	@ for man in `ls *.7*`; do\
+	@ for man in `ls *.7*`; do \
 	$(INSTALL) -m 644 $$man @mandir@/man7/$$man; \
 	done;
 
 uninstall::
-	@ for man in `ls *.7*`; do\
-	rm -f @mandir@/man7/$$man;\
+	@ for man in `ls *.7*`; do \
+	rm -f @mandir@/man7/$$man; \
 	done;

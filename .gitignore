@@ -1,6 +1,7 @@
 **/Makefile
 **/*.o
 **/*.so
+**/*~
 
 config.h
 config.log
@@ -23,3 +24,5 @@ src/mwevent/mwevent
 src/mwgwd/mwgwd
 src/mwserver/mwserver
 src/test/testsuiteclient
+
+html-doc/mans/*html

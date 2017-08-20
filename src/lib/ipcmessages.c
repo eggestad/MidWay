@@ -1236,7 +1236,7 @@ int _mwacallipc (char * svcname, char * data, int datalen, int flags,
   DEBUG1("doing mwid's");
   /* now the data string are passed in shm, we only pass the address (offset) , and 
      the other neccessary data.
-     since shmat on Linux do not always reurn tha same address for a given shm segment
+     since shmat on Linux do not always return the same address for a given shm segment
      we must operate on offset into the segment (se shmalloc.c) */
   
   callmesg.mtype = SVCCALL;

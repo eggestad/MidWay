@@ -106,14 +106,6 @@ static char * url = NULL;
 int dbgflag = 0;
 int usage(char *);
 
-struct command {
-  char * commandname;
-  int (*commandfunc) (int, char **);
-  int extended;
-  char * usage;
-  char * doc;
-};
-
 
 int quit          (int argc, char ** argv);
 int attach        (int argc, char ** argv);
@@ -235,13 +227,25 @@ int info(int argc, char ** argv)
    return rc;
 };
 
+struct command {
+  char * commandname;
+  int (*commandfunc) (int, char **);
+  int extended;
+  char * usage;
+  char * doc;
+};
+
 struct command  commands[] = 
 {
   { "info",     info,        0, "info",    "prints out IPC maininfo data"},
-  { "clients",  clients,     0, "clients", "Lists attached clients" },
+  { "clients",  clients,     0, "clients|lc", "Lists attached clients" },
+  { "lc",       clients,     0, "lc", "Lists attached clients" },
   { "servers",  servers,     0, "servers", "Lists attached servers" },
-  { "services", services,    0, "services", "List provided services." },
-  { "gateways", gateways,    0, "gw", "List gateways." },
+  { "lr",       servers,     0, "lr", "Lists attached servers" },
+  { "services", services,    0, "services | ls", "List provided services." },
+  { "ls",       services,    0, "ls", "List provided services." },
+  { "gateways", gateways,    0, "gateways", "List gateways." },
+  { "lg",       gateways,    0, "lg", "List gateways." },
   { "boot",     boot,        0, "boot  [-- [any used for mwd]]", "Boot the mwd" },
   { "shutdown", cmd_shutdown,    0, "shutdown", "Shutdown the mwd" },
   { "buffers",  heapinfo,    1, "buffers",    "prints out info on the shm buffer area"},
@@ -249,7 +253,7 @@ struct command  commands[] =
     "list available commands and gives online help on spesific commands"},
   { "query",     query,        0, "query",    "perform a multicast discovery of running instances"},
   { "quit",     quit,        0, "quit",    "exits mwadm"},
-  { "q",        quit,        0, "quit",    "exits mwadm"},
+  { "q",        quit,        0, "q",    "exits mwadm"},
   { "R&D",      toggleRandD, 0, "R&D",     "Toggle mwadm into R&D mode."},
   { "ipcmain",  dumpipcmain, 1, "ipcmain", 
     "dumps out the ipcmain structure from the main SHM segment"},
@@ -275,7 +279,7 @@ int quit(int argc, char ** argv)
 };
 /*
   Completions: We use readline extensivly here.
-  NB: On som e command we have completions on more than arg, that is foremost on those
+  NB: On some commands we have completions on more than arg, that is foremost on those
   command that require completin on a server, client or service names. 
   e.g. call.
   However things like help have hardcoded what the first arg may be.
@@ -369,7 +373,7 @@ int usage(char * command)
 	(command == NULL)  || 
 	((command != NULL) && (strcmp(command, commands[i].commandname) == 0) )
 	)
-      printf ("%s\n", commands[i].usage);
+       printf ("%-20s : %s\n", commands[i].usage, commands[i].doc);
     i++;
   } 
   printf ("\n");

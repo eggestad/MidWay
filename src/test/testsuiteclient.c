@@ -13,7 +13,7 @@
 int main(int argc, char ** argv)
 {
   int rc;
-  struct testdata td, *rd;
+  struct testdata td = { 0 }, *rd;
   int i, appcode, len;
   int count;
   char * rbuffer = NULL;
@@ -58,7 +58,7 @@ int main(int argc, char ** argv)
       (float) etv.tv_usec/1000000 - (float) btv.tv_usec/1000000;
     proctime = (rd->endtv.tv_sec - rd->starttv.tv_sec) + 
       (float) rd->endtv.tv_usec/1000000 - (float) rd->starttv.tv_usec/1000000;
-    printf ("call completed with rc=%d appcode=%d, responstime=%f procesingtime=%f\n",
+    printf ("call completed with rc=%d appcode=%d, responsetime=%f processingtime=%f\n",
 	    rc, appcode, resptime, proctime);
 
     if (resptime < respmin) respmin = resptime;

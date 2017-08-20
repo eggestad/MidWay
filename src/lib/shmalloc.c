@@ -540,7 +540,7 @@ int _mw_getbuffer_from_call (Call * callmesg, char ** data, size_t * datalen)
       DEBUG("fastpath");
       *data = ptr;
    } else {
-      DEBUG("no fast path copying biufer from %p to %p (len=%lld)", ptr, *data, callmesg->datalen);
+      DEBUG("no fast path copying buffer from %p to %p (len=%lld)", ptr, *data, callmesg->datalen);
       *data = malloc(callmesg->datalen+1);
       memcpy(*data, ptr, callmesg->datalen);
       /* we adda trainling NUL just to be safe */

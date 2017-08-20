@@ -3,7 +3,7 @@ Summary: The MidWay service request broker
 Name: MidWay
 Version: 0.14.0
 Release: 1
-Copyright: GPL,LGPL
+License: GPL,LGPL
 Group: System Environment/Base
 Source: ftp://ftp.mid-way.org/pub/sourceforge/MidWay/MidWay-%{version}.tgz
 URL: http://www.mid-way.org
@@ -43,7 +43,6 @@ sed s+${RPM_BUILD_ROOT}++g ${RPM_BUILD_ROOT}/usr/sbin/midway.rc > ${RPM_BUILD_RO
 rm -rf $RPM_BUILD_ROOT
 
 %post 
-ln -sf /usr/lib/libMidWay.so.0.14 /usr/lib/libMidWay.so.0
 if [[ $1 > 1 ]]; then 
   service mwbd restart	
 else 
@@ -55,18 +54,7 @@ fi
 if [[ 0 == $1 ]]; then
   service mwbd stop
   chkconfig --del mwbd
-  rm -f /usr/lib/libMidWay.so.0
 fi
-
-%post devel
-
-ln -sf /usr/lib/libMidWay.so.0.14 /usr/lib/libMidWay.so
-
-%preun devel 
-if [[ 0 == $1 ]]; then
-  rm -f /usr/lib/libMidWay.so
-fi
-
 
  
 %files
@@ -76,7 +64,8 @@ fi
 %attr(555,root,root) /etc/rc.d/init.d/mwbd
 /usr/bin/*
 /usr/sbin/*
-/usr/lib/libMidWay.so.0.14
+${exec_prefix}/lib64/libMidWay.so.0
+${exec_prefix}/lib64/libMidWay.so.0.14
 /usr/man/man1/*
 /usr/man/man7/*
 /usr/man/man8/*
@@ -86,7 +75,8 @@ fi
 %defattr(-,root,root)
 /usr/man/man3/*
 /usr/include/MidWay.h
-/usr/lib/libMidWay.a
-/usr/lib/liburlencode.a
+${exec_prefix}/lib64/libMidWay.so
+${exec_prefix}/lib64/libMidWay.a
+${exec_prefix}/lib64/liburlencode.a
 
 %changelog

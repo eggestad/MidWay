@@ -16,7 +16,7 @@ mwcall mwacall, mwfetch \- MidWay service calls
 .sp
 .BI "int mwacall(char * " servicename ", char * " data ", int " len ", int " flags ");"
 .br
-.BI "int mwfetch(int " handle ", char ** " rdata ", int * " rlen ", int * " appreturncode  ", int " flags ");"
+.BI "int mwfetch(int * " handle ", char ** " rdata ", int * " rlen ", int * " appreturncode  ", int " flags ");"
 
 .SH DESCRIPTION
 These calls are used to send a service request to a given service see

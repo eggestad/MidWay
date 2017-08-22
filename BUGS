@@ -3,6 +3,25 @@
 NON CRITICAL BUGS LIST, needed for production 1.0.0
 =======================================================================
 
+* mwadm (and others) when running multiple instances on same userid
+  -A  don't find the instance
+  
+* mwcall(1) don't hande multiple correctly
+
+* mwreply(3) man page, for muliple rc = MWMORE not MWSUCCESS
+
+* mwfetch manpage unclear on return code
+
+* mwgeturl is missing from man pages
+
+* telnet to GW port and just hit enter crashes GW.
+  it sould just close connection
+
+* in MidWay.h, mwreturn will fail if used in blockless if (or any other
+  single block statement
+
+* long options
+
 * mwd must perform the statistic calc's. This will cause a task that
   will increase with an increase in the number of servers. To prevent
   thrashing by mwd, use /proc/stat cpu line to detect low idle time on

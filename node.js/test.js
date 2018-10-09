@@ -1,6 +1,8 @@
 // hello.js
 const mw = require('./build/Release/midway');
 
+console.log(mw);
+
 console.log(mw.log("test of log", "arg1", 66, 88.4, "arg4", new Object(), [1,2], function()   { return 3;}  ));
 
 
@@ -21,15 +23,25 @@ console.log(mw.attach( undefined, "nodejs_test"));
 
 
 function callback0() {
-    console.log(global);
+    console.log("cb0 start");
+    mw.reply("testreply from data " + this.data, mw.success, 67);
+    console.log("cb0 ok");
     return true;
 }
 function callback1(svcinfo, a, b, c, d) {
     console.log("got call with ", svcinfo, a, b, c, d, this);
+    console.log(mw.reply("testreply", mw.success, 67));
+    console.log(mw.reply("testreply", mw.success, 67));
+}
+
+function callback2(svcinfo, a, b, c, d) {
+    console.log("got call with ", svcinfo, a, b, c, d, this);
+    console.log(mw.forward("node0", "testforward"));
 }
 
 console.log(mw.provide("node0", callback0));
 console.log(mw.provide("node1", callback1));
+console.log(mw.provide("node2", callback2));
 
 console.log(mw.provide("nodel", function () {} ));
 console.log("RUNNUNG SERVER");

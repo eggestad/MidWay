@@ -102,7 +102,7 @@ namespace MidWay {
    /*
     * Now we're getting to brass tax. 
     * This is a the C call back for all service requests. 
-    * It looks up the javascript call back and calls its. 
+    * It looks up the javascript callback and calls its. 
     */ 
    int servicecallwrapper (mwsvcinfo * msi) {
       mwlog(MWLOG_DEBUG2,  (char*) "Beginning service call wrapper");
@@ -210,10 +210,21 @@ namespace MidWay {
        */
       mwlog(MWLOG_DEBUG2,  (char*) "calling js callback");
       status = napi_call_function(env, svcreqinfo, callback, 1, callargs, &res);
-      mwlog(MWLOG_DEBUG2,  (char*) "done js callback");
+      mwlog(MWLOG_DEBUG2,  (char*) "done js callback %d ", status );
 
-      if (status != napi_ok) mwlog(MWLOG_ERROR, (char*)
-				   "Error in calling JS service callback %d", status); 
+      if (status == napi_pending_exception)  {
+	 napi_value expt;
+	 status = napi_get_and_clear_last_exception(env, &expt);
+
+	 int blen = 1000;
+	 char buf[blen];
+	 JSValtoString(env, expt, buf, blen);
+	 
+	 mwlog(MWLOG_ERROR, (char *) "Error: %s", buf);
+      } else if (status != napi_ok) {
+	 mwlog(MWLOG_ERROR, (char*)
+	       "Error in calling JS service callback %d", status);
+      }
 
       {
 	 int blen = 100;
@@ -592,16 +603,81 @@ namespace MidWay {
     */
    napi_value Reply(napi_env env, napi_callback_info info) {
       mwlog(MWLOG_DEBUG2, (char*) "Beginning Reply");
+
+      char * data = NULL;
+      size_t datalen = 0;
+      int successflag = MWFAIL;
+      int appreturncode = 0;
       
       napi_status status;
       napi_value rv;
 
-      int rc =  99;
+      napi_value args[10];
+      size_t argc = 10;
+      status = napi_get_cb_info(env, info, &argc, args, NULL, NULL);
+      CHECK_STATUS;
 
+      if (argc < 2) {
+	 napi_throw_type_error(env, NULL, "missing arguments data and successflag must be present." );
+	 return NULL;
+      }
+      
+      napi_valuetype type;
+
+      // arg 0 is data
+      napi_typeof(env, args[0], &type);
+
+      if (type == napi_string) {
+	 size_t rlen;
+	 status = napi_get_value_string_utf8(env, args[0], NULL, 0,  &rlen);
+	 if (status != napi_ok) {
+	    mwlog(MWLOG_ERROR, (char *) "status = %d", status);
+	    napi_throw_type_error(env, NULL, "unable to get data length." );
+	 }
+	 mwlog(MWLOG_DEBUG2, (char *) "datalen = %ld", rlen);
+	 rlen++;
+	 data = (char *) mwalloc(rlen);
+
+	 status = napi_get_value_string_utf8(env, args[0], data, rlen,  &datalen);
+	 CHECK_STATUS;
+	 
+      } else if (type == napi_undefined) {
+	 // no return data
+      } else {
+	 napi_throw_type_error(env, NULL, "data must be a string or undefined." );
+	 return NULL;
+      }
+
+      // arg 1 is successflag
+      napi_typeof(env, args[1], &type);
+      if (type == napi_number) {
+	 status = napi_get_value_int32( env,args[1],  &successflag);
+      } else {
+	 napi_throw_type_error(env, NULL, "successflag must be an int." );
+	 return NULL;
+      }
+
+
+      // optional arg 2 is appreturncode 
+      if (argc >= 3) {
+	 napi_typeof(env, args[2], &type);
+	 if (type == napi_number) {
+	    status = napi_get_value_int32( env,args[2],  &appreturncode);
+	 } else {
+	    napi_throw_type_error(env, NULL, "appreturncode must be an int." );
+	    return NULL;
+	 }
+      }
+
+      // calling midway
+      int rc =  mwreply(data, datalen, successflag, appreturncode, 0);
+
+      if (rc < 0) mwfree(data);
+      
       status = napi_create_int32(env, rc, &rv);
       assert(status == napi_ok);
 
-      mwlog(MWLOG_DEBUG2, (char*) "Ending Reply");
+      mwlog(MWLOG_DEBUG2, (char*) "Ending Reply %d %d", rc, errno);
       return rv;
    };
    
@@ -629,11 +705,64 @@ namespace MidWay {
    napi_value Forward(napi_env env, napi_callback_info info) {
       mwlog(MWLOG_DEBUG2, (char*) "Beginning Forward");
       
-      napi_status status;
-      napi_value rv;
+      char * data = NULL;
+      size_t datalen = 0;
 
-      int rc =  99;
+      char nextsvc[MWMAXSVCNAME] = {0};
+      
+      napi_status status ;
+      napi_value rv = {0};
 
+      napi_value args[10];
+      size_t argc = 10;
+      status = napi_get_cb_info(env, info, &argc, args, NULL, NULL);
+      CHECK_STATUS;
+
+      if (argc < 2) {
+	 napi_throw_type_error(env, NULL, "missing arguments forwaring service and data  must be present." );
+	 return NULL;
+      }
+      
+      napi_valuetype type;
+      napi_typeof(env, args[0], &type);
+
+      if (type == napi_string) {
+	 size_t rlen;	 
+	 status = napi_get_value_string_utf8(env, args[0], nextsvc, MWMAXSVCNAME, &rlen);
+	 CHECK_STATUS;
+      
+      } else {
+	 napi_throw_type_error(env, NULL, "servicename  must be a string." );
+	 return NULL;
+      }
+      
+      napi_typeof(env, args[1], &type);
+      if (type == napi_string) {
+	 size_t rlen;
+	 status = napi_get_value_string_utf8(env, args[1], NULL, 0,  &rlen);
+	 if (status != napi_ok) {
+	    mwlog(MWLOG_ERROR, (char *) "status = %d", status);
+	    napi_throw_type_error(env, NULL, "unable to get data length." );
+	 }
+
+	 mwlog(MWLOG_DEBUG2, (char *) "datalen = %ld", rlen);
+	 rlen++;
+	 data = (char *) mwalloc(rlen);
+	 status = napi_get_value_string_utf8(env, args[1], data, rlen,  &datalen);
+	 CHECK_STATUS;
+	 
+      } else if (type == napi_undefined) {
+	 // no return data
+      } else {
+	 napi_throw_type_error(env, NULL, "data must be a string or undefined." );
+	 return NULL;
+      }
+           
+      
+      int rc =  mwforward(nextsvc, data, datalen, 0);
+
+      if (rc < 0) mwfree(data);
+      
       status = napi_create_int32(env, rc, &rv);
       assert(status == napi_ok);
 
@@ -655,47 +784,36 @@ namespace MidWay {
 
    napi_value init(napi_env env, napi_value exports) {
 
+      napi_property_descriptor desc[30];
+      int pdcount = 0;
 
       napi_status status;
 
       status = napi_get_undefined( env, &undefinedval);
 
-      napi_property_descriptor desc = DECLARE_NAPI_METHOD("log", log_to_midway);
-      status = napi_define_properties(env, exports, 1, &desc);
-      assert(status == napi_ok);
+      // API
+      desc[pdcount++] = DECLARE_NAPI_METHOD("log", log_to_midway);
+      desc[pdcount++] = DECLARE_NAPI_METHOD("attach", Attach);
+      desc[pdcount++] = DECLARE_NAPI_METHOD("detach", Detach);
+      desc[pdcount++] = DECLARE_NAPI_METHOD("provide", Provide);
+      desc[pdcount++] = DECLARE_NAPI_METHOD("unprovide", UnProvide);
+      desc[pdcount++] = DECLARE_NAPI_METHOD("runServer", runServer);
+      desc[pdcount++] = DECLARE_NAPI_METHOD("reply", Reply);
+      desc[pdcount++] = DECLARE_NAPI_METHOD("return", Return);
+      desc[pdcount++] = DECLARE_NAPI_METHOD("forward", Forward);
 
-      desc = DECLARE_NAPI_METHOD("attach", Attach);
-      status = napi_define_properties(env, exports, 1, &desc);
-      assert(status == napi_ok);
+      // Add constants
+      napi_value value;
+      status = napi_create_int32(env, MWSUCCESS, &value);
+      desc[pdcount++]  ={ "success", 0, 0, 0, 0, value, napi_enumerable, 0 };
+      status = napi_create_int32(env, MWFAIL, &value);
+      desc[pdcount++]  ={ "fail", 0, 0, 0, 0, value, napi_enumerable, 0 };
+      status = napi_create_int32(env, MWMORE, &value);
+      desc[pdcount++]  ={ "more", 0, 0, 0, 0, value, napi_enumerable, 0 };
 
-      desc = DECLARE_NAPI_METHOD("detach", Detach);
-      status = napi_define_properties(env, exports, 1, &desc);
-      assert(status == napi_ok);
-
-      desc = DECLARE_NAPI_METHOD("provide", Provide);
-      status = napi_define_properties(env, exports, 1, &desc);
-      assert(status == napi_ok);
-
-      desc = DECLARE_NAPI_METHOD("unprovide", UnProvide);
-      status = napi_define_properties(env, exports, 1, &desc);
-      assert(status == napi_ok);
-
-      desc = DECLARE_NAPI_METHOD("runServer", runServer);
-      status = napi_define_properties(env, exports, 1, &desc);
-      assert(status == napi_ok);
-
-      desc = DECLARE_NAPI_METHOD("reply", Reply);
-      status = napi_define_properties(env, exports, 1, &desc);
-      assert(status == napi_ok);
-    
-      desc = DECLARE_NAPI_METHOD("return", Return);
-      status = napi_define_properties(env, exports, 1, &desc);
-      assert(status == napi_ok);
-    
-      desc = DECLARE_NAPI_METHOD("forward", Forward);
-      status = napi_define_properties(env, exports, 1, &desc);
-      assert(status == napi_ok);
-    
+      status = napi_define_properties(env, exports, pdcount, desc);
+      CHECK_STATUS;
+      
       mwopenlog((char*) "nodejs", (char*) "./testlog", MWLOG_DEBUG2);
 
       return exports;

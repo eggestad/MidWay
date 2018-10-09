@@ -259,7 +259,7 @@ void _perf_resume(void);
 
 #include <stdarg.h>
 
-void _mw_vlogf(int level, char * format, va_list ap); // in mwlog.c
+void _mw_vlogf(int level, const char * format, va_list ap); // in mwlog.c
 
 /* here we introduce some short forms for the mwlog() calls. These are
    here and not the main MidWay.h so that we don't clobber the
@@ -272,7 +272,7 @@ void _mw_vlogf(int level, char * format, va_list ap); // in mwlog.c
 int * _mwgetloglevel(void);
 
 static int * debuglevel = NULL;
-int _mwstr2loglevel(char *);
+int _mwstr2loglevel(const char *);
 
 #define PRINTF_ATTR __attribute__ ((format (printf, 5, 6)))
 #define DEPRECATED __attribute__ ((deprecated))

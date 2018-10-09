@@ -81,7 +81,7 @@ void _mw_copy_on_stderr(int flag);
 
 int subflag = MWEVSTRING;
 
-void eventhdl(char * eventname, char * data, int datalen) 
+void eventhdl(const char * eventname, const char * data, int datalen) 
 {
    fprintf (fp, "%s %*.*s\n", eventname, datalen, datalen, data);
 };

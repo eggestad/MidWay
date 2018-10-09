@@ -332,7 +332,7 @@ void _mw_srb_destroy (SRBmessage * srbmsg)
    free(srbmsg);
 };
 
-void _mw_srb_setfieldi (SRBmessage * srbmsg, char * key, int value)
+void _mw_srb_setfieldi (SRBmessage * srbmsg, const char * key, int value)
 {
    urlmap * map;
 
@@ -352,7 +352,7 @@ void _mw_srb_setfieldi (SRBmessage * srbmsg, char * key, int value)
 static char _hex_digit [16] = { '0', '1', '2', '3', '4', '5', '6', '7', 
 				'8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 #endif
-void _mw_srb_setfieldx (SRBmessage * srbmsg, char * key, unsigned int value)
+void _mw_srb_setfieldx (SRBmessage * srbmsg, const char * key, unsigned int value)
 {
    urlmap * map;
    char hex[9];
@@ -381,7 +381,7 @@ void _mw_srb_setfieldx (SRBmessage * srbmsg, char * key, unsigned int value)
    return;
 };
 
-void _mw_srb_setfield (SRBmessage * srbmsg, char * key, char * value)
+void _mw_srb_setfield (SRBmessage * srbmsg, const char * key, const char * value)
 {
    urlmap * map;
 
@@ -397,7 +397,7 @@ void _mw_srb_setfield (SRBmessage * srbmsg, char * key, char * value)
    return;
 };
 
-void _mw_srb_nsetfield (SRBmessage * srbmsg, char * key, void * value, int vlen)
+void _mw_srb_nsetfield (SRBmessage * srbmsg, const char * key, void * value, int vlen)
 {
    urlmap * map;
 
@@ -412,7 +412,7 @@ void _mw_srb_nsetfield (SRBmessage * srbmsg, char * key, void * value, int vlen)
    return;
 };
 
-char * _mw_srb_getfield (SRBmessage * srbmsg, char * key)
+char * _mw_srb_getfield (SRBmessage * srbmsg, const char * key)
 {
    if (srbmsg == NULL) return NULL;
    if (key  == NULL) return NULL;
@@ -420,7 +420,7 @@ char * _mw_srb_getfield (SRBmessage * srbmsg, char * key)
    return urlmapgetvalue(srbmsg->map,key);
 };
 
-void _mw_srb_delfield (SRBmessage * srbmsg, char * key)
+void _mw_srb_delfield (SRBmessage * srbmsg, const char * key)
 {
    urlmapdel(srbmsg->map, key);
    return;
@@ -832,8 +832,8 @@ int _mw_srbsendreject_sz(Connection * conn, char *message, int offset)
 // EVENTS
 
 int _mw_srbsendevent(Connection * conn, 
-		     char * event,  char * data, int datalen, 
-		     char * username, char * clientname)
+		     const char * event,  const char * data, int datalen, 
+		     const char * username, const char * clientname)
 {
    int rc;
    SRBmessage srbmsg;
@@ -850,7 +850,7 @@ int _mw_srbsendevent(Connection * conn,
 	 Warning("not yet capable to send event with more than 3000 octets or data");
 	 return -ENOSYS;
       };
-      _mw_srb_nsetfield(&srbmsg, SRB_DATA, data, datalen);
+      _mw_srb_nsetfield(&srbmsg, SRB_DATA, (char *)data, datalen);
    };
    if (username) {     
       _mw_srb_setfield(&srbmsg, SRB_USER, username);
@@ -867,7 +867,7 @@ int _mw_srbsendevent(Connection * conn,
 
 
 
-int _mw_srbsendsubscribe(Connection * conn, char * pattern, int subid, int flags)
+int _mw_srbsendsubscribe(Connection * conn, const char * pattern, int subid, int flags)
 {
    int rc;
    SRBmessage srbmsg;
@@ -939,7 +939,7 @@ int _mw_srbsendterm(Connection * conn, int grace)
 };
 
 int _mw_srbsendinit(Connection * conn, mwcred_t *cred, 
-		    char * name, char * domain)
+		    const char * name, const char * domain)
 {
    int  rc;
    char * auth = SRB_AUTH_NONE;
@@ -1024,7 +1024,7 @@ int _mw_srbsenddata(Connection * conn, char * handle, char * data, int datalen)
    @param flags 
    @return the total number of octets written on the Connection or -errno
 */
-int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, int datalen, 
+int _mw_srbsendcall(Connection * conn, int handle, const char * svcname, const char * data, int datalen, 
 		    int flags)
 {
    char hdlbuf[9];
@@ -1073,7 +1073,7 @@ int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, 
    urlmapfree(srbmsg.map);
    DEBUG1("rc=%d data remainding=%d", rc, datarem);
    if ((rc >= 0) && (datarem > 0)) {
-      rc +=  _mw_srbsenddata(conn, hdlbuf, data+datalen, datarem);
+      rc +=  _mw_srbsenddata(conn, hdlbuf, (char*) data+datalen, datarem);
    }
    DEBUG1("returns normally with rc=%d", rc);
    return rc;

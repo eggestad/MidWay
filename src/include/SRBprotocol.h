@@ -228,13 +228,13 @@ void _mw_srb_init (SRBmessage * srbmsg, char * command, char marker, ...);
 SRBmessage * _mw_srb_create (char * command, char marker, ...);
 void _mw_srb_destroy (SRBmessage * srbmsg); 
 
-void _mw_srb_setfield   (SRBmessage * srbmsg, char * key, char * value); 
-void _mw_srb_nsetfield  (SRBmessage * srbmsg, char * key, void * value, int vlen); 
-void _mw_srb_setfieldi  (SRBmessage * srbmsg, char * key, int value); 
-void _mw_srb_setfieldx  (SRBmessage * srbmsg, char * key, unsigned int value); 
+void _mw_srb_setfield   (SRBmessage * srbmsg, const char * key, const char * value); 
+void _mw_srb_nsetfield  (SRBmessage * srbmsg, const char * key, void * value, int vlen); 
+void _mw_srb_setfieldi  (SRBmessage * srbmsg, const char * key, int value); 
+void _mw_srb_setfieldx  (SRBmessage * srbmsg, const char * key, unsigned int value); 
 
-char * _mw_srb_getfield (SRBmessage * srbmsg, char * key);
-void _mw_srb_delfield   (SRBmessage * srbmsg, char * key); 
+char * _mw_srb_getfield (SRBmessage * srbmsg, const char * key);
+void _mw_srb_delfield   (SRBmessage * srbmsg, const char * key); 
 
 /* encode decode */
 SRBmessage * _mw_srbdecodemessage(Connection * conn, char * message, int msglen);
@@ -250,20 +250,20 @@ int _mw_srbsendreject(Connection * conn, SRBmessage * srbmsg,
 int _mw_srbsendreject_sz(Connection * conn, char *message, int offset) ;
 int _mw_srbsendterm(Connection * conn, int grace);
 int _mw_srbsendinit(Connection * conn, mwcred_t * cred,
-		    char * name, char * domain);
+		    const char * name, const char * domain);
 
-int _mw_srbsenddata(Connection * conn, char * handle, char * data, int datalen);
-int _mw_srbsendcall(Connection * conn, int handle, char * svcname, char * data, int datalen, 
-		    int flags);
+int _mw_srbsenddata(Connection * conn, char * handle,  char * data, int datalen);
+int _mw_srbsendcall(Connection * conn, int handle, const char * svcname,
+		    const char * data, int datalen, int flags);
 
 int _mw_get_returncode(urlmap * map);
 int _mw_srb_checksrbcall(Connection * conn, SRBmessage * srbmsg) ;
 
 int _mw_srbsendevent(Connection * conn, 
-		     char * event,  char * data, int datalen, 
-		     char * username, char * clientname);
+		     const char * event,  const char * data, int datalen, 
+		     const char * username, const char * clientname);
 
-int _mw_srbsendsubscribe(Connection * conn, char * pattern, int subscriptionid, int flags);
+int _mw_srbsendsubscribe(Connection * conn, const char * pattern, int subscriptionid, int flags);
 int _mw_srbsendunsubscribe(Connection * conn, int subscriptionid);
 
 

@@ -194,7 +194,7 @@ static char * known_instances_list = NULL;
 static int known_instances_alloc = 0;
 static int known_instances = 0;
 
-int _mw_sendmcastquery(int s, char * domain, char * instance)
+int _mw_sendmcastquery(int s, const char * domain, const char * instance)
 {
   SRBmessage srbreq;
   char * env, buffer[SRBMESSAGEMAXLEN];
@@ -362,7 +362,7 @@ int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
 };
 
   
-instanceinfo * mwbrokerquery(char * domain, char * instance)
+instanceinfo * mwbrokerquery(const char * domain, const char * instance)
 {
   instanceinfo * gws = NULL;
   int idx = 0;

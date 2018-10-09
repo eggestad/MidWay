@@ -560,7 +560,7 @@ int _mw_getbuffer_from_call (Call * callmesg, char ** data, size_t * datalen)
    @param datalen the length of the data buffer, if 0 data buffer is assumed nul terminated. 
    @return 0 or -ENOMEM
 */
-int _mw_putbuffer_to_call (Call * callmesg, char * data, size_t len)
+int _mw_putbuffer_to_call (Call * callmesg, const char * data, size_t len)
 {
    long dataoffset;
    void * dbuf = NULL;;
@@ -578,7 +578,7 @@ int _mw_putbuffer_to_call (Call * callmesg, char * data, size_t len)
    };
 
    if (data != NULL) {
-      dataoffset = _mwshmcheck(data);
+      dataoffset = _mwshmcheck((void *)data);
       if (dataoffset == -1) {
 	 dbuf = _mwalloc(len);
 	 if (dbuf == NULL) {
@@ -590,7 +590,7 @@ int _mw_putbuffer_to_call (Call * callmesg, char * data, size_t len)
 	 dataoffset = _mwshmcheck(dbuf);
 	 seginfo = _mw_getsegment_byaddr(dbuf);
       } else {
-	 seginfo = _mw_getsegment_byaddr(data);
+	 seginfo = _mw_getsegment_byaddr((char*)data);
       };
 
       DEBUG("data offset = %d", dataoffset);

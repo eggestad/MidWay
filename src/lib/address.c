@@ -147,8 +147,12 @@ static void debug_print_matches(regmatch_t *match, char * url)
    a number for sysv ipc 
    a name (A directory ~/.MidWay/name is expected.  NYI
    a path for POSIX IPC */
-static int url_decode_ipc(mwaddress_t * mwadr, char * url)
+static int url_decode_ipc(mwaddress_t * mwadr, const char * ipcurl)
 {
+  int urllen = strlen(ipcurl);
+  char url[urllen+1];
+  strncpy(url, ipcurl, urllen);
+  
   regex_t ipcexp; 
   regmatch_t match[MAXMATCH]; 
   int j, rc;
@@ -181,7 +185,7 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
   rc = regexec (&ipcexp, url, MAXMATCH, match,0);
   DEBUG3("regexec IPC returned %d on %-40s: ",rc, url);
   if (rc != 0) {
-    regerror( rc, &ipcexp, url , 255);
+     regerror( rc, &ipcexp, url , 255);
     DEBUG1("regexec of \"%s\" failed on %s, ", RE_IPC, url);
     return -1;
   }
@@ -260,8 +264,12 @@ static int url_decode_ipc(mwaddress_t * mwadr, char * url)
   return -1;
 };
 
-static int url_decode_srbp (mwaddress_t * mwadr, char * url)
+static int url_decode_srbp (mwaddress_t * mwadr, const char * srburl)
 {
+  int urllen = strlen(srburl);
+  char url[urllen+1];
+  strncpy(url, srburl, urllen);
+
   int len=0, j, rc;
   static char * ipaddress = NULL;
   static char * port = NULL;
@@ -433,7 +441,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, char * url)
 };
 
 /* the only exported function from this module. */
-int _mwdecode_url(char * url, mwaddress_t * mwadr)
+int _mwdecode_url(const char * url, mwaddress_t * mwadr)
 {
   regex_t allexp; 
   regmatch_t match[MAXMATCH]; 
@@ -470,8 +478,9 @@ int _mwdecode_url(char * url, mwaddress_t * mwadr)
   rc = regexec (&allexp, url, MAXMATCH, match,0);
   DEBUG3("regexec IPC returned %d on %-40s: ",rc, url);
   if (rc != 0) {
-    regerror( rc, &allexp, url , 255);
-    DEBUG1("regexec of \"%s\" failed on %s, ", RE_ALLPROTO, url);
+    char errbuf[255];
+    regerror( rc, &allexp, errbuf , 255);
+    DEBUG1("regexec of \"%s\" failed on %s, ", RE_ALLPROTO, errbuf);
     return -EINVAL;
   }
 
@@ -483,7 +492,7 @@ int _mwdecode_url(char * url, mwaddress_t * mwadr)
      to the decode function of teh appropriate protocol.  */
   if (0 == strncasecmp("ipc", url+match[1].rm_so, 3)) {
     mwadr->protocol = MWSYSVIPC;
-    rc = url_decode_ipc(mwadr, url);
+    rc = url_decode_ipc(mwadr, (char*)url);
     return rc;
   };
   

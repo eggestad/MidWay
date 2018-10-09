@@ -615,7 +615,7 @@ MWID * _mw_get_service_providers(char * svcname, int convflag)
 #endif
 
 /* return the list of sericeid's of the given service */
-SERVICEID * _mw_get_services_byname (char * svcname, int * N, int flags)
+SERVICEID * _mw_get_services_byname (const char * svcname, int * N, int flags)
 {
   SERVICEID * slist;
   int type, i, index, n = 0, x;
@@ -678,7 +678,7 @@ SERVICEID * _mw_get_services_byname (char * svcname, int * N, int flags)
 
 /* plist is set t to point at a char **, and the list is allocated
    with a single malloc */
-int _mw_list_services_byglob (char * glob, char *** plist, int inflags)
+int _mw_list_services_byglob (const char * glob, char *** plist, int inflags)
 {
    int * namelens;
    char ** list, ** rlist;
@@ -787,7 +787,7 @@ int _mw_list_services_byglob (char * glob, char *** plist, int inflags)
 
    @return the MWID for the service, or UNASSIGNED if not such service exist. 
 */
-SERVICEID _mw_get_best_service (char * svcname, int flags)
+SERVICEID _mw_get_best_service (const char * svcname, int flags)
 {
   SERVICEID sid = UNASSIGNED;
   int type, i, index, n = 0, x;
@@ -838,7 +838,7 @@ SERVICEID _mw_get_best_service (char * svcname, int flags)
 };
 
 // depreciated */
-SERVICEID _mw_get_service_byname (char * svcname, int convflag)
+SERVICEID _mw_get_service_byname (const char * svcname, int convflag)
 {
   int index, type, selectedid = UNASSIGNED;
 #ifdef MSGCTLSTATFIX

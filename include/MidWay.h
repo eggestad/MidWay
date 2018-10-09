@@ -198,22 +198,22 @@ extern "C" {
      ~/midway/name/key
   */
 
-  int mwsetcred(int authtype, char * username, ...);
+  int mwsetcred(int authtype, const char * username, ...);
    /*
   int mwchkauth(void);
   int (*getcredCB)(int authtype, ...);
   int mwregistergetcredCB(int (*getcredCB)(int authtype, ...));
    */
-  int mwattach(char * adr, char * name, int flags);
+  int mwattach(const char * adr, const char * name, int flags);
   int mwdetach(void);
   char * mwgeturl(void);
 
   /* Client call API. (mwfetch has additional functoniality in servers. */
-  int mwcall(char * svcname, 
-	     char * cdata, int clen, 
+  int mwcall(const char * svcname, 
+	     const char * cdata, int clen, 
 	     char ** rdata, int * rlen, 
 	     int * appreturncode, int flags);
-  int mwacall(char * svcname, char * data, int len, int flags);
+  int mwacall(const char * svcname, const char * data, int len, int flags);
   int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flags);
    
    /* return a list of service names matching glob. What plist points
@@ -221,12 +221,12 @@ extern "C" {
   int mwlistsvc (char * glob, char *** plist, int flags);
 
   /* server API */
-  int mwforward(char * service, char * data, int len, int flags);
-  int mwreply(char * rdata, int rlen, int returncode, int appreturncode, int flags);
+  int mwforward(const char * service, const char * data, int len, int flags);
+  int mwreply(const char * rdata, int rlen, int returncode, int appreturncode, int flags);
 #define mwreturn(rd,rl,rc,ac) mwreply( rd,rl,rc,ac, 0); return rc
 
-  int mwprovide(char * service, int (*svcfunc)(mwsvcinfo *), int flags);
-  int mwunprovide(char * service);
+  int mwprovide(const char * service, int (*svcfunc)(mwsvcinfo *), int flags);
+  int mwunprovide(const char * service);
 
   int mwMainLoop(int);
   int mwservicerequest(int flags);
@@ -264,8 +264,8 @@ extern "C" {
 
 
   /* internal logging API */
-  void mwsetlogprefix(char * fileprefix);
-  void mwopenlog(char * progname, char * fileprefix, int loglevel);
+  void mwsetlogprefix(const char * fileprefix);
+  void mwopenlog(const char * progname, const char * fileprefix, int loglevel);
   int mwsetloglevel(int level);
 
 
@@ -275,14 +275,14 @@ extern "C" {
 #else
 #define FORMAT_PRINTF 
 #endif
-  void mwlog(int level, char * format, ...) FORMAT_PRINTF;
+  void mwlog(int level, const char * format, ...) FORMAT_PRINTF;
 
 
   /* event API */
-  int mwsubscribe(char * pattern, int flags);
-  int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char * data, int datalen));
+  int mwsubscribe(const char * pattern, int flags);
+  int mwsubscribeCB(const char * pattern, int flags, void (*func)(const char * eventname, const char * data, int datalen));
   int mwunsubscribe(int subscriptionid);
-  int mwevent(char * eventname, char * data, int datalen, char * username, char * clientname);
+  int mwevent(const char * eventname, const char * data, int datalen, const char * username, const char * clientname);
 #define mweventbcast(eventname, data, datalen) mwevent( eventname, data, datalen, NULL, NULL)
   void mwrecvevents(void);
 
@@ -295,7 +295,7 @@ extern "C" {
     struct sockaddr address;
   } instanceinfo;
 
-  instanceinfo * mwbrokerquery(char * domain, char * instance);
+  instanceinfo * mwbrokerquery(const char * domain, const char * instance);
   
 
 #ifdef	__cplusplus
@@ -336,16 +336,16 @@ int _mwsystemstate(void);
 void _mw_incprovided(void);
 void _mw_decprovided(void);
 
-int _mwsubscribe(char * pattern, int subid, int flags);
+int _mwsubscribe(const char * pattern, int subid, int flags);
 int _mwunsubscribe(int subid);
 
 int _mw_tasksignalled(void);
 
-SERVICEID _mw_ipc_provide(char * servicename, int flags);
-int _mw_ipcsend_unprovide(char * servicename,  SERVICEID svcid);
+SERVICEID _mw_ipc_provide(const char * servicename, int flags);
+int _mw_ipcsend_unprovide(const char * servicename,  SERVICEID svcid);
 
 mwsvcinfo * _mwGetServiceRequest(int);
-typedef void (*mw_do_event_handler_t) (int subid, char * event, char * data, int datalen);
+typedef void (*mw_do_event_handler_t) (int subid, const char * event, const char * data, int datalen);
 
 
 #endif /* _MIDWAY */

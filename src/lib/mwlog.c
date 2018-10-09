@@ -223,7 +223,7 @@ static char mesg[LOG_MSG_MAX];
    @param ap the va_list see stdard.h
 */
 void 
-_mw_vlogf(int level, char * format, va_list ap)
+_mw_vlogf(int level, const char * format, va_list ap)
 {
 
   int l, e, s, rc;
@@ -291,7 +291,7 @@ _mw_vlogf(int level, char * format, va_list ap)
   Get the string representaion of a loglevel.
 
 */
-int _mwstr2loglevel(char * arg) 
+int _mwstr2loglevel(const char * arg) 
 {
    int loglevel = -1, l;
    if      (strcasecmp(arg, "fatal")   == 0) loglevel=MWLOG_FATAL;
@@ -322,7 +322,7 @@ static  char strbuf[64];
 
     This is for debugging purposes, note that unless you're in C99, using NULL for buffer is not threadsafe
 */
-char * _mwid2str(MWID id, char * buffer)
+char * _mwid2str(MWID id,  char * buffer)
 {
    int idx;
    if (!buffer) buffer = strbuf;
@@ -361,7 +361,7 @@ char * _mwid2str(MWID id, char * buffer)
 
    This is a part of the user library API see man page
 */
-void mwlog(int level, char * format, ...)
+void mwlog(int level, const char * format, ...)
 {
   va_list ap;
 
@@ -437,7 +437,7 @@ static char * logdir = NULL;
    NULL, we use userlog;
 */
 
-void mwsetlogprefix(char * lfp)
+void mwsetlogprefix(const char * lfp)
 {
   char * mwhome, * instancename, *tmp;
   ipcmaininfo * ipcmain;
@@ -539,7 +539,7 @@ void mwsetlogprefix(char * lfp)
 
    This is a part of the user library API see man page. 
 */
-void mwopenlog(char * prog, char * lfp, int level)
+void mwopenlog(const char * prog, const char * lfp, int level)
 {
   _fprintf(stderr, "openlog(prog=%s, logprefix=%s, level=%d\n", 
 	   prog?prog:"(null)", 

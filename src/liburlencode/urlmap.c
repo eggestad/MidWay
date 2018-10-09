@@ -65,7 +65,7 @@
 static char * RCSId UNUSED = "$Id$";
 
 
-urlmap * urlmapdecode(char * list)
+urlmap * urlmapdecode(const char * list)
 {
   int i, idx, len, count = 1;
   char * next, * key_end, * value_start, * value_end;
@@ -96,7 +96,7 @@ urlmap * urlmapdecode(char * list)
   };
 
   idx = 0;
-  next = list;
+  next = (char *)list;
   while(next) {
     urldecodedup(&map[idx].key, next);
 
@@ -335,7 +335,7 @@ void urlmapfree(urlmap * map)
 };
 
 
-int urlmapget(urlmap * map, char * key)
+int urlmapget(urlmap * map, const char * key)
 {
   int idx = 0;
 
@@ -357,7 +357,7 @@ int urlmapget(urlmap * map, char * key)
   return -1;
 };
 
-char * urlmapgetvalue(urlmap * map, char * key)
+char * urlmapgetvalue(urlmap * map, const char * key)
 {
   int n;
   n = urlmapget(map, key);
@@ -366,7 +366,7 @@ char * urlmapgetvalue(urlmap * map, char * key)
 };
 
 
-int urlmapnset(urlmap * map, char * key, void * value, int len)
+int urlmapnset(urlmap * map, const char * key, const void * value, int len)
 {
   int idx = 0;
 
@@ -394,7 +394,7 @@ int urlmapnset(urlmap * map, char * key, void * value, int len)
   return -1;
 };
 
-int urlmapset(urlmap * map, char * key, char * value)
+int urlmapset(urlmap * map, const char * key, const char * value)
 {
   int len = 0;
   if (value) len = strlen(value);
@@ -402,7 +402,7 @@ int urlmapset(urlmap * map, char * key, char * value)
 };
 
 
-int urlmapseti(urlmap * map, char * key, int value)
+int urlmapseti(urlmap * map, const char * key, int value)
 {
   int len = 0;
   char szValue[32]; /* just to be more than 64 bit clean */
@@ -412,7 +412,7 @@ int urlmapseti(urlmap * map, char * key, int value)
 };
 
 
-int urlmapdel(urlmap * map, char * key)
+int urlmapdel(urlmap * map, const char * key)
 {
   int idx = 0, ridx = -1;
 
@@ -448,7 +448,7 @@ int urlmapdel(urlmap * map, char * key)
 
 /* note that urlmapfree() requires that all strings and the map array
    itself are malloced.*/
-urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
+urlmap * urlmapnadd(urlmap * map, const char * key, const void * value, int len)
 {
   int idx = 0;
   int l;
@@ -504,14 +504,14 @@ urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len)
   return map;
 };
 
-urlmap * urlmapadd(urlmap * map, char * key, char * value)
+urlmap * urlmapadd(urlmap * map, const char * key, const char * value)
 {
   int len = 0;
   if (value) len = strlen(value);
   return urlmapnadd(map, key, value, len);
 };
 
-urlmap * urlmapaddi(urlmap * map, char * key, int iValue)
+urlmap * urlmapaddi(urlmap * map, const char * key, int iValue)
 {
   char szValue[32]; /* just to be more than 64 bit clean */
   int i;

@@ -139,7 +139,7 @@ static char * RCSId UNUSED = "$Id$";
 // all the not conncected and not implemeted versions of the client calls:
 
 
-int _mw_notimp_attach (int type, mwaddress_t * mwadr, char * cname, mwcred_t * cred, int flags)
+int _mw_notimp_attach (int type, mwaddress_t * mwadr, const char * cname, mwcred_t * cred, int flags)
 {
    return -ENOSYS;
 };
@@ -148,7 +148,7 @@ int _mw_notimp_detach(void)
    return -ENOSYS;
 };
 
-int _mw_notimp_acall (char * svcname, char * data, int datalen, int flags)
+int _mw_notimp_acall (const char * svcname, const char * data, int datalen, int flags)
 {
    return -ENOSYS;
 };
@@ -156,12 +156,12 @@ int _mw_notimp_fetch (int *hdl, char ** data, int * len, int * appreturncode, in
 {
    return -ENOSYS;
 };
-int _mw_notimp_listsvc (char *glob, char *** list, int flags)
+int _mw_notimp_listsvc (const char *glob, char *** list, int flags)
 {
    return -ENOSYS;
 };
    
-int _mw_notimp_event (char * evname, char * data, int datalen, char * username, char * clientname, 
+int _mw_notimp_event (const char * evname, const char * data, int datalen, const char * username, const char * clientname, 
 		 MWID fromid, int remoteflag)
 {
    return -ENOSYS;
@@ -170,7 +170,7 @@ void _mw_notimp_recvevents(void)
 {
    return;
 };
-int _mw_notimp_subscribe (char * pattern, int id, int flags)
+int _mw_notimp_subscribe (const char * pattern, int id, int flags)
 {
    return -ENOSYS;
 };
@@ -179,7 +179,7 @@ int _mw_notimp_unsubscribe (int id)
    return -ENOSYS;
 };
 
-int _mw_notconn_attach (int type, mwaddress_t * mwadr, char * cname, mwcred_t * cred, int flags)
+int _mw_notconn_attach (int type, mwaddress_t * mwadr, const char * cname, mwcred_t * cred, int flags)
 {
    return -ENOTCONN;
 };
@@ -187,7 +187,7 @@ int _mw_notconn_detach (void)
 {
    return -ENOTCONN;   
 };
-int _mw_notconn_acall (char * svcname, char * data, int datalen, int flags)
+int _mw_notconn_acall (const char * svcname, const char * data, int datalen, int flags)
 {
    return -ENOTCONN;
 };
@@ -195,12 +195,12 @@ int _mw_notconn_fetch (int *hdl, char ** data, int * len, int * appreturncode, i
 {
    return -ENOTCONN;
 };
-int _mw_notconn_listsvc (char *glob, char *** list, int flags)
+int _mw_notconn_listsvc (const char *glob, char *** list, int flags)
 {
    return -ENOTCONN;
 };
 
-int _mw_notconn_event (char * evname, char * data, int datalen, char * username, char * clientname, 
+int _mw_notconn_event (const char * evname, const char * data, int datalen, const char * username, const char * clientname, 
 		 MWID fromid, int remoteflag)
 {
    return -ENOTCONN;
@@ -209,7 +209,7 @@ void _mw_notconn_recvevents(void)
 {
    return;
 };
-int _mw_notconn_subscribe (char * pattern, int id, int flags)
+int _mw_notconn_subscribe (const char * pattern, int id, int flags)
 {
    return -ENOTCONN;
 };
@@ -351,7 +351,7 @@ mwhandle_t _mw_nexthandle(void)
 };
 
 // we set the credentials by a seperate func call, the arguments after username depends on the auth type
-int mwsetcred(int authtype, char * username, ...)
+int mwsetcred(int authtype, const char * username, ...)
 {
    int rc = 0;
    va_list ap;
@@ -392,7 +392,7 @@ int mwsetcred(int authtype, char * username, ...)
 
 /* should it take a struct as arg??, may as well not, even in a struct, all
    members must be init'ed.*/
-int mwattach(char * url, char * name, int flags)
+int mwattach(const char * url, const char * name, int flags)
 {
   FILE * proc;
   int type;
@@ -579,7 +579,7 @@ int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flag
   return rc;
 };
 
-int mwacall(char * svcname, char * data, int datalen, int flags) 
+int mwacall(const char * svcname, const char * data, int datalen, int flags) 
 {
   int handle, rc = -EFAULT;
   float timeleft;
@@ -617,8 +617,8 @@ int mwacall(char * svcname, char * data, int datalen, int flags)
   return rc;
 };
 
-int mwcall(char * svcname, 
-	       char * cdata, int clen, 
+int mwcall(const char * svcname, 
+	       const char * cdata, int clen, 
 	       char ** rdata, int * rlen, 
 	       int * appreturncode, int flags)
 {
@@ -678,7 +678,7 @@ int mwcall(char * svcname,
 struct subscribed_events {
   char * pattern;
   int subscriptionid;
-  void (*callback)(char * , char *, int);
+  void (*callback)(const char * , const char *, int);
   int flags;
 };
 
@@ -699,13 +699,13 @@ static int get_subscriptionid(void)
   return id;
 };
 
-int _mwsubscribe(char * pattern, int subid, int flags)
+int _mwsubscribe(const char * pattern, int subid, int flags)
 {
    return _mwaddress.proto.subscribe(pattern, subid, flags);
 };
   
 
-int mwsubscribeCB(char * pattern, int flags, void (*func)(char * eventname, char * data, int datalen))
+int mwsubscribeCB(const char * pattern, int flags, void (*func)(const char * eventname, const char * data, int datalen))
 {
   subscribed_events_t * se;
   int error = 0;
@@ -784,7 +784,7 @@ int mwunsubscribe(int subid)
   return error;
 };
     
-int mwevent(char * event, char * data, int datalen, char * username, char * clientname) 
+int mwevent(const char * event, const char * data, int datalen, const char * username, const char * clientname) 
 {
 
   /* input sanyty checking, everywhere else we depend on params to be sane. */
@@ -809,7 +809,7 @@ void mwrecvevents(void)
 
 /* called after receiving a IPC of SRB event message, actually
    executes the event handler */
-void _mw_doevent_c(int subid, char * event, char * data, int datalen)
+void _mw_doevent_c(int subid, const char * event, const char * data, int datalen)
 {
   int i;
 
@@ -827,7 +827,7 @@ void _mw_doevent_c(int subid, char * event, char * data, int datalen)
 
 mw_do_event_handler_t _mw_do_event_handler = _mw_doevent_c;
 
-void _mw_doevent(int subid, char * event, char * data, int datalen)
+void _mw_doevent(int subid, const char * event, const char * data, int datalen)
 {
    LOCKMUTEX(eventmutex);
 

@@ -117,7 +117,7 @@ static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 */
 
-int _mwattachipc(int type,  mwaddress_t * mwadr, char * name, mwcred_t * cred, int flags)
+int _mwattachipc(int type,  mwaddress_t * mwadr, const char * name, mwcred_t * cred, int flags)
 {
   int rc;
   int key;
@@ -218,7 +218,7 @@ void _mw_doipcevents(void)
 /* the usuall IPC only API, except that mwcall() is implemeted
    entierly here.
 */
-int _mwacall_ipc(char * svcname, char * data, int datalen, int flags) 
+int _mwacall_ipc(const char * svcname, const char * data, int datalen, int flags) 
 {
   int rc;
   

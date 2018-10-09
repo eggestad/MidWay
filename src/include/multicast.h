@@ -52,6 +52,6 @@ int _mw_setmcastaddr(void);
 int _mw_initmcast(int s);
 int _mw_sendmcast (int s, char * payload);
 int _mw_getmcastreply(int s, instanceinfo * reply, float timeout);
-int _mw_sendmcastquery(int s, char * domain, char * instance);
+int _mw_sendmcastquery(int s, const char * domain, const char * instance);
 
 #endif /* _MULTICAST_H */

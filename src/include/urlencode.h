@@ -127,24 +127,24 @@ typedef struct {
   int valuelen;
 } urlmap;
 
-urlmap * urlmapdecode(char * list);
+urlmap * urlmapdecode(const char * list);
 char * urlmapencode(urlmap * map);
 int urlmapnencode(char * list, int len, urlmap * map);
 
 urlmap * urlmapdup(urlmap * map);
 void urlmapfree(urlmap * map);
 
-int urlmapnset(urlmap * map, char * key, void * value, int len);
-int urlmapset(urlmap * map, char * key, char * value);
-int urlmapseti(urlmap * map, char * key, int value);
+int urlmapnset(urlmap * map, const char * key, const void * value, int len);
+int urlmapset(urlmap * map, const char * key, const char * value);
+int urlmapseti(urlmap * map, const char * key, int value);
 
-int urlmapget(urlmap * map, char * key);
-char * urlmapgetvalue(urlmap * map, char * key);
+int urlmapget(urlmap * map, const char * key);
+char * urlmapgetvalue(urlmap * map, const char * key);
 
-int urlmapdel(urlmap * map, char * key);
-urlmap * urlmapnadd(urlmap * map, char * key, void * value, int len);
-urlmap * urlmapadd(urlmap * map, char * key, char * value);
-urlmap * urlmapaddi(urlmap * map, char * key, int value);
+int urlmapdel(urlmap * map, const char * key);
+urlmap * urlmapnadd(urlmap * map, const char * key, const void * value, int len);
+urlmap * urlmapadd(urlmap * map, const char * key, const char * value);
+urlmap * urlmapaddi(urlmap * map, const char * key, int value);
 
 /* for weakmwlog.c, just to be able to use mwlog inside the url
    lib, which should be independent of libMidWay. */
@@ -156,7 +156,7 @@ int mwsetloglevel(int level);
 #else
 #define FORMAT_PRINTF 
 #endif
-  void mwlog(int level, char * format, ...) FORMAT_PRINTF;
+  void mwlog(int level, const char * format, ...) FORMAT_PRINTF;
 
 
 

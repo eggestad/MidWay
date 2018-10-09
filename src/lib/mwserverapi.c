@@ -277,7 +277,7 @@ static void install_sigactions(int flag)
   provide and unprovide sends messages to mwd about what service calls
   this server provides.  */
 
-int mwprovide(char * service, int (*svcfunc) (mwsvcinfo*), int flags)
+int mwprovide(const char * service, int (*svcfunc) (mwsvcinfo*), int flags)
 {
   SERVICEID svcid;
   serviceentry * svcent;
@@ -311,7 +311,7 @@ int mwprovide(char * service, int (*svcfunc) (mwsvcinfo*), int flags)
   return svcid;
 };
 
-int mwunprovide(char * service)
+int mwunprovide(const char * service)
 {
   SERVICEID svcid;
   int rc;
@@ -355,7 +355,7 @@ static void completeStats(void)
   Another reason is that the serice routine should be able to do 
   fault recovery if the caller fails to get the reply.
 */
-int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
+int mwreply(const char * data, int len, int returncode, int appreturncode, int flags)
 {
   int rc;
   int mwid;
@@ -435,7 +435,7 @@ int mwreply(char * data, int len, int returncode, int appreturncode, int flags)
   The next service will either do anothre forward, or send the response 
   directly to the client. This and the services involvement, just like mwreply.
 */
-int mwforward(char * svcname, char * data, int len, int flags)
+int mwforward(const char * svcname, const char * data, int len, int flags)
 {
   int rc, dataoffset, dest;
   int ipcflags = 0;
@@ -479,7 +479,7 @@ int mwforward(char * svcname, char * data, int len, int flags)
   if (data != NULL) {
     if (len == 0) len = strlen(data);
 
-    dataoffset = _mwshmcheck(data);
+    dataoffset = _mwshmcheck((void *)data);
     if (dataoffset == -1) {
       dbuf = _mwalloc(len);
       if (dbuf == NULL) {

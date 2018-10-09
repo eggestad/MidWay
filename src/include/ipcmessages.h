@@ -80,8 +80,8 @@
 #include <MidWay.h>
 
 /** @file
- ipcmessages.h defines the structs for all the messages sent on IPC message queues. 
- We also define all the special values needed for indicator fields.
+    ipcmessages.h defines the structs for all the messages sent on IPC message queues. 
+    We also define all the special values needed for indicator fields.
 
 */
 /* the message numbers are inspired by ISO8583, it seemed fitting ;)
@@ -119,7 +119,7 @@
     \b Note that #ATTACHREQ and #DETACHREQ is legal only \e to mwd() while
     #ATTACHRPL and #DETACHRPL is legal only \e from mwd().
 
- */
+*/
 struct attach
 {
    long mtype; ///< #ATTACHREQ, #ATTACHRPL, #DETACHREQ, or #DETACHRPL
@@ -144,7 +144,7 @@ struct attach
    /** the return from mwd(). 0 on success, else an neg errno, -ESHUTDOWN if mwd() has
        begun shutdown, -EUCLEAN, if a non ipc same uid member tries to
        be a server. +++
-    */
+   */
    int32_t returncode; 
 };
 
@@ -269,22 +269,22 @@ typedef struct call  Call;
 
 struct conversation
 {
-  long mtype; 
+   long mtype; 
   
-  CLIENTID cltid;
-  GATEWAYID gwid;
-  SERVERID srvid;
-  SERVICEID svcid;
+   CLIENTID cltid;
+   GATEWAYID gwid;
+   SERVERID srvid;
+   SERVICEID svcid;
 
-  char service[MWMAXSVCNAME];
+   char service[MWMAXSVCNAME];
 
-  int64_t data;
-  int64_t datalen;
+   int64_t data;
+   int64_t datalen;
 
-  int32_t flags;
+   int32_t flags;
 
-  CONVID convid;
-  int32_t returncode;
+   CONVID convid;
+   int32_t returncode;
 };
 
 typedef struct conversation  Converse;;
@@ -292,11 +292,11 @@ typedef struct conversation  Converse;;
 
 
 /**
-  administrative request/notifications from mwd to servers/gateways and from
-  mwadm to mwd.  Used to notify shutdown event. 
+   administrative request/notifications from mwd to servers/gateways and from
+   mwadm to mwd.  Used to notify shutdown event. 
 
-  Should this be a special event instead in the general event service
-  planned....?  */
+   Should this be a special event instead in the general event service
+   planned....?  */
 typedef struct {
    long mtype; ///< mtypoe must be #ADMREQ
    int32_t opcode; ///< one of #ADMSHUTDOWN, #ADMSTARTSRV, #ADMSTOPSRV, or #ADMRELOADSRV
@@ -315,8 +315,8 @@ typedef struct {
 
 
 /**
- Large buffer allocs. Used to request mwd() to create a buffer file in the
- buffer directory (see ipcmain), which is later mmap'ed  */
+   Large buffer allocs. Used to request mwd() to create a buffer file in the
+   buffer directory (see ipcmain), which is later mmap'ed  */
 
 typedef struct {
    long mtype; ///< on e of #ALLOCREQ, #ALLOCRPL, or #FREEREQ
@@ -365,7 +365,7 @@ typedef struct {
 struct event {
    /** one of #EVENT #EVENTACK #EVENTSUBSCRIBEREQ #EVENTSUBSCRIBERPL
        #EVENTUNSUBSCRIBEREQ #EVENTUNSUBSCRIBERPL
-    */
+   */
    long mtype; 
    char event[MWMAXNAMELEN]; ///< the event name if #EVENT or a string/glob/regexp in #EVENTSUBSCRIBEREQ
    int32_t eventid; ///< a sender id unique id, used to avoid routing loops, #EVENT only
@@ -404,13 +404,13 @@ typedef struct event Event;
   
 /// an union for all IPC messages, used for finding the max message size
 typedef union { 
-  Attach at;
-  Provide prov;
-  Call call;
-  Converse conv;
-  Administrative admin;
-  Alloc alloc;
-  Event ev;
+   Attach at;
+   Provide prov;
+   Call call;
+   Converse conv;
+   Administrative admin;
+   Alloc alloc;
+   Event ev;
 } _union_ipc_messages;
 
 /** Here we  calculate  MWMSGMAX. */
@@ -422,44 +422,44 @@ typedef union {
 /*
  *  lowlevel ipcmsg send & receive
  */
-int _mw_ipc_putmessage(int mwid, char *data, int len,  int flags);
+int _mw_ipc_putmessage(int mwid, const char *data, int len,  int flags);
 int _mw_ipc_getmessage(char * data, int *len, int type, int flags);
 
 /*
  * functions used by client requests.
  */
-int _mw_ipcsend_attach(int att_type, char * name, int flags);
+int _mw_ipcsend_attach(int att_type, const char * name, int flags);
 int _mw_ipcsend_detach(int force);
 int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force);
 
-int _mw_ipcsend_provide_for_id(MWID mwid, char * servicename, int cost, int flags);
-int _mw_ipcsend_provide(char * servicename, int cost, int flags);
-SERVICEID _mw_ipc_provide(char * servicename, int flags);
+int _mw_ipcsend_provide_for_id(MWID mwid, const char * servicename, int cost, int flags);
+int _mw_ipcsend_provide(const char * servicename, int cost, int flags);
+SERVICEID _mw_ipc_provide(const char * servicename, int flags);
 
-int _mw_ipcsend_unprovide_for_id(MWID mwid, char * servicename,  SERVICEID svcid);
-int _mw_ipcsend_unprovide(char * servicename, int flags);
-int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid);
+int _mw_ipcsend_unprovide_for_id(MWID mwid, const char * servicename,  SERVICEID svcid);
+int _mw_ipcsend_unprovide(const char * servicename, int flags);
+int _mw_ipc_unprovide(const char * servicename,  SERVICEID svcid);
 
-int _mwacallipc (char * svcname, char * data, int datalen, int flags, 
-		 MWID mwid, char * instance, char * domain, MWID callerid, int hops);
+int _mwacallipc (const char * svcname, const char * data, int datalen, int flags, 
+		 MWID mwid, const char * instance, const char * domain, MWID callerid, int hops);
 int _mwfetchipc (mwhandle_t * handle, char ** data, int * len, int * appreturncode, int flags);
 
 MWID _mw_get_caller_mwid(Call *);
-int _mw_ipcconnect(char * servicename, char * socketpath, int flags);
+int _mw_ipcconnect(const char * servicename, const char * socketpath, int flags);
 int _mw_ipcdisconnect(int fd);
 
 /* event API */
-int _mw_ipc_subscribe(char * pattern, int subid, int flags);
-int _mw_ipcsend_subscribe (char * pattern, int subid, int flags);
+int _mw_ipc_subscribe(const char * pattern, int subid, int flags);
+int _mw_ipcsend_subscribe (const char * pattern, int subid, int flags);
 int _mw_ipc_unsubscribe(int subid);
 int _mw_ipcsend_unsubscribe (int subid);
-int _mw_ipcsend_event(char * event, char * data, int datalen, char * username, char * clientname, MWID fromid, int remoteflag);
+int _mw_ipcsend_event(const char * event, const char * data, int datalen, const char * username,const  char * clientname, MWID fromid, int remoteflag);
 int _mw_ipc_getevent(Event * ev);
 
 /* additionsl for servers */
 int _mw_ipcdorequest(void);
-int _mw_ipcreply(mwhandle_t handle, char * data, int len, int flags);
-int _mw_ipcforward(char * servicename, char * data, int len, int flags);
+int _mw_ipcreply(mwhandle_t handle, const char * data, int len, int flags);
+int _mw_ipcforward(const char * servicename, const char * data, int len, int flags);
 
 /* additional administrative for mwd */
 

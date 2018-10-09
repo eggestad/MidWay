@@ -712,7 +712,7 @@ int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
   @param len the length of themessage including the mtype header. 
   @param flags #MWNOBLOCK
   @return 0 on success or -errno */
-int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
+int _mw_ipc_putmessage(int dest, const char *data, int len,  int flags)
 {
   int rc; 
   int qid;
@@ -788,7 +788,7 @@ int _mw_ipc_putmessage(int dest, char *data, int len,  int flags)
    
    @return 0 on success or -errno
  */
-int _mw_ipcsend_attach(int attachtype, char * name, int flags)
+int _mw_ipcsend_attach(int attachtype, const char * name, int flags)
 {
   
   Attach mesg;
@@ -995,7 +995,7 @@ int _mw_ipcsend_detach(int force)
 
    @return the actual bytes in the sent message, or -errno
 */
-int _mw_ipcsend_provide_for_id(MWID mwid, char * servicename, int cost, int flags)
+int _mw_ipcsend_provide_for_id(MWID mwid, const char * servicename, int cost, int flags)
 {
   Provide providemesg;
   int rc;
@@ -1035,7 +1035,7 @@ int _mw_ipcsend_provide_for_id(MWID mwid, char * servicename, int cost, int flag
     
     @return the actual bytes in the sent message, or -errno
  */
-int _mw_ipcsend_provide(char * servicename, int cost, int flags)
+int _mw_ipcsend_provide(const char * servicename, int cost, int flags)
 {
   SERVERID srvid;
   GATEWAYID gwid;
@@ -1053,7 +1053,7 @@ int _mw_ipcsend_provide(char * servicename, int cost, int flags)
     @param flags sent on in Provide. 
     @return the SERVICEID or -errno
  */
-SERVICEID _mw_ipc_provide(char * servicename, int flags)
+SERVICEID _mw_ipc_provide(const char * servicename, int flags)
 {
   Provide providemesg;
   int rc, error, len;
@@ -1083,7 +1083,7 @@ SERVICEID _mw_ipc_provide(char * servicename, int flags)
     @param svcid the SERVICEID of the provided service)
     @return 0 or -errno
 */
-int _mw_ipcsend_unprovide(char * servicename,  SERVICEID svcid)
+int _mw_ipcsend_unprovide(const char * servicename,  SERVICEID svcid)
 {
   SERVERID srvid;
   GATEWAYID gwid;
@@ -1102,7 +1102,7 @@ int _mw_ipcsend_unprovide(char * servicename,  SERVICEID svcid)
     @param svcid the SERVICEID of the provided service)
     @return 0 or -errno
 */
-int _mw_ipcsend_unprovide_for_id(MWID mwid, char * servicename,  SERVICEID svcid)
+int _mw_ipcsend_unprovide_for_id(MWID mwid, const char * servicename,  SERVICEID svcid)
 {
   Provide unprovidemesg;
   int rc;
@@ -1138,7 +1138,7 @@ int _mw_ipcsend_unprovide_for_id(MWID mwid, char * servicename,  SERVICEID svcid
     @param svcid the SERVICEID of the provided service)
     @return 0 or -errno
 */
-int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid)
+int _mw_ipc_unprovide(const char * servicename,  SERVICEID svcid)
 {
   Provide unprovidemesg;
   int rc, len;
@@ -1191,8 +1191,8 @@ MWID _mw_get_caller_mwid(Call * cmsg)
   
   @return see mwacall() man page. 
 */
-int _mwacallipc (char * svcname, char * data, int datalen, int flags, 
-		 MWID mwid, char * instance, char * domain, MWID callerid, int hops)
+int _mwacallipc (const char * svcname, const char * data, int datalen, int flags, 
+		 MWID mwid, const char * instance, const char * domain, MWID callerid, int hops)
 {
   int dest; 
   int rc;
@@ -1502,7 +1502,7 @@ int _mwfetchipc (mwhandle_t * hdl, char ** data, int * len, int * appreturncode,
 
    @return 0 on success or -errno
 */
-int _mw_ipc_subscribe(char * pattern, int subid, int flags)
+int _mw_ipc_subscribe(const char * pattern, int subid, int flags)
 {
   Event ev;
   int rc, len;
@@ -1558,7 +1558,7 @@ int _mw_ipc_unsubscribe(int subid)
 
    @return 0 on success or -errno  
 */
-int _mw_ipcsend_subscribe (char * pattern, int subid, int flags)
+int _mw_ipcsend_subscribe (const char * pattern, int subid, int flags)
 {
   MWID id;
   int  dest; 
@@ -1672,7 +1672,8 @@ int _mw_ipcsend_unsubscribe (int subid)
    @return 0 on success or -errno
 */
 
-int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, char * clientname, 
+int _mw_ipcsend_event (const char * event, const char * data, int datalen,
+		       const char * username, const char * clientname, 
 		       MWID fromid, int remoteflag)
 {
   MWID id;
@@ -1694,7 +1695,7 @@ int _mw_ipcsend_event (char * event, char * data, int datalen, char * username, 
      we must operate on offset into the segment (se shmalloc.c) */
 
   if (data != NULL) {
-    dataoffset = _mwshmcheck(data);
+     dataoffset = _mwshmcheck((void*)data);
     if (dataoffset == -1) {
       dbuf = _mwalloc(datalen);
       if (dbuf == NULL) {

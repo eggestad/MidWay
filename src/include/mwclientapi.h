@@ -56,17 +56,17 @@ typedef struct _mwaddress_t mwaddress_t;
 // _mwsrbprotosetup() in SRBclient.c
 
 struct mwprotocol {
-   int (*attach)(int type, mwaddress_t * mwadr, char * cname, mwcred_t * cred, int flags);
+   int (*attach)(int type, mwaddress_t * mwadr, const char * cname, mwcred_t * cred, int flags);
    int (*detach)(void);
 
-   int (*acall) (char * svcname, char * data, int datalen, int flags);
+   int (*acall) (const char * svcname, const char * data, int datalen, int flags);
    int (*fetch) (int *hdl, char ** data, int * len, int * appreturncode, int flags);
-   int (*listsvc) (char * glob, char *** list, int flags);
+   int (*listsvc) (const char * glob, char *** list, int flags);
    
-   int (*event) (char * evname, char * data, int datalen, char * username, char * clientname, 
+   int (*event) (const char * evname, const char * data, int datalen, const char * username, const char * clientname, 
 		 MWID fromid, int remoteflag);
    void (*recvevents) (void);
-   int (*subscribe) (char * pattern, int id, int flags);
+   int (*subscribe) (const char * pattern, int id, int flags);
    int (*unsubscribe) (int id); 
 };
 
@@ -101,32 +101,32 @@ int _mw_isattached(void);
 int _mw_fastpath_enabled(void);
 int _mw_nexthandle(void);
 
-void _mw_doevent(int subid, char * event, char * data, int datalen);
+void _mw_doevent(int subid, const char * event, const char * data, int datalen);
 
-int _mw_notimp_attach (int type, mwaddress_t * mwadr, char * cname, mwcred_t * cred, int flags);
+int _mw_notimp_attach (int type, mwaddress_t * mwadr, const char * cname, mwcred_t * cred, int flags);
 int _mw_notimp_detach(void);
 
-int _mw_notimp_acall (char * svcname, char * data, int datalen, int flags);
+int _mw_notimp_acall (const char * svcname, const char * data, int datalen, int flags);
 int _mw_notimp_fetch (int *hdl, char ** data, int * len, int * appreturncode, int flags);
-int _mw_notimp_listsvc (char *glob, char *** list, int flags);
+int _mw_notimp_listsvc (const char *glob, char *** list, int flags);
 
-int _mw_notimp_event (char * evname, char * data, int datalen, char * username, char * clientname, 
+int _mw_notimp_event (const char * evname, const char * data, int datalen, const char * username, const char * clientname, 
 		 MWID fromid, int remoteflag);
 void _mw_notimp_recvevents(void);
-int _mw_notimp_subscribe (char * pattern, int id, int flags);
+int _mw_notimp_subscribe (const char * pattern, int id, int flags);
 int _mw_notimp_unsubscribe (int id); 
 
 
-int _mw_notconn_attach (int type, mwaddress_t * mwadr, char * cname, mwcred_t * cred, int flags);
+int _mw_notconn_attach (int type, mwaddress_t * mwadr, const char * cname, mwcred_t * cred, int flags);
 int _mw_notconn_detach (void);
 
-int _mw_notconn_acall (char * svcname, char * data, int datalen, int flags);
+int _mw_notconn_acall (const char * svcname, const char * data, int datalen, int flags);
 int _mw_notconn_fetch (int *hdl, char ** data, int * len, int * appreturncode, int flags);
-int _mw_notconn_listsvc (char *glob, char *** list, int flags);
+int _mw_notconn_listsvc (const char *glob, char *** list, int flags);
 
-int _mw_notconn_event (char * evname, char * data, int datalen, char * username, char * clientname, 
+int _mw_notconn_event (const char * evname, const char * data, int datalen, const char * username, const char * clientname, 
 		 MWID fromid, int remoteflag);
 void _mw_notconn_recvevents(void);
-int _mw_notconn_subscribe (char * pattern, int id, int flags);
+int _mw_notconn_subscribe (const char * pattern, int id, int flags);
 int _mw_notconn_unsubscribe (int id); 
 

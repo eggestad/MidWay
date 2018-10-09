@@ -62,7 +62,7 @@
 
 #include <mwclientapi.h>
 
-int _mwdecode_url(char * url, mwaddress_t * mwaddr);
+int _mwdecode_url(const char * url, mwaddress_t * mwaddr);
 const char * _mw_sprintsa(struct sockaddr * sa, char * buffer);
 
 #endif

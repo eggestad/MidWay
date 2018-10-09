@@ -793,7 +793,7 @@ int event(int argc, char ** argv)
    return 0;
 };
 
-static void event_handler(char * event, char * data, int datalen)
+static void event_handler(const char * event, const char * data, int datalen)
 {
    printf("  EVENT: %s data:%*.*s(%d)\n", event, datalen, datalen, data, datalen);
    return;

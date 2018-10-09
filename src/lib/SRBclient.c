@@ -377,7 +377,7 @@ static struct _srb_callreplyqueue_element *  popCRqueue(char * handle)
 /**********************************************************************
  * PUBLIC API
  **********************************************************************/
-int _mwattach_srb(int type, mwaddress_t *mwadr, char * name, mwcred_t * cred, int flags)
+int _mwattach_srb(int type, mwaddress_t *mwadr, const char * name, mwcred_t * cred, int flags)
 {
    int s, rc;
    int val = 1, len;
@@ -502,7 +502,7 @@ int _mwdetach_srb(void)
    return 0;
 };
 
-int _mwacall_srb(char * svcname, char * data, int datalen, int flags)
+int _mwacall_srb(const char * svcname, const char * data, int datalen, int flags)
 {
    int handle;
    int rc; 
@@ -788,12 +788,12 @@ int _mwfetch_srb(int *hdl, char ** data, int * len, int * appreturncode, int fla
 
 };
 
-int _mwevent_srb(char * evname, char * data, int datalen, char * username, char * clientname, MWID fromid, int remoteflag)
+int _mwevent_srb(const char * evname, const char * data, int datalen, const char * username, const char * clientname, MWID fromid, int remoteflag)
 {
    return _mw_srbsendevent(&cltconn, evname, data, datalen, username, clientname);
 };
 
-int _mwsubscribe_srb(char * pattern, int id, int flags) 
+int _mwsubscribe_srb(const char * pattern, int id, int flags) 
 {
    return _mw_srbsendsubscribe(&cltconn, pattern, id, flags);
 };

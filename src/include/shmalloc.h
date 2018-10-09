@@ -266,7 +266,7 @@ int _mwfree(void * adr);
 
 int _mw_getbuffer_from_call_to_svcinfo (mwsvcinfo * svcreqinfo, Call * callmesg);
 int _mw_getbuffer_from_call (Call * callmesg, char ** data, size_t * len);
-int _mw_putbuffer_to_call (Call * callmesg, char * data, size_t len);
+int _mw_putbuffer_to_call (Call * callmesg, const char * data, size_t len);
 
 int _mw_fastpath_enabled(void) ;
 

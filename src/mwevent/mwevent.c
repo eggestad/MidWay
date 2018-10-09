@@ -81,7 +81,7 @@ void _mw_copy_on_stderr(int flag);
 
 int subflag = MWEVSTRING;
 
-void eventhdl(const char * eventname, const char * data, int datalen) 
+void eventhdl(const char * eventname, const char * data, size_t datalen) 
 {
    fprintf (fp, "%s %*.*s\n", eventname, datalen, datalen, data);
 };
@@ -105,7 +105,8 @@ int watchevents(int argc, char ** argv)
 
 int postevent(int argc, char ** argv) 
 {
-  int len = 0, rc = 0; 
+   size_t len = 0;
+   int rc = 0; 
   char * data = NULL; 
 
   if (argv[0] == NULL) {

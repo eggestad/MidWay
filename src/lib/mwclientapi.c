@@ -148,11 +148,11 @@ int _mw_notimp_detach(void)
    return -ENOSYS;
 };
 
-int _mw_notimp_acall (const char * svcname, const char * data, int datalen, int flags)
+int _mw_notimp_acall (const char * svcname, const char * data, size_t datalen, int flags)
 {
    return -ENOSYS;
 };
-int _mw_notimp_fetch (int *hdl, char ** data, int * len, int * appreturncode, int flags)
+int _mw_notimp_fetch (int *hdl, char ** data, size_t * len, int * appreturncode, int flags)
 {
    return -ENOSYS;
 };
@@ -161,7 +161,7 @@ int _mw_notimp_listsvc (const char *glob, char *** list, int flags)
    return -ENOSYS;
 };
    
-int _mw_notimp_event (const char * evname, const char * data, int datalen, const char * username, const char * clientname, 
+int _mw_notimp_event (const char * evname, const char * data, size_t datalen, const char * username, const char * clientname, 
 		 MWID fromid, int remoteflag)
 {
    return -ENOSYS;
@@ -187,11 +187,11 @@ int _mw_notconn_detach (void)
 {
    return -ENOTCONN;   
 };
-int _mw_notconn_acall (const char * svcname, const char * data, int datalen, int flags)
+int _mw_notconn_acall (const char * svcname, const char * data, size_t datalen, int flags)
 {
    return -ENOTCONN;
 };
-int _mw_notconn_fetch (int *hdl, char ** data, int * len, int * appreturncode, int flags)
+int _mw_notconn_fetch (int *hdl, char ** data, size_t * len, int * appreturncode, int flags)
 {
    return -ENOTCONN;
 };
@@ -200,7 +200,7 @@ int _mw_notconn_listsvc (const char *glob, char *** list, int flags)
    return -ENOTCONN;
 };
 
-int _mw_notconn_event (const char * evname, const char * data, int datalen, const char * username, const char * clientname, 
+int _mw_notconn_event (const char * evname, const char * data, size_t datalen, const char * username, const char * clientname, 
 		 MWID fromid, int remoteflag)
 {
    return -ENOTCONN;
@@ -508,7 +508,7 @@ int mwlistsvc(char * glob, char *** list, int flags)
   return _mwaddress.proto.listsvc (glob, list, flags);
 };
 
-int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flags) 
+int mwfetch(int * handle, char ** data, size_t * len, int * appreturncode, int flags) 
 {
   int rc;
 
@@ -527,7 +527,7 @@ int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flag
      only one reply, we must concat multiiple replies */
   if (! (flags & MWMULTIPLE)) {
     char * pdata = NULL;
-    int pdatalen = 0;
+    size_t pdatalen = 0;
     int first = 1;
  
     DEBUG1("No MWMULTIPLE flags set, collection all replies");
@@ -579,7 +579,7 @@ int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flag
   return rc;
 };
 
-int mwacall(const char * svcname, const char * data, int datalen, int flags) 
+int mwacall(const char * svcname, const char * data, size_t datalen, int flags) 
 {
   int handle, rc = -EFAULT;
   float timeleft;
@@ -618,8 +618,8 @@ int mwacall(const char * svcname, const char * data, int datalen, int flags)
 };
 
 int mwcall(const char * svcname, 
-	       const char * cdata, int clen, 
-	       char ** rdata, int * rlen, 
+	       const char * cdata, size_t clen, 
+	       char ** rdata, size_t * rlen, 
 	       int * appreturncode, int flags)
 {
   int hdl;
@@ -678,7 +678,7 @@ int mwcall(const char * svcname,
 struct subscribed_events {
   char * pattern;
   int subscriptionid;
-  void (*callback)(const char * , const char *, int);
+  void (*callback)(const char * , const char *, size_t);
   int flags;
 };
 
@@ -705,7 +705,7 @@ int _mwsubscribe(const char * pattern, int subid, int flags)
 };
   
 
-int mwsubscribeCB(const char * pattern, int flags, void (*func)(const char * eventname, const char * data, int datalen))
+int mwsubscribeCB(const char * pattern, int flags, void (*func)(const char * eventname, const char * data, size_t datalen))
 {
   subscribed_events_t * se;
   int error = 0;
@@ -784,7 +784,7 @@ int mwunsubscribe(int subid)
   return error;
 };
     
-int mwevent(const char * event, const char * data, int datalen, const char * username, const char * clientname) 
+int mwevent(const char * event, const char * data, size_t datalen, const char * username, const char * clientname) 
 {
 
   /* input sanyty checking, everywhere else we depend on params to be sane. */
@@ -827,7 +827,7 @@ void _mw_doevent_c(int subid, const char * event, const char * data, int datalen
 
 mw_do_event_handler_t _mw_do_event_handler = _mw_doevent_c;
 
-void _mw_doevent(int subid, const char * event, const char * data, int datalen)
+void _mw_doevent(int subid, const char * event, const char * data, size_t datalen)
 {
    LOCKMUTEX(eventmutex);
 
@@ -889,7 +889,7 @@ int mwabort()
  **********************************************************************/
 
 /* for IPC we use shmalloc. For network we use std malloc */
-void * mwalloc(int size) 
+void * mwalloc(size_t size) 
 {
    void * addr;
 
@@ -907,7 +907,7 @@ void * mwalloc(int size)
    return addr;
 };
 
-void * mwrealloc(void * adr, int newsize)
+void * mwrealloc(void * adr, size_t newsize)
 {
    char * naddr;
    

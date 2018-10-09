@@ -218,7 +218,7 @@ void _mw_doipcevents(void)
 /* the usuall IPC only API, except that mwcall() is implemeted
    entierly here.
 */
-int _mwacall_ipc(const char * svcname, const char * data, int datalen, int flags) 
+int _mwacall_ipc(const char * svcname, const char * data, size_t datalen, int flags) 
 {
   int rc;
   

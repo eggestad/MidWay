@@ -672,7 +672,7 @@ void  _mw_dumpmesg(void * mesg)
 
    @return 0 on success or -errno 
 */
-int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
+int _mw_ipc_getmessage(char * data, size_t *len, int type, int flags)
 {
   int rc; 
 
@@ -712,7 +712,7 @@ int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
   @param len the length of themessage including the mtype header. 
   @param flags #MWNOBLOCK
   @return 0 on success or -errno */
-int _mw_ipc_putmessage(int dest, const char *data, int len,  int flags)
+int _mw_ipc_putmessage(int dest, const char *data, size_t len,  int flags)
 {
   int rc; 
   int qid;
@@ -792,7 +792,8 @@ int _mw_ipcsend_attach(int attachtype, const char * name, int flags)
 {
   
   Attach mesg;
-  int rc, error, len;
+  int rc, error;
+  size_t len;
 
   DEBUG1(	"CALL: _mw_ipcsend_attach (%d, \"%s\", 0x%x)",
 	attachtype, name, flags);
@@ -899,7 +900,8 @@ name = %s, client = %s server = %s srvid=%#x cltid=%#x flags=0x%x rcode=%d",
 int _mw_ipcsend_detach_indirect(CLIENTID cid, SERVERID sid, int force) 
 {
   Attach mesg;
-  int rc, len;
+  int rc;
+  size_t len;
 
   DEBUG1("CALL: _mw_ipcsend_detach_indirect()");
   memset(&mesg, '\0', sizeof(Attach));
@@ -1056,7 +1058,8 @@ int _mw_ipcsend_provide(const char * servicename, int cost, int flags)
 SERVICEID _mw_ipc_provide(const char * servicename, int flags)
 {
   Provide providemesg;
-  int rc, error, len;
+  int rc, error;
+  size_t len;
 
 
   rc = _mw_ipcsend_provide(servicename, /* cost= */ 0, flags);
@@ -1141,7 +1144,8 @@ int _mw_ipcsend_unprovide_for_id(MWID mwid, const char * servicename,  SERVICEID
 int _mw_ipc_unprovide(const char * servicename,  SERVICEID svcid)
 {
   Provide unprovidemesg;
-  int rc, len;
+  int rc;
+  size_t len;
 
   rc = _mw_ipcsend_unprovide(servicename, svcid);
 
@@ -1191,7 +1195,7 @@ MWID _mw_get_caller_mwid(Call * cmsg)
   
   @return see mwacall() man page. 
 */
-int _mwacallipc (const char * svcname, const char * data, int datalen, int flags, 
+int _mwacallipc (const char * svcname, const char * data, size_t datalen, int flags, 
 		 MWID mwid, const char * instance, const char * domain, MWID callerid, int hops)
 {
   int dest; 
@@ -1375,7 +1379,7 @@ int _mwacallipc (const char * svcname, const char * data, int datalen, int flags
    @param flags may be #MWNOBLOCK
    @return the call return code one of either #MWSUCCESS, #MWFAIL, or #MWMORE
 */
-int _mwfetchipc (mwhandle_t * hdl, char ** data, int * len, int * appreturncode, int flags)
+int _mwfetchipc (mwhandle_t * hdl, char ** data, size_t * len, int * appreturncode, int flags)
 {
   int rc;
   char * buffer;
@@ -1505,7 +1509,8 @@ int _mwfetchipc (mwhandle_t * hdl, char ** data, int * len, int * appreturncode,
 int _mw_ipc_subscribe(const char * pattern, int subid, int flags)
 {
   Event ev;
-  int rc, len;
+  int rc;
+  size_t len;
 
   rc = _mw_ipcsend_subscribe (pattern, subid, flags);
 
@@ -1537,7 +1542,8 @@ int _mw_ipc_subscribe(const char * pattern, int subid, int flags)
 int _mw_ipc_unsubscribe(int subid)
 {
   Event ev;
-  int rc, len;
+  int rc;
+  size_t len;
 
   rc = _mw_ipcsend_unsubscribe (subid);
 
@@ -1672,7 +1678,7 @@ int _mw_ipcsend_unsubscribe (int subid)
    @return 0 on success or -errno
 */
 
-int _mw_ipcsend_event (const char * event, const char * data, int datalen,
+int _mw_ipcsend_event (const char * event, const char * data, size_t datalen,
 		       const char * username, const char * clientname, 
 		       MWID fromid, int remoteflag)
 {
@@ -1763,7 +1769,7 @@ int _mw_ipcsend_event (const char * event, const char * data, int datalen,
 */
 int _mw_ipc_getevent(Event * ev)
 {
-  int len;
+  size_t len;
   int rc;
   if (ev == NULL) return -EINVAL;
   len = sizeof(Event);

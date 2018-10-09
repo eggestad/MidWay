@@ -502,7 +502,7 @@ int _mwdetach_srb(void)
    return 0;
 };
 
-int _mwacall_srb(const char * svcname, const char * data, int datalen, int flags)
+int _mwacall_srb(const char * svcname, const char * data, size_t datalen, int flags)
 {
    int handle;
    int rc; 
@@ -664,7 +664,7 @@ int _mw_drain_socket(int flags)
 };
 
   
-int _mwfetch_srb(int *hdl, char ** data, int * len, int * appreturncode, int flags)
+int _mwfetch_srb(int *hdl, char ** data, size_t * len, int * appreturncode, int flags)
 {
    struct _srb_callreplyqueue_element * callreqelm;
    char * szHdl, buffer[9];;
@@ -788,7 +788,7 @@ int _mwfetch_srb(int *hdl, char ** data, int * len, int * appreturncode, int fla
 
 };
 
-int _mwevent_srb(const char * evname, const char * data, int datalen, const char * username, const char * clientname, MWID fromid, int remoteflag)
+int _mwevent_srb(const char * evname, const char * data, size_t datalen, const char * username, const char * clientname, MWID fromid, int remoteflag)
 {
    return _mw_srbsendevent(&cltconn, evname, data, datalen, username, clientname);
 };

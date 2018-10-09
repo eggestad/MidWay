@@ -99,8 +99,8 @@ void _mw_copy_on_stderr(int flag);
 
 int call(int argc, char ** argv) 
 {
-  int len = 0, apprc = 0, rc = 0; 
-  int rlen = 0;
+  int apprc = 0, rc = 0; 
+  size_t len = 0, rlen = 0;
   char * data = NULL, * rdata = NULL;
   struct timeval start, end;
 

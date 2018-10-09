@@ -355,7 +355,7 @@ static void completeStats(void)
   Another reason is that the serice routine should be able to do 
   fault recovery if the caller fails to get the reply.
 */
-int mwreply(const char * data, int len, int returncode, int appreturncode, int flags)
+int mwreply(const char * data, size_t len, int returncode, int appreturncode, int flags)
 {
   int rc;
   int mwid;
@@ -435,7 +435,7 @@ int mwreply(const char * data, int len, int returncode, int appreturncode, int f
   The next service will either do anothre forward, or send the response 
   directly to the client. This and the services involvement, just like mwreply.
 */
-int mwforward(const char * svcname, const char * data, int len, int flags)
+int mwforward(const char * svcname, const char * data, size_t len, int flags)
 {
   int rc, dataoffset, dest;
   int ipcflags = 0;
@@ -564,7 +564,8 @@ int _mw_set_deadline(Call * callmesg, mwsvcinfo * svcreqinfo)
  */
 mwsvcinfo *  _mwGetServiceRequest (int flags)
 {
-  int rc, mesglen;
+  int rc;
+  size_t mesglen;
   ipcmaininfo * ipcmain;
   serviceentry * svcent;
   cliententry * cltent;

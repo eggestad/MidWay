@@ -793,7 +793,7 @@ int event(int argc, char ** argv)
    return 0;
 };
 
-static void event_handler(const char * event, const char * data, int datalen)
+static void event_handler(const char * event, const char * data, size_t datalen)
 {
    printf("  EVENT: %s data:%*.*s(%d)\n", event, datalen, datalen, data, datalen);
    return;
@@ -869,7 +869,8 @@ int unsubscribe(int argc, char ** argv)
 
 int call(int argc, char ** argv) 
 {
-   int i, j, len, apprc = 0, rc;
+   int i, j,  apprc = 0, rc;
+   size_t len;
    char * data, * rdata = NULL;
    struct timeval start, end;
    //  long long llstart, llend;

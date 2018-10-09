@@ -1024,7 +1024,7 @@ int _mw_srbsenddata(Connection * conn, char * handle, char * data, int datalen)
    @param flags 
    @return the total number of octets written on the Connection or -errno
 */
-int _mw_srbsendcall(Connection * conn, int handle, const char * svcname, const char * data, int datalen, 
+int _mw_srbsendcall(Connection * conn, int handle, const char * svcname, const char * data, size_t datalen, 
 		    int flags)
 {
    char hdlbuf[9];

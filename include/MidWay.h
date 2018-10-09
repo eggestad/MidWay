@@ -210,19 +210,19 @@ extern "C" {
 
   /* Client call API. (mwfetch has additional functoniality in servers. */
   int mwcall(const char * svcname, 
-	     const char * cdata, int clen, 
-	     char ** rdata, int * rlen, 
+	     const char * cdata, size_t clen, 
+	     char ** rdata, size_t * rlen, 
 	     int * appreturncode, int flags);
-  int mwacall(const char * svcname, const char * data, int len, int flags);
-  int mwfetch(int * handle, char ** data, int * len, int * appreturncode, int flags);
+  int mwacall(const char * svcname, const char * data, size_t len, int flags);
+  int mwfetch(int * handle, char ** data, size_t * len, int * appreturncode, int flags);
    
    /* return a list of service names matching glob. What plist points
       to shall be free'ed with a single free */
   int mwlistsvc (char * glob, char *** plist, int flags);
 
   /* server API */
-  int mwforward(const char * service, const char * data, int len, int flags);
-  int mwreply(const char * rdata, int rlen, int returncode, int appreturncode, int flags);
+  int mwforward(const char * service, const char * data, size_t len, int flags);
+  int mwreply(const char * rdata, size_t rlen, int returncode, int appreturncode, int flags);
 #define mwreturn(rd,rl,rc,ac) mwreply( rd,rl,rc,ac, 0); return rc
 
   int mwprovide(const char * service, int (*svcfunc)(mwsvcinfo *), int flags);
@@ -239,8 +239,8 @@ extern "C" {
   int mwabort(void);
 
   /* shared memory buffer memory management */
-  void * mwalloc(int size);
-  void * mwrealloc(void *, int size);
+  void * mwalloc(size_t size);
+  void * mwrealloc(void *, size_t size);
   int mwfree(void *);
 
   /* task API */
@@ -280,9 +280,9 @@ extern "C" {
 
   /* event API */
   int mwsubscribe(const char * pattern, int flags);
-  int mwsubscribeCB(const char * pattern, int flags, void (*func)(const char * eventname, const char * data, int datalen));
+  int mwsubscribeCB(const char * pattern, int flags, void (*func)(const char * eventname, const char * data, size_t datalen));
   int mwunsubscribe(int subscriptionid);
-  int mwevent(const char * eventname, const char * data, int datalen, const char * username, const char * clientname);
+  int mwevent(const char * eventname, const char * data, size_t datalen, const char * username, const char * clientname);
 #define mweventbcast(eventname, data, datalen) mwevent( eventname, data, datalen, NULL, NULL)
   void mwrecvevents(void);
 

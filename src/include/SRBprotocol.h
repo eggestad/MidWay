@@ -254,7 +254,7 @@ int _mw_srbsendinit(Connection * conn, mwcred_t * cred,
 
 int _mw_srbsenddata(Connection * conn, char * handle,  char * data, int datalen);
 int _mw_srbsendcall(Connection * conn, int handle, const char * svcname,
-		    const char * data, int datalen, int flags);
+		    const char * data, size_t datalen, int flags);
 
 int _mw_get_returncode(urlmap * map);
 int _mw_srb_checksrbcall(Connection * conn, SRBmessage * srbmsg) ;

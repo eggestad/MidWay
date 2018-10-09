@@ -1026,7 +1026,7 @@ void * _mwalloc(size_t size)
    // request large buffer from mwd
    {
       Alloc allocmesg;
-      int len;
+      size_t len;
       void * ptr;
       seginfo_t * si;
       allocmesg.mtype = ALLOCREQ;

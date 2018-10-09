@@ -422,8 +422,8 @@ typedef union {
 /*
  *  lowlevel ipcmsg send & receive
  */
-int _mw_ipc_putmessage(int mwid, const char *data, int len,  int flags);
-int _mw_ipc_getmessage(char * data, int *len, int type, int flags);
+int _mw_ipc_putmessage(int mwid, const char *data, size_t len,  int flags);
+int _mw_ipc_getmessage(char * data, size_t *len, int type, int flags);
 
 /*
  * functions used by client requests.
@@ -440,9 +440,9 @@ int _mw_ipcsend_unprovide_for_id(MWID mwid, const char * servicename,  SERVICEID
 int _mw_ipcsend_unprovide(const char * servicename, int flags);
 int _mw_ipc_unprovide(const char * servicename,  SERVICEID svcid);
 
-int _mwacallipc (const char * svcname, const char * data, int datalen, int flags, 
+int _mwacallipc (const char * svcname, const char * data, size_t datalen, int flags, 
 		 MWID mwid, const char * instance, const char * domain, MWID callerid, int hops);
-int _mwfetchipc (mwhandle_t * handle, char ** data, int * len, int * appreturncode, int flags);
+int _mwfetchipc (mwhandle_t * handle, char ** data, size_t * len, int * appreturncode, int flags);
 
 MWID _mw_get_caller_mwid(Call *);
 int _mw_ipcconnect(const char * servicename, const char * socketpath, int flags);
@@ -453,13 +453,13 @@ int _mw_ipc_subscribe(const char * pattern, int subid, int flags);
 int _mw_ipcsend_subscribe (const char * pattern, int subid, int flags);
 int _mw_ipc_unsubscribe(int subid);
 int _mw_ipcsend_unsubscribe (int subid);
-int _mw_ipcsend_event(const char * event, const char * data, int datalen, const char * username,const  char * clientname, MWID fromid, int remoteflag);
+int _mw_ipcsend_event(const char * event, const char * data, size_t datalen, const char * username,const  char * clientname, MWID fromid, int remoteflag);
 int _mw_ipc_getevent(Event * ev);
 
 /* additionsl for servers */
 int _mw_ipcdorequest(void);
-int _mw_ipcreply(mwhandle_t handle, const char * data, int len, int flags);
-int _mw_ipcforward(const char * servicename, const char * data, int len, int flags);
+int _mw_ipcreply(mwhandle_t handle, const char * data, size_t len, int flags);
+int _mw_ipcforward(const char * servicename, const char * data, size_t len, int flags);
 
 /* additional administrative for mwd */
 

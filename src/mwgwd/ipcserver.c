@@ -289,7 +289,8 @@ static void do_svcreply(Call * cmsg, int len)
 */
 int ipcmainloop(void)
 {
-  int rc, errors, len;
+  int rc, errors;
+  size_t len;
   char message[MWMSGMAX];
   int fd, connid;
   SRBmessage srbmsg;

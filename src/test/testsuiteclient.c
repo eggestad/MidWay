@@ -14,7 +14,8 @@ int main(int argc, char ** argv)
 {
   int rc;
   struct testdata td = { 0 }, *rd;
-  int i, appcode, len;
+  int i, appcode;
+  size_t len;
   int count;
   char * rbuffer = NULL;
   struct timeval btv, etv;

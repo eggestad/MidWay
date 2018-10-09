@@ -24,6 +24,9 @@ namespace MidWay {
    std::map<std::string, napi_ref> ref_servicemap;
 
 
+   napi_value Reply(napi_env env, napi_callback_info info);
+
+
    /* 
     * just a helper function to make mwlog messages with javascript data type 
     */
@@ -176,6 +179,12 @@ namespace MidWay {
 				   "Error in calling JS service callback %d", status); 
       desc[pdcount++] = { "appreturncode", 0, 0, 0, 0, value, napi_enumerable, 0 };
 
+
+      // add reply to the object so it's available in this
+      
+      status = napi_create_function(env, "reply", NAPI_AUTO_LENGTH, Reply, NULL, &value);
+      desc[pdcount++] = { "reply", 0, 0, 0, 0, value, napi_enumerable, 0 };
+      
       status = napi_define_properties(env, svcreqinfo, pdcount, desc);
       mwlog(MWLOG_DEBUG2,  (char*) " status %d", status);
       if (status != napi_ok) mwlog(MWLOG_ERROR, (char*)
@@ -616,6 +625,8 @@ namespace MidWay {
       size_t argc = 10;
       status = napi_get_cb_info(env, info, &argc, args, NULL, NULL);
       CHECK_STATUS;
+ 
+      mwlog(MWLOG_DEBUG2, (char*) "argc %ld", argc);
 
       if (argc < 2) {
 	 napi_throw_type_error(env, NULL, "missing arguments data and successflag must be present." );
@@ -670,8 +681,9 @@ namespace MidWay {
       }
 
       // calling midway
+      mwlog(MWLOG_DEBUG2, (char *) "calling mwreply with datalen = %ld", datalen);      
       int rc =  mwreply(data, datalen, successflag, appreturncode, 0);
-
+      mwlog(MWLOG_DEBUG2, (char *) " mwreply returnrd = %d", rc);      
       if (rc < 0) mwfree(data);
       
       status = napi_create_int32(env, rc, &rv);
@@ -799,7 +811,7 @@ namespace MidWay {
       desc[pdcount++] = DECLARE_NAPI_METHOD("unprovide", UnProvide);
       desc[pdcount++] = DECLARE_NAPI_METHOD("runServer", runServer);
       desc[pdcount++] = DECLARE_NAPI_METHOD("reply", Reply);
-      desc[pdcount++] = DECLARE_NAPI_METHOD("return", Return);
+      //desc[pdcount++] = DECLARE_NAPI_METHOD("return", Return);
       desc[pdcount++] = DECLARE_NAPI_METHOD("forward", Forward);
 
       // Add constants

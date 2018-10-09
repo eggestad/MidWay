@@ -43,7 +43,7 @@ console.log(mw.provide("node0", callback0));
 console.log(mw.provide("node1", callback1));
 console.log(mw.provide("node2", callback2));
 
-console.log(mw.provide("nodel", function () {} ));
+console.log(mw.provide("nodel", function () { console.log(this); this.reply("999", mw.success, 1);console.log("done"); } ));
 console.log("RUNNUNG SERVER");
 mw.runServer();
 	    

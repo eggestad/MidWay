@@ -28,14 +28,14 @@ function callback0() {
     console.log("cb0 ok");
     return true;
 }
-function callback1(svcinfo, a, b, c, d) {
-    console.log("got call with ", svcinfo, a, b, c, d, this);
+function callback1(svcinfo) {
+    console.log("got call with ", svcinfo);
     console.log(mw.reply("testreply", mw.success, 67));
     console.log(mw.reply("testreply", mw.success, 67));
 }
 
-function callback2(svcinfo, a, b, c, d) {
-    console.log("got call with ", svcinfo, a, b, c, d, this);
+function callback2(svcinfo) {
+    console.log("got call with ", svcinfo);
     console.log(mw.forward("node0", "testforward"));
 }
 

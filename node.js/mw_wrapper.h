@@ -23,6 +23,9 @@ namespace MidWay {
    napi_value Return(napi_env env, napi_callback_info info) ;
    napi_value Forward(napi_env env, napi_callback_info info) ;
 
-   napi_value Call(napi_env env, napi_callback_info info) ;
+   napi_value ACall(napi_env env, napi_callback_info info) ;
+   //napi_value Call(napi_env env, napi_callback_info info) ;
+   napi_value Fetch(napi_env env, napi_callback_info info) ;
+
 
 }

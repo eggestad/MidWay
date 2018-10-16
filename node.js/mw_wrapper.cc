@@ -234,8 +234,9 @@ namespace MidWay {
       desc[pdcount++] = DECLARE_NAPI_METHOD("detach", Detach);
 
       // CLIENNT API
-      desc[pdcount++] = DECLARE_NAPI_METHOD("call", Call);
+      desc[pdcount++] = DECLARE_NAPI_METHOD("call", ACall);
       //desc[pdcount++] = DECLARE_NAPI_METHOD("call", Call);
+      //desc[pdcount++] = DECLARE_NAPI_METHOD("fetch", Fetch);
 
       // SERVER API
       desc[pdcount++] = DECLARE_NAPI_METHOD("provide", Provide);
@@ -253,6 +254,16 @@ namespace MidWay {
       desc[pdcount++]  ={ "fail", 0, 0, 0, 0, value, napi_enumerable, 0 };
       status = napi_create_int32(env, MWMORE, &value);
       desc[pdcount++]  ={ "more", 0, 0, 0, 0, value, napi_enumerable, 0 };
+
+      status = napi_create_int32(env, MWNOREPLY, &value);
+      desc[pdcount++]  ={ "noreply", 0, 0, 0, 0, value, napi_enumerable, 0 };
+
+      status = napi_create_int32(env, MWMULTIPLE, &value);
+      desc[pdcount++]  ={ "multiple", 0, 0, 0, 0, value, napi_enumerable, 0 };
+
+      status = napi_create_int32(env, MWNOBLOCK, &value);
+      desc[pdcount++]  ={ "noblock", 0, 0, 0, 0, value, napi_enumerable, 0 };
+
 
       status = napi_define_properties(env, exports, pdcount, desc);
       CHECK_STATUS;

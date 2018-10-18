@@ -74,7 +74,7 @@ namespace MidWay {
       if (argc >= 2) {
 
 	 napi_typeof(env, args[1], &type);
-
+      }
       if (type == napi_string) {
 	 size_t rlen;
 	 status = napi_get_value_string_utf8(env, args[1], NULL, 0,  &rlen);
@@ -96,18 +96,18 @@ namespace MidWay {
 	 return NULL;
       }
 	 
-      mwlog(MWLOG_DEBUG2, (char*) "calling mwacall with %s %s %d", url, data, datalen, flags);
+      mwlog(MWLOG_DEBUG2, (char*) "calling mwacall with %s %s %ld %d", url, data, datalen, flags);
 
-      int rc = mwacall(url, data, flags);
+      int rc = mwacall(url, data, datalen, flags);
       
       status = napi_create_int32(env, rc, &rv);
       assert(status == napi_ok);
 
       mwlog(MWLOG_DEBUG2, (char*) "Ending acall returning %d", rc);
       return rv;
-   };
 
-  /**
+   }
+   /**
     * Fetch
     * 
     */ 
@@ -135,8 +135,6 @@ namespace MidWay {
 
       size_t urllen = 1000;
       char urlbuf[urllen];
-      size_t namelen = 1000;
-      char namebuf[urllen];
       
       if (argc == 1) {
 	 
@@ -200,5 +198,11 @@ namespace MidWay {
 
 
 
+   void initClient(napi_env env) {
+   };
+ 
 
+   void finalizeClient(napi_env env) {
+   };
+   
 }  // namespace MidWay

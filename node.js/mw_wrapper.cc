@@ -184,7 +184,12 @@ namespace MidWay {
       mwlog(MWLOG_DEBUG2, (char*) "calling mwattach with %s %s %d", url, name, flags);
 
       int rc = mwattach(url, name, flags);
-      
+
+      if (rc == 0) {
+	 initClient(env);
+	 if (flags | MWSERVER) initServer(env);
+      }
+	 
       status = napi_create_int32(env, rc, &rv);
       assert(status == napi_ok);
 
@@ -202,6 +207,10 @@ namespace MidWay {
       napi_value rv;
 
       int rc = mwdetach();
+
+      void finalizeServer(napi_env env);
+      void finalizeClient(napi_env env);
+      
 
       status = napi_create_int32(env, rc, &rv);
       assert(status == napi_ok);

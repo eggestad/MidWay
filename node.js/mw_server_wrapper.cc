@@ -22,8 +22,18 @@ namespace MidWay {
 
 
    uv_thread_t mw_server_thread;
-   
+   uv_async_t service_request_event;
+   uv_loop_t * loop;
 
+   // for transfer of data between threads
+   static mwsvcinfo * msi;
+   static int service_returncode;
+   
+   // sync variables 
+   uv_mutex_t thread_wait_mutex;
+   uv_cond_t thread_wait_cond;
+
+   
    // used when entering main loop to store the env for use in servicecallwrapper()
    napi_env envInMainLoop;
    
@@ -32,7 +42,8 @@ namespace MidWay {
     * This is a the C call back for all service requests. 
     * It looks up the javascript callback and calls its. 
     */ 
-   int servicecallwrapper (mwsvcinfo * msi) {
+   void service_request_callback(uv_async_t* handle) {
+
       mwlog(MWLOG_DEBUG2,  (char*) "Beginning service call wrapper");
 
       napi_status status;
@@ -132,7 +143,8 @@ namespace MidWay {
            
       napi_value global;
       status = napi_get_global(env, &global);
-      CHECK_STATUS;
+
+      // TODO: CHECK_STATUS;
 
 
       napi_value res;
@@ -172,11 +184,42 @@ namespace MidWay {
       bool b;
       status = napi_get_value_bool(env, res, &b);
 
-      int rc = b ? MWSUCCESS : MWFAIL;
+      service_returncode = b ? MWSUCCESS : MWFAIL;
       
-      mwlog(MWLOG_DEBUG2,  (char*) "Ending service call wrapper returning %d",  rc);
-      return rc;
+      mwlog(MWLOG_DEBUG2,  (char*) "Ending service call wrapper returning %d waking server thread",
+	    service_returncode);
+
+      
+      uv_mutex_lock(&thread_wait_mutex);
+      uv_cond_signal(&thread_wait_cond);
+      uv_mutex_unlock(&thread_wait_mutex);
+
+      return;
    }
+
+
+   int servicecallwrapper (mwsvcinfo * msi) {
+      int rc = uv_async_send(&service_request_event);
+      
+      mwlog(MWLOG_DEBUG2, (char*) "sending async message to trigger processing of service call in main thread, %d,  waiting", rc);
+      uv_mutex_lock(&thread_wait_mutex);
+      uv_cond_wait(&thread_wait_cond, &thread_wait_mutex);
+      uv_mutex_unlock(&thread_wait_mutex);
+      mwlog(MWLOG_DEBUG2, (char*) "woke up again the service request should now have been completed");
+      return 0;
+   }
+ 
+
+   
+   void server_thread_main(void * data) {
+
+      mwlog(MWLOG_DEBUG2, (char*) "in server thread starting mainloop");
+      
+      int rc = mwMainLoop(0);
+
+      mwlog(MWLOG_DEBUG2, (char*) "in server thread  mainloopreturned with %d", rc);
+   }
+
 
    /*************************************
     *
@@ -258,6 +301,11 @@ namespace MidWay {
       int rc = mwprovide(servicename, servicecallwrapper, 0);
       mwlog(MWLOG_DEBUG2, (char*) "mwprovide returned 0x%x", rc);
 
+      if ( ref_servicemap.empty() ) {
+	 int rc = uv_thread_create(&mw_server_thread, server_thread_main, NULL);
+	 mwlog(MWLOG_DEBUG2, (char*) "server thread start %d", rc);
+      }
+      
       // TODO check RC before inserting into callback  map
       // not that it really matter. if mwprovide fails, we're never going to get called.
       ref_servicemap.insert(std::pair<std::string, napi_ref>(servicename, ref));
@@ -323,10 +371,16 @@ namespace MidWay {
       std::string sname = servicename;      
       napi_ref ref = ref_servicemap.find(servicename)->second;
       uint32_t refcount  = -1;
-            status = napi_reference_unref(env, ref, &refcount);
+      status = napi_reference_unref(env, ref, &refcount);
       mwlog(MWLOG_DEBUG2,  (char*) "refcount on callback is now %d", refcount);
 
       ref_servicemap.erase(sname);
+      
+      if ( ref_servicemap.empty() ) {
+	 mwlog(MWLOG_DEBUG2, (char*)"last service unprovided, joining \n");
+      	 int rc = uv_thread_join(&mw_server_thread);
+	 mwlog(MWLOG_DEBUG2, (char*)"server thread joined %d", rc);
+      }
 
       // returning
       status = napi_create_int32(env, rc, &rv);
@@ -531,6 +585,36 @@ namespace MidWay {
 
       mwlog(MWLOG_DEBUG2, (char*) "Ending Forward");
       return rv;
+
+   };
+
+
+   void initServer(napi_env env) {
+      napi_status status;
+	
+      status = napi_get_uv_event_loop(env, &loop);
+      if (status != napi_ok) {
+	 napi_throw_error(env, NULL, "Unable to get event loop");
+      }
+
+
+      uv_cond_init(&thread_wait_cond);
+      uv_mutex_init(&thread_wait_mutex);
+  
+      int rc = uv_async_init(loop, &service_request_event, service_request_callback);
+      mwlog(MWLOG_DEBUG2, (char*)"async srvreq handle init %d", rc);
+
+      return;
+
+   }
+
+   static void server_close_cb(uv_handle_t* handle) {
+      printf("close cb  \n");
+      
+   }
+
+   void finalizeServer(napi_env env) {
+      uv_close( (uv_handle_t *) &service_request_event , server_close_cb);
    };
    
 }  // namespace MidWay

@@ -1,4 +1,6 @@
 #include <MidWay.h>
+#include <node_api.h>
+#include <uv.h>
 
 #define CHECK_STATUS					\
    if (status != napi_ok) {				\
@@ -27,5 +29,7 @@ namespace MidWay {
    //napi_value Call(napi_env env, napi_callback_info info) ;
    napi_value Fetch(napi_env env, napi_callback_info info) ;
 
+   void initClient(napi_env env);
+   void initServer(napi_env env);
 
 }

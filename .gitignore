@@ -2,6 +2,7 @@
 **/*.o
 **/*.so
 **/*~
+**/#*
 
 config.h
 config.log
@@ -26,3 +27,6 @@ src/mwserver/mwserver
 src/test/testsuiteclient
 
 html-doc/mans/*html
+
+node.js/build
+node.js/testlog*

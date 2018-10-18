@@ -443,6 +443,7 @@ int _mw_ipc_unprovide(char * servicename,  SERVICEID svcid);
 int _mwacallipc (char * svcname, char * data, int datalen, int flags, 
 		 MWID mwid, char * instance, char * domain, MWID callerid, int hops);
 int _mwfetchipc (mwhandle_t * handle, char ** data, int * len, int * appreturncode, int flags);
+int _mw_ipc_pushCallReply(Call * callmsg);
 
 MWID _mw_get_caller_mwid(Call *);
 int _mw_ipcconnect(char * servicename, char * socketpath, int flags);

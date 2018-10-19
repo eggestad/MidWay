@@ -8,9 +8,16 @@
 #include <assert.h>
 
 #include <stdio.h>
+#include <unistd.h>
 
 #include <MidWay.h>
 #include "mw_wrapper.h"
+
+
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+#include <string.h>
 
 namespace MidWay {
 
@@ -25,10 +32,6 @@ namespace MidWay {
    uv_async_t service_request_event;
    uv_loop_t * loop;
 
-   // for transfer of data between threads
-   static mwsvcinfo * msi;
-   static int service_returncode;
-   
    // sync variables 
    uv_mutex_t thread_wait_mutex;
    uv_cond_t thread_wait_cond;
@@ -36,22 +39,58 @@ namespace MidWay {
    
    // used when entering main loop to store the env for use in servicecallwrapper()
    napi_env envInMainLoop;
-   
+
+
+
    /*
     * Now we're getting to brass tax. 
     * This is a the C call back for all service requests. 
     * It looks up the javascript callback and calls its. 
     */ 
-   void service_request_callback(uv_async_t* handle) {
+   
+   int servicecallwrapper (mwsvcinfo * msi) {
 
       mwlog(MWLOG_DEBUG2,  (char*) "Beginning service call wrapper");
-
+      
       napi_status status;
       napi_value svcreqinfo;
       
       napi_env env = envInMainLoop;
-      
+      mwlog(MWLOG_DEBUG2,  (char*) " env %p", env);
+
+
+      /*
+
+	I'm a bit mystified why it is necessaryto open a handle scope. 
+	(STill iffy on what a handlescope is) 
+	But with out opening a handle scope we get this stack trace in napi_create_object below
+
+	FATAL ERROR: v8::HandleScope::CreateHandle() Cannot create a handle without a HandleScope
+	1: node::Abort() [node]
+	2: 0xf8bef2 [node]
+	3: v8::Utils::ReportApiFailure(char const*, char const*) [node]
+	4: v8::internal::HandleScope::Extend(v8::internal::Isolate*) [node]
+	5: v8::Object::New(v8::Isolate*) [node]
+	6: napi_create_object [node]
+	7: MidWay::servicecallwrapper(mwsvcinfo*) [/home/terje/work/MidWay/node.js/build/Release/midway.node]
+	8: _mwCallCServiceFunction [/usr/local/lib64/libMidWay.so.0]
+	9: MidWay::server_MidWay_mainlooplet() [/home/terje/work/MidWay/node.js/build/Release/midway.node]
+	10: MidWay::service_request_callback(uv_async_s*) [/home/terje/work/MidWay/node.js/build/Release/midway.node]
+	11: 0x7ff5b9c2fad8 [/lib64/libuv.so.1]
+	12: uv__io_poll [/lib64/libuv.so.1]
+	13: uv_run [/lib64/libuv.so.1]
+	14: node::Start(uv_loop_s*, int, char const* const*, int, char const* const*) [node]
+	15: node::Start(int, char**) [node]
+	16: __libc_start_main [/lib64/libc.so.6]
+	17: _start [node]
+
+      */
+      napi_handle_scope handle_scope;      
+      status  = napi_open_handle_scope(env, &handle_scope );
+      mwlog(MWLOG_DEBUG2,  (char*) " new handlescope status %d", status);
+   
       status  = napi_create_object(env, &svcreqinfo );
+      mwlog(MWLOG_DEBUG2,  (char*) " status %d", status);
 
       /* from MidWay.h
       typedef struct {
@@ -80,7 +119,6 @@ namespace MidWay {
       int pdcount = 0;
    
       status = napi_create_int64(env, msi->handle, &value);
-      mwlog(MWLOG_DEBUG2,  (char*) " status %d", status);
       desc[pdcount++] = { "handle", 0, 0, 0, 0, value, napi_enumerable, 0 };
 
       status = napi_create_int64(env, msi->cltid, &value);
@@ -126,9 +164,10 @@ namespace MidWay {
       if (status != napi_ok) mwlog(MWLOG_ERROR, (char*)
 				   "Error in calling JS service callback %d", status); 
 
+
+      // find callback
       napi_value callback ;
-      napi_ref cbref = ref_servicemap.find(msi->service)->second;
-      
+      napi_ref cbref = ref_servicemap.find(msi->service)->second;      
       status = napi_get_reference_value(env, cbref, &callback);
       
       { // DEBUGGING??
@@ -140,7 +179,8 @@ namespace MidWay {
 
 	 mwlog(MWLOG_DEBUG2,  (char*) "found callback %s", buf);
       }
-           
+
+      // get global object
       napi_value global;
       status = napi_get_global(env, &global);
 
@@ -184,20 +224,25 @@ namespace MidWay {
       bool b;
       status = napi_get_value_bool(env, res, &b);
 
-      service_returncode = b ? MWSUCCESS : MWFAIL;
+      int service_returncode = b ? MWSUCCESS : MWFAIL;
       
       mwlog(MWLOG_DEBUG2,  (char*) "Ending service call wrapper returning %d waking server thread",
 	    service_returncode);
 
-      
-      uv_mutex_lock(&thread_wait_mutex);
-      uv_cond_signal(&thread_wait_cond);
-      uv_mutex_unlock(&thread_wait_mutex);
+      status  = napi_close_handle_scope(env, handle_scope );
+      mwlog(MWLOG_DEBUG2,  (char*) "close handlescope status %d", status);
+   
+      // uv_mutex_lock(&thread_wait_mutex);
+      // uv_cond_signal(&thread_wait_cond);
+      // uv_mutex_unlock(&thread_wait_mutex);
 
-      return;
+      return service_returncode;
    }
 
 
+   /* 
+    * this was an attempt to have a midway thread to do actuall mw* calls
+    * 
    int servicecallwrapper (mwsvcinfo * msi) {
       int rc = uv_async_send(&service_request_event);
       
@@ -209,18 +254,75 @@ namespace MidWay {
       return 0;
    }
  
+   */
 
-   
+   // internal in MidWay.
+   // We need it to block on MidWay's sysv message queue until there is something to get
+   extern "C"  int _mw_my_mqid();
+
    void server_thread_main(void * data) {
 
-      mwlog(MWLOG_DEBUG2, (char*) "in server thread starting mainloop");
-      
-      int rc = mwMainLoop(0);
+      int msgqueueid = _mw_my_mqid();
+      mwlog(MWLOG_DEBUG2, (char*) "in server thread starting mainloop - mqueue id %d ", msgqueueid );
 
-      mwlog(MWLOG_DEBUG2, (char*) "in server thread  mainloopreturned with %d", rc);
+      int rc;
+      char dummybuffer[16000];
+      
+      while(1) {
+
+	 rc = msgrcv(msgqueueid, dummybuffer, 1, 0, 0);
+
+	 if (rc == -1 && errno == E2BIG) {
+	    mwlog(MWLOG_DEBUG2, (char*) "there is a message in the queue");
+	    mwlog(MWLOG_DEBUG2, (char*) "sending async message to trigger processing of MidWay messages");
+	    int rc2 = uv_async_send(&service_request_event);
+	    mwlog(MWLOG_DEBUG2, (char*) "sending async message returned %d", rc2);
+	    sleep(1);	    
+	 } else {
+	    mwlog(MWLOG_ERROR, (char*) " msg rcv returned %d errno = %d, %s", rc, errno, strerror(errno));
+	    break;
+	 };
+	 
+      };
+       
+      mwlog(MWLOG_DEBUG2, (char*) "in server thread mainloop - returned with %d", rc);
    }
 
+   /** 
+    * Instead on main loop. We are blocking wait on the message queue above, then we end up here
+    * back on node.js main thread via uv_async_send()
+    * 
+    * we now drain the message queue one pass at the time and reisse the async mmessage allowing node.js
+    * mainloop to do other stuff in between
+    */
+   void service_request_callback(uv_async_t* handle) {
+      mwlog(MWLOG_DEBUG2, (char*) "service_request_callback starting...");
 
+      envInMainLoop = (napi_env) handle->data;
+        
+      int rc ;
+      int more_todo = 0;
+      
+      rc = mwservicerequest(MWNOBLOCK);
+      mwlog(MWLOG_DEBUG2, (char*) "mwservicerequest returned, %d", rc);     
+      if (rc == 0) more_todo = 1;
+
+      //handling events 
+      mwrecvevents();
+
+      // fetching call replies and call handlers
+      rc = processACallReplies(envInMainLoop);
+      if (rc == 1) more_todo = 1;
+
+      if (more_todo) {
+	 mwlog(MWLOG_DEBUG2, (char*) "we have more to do, sending another async event to");
+	 int rc2 = uv_async_send(&service_request_event);
+	 mwlog(MWLOG_DEBUG2, (char*) "sending async message returned %d", rc2);
+
+      }   
+      mwlog(MWLOG_DEBUG2, (char*) "ending service_request_callback ...");      
+   };
+      
    /*************************************
     *
     *  Actuall wrapper funcs 
@@ -233,7 +335,7 @@ namespace MidWay {
     */
    napi_value Provide(napi_env env, napi_callback_info info) {
       mwlog(MWLOG_DEBUG2, (char*) "Beginning Provide");
-      
+
       napi_status status;
       napi_value rv;
  
@@ -389,34 +491,13 @@ namespace MidWay {
       mwlog(MWLOG_DEBUG2, (char*) "Ending UnProvide");
       return rv;
    };
-
-   /**
-    * RUN SERVER (main loop)
-    */
-   napi_value runServer(napi_env env, napi_callback_info info) {
-      mwlog(MWLOG_DEBUG2, (char*) "Beginning runServer");
-
-      napi_status status;
-      napi_value rv;
-
-      envInMainLoop = env;
-
-      int rc = mwMainLoop(0);
-
-      envInMainLoop = NULL;
-      status = napi_create_int32(env, rc, &rv);
-      assert(status == napi_ok);
-      
-   
-      mwlog(MWLOG_DEBUG2, (char*) "Ending runServer rc %d", rc);
-      return rv;
-   };
    
    /**
     * REPLY
     */
    napi_value Reply(napi_env env, napi_callback_info info) {
       mwlog(MWLOG_DEBUG2, (char*) "Beginning Reply");
+      mwlog(MWLOG_DEBUG2,  (char*) "env %p", env);
 
       char * data = NULL;
       size_t datalen = 0;
@@ -590,8 +671,11 @@ namespace MidWay {
 
 
    void initServer(napi_env env) {
+      pthread_t me = pthread_self();
+      mwlog(MWLOG_DEBUG2, (char*) "init server thread  thread id %lu ", me );
+      mwlog(MWLOG_DEBUG2,  (char*) " env %p", env);
       napi_status status;
-	
+      
       status = napi_get_uv_event_loop(env, &loop);
       if (status != napi_ok) {
 	 napi_throw_error(env, NULL, "Unable to get event loop");
@@ -603,6 +687,8 @@ namespace MidWay {
   
       int rc = uv_async_init(loop, &service_request_event, service_request_callback);
       mwlog(MWLOG_DEBUG2, (char*)"async srvreq handle init %d", rc);
+      envInMainLoop = env;
+      service_request_event.data = env;
 
       return;
 

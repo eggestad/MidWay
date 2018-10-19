@@ -15,8 +15,9 @@ namespace MidWay {
 
    napi_value Attach(napi_env env, napi_callback_info info) ;
    
-   int servicecallwrapper (mwsvcinfo * msi) ;
-   
+   //int servicecallwrapper (mwsvcinfo * msi) ;
+   int processACallReplies(napi_env env);
+
    napi_value Provide(napi_env env, napi_callback_info info) ;
    napi_value UnProvide(napi_env env, napi_callback_info info) ;
    napi_value runServer(napi_env env, napi_callback_info info) ;

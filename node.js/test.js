@@ -45,15 +45,15 @@ console.log(mw.provide("node2", callback2));
 
 console.log(mw.provide("nodel", function () { console.log(this); this.reply("999", mw.success, 1);console.log("done"); } ));
 console.log("RUNNUNG SERVER");
-mw.runServer();
+//mw.runServer();
 	    
-console.log(mw.unprovide("node0"));
-console.log(mw.unprovide("node1"));
+//console.log(mw.unprovide("node0"));
+//console.log(mw.unprovide("node1"));
 
 
 
 
 
 // Prints: 'world'
-console.log(mw.detach());
+//console.log(mw.detach());
 

@@ -8,13 +8,114 @@
 #include <assert.h>
 
 #include <stdio.h>
+#include <string.h>
 
 #include <MidWay.h>
 #include "mw_wrapper.h"
 
+
 namespace MidWay {
 
- 
+   /*
+    * hash to store mapping between call handle and a refernce to the call back function
+    */ 
+   std::map<int, napi_ref> ref_servicemap;
+
+
+   int processACallReplies(napi_env env) {
+
+      napi_status status;
+
+      char * data;
+      int datalen = 0;
+      int handle = 0;
+      int apprc = 0;
+
+      mwlog(MWLOG_DEBUG2, (char*) "mwfetch...");
+
+      int rc = mwfetch(&handle, &data, &datalen, &apprc, MWNOBLOCK);
+
+      mwlog(MWLOG_DEBUG2, (char*) "mwfetch returned, %d handle %x %d errno %d %s",
+	    rc, handle, apprc, errno, strerror(errno));     
+
+      if (rc != -EFAULT && rc < 0) {
+	 return 0;
+      }
+
+      
+      napi_handle_scope handle_scope;      
+      status  = napi_open_handle_scope(env, &handle_scope );
+      mwlog(MWLOG_DEBUG2,  (char*) " new handlescope status %d", status);
+
+
+      // find callback
+      napi_value callback ;
+      napi_ref cbref = ref_servicemap.find(handle)->second;      
+      status = napi_get_reference_value(env, cbref, &callback);
+      
+      { // DEBUGGING??
+	 napi_value v;
+	 napi_coerce_to_string(env, callback , &v);
+	 int blen = 1000;
+	 char buf[blen];
+	 JSValtoString(env, v, buf, blen);
+
+	 mwlog(MWLOG_DEBUG2,  (char*) "found callback %s", buf);
+      }
+
+      
+      // get global object
+      napi_value global;
+      status = napi_get_global(env, &global);
+
+      // parameters to callback      
+      napi_value argv[3];
+      status = napi_create_int32(env, rc, &argv[0]);
+      status = napi_create_string_utf8(env, data, datalen, &argv[1]);
+      status = napi_create_int32(env, apprc, &argv[2]);
+
+
+      /*
+       * actual call to JS function
+       */
+      napi_value res;
+
+      mwlog(MWLOG_DEBUG2,  (char*) "calling js callback");
+
+      status = napi_call_function(env, global, callback, 3, argv, &res);
+
+      mwlog(MWLOG_DEBUG2,  (char*) "done js callback %d ", status );
+
+      if (status == napi_pending_exception)  {
+	 napi_value expt;
+	 status = napi_get_and_clear_last_exception(env, &expt);
+
+	 int blen = 1000;
+	 char buf[blen];
+	 JSValtoString(env, expt, buf, blen);
+	 
+	 mwlog(MWLOG_ERROR, (char *) "Error: %s", buf);
+      } else if (status != napi_ok) {
+	 mwlog(MWLOG_ERROR, (char*)
+	       "Error in calling JS service callback %d", status);
+      }
+
+      {
+	 int blen = 100;
+	 char buf[blen];
+	 JSValtoString(env, res, buf, blen);
+	 mwlog(MWLOG_DEBUG2,  (char*) "callback returned %s", buf);
+      }
+      
+      status  = napi_close_handle_scope(env, handle_scope );
+      mwlog(MWLOG_DEBUG2,  (char*) "close handlescope status %d", status);
+
+      if (rc == -EFAULT) return 1;
+      if (rc == 0) return 1;
+      return 0;
+
+   }
+
    /*************************************
     *
     *  Actuall wrapper funcs 

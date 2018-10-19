@@ -250,7 +250,7 @@ namespace MidWay {
       // SERVER API
       desc[pdcount++] = DECLARE_NAPI_METHOD("provide", Provide);
       desc[pdcount++] = DECLARE_NAPI_METHOD("unprovide", UnProvide);
-      desc[pdcount++] = DECLARE_NAPI_METHOD("runServer", runServer);
+      //      desc[pdcount++] = DECLARE_NAPI_METHOD("runServer", runServer);
       desc[pdcount++] = DECLARE_NAPI_METHOD("reply", Reply);
       //desc[pdcount++] = DECLARE_NAPI_METHOD("return", Return);
       desc[pdcount++] = DECLARE_NAPI_METHOD("forward", Forward);
@@ -278,6 +278,9 @@ namespace MidWay {
       CHECK_STATUS;
       
       mwopenlog((char*) "nodejs", (char*) "./testlog", MWLOG_DEBUG2);
+      pthread_t me = pthread_self();
+      mwlog(MWLOG_INFO, (char*) "in node thread starting mainloop thread id %lu ", me );
+
 
       return exports;
    }

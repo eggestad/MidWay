@@ -686,6 +686,10 @@ int _mw_ipc_getmessage(char * data, int *len, int type, int flags)
   if (len == NULL) return -EINVAL;
   *len -= sizeof(long);
 
+  // TODO need to handle propper translation to flags
+  DEBUG1("msgrcv type %d flags %x", type, flags);
+  if (flags & MWNOBLOCK) flags |= IPC_NOWAIT;
+
   errno = 0;
   rc = msgrcv(_mw_my_mqid(), data, *len, type, flags);
   /* if we got an interrupt this is OK, of if there was no message in noblock. Else not.*/

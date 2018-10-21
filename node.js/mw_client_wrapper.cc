@@ -19,7 +19,7 @@ namespace MidWay {
    /*
     * hash to store mapping between call handle and a refernce to the call back function
     */ 
-   std::map<int, napi_ref> ref_servicemap;
+   std::map<int, napi_ref> ref_call_map;
 
 
    int processACallReplies(napi_env env) {
@@ -35,7 +35,7 @@ namespace MidWay {
 
       int rc = mwfetch(&handle, &data, &datalen, &apprc, MWNOBLOCK);
 
-      mwlog(MWLOG_DEBUG2, (char*) "mwfetch returned, %d handle %x %d errno %d %s",
+      mwlog(MWLOG_DEBUG2, (char*) "mwfetch returned, %d handle %d %d errno %d %s",
 	    rc, handle, apprc, errno, strerror(errno));     
 
       if (rc != -EFAULT && rc < 0) {
@@ -47,17 +47,22 @@ namespace MidWay {
       status  = napi_open_handle_scope(env, &handle_scope );
       mwlog(MWLOG_DEBUG2,  (char*) " new handlescope status %d", status);
 
+      mwlog(MWLOG_DEBUG2,  (char*) "callmap size %p", ref_call_map.size());
 
       // find callback
       napi_value callback ;
-      napi_ref cbref = ref_servicemap.find(handle)->second;      
+      mwlog(MWLOG_DEBUG2,  (char*) "lokking callback ref %p", ref_call_map.find(handle)->second);
+
+      napi_ref cbref = ref_call_map.find(handle)->second;
+      mwlog(MWLOG_DEBUG2,  (char*) "found callback ref");
+	    
       status = napi_get_reference_value(env, cbref, &callback);
-      
+      mwlog(MWLOG_DEBUG2,  (char*) "find callback status %d", status);      
       { // DEBUGGING??
 	 napi_value v;
-	 napi_coerce_to_string(env, callback , &v);
+	 status = napi_coerce_to_string(env, callback , &v);
 	 int blen = 1000;
-	 char buf[blen];
+	 char buf[blen] = {0};
 	 JSValtoString(env, v, buf, blen);
 
 	 mwlog(MWLOG_DEBUG2,  (char*) "found callback %s", buf);
@@ -152,10 +157,12 @@ namespace MidWay {
       size_t urllen = MWMAXSVCNAME;
       char urlbuf[urllen];
       
-      if (argc == 0) {
-	 napi_throw_type_error(env, NULL, "missing arguments servicename must be present." );
+
+      if (argc < 3) {
+	 napi_throw_type_error(env, NULL, "midway.acall must have three arg. servicename, data, callbackfunction." );
 	 return NULL;
       }
+
  
 	 
       napi_valuetype type;
@@ -172,10 +179,9 @@ namespace MidWay {
 	 return rv;
       }
 
-      if (argc >= 2) {
-
-	 napi_typeof(env, args[1], &type);
-      }
+      
+      napi_typeof(env, args[1], &type);
+      
       if (type == napi_string) {
 	 size_t rlen;
 	 status = napi_get_value_string_utf8(env, args[1], NULL, 0,  &rlen);
@@ -196,10 +202,37 @@ namespace MidWay {
 	 napi_throw_type_error(env, NULL, "data must be a string or undefined." );
 	 return NULL;
       }
+
+      napi_value callback_function;
+       
+      napi_typeof(env, args[2], &type);
+      if (type == napi_function) {
+	 callback_function  = args[2];
+      } else {
+	 napi_throw_type_error(env, NULL, "acall must have a function as third argument." );
+	 status = napi_create_int32(env, 0, &rv);
+	 assert(status == napi_ok);
+	 return rv;
+      }
+
+      
 	 
       mwlog(MWLOG_DEBUG2, (char*) "calling mwacall with %s %s %ld %d", url, data, datalen, flags);
 
       int rc = mwacall(url, data, datalen, flags);
+      mwlog(MWLOG_DEBUG2, (char*) "mwacall ed %d", rc);
+
+      if (rc > 0) {
+	 napi_ref cbref;
+	 status = napi_create_reference(env, callback_function, 1, &cbref);
+      	 ref_call_map.insert(std::pair<int, napi_ref>(rc, cbref));
+	 rc = 1;
+      } else {
+	 char msg[100];
+	 snprintf(msg, 100, "acall failed with %d %s", -rc , strerror(-rc));
+	 napi_throw_error(env, NULL,  msg);
+	 rc = 0;
+      }
       
       status = napi_create_int32(env, rc, &rv);
       assert(status == napi_ok);

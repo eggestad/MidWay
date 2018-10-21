@@ -1,9 +1,10 @@
 
 #include <stdio.h>
 
-
 #include <node_api.h>
 
+#include <MidWay.h>
+#include "mw_wrapper.h"
 
 namespace MidWay {
 
@@ -25,8 +26,7 @@ namespace MidWay {
       napi_value v;
       napi_coerce_to_string(env, val, &v);
       val = v;
-
-	 
+		
       napi_valuetype type;
       napi_typeof(env, val, &type);
       napi_status sts;
@@ -34,7 +34,9 @@ namespace MidWay {
       switch(type)  {
 
       case napi_undefined:
-	 return snprintf(buf, len, "(undefined)");      case napi_null:
+	 return snprintf(buf, len, "(undefined)");
+
+      case napi_null:
 	 return snprintf(buf, len, "(null)");
 	    
       case napi_boolean:

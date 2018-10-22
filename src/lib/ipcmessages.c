@@ -205,7 +205,6 @@ static void debugReplyQueue(void)
    DEBUG1(" Callreply queue length = %d free %d", q, f);
 };
  
-
 // push  at end, pop from the start
 static int pushCallReply(Call * callmsg)
 {
@@ -234,6 +233,14 @@ static int pushCallReply(Call * callmsg)
    debugReplyQueue();
    return 0;
 };
+
+/**
+ * We need to expose this in the casde a call reply comes while in mwservicerequest
+ */
+int _mw_ipc_pushCallReply(Call * callmsg) {
+   return pushCallReply(callmsg);
+}
+
 
 static Call * popCallReplyByHandle(int handle)
 {
@@ -678,6 +685,10 @@ int _mw_ipc_getmessage(char * data, size_t *len, int type, int flags)
 
   if (len == NULL) return -EINVAL;
   *len -= sizeof(long);
+
+  // TODO need to handle propper translation to flags
+  DEBUG1("msgrcv type %d flags %x", type, flags);
+  if (flags & MWNOBLOCK) flags |= IPC_NOWAIT;
 
   errno = 0;
   rc = msgrcv(_mw_my_mqid(), data, *len, type, flags);

@@ -588,6 +588,12 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
     
     if (rc < 0) break;    
     if (*mtype == SVCCALL) break;
+    if (*mtype == SVCREPLY) {
+       Warning("got a call reply while waiting for a service call request");
+       _mw_ipc_pushCallReply((Call *) buffer);
+       errno = EINPROGRESS;
+       return NULL;
+    }
     if (*mtype == EVENT) {
       _mw_do_ipcevent((Event *) buffer);
       continue;

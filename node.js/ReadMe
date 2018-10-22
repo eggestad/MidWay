@@ -1,4 +1,60 @@
+
+== Building:
+
   node-gyp clean 
   node-gyp configure
   node-gyp build
   node ./test.js 
+
+
+== Event problem
+
+
+Node.js event loop don't play well with the midway server api. Especially when trying to be a client as well .
+
+In essence this is an extention of MidWay not being thread safe, or thread capable.
+
+We want to play nice and as MidWay is very nearly event driven, it's should be so hard.
+
+
+== approaches and pros and cons
+
+= do all MidWay stuff sync from Node.js API.
+This blocks the Node.js event loop. 
+
+= a seperate MW thread
+To play nice with libuv (event loop at the heart of node.js) and libuv can't wait on sysv message queues we need a background thread that do mw calls while Node.js main thread do libuv. Then submit thru libuv when there is a call back to Node.js main thread to handle a service call or a reply to a previously mwacall() or mwevent callback
+
+A big problem here is that mwservicerequest() do a msgrcv with type 0 to catch messages of both SVCCALL and EVENT type to handle events while waiting for a request.
+
+But the way it stopped was at while mwservicerequest() we did a mwprovide from the Node.js main thread. mwservicerequest then gor the un expected PROVIDE reply. 
+
+** A GENERAL THHREAD PROBLEM => TWO SIMULTANEOUS mwprovide() or mwunprovide() calls. **
+
+Solution to that is to do a thread wait and send a signal to the thread doing mwservicerequest. That leaves us with the whole complexity of directing a wake up signal to the right thread to interrupt msgrcv()
+
+= seperate message queues for client and server
+(not the worst idea in the world)
+
+= use a libuv timer to periodically check for work
+(also no the worst idea in the world)
+
+= rewrite to use POSIX queues
+A linux only solution.
+Posix queues on linux hand filedescriptor so we can do a select()/poll()/epoll()
+Posix queues don't have type's. You have to use priority to get messages out of order, but not a spesific priority
+
+= rewrite to use unix datagram sockets in stread of sysv queues
+
+= use a libuv timer
+then instead of having a main loop we to a timer task to call non blocking mwrecvevent(), mwservicerequest(), and mwfetch()
+SELECTED
+
+
+
+
+
+
+Usage:
+-----------------------------------------
+

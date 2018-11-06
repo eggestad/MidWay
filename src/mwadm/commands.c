@@ -912,6 +912,19 @@ int call(int argc, char ** argv)
    secs /= 1000000;
    secs += end.tv_sec - start.tv_sec;
 
+   char * resultlbl = "fail";
+   switch (rc) {
+   case MWSUCCESS:
+      resultlbl = "success";
+      break;
+   case MWFAIL:
+      resultlbl = "fail";
+      break;
+   case MWMORE:
+      resultlbl = "more";
+      break;
+   }
+   
    if ( (rdata != NULL) && (len > 0) ) {
       data = NULL;
       data = realloc(data,len*3);
@@ -928,10 +941,10 @@ int call(int argc, char ** argv)
     
       data[j] = '\0';
       printf ("Call to \"%s\" returned %d(%s), with data \"%.*s\" %d bytes\n",  
-	      argv[1], rc, rc==MWFAIL?"failed":rc==MWSUCCESS?"succeded":"mwmore", j, data, len);
+	      argv[1], rc, resultlbl, j, data, len);
    } else {
       printf ("Call to \"%s\" returned %d(%s), without data\n",  
-	      argv[1], rc, rc?"fail":"success");    
+	      argv[1], rc, resultlbl);    
    };
    printf ("  with application return code %d in %12.6f secs \n", apprc, secs);
 

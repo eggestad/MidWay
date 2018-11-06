@@ -151,7 +151,7 @@ static int url_decode_ipc(mwaddress_t * mwadr, const char * ipcurl)
 {
   int urllen = strlen(ipcurl);
   char url[urllen+1];
-  strncpy(url, ipcurl, urllen);
+  strncpy(url, ipcurl, urllen+1);
   
   regex_t ipcexp; 
   regmatch_t match[MAXMATCH]; 

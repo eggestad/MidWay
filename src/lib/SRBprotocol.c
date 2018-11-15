@@ -293,9 +293,9 @@ void _mw_srb_init(SRBmessage * srbmsg, char * command, char marker, ...)
    if (srbmsg == NULL) return;
   
    if (command != NULL) {
-      strncpy(srbmsg->command, command, MWMAXSVCNAME);
-      if (strlen(command) == MWMAXSVCNAME) 
-	 srbmsg->command[MWMAXSVCNAME] = '\0';
+      strncpy(srbmsg->command, command, SRBMAXCOMMANDLEN);
+      if (strlen(command) == SRBMAXCOMMANDLEN) 
+	 srbmsg->command[SRBMAXCOMMANDLEN] = '\0';
    };
    srbmsg->marker = marker;
    srbmsg->map = NULL;
@@ -397,7 +397,7 @@ void _mw_srb_setfield (SRBmessage * srbmsg, const char * key, const char * value
    return;
 };
 
-void _mw_srb_nsetfield (SRBmessage * srbmsg, const char * key, void * value, int vlen)
+void _mw_srb_nsetfield (SRBmessage * srbmsg, const char * key, const void * value, int vlen)
 {
    urlmap * map;
 
@@ -841,7 +841,7 @@ int _mw_srbsendevent(Connection * conn,
 
    if (conn == NULL) return -EINVAL;
 
-   strncpy(srbmsg.command, SRB_EVENT, MWMAXSVCNAME);
+   strncpy(srbmsg.command, SRB_EVENT, SRBMAXCOMMANDLEN);
    srbmsg.marker = SRB_NOTIFICATIONMARKER;    
 
    _mw_srb_setfield(&srbmsg, SRB_NAME, event);
@@ -875,7 +875,7 @@ int _mw_srbsendsubscribe(Connection * conn, const char * pattern, int subid, int
    
    if (conn == NULL) return -EINVAL;
    
-   strncpy(srbmsg.command, SRB_SUBSCRIBE, MWMAXSVCNAME);
+   strncpy(srbmsg.command, SRB_SUBSCRIBE, SRBMAXCOMMANDLEN);
    
    srbmsg.marker = SRB_NOTIFICATIONMARKER;    
 
@@ -904,7 +904,7 @@ int _mw_srbsendunsubscribe(Connection * conn, int subid)
    
    if (conn == NULL) return -EINVAL;
       
-   strncpy(srbmsg.command, SRB_UNSUBSCRIBE, MWMAXSVCNAME);
+   strncpy(srbmsg.command, SRB_UNSUBSCRIBE, SRBMAXCOMMANDLEN);
    
    srbmsg.marker = SRB_NOTIFICATIONMARKER;    
    
@@ -926,7 +926,7 @@ int _mw_srbsendterm(Connection * conn, int grace)
 
    if (conn == NULL) return -EINVAL;
 
-   strncpy(srbmsg.command, SRB_TERM, MWMAXSVCNAME);
+   strncpy(srbmsg.command, SRB_TERM, SRBMAXCOMMANDLEN);
    if (grace == -1) {
       srbmsg.marker = SRB_NOTIFICATIONMARKER;    
    } else {

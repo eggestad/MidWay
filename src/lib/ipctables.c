@@ -1065,16 +1065,16 @@ void _mw_set_my_status(char * status)
 
   if (status == NULL) {
     myentry->status = MWREADY;
-    strncpy(myentry->statustext, "(idle)", MWMAXNAMELEN);
+    strncpy(myentry->statustext, "(idle)", MWMAXSVCNAME);
     DEBUG1("Returning to idle state");
   } else if (strcmp(status, SHUTDOWN) == 0) {
     myentry->status = MWSHUTDOWN;
-    strncpy(myentry->statustext, SHUTDOWN, MWMAXNAMELEN);
+    strncpy(myentry->statustext, SHUTDOWN, MWMAXSVCNAME);
     DEBUG1("Status is now SHUTDOWN");
   } else {
     myentry->status = MWBUSY;
     /* status is a service name which is always legal length. */
-    strncpy(myentry->statustext, status, MWMAXNAMELEN);
+    strncpy(myentry->statustext, status, MWMAXSVCNAME);
     DEBUG1("Starting service %s", status);
   }
   return;

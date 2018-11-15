@@ -255,7 +255,7 @@ void do_srb_event_dispatch(Event * ev)
 
    DEBUG("start with event %s", ev->event);
    
-   strncpy(srbmsg.command, SRB_EVENT, MWMAXSVCNAME);
+   strncpy(srbmsg.command, SRB_EVENT, SRBMAXCOMMANDLEN);
    srbmsg.marker = SRB_NOTIFICATIONMARKER;    
    
    _mw_srb_setfield(&srbmsg, SRB_NAME, ev->event);

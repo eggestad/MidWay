@@ -10,7 +10,7 @@ INSTALL = @INSTALL@
 
 LIBS = -lMidWay -lm -lxml2
 
-CFLAGS = @CFLAGS@ -I../include -I../liburl  -I/usr/include/libxml2 
+CFLAGS = @CFLAGS@ -I../include -I../liburl  `pkg-config --cflags libxml-2.0` 
 
 OBJS = mwd.o shmallocfmt.o requestparse.o tables.o watchdog.o \
 	servermgr.o xmlconfig.o execvpe.o events.o

@@ -8,7 +8,7 @@ INSTALL = @INSTALL@
 
 LIBS = -lMidWay -lurlencode -lpthread -lxml2
 
-INCLUDES = -I../include  -I/usr/include/libxml2 
+INCLUDES = -I../include  `pkg-config --cflags libxml-2.0`  
 
 CFLAGS = @CFLAGS@ $(INCLUDES)
 

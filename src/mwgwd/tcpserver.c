@@ -245,7 +245,7 @@ static Connection *  tcpnewconnection(Connection * listensocket)
      that size. to get some control over fragmetation. This is
      probably crap on TCP but very important should we do UDP. */
   len = sizeof(int);
-  rc = getsockopt(fd, SOL_IP, IP_MTU, &mtu, &len);
+  rc = getsockopt(fd, IPPROTO_IP, IP_MTU, &mtu, &len);
   DEBUG("Got new connection fd = %d, MTU=%d errno = %s from %s:%d",
           fd, mtu, strerror(errno), inet_ntoa(addr.sin4.sin_addr),
 	  ntohs(addr.sin4.sin_port));

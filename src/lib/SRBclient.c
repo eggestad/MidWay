@@ -438,7 +438,7 @@ int _mwattach_srb(int type, mwaddress_t *mwadr, const char * name, mwcred_t * cr
    _mw_srb_destroy(srbmsg);
      
    len = sizeof(val);
-   rc = setsockopt(s, SOL_TCP, TCP_NODELAY, &val, len);
+   rc = setsockopt(s, IPPROTO_TCP, TCP_NODELAY, &val, len);
    DEBUG1("Nodelay is set to 1 rc %d errno %d", rc, errno);
     
  

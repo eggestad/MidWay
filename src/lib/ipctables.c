@@ -453,7 +453,7 @@ cliententry  * _mw_get_client_byid (CLIENTID cltid)
   if (ipcmain == NULL) { 
     return NULL;
   };
-  if (cltid & MWCLIENTMASK != MWCLIENTMASK) {
+  if ((cltid & MWCLIENTMASK) != MWCLIENTMASK) {
     return NULL;
   };
 
@@ -477,7 +477,7 @@ serverentry  * _mw_get_server_byid (SERVERID srvid)
     DEBUG1("_mw_get_server_byid called while ipcmain == NULL");
     return NULL;
   };
-  if (srvid & MWSERVERMASK != MWSERVERMASK) {
+  if ((srvid & MWSERVERMASK) != MWSERVERMASK) {
     DEBUG1("_mw_get_server_byid srvid & MWSERVERMASK %d != %d", srvid & MWSERVERMASK, MWSERVERMASK);
     return NULL;
   };
@@ -947,7 +947,7 @@ gatewayentry * _mw_get_gateway_byid (GATEWAYID gwid)
     DEBUG1("_mw_get_gateway_byid called while ipcmain == NULL");
     return NULL;
   };
-  if (gwid & MWSERVERMASK != MWSERVERMASK) {
+  if ((gwid & MWSERVERMASK) != MWSERVERMASK) {
     DEBUG1("_mw_get_gateway_byid gwid & MWGATEWAYMASK %d != %d", gwid & MWSERVERMASK, MWSERVERMASK);
     return NULL;
   };

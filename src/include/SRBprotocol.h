@@ -44,6 +44,7 @@
 /// The maximum totoal length of an SRB message, liable to increase. 
 #define SRBMESSAGEMAXLEN 	3500
 
+#define SRBMAXCOMMANDLEN          32
 /**
  * The max number of data octets (before urlencoding) that we may send
  * in one srb message. There is a maximum total SRB message
@@ -229,7 +230,7 @@ SRBmessage * _mw_srb_create (char * command, char marker, ...);
 void _mw_srb_destroy (SRBmessage * srbmsg); 
 
 void _mw_srb_setfield   (SRBmessage * srbmsg, const char * key, const char * value); 
-void _mw_srb_nsetfield  (SRBmessage * srbmsg, const char * key, void * value, int vlen); 
+void _mw_srb_nsetfield  (SRBmessage * srbmsg, const char * key, const void * value, int vlen); 
 void _mw_srb_setfieldi  (SRBmessage * srbmsg, const char * key, int value); 
 void _mw_srb_setfieldx  (SRBmessage * srbmsg, const char * key, unsigned int value); 
 

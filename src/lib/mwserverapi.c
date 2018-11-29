@@ -247,15 +247,13 @@ static void signal_handler(int sig)
   
 static void install_sigactions(int flag)
 {
-  struct sigaction sa;
+   struct sigaction sa = { 0 };
   
   if (flag)
     sa.sa_handler = SIG_DFL;
   else 
     sa.sa_handler = signal_handler;
   sigfillset(&sa.sa_mask);
-  sa.sa_flags = 0;
-  sa.sa_restorer = NULL;
 
   sigaction(SIGHUP, &sa, NULL);
   sigaction(SIGINT, &sa, NULL);

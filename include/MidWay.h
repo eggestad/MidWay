@@ -164,6 +164,42 @@ should begin with . ) */
 #define MWAUTH_KRB5     3   // kerberos
 
 
+/* for OS's (like mac osx that are missing some errno values */
+
+#ifndef ELAST
+#define ELAST 1000
+#endif
+
+#ifndef EBADR
+#define EBADR ELAST+1
+#endif
+
+#ifndef ENAVAIL
+#define ENAVAIL ELAST+2
+#endif
+
+#ifndef EUCLEAN
+#define EUCLEAN ELAST+3
+#endif
+
+#ifndef EBADRQC
+#define EBADRQC ELAST+4
+#endif
+
+#ifndef ENONET
+#define ENONET ELAST+5
+#endif
+
+#ifndef ERESTART
+#define ERESTART ELAST+6
+#endif
+
+#ifndef ELIBACC
+#define ELIBACC ELAST+6
+#endif
+
+
+
 /* API prototypes */
 
 /* API for connecting to a server domain */

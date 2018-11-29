@@ -18,99 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.22  2004/11/03 02:07:15  eggestad
- * fix for proper detection of eth devices
- *
- * Revision 1.21  2004/10/13 18:41:13  eggestad
- * task API updates
- *
- * Revision 1.20  2004/08/11 20:32:30  eggestad
- * - daemonize fix
- * - umask changes (Still wrong, but better)
- * - large buffer alloc
- *
- * Revision 1.19  2004/04/12 23:05:24  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.18  2004/04/08 10:34:06  eggestad
- * introduced a struct with pointers to the functions implementing the midway functions
- * for a given protocol.
- * This is in preparation for be able to do configure with/without spesific protocol.
- * This creates a new internal API each protocol must addhere to.
- *
- * Revision 1.17  2003/09/25 19:33:45  eggestad
- * loglevel fixup
- *
- * Revision 1.16  2003/06/12 07:27:03  eggestad
- * sighandlers are now private, watchdog needed it's own
- *
- * Revision 1.15  2003/06/05 21:55:07  eggestad
- * environment var fixes
- *
- * Revision 1.14  2003/04/25 13:03:08  eggestad
- * - fix for new task API
- * - new shutdown procedure, now using a task
- *
- * Revision 1.13  2002/11/19 12:43:54  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.12  2002/09/29 17:37:54  eggestad
- * improved the _mw_get[client|server|service|gateway]entry functions and removed duplicates in mwd.c
- *
- * Revision 1.11  2002/09/22 23:01:16  eggestad
- * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
- *
- * Revision 1.10  2002/09/04 07:19:12  eggestad
- * mwd now sends an event on service (un)provide
- *
- * Revision 1.9  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.8  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.7  2002/02/17 14:43:26  eggestad
- * - default ipc runtime params are now static
- * - added mwdSetIPCparam()/mwdGetIPCparam()
- * - all accesses of IPC params now thru API
- * - added missing includes
- * - IPC parameter fixup, sanity check
- * - added ~/.midwaytab and function checktab() to handle it.
- * - mkdir_asneeded() to help creating missing dirs during boot
- * - moved mainloop() from main to its own function mainloop()
- * - we now implicit add mwd to the server table for implicit services
- *
- * Revision 1.6  2001/10/03 22:40:39  eggestad
- * cpp debugging setting
- *
- * Revision 1.5  2001/09/15 23:44:13  eggestad
- * fix for changing ipcmain systemname to instance name
- * added func for instancename generation
- *
- * Revision 1.4  2000/11/15 21:20:42  eggestad
- * Failed to boot with -D, wrong pid in shm
- *
- * Revision 1.3  2000/09/21 18:54:05  eggestad
- * Bug fixes around the URL, and added debug3 and 4 on -l option
- *
- * Revision 1.2  2000/07/20 19:47:39  eggestad
- * - A semaphore for mwgwd is added. (mwgwd changes IPC tables directly,
- *   but they may be more than one.
- * - fix for home dir for instance.
- * - prototype fixup.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:24  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
 
 #include <unistd.h>
 #include <stdio.h>
@@ -648,7 +555,8 @@ void set_instanceid(ipcmaininfo * ipcmain)
 	continue;
       };
       DEBUG("ip addr = %s", buffer);
-      
+
+#ifdef SIOCGIFHWADDR
     } else {
       rc = ioctl(s, SIOCGIFHWADDR , &ifdat);
       DEBUG("ioctl (SIOCGIFHWADDR) returned %d errno %d hw_af = %d", 
@@ -667,6 +575,7 @@ void set_instanceid(ipcmaininfo * ipcmain)
 	memcpy (&hwaddr, &ifdat.ifr_addr, sizeof(struct sockaddr));
 	hwaddrfound = 1;
       };
+#endif
     }
 
     if (ntohl(sin->sin_addr.s_addr) == INADDR_LOOPBACK) {

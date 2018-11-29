@@ -57,7 +57,11 @@ int _mw_conn_read(Connection * conn, int blocking)
   char buffer[64];
   char * remaddr;
   unsigned long maxrecvlen;
+  #ifdef MSG_NOSIGNAL
   flags = MSG_NOSIGNAL;
+  #else
+  flags = 0;
+  #endif
   if (!blocking)
      flags |= MSG_DONTWAIT;
 
@@ -113,7 +117,10 @@ int _mw_conn_read(Connection * conn, int blocking)
 int _mw_conn_write(Connection * conn, char * msg, int mlen, int flags)
 {
    int rc;
-   int socketflags = MSG_NOSIGNAL;
+   int socketflags = 0;
+#ifdef MSG_NOSIGNAL
+   socketflags = MSG_NOSIGNAL;
+#endif
 
    if (flags & MWNOBLOCK) socketflags |= MSG_DONTWAIT;
 

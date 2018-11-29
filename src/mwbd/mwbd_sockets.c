@@ -616,8 +616,11 @@ int sendfd(int new_fd, int gwfd, char * message, int messagelen)
     msg.msg_controllen = cmsg->cmsg_len;
     * ((int*)CMSG_DATA(cmsg)) = new_fd;
   };
-  
-  rc = sendmsg(gwfd, &msg, MSG_NOSIGNAL);
+  int flags = 0;
+#ifdef MSG_NOSIGNAL
+  flags = MSG_NOSIGNAL;
+#endif
+  rc = sendmsg(gwfd, &msg, flags);
   return rc;
 };
 

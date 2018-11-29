@@ -685,7 +685,7 @@ Connection * conn_add(int fd, int role, int type)
   conn_set(conn, role, type);
 
   len = sizeof(val);
-  rc = setsockopt(fd, SOL_TCP, TCP_NODELAY, &val, len);
+  rc = setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, len);
   DEBUG("Nodelay is set to 1 rc %d errno %d", rc, errno);  
  
   return conn;

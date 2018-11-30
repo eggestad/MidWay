@@ -28,7 +28,6 @@
 
 int testdataservice(mwsvcinfo * si);
 
-
 __attribute__((constructor))  int init(void)  
 {
   printf ("******************************testsuite server booting\n");
@@ -39,14 +38,18 @@ __attribute__((constructor))  int init(void)
   return 0;
 };
 
-
 int testdataservice(mwsvcinfo * si)
 {
   struct testdata * td;
   int i;
 
+  mwlog(MWLOG_INFO, "Startying %s", si->service);
+
+  mwlog(MWLOG_INFO, "data %s(%d)", si->data, si->datalen);
+
   if (si->datalen < sizeof(struct testdata)) {
-    mwreturn(NULL, 0, FALSE, 0);
+     mwlog(MWLOG_INFO, "data (%d)", sizeof(struct testdata));
+     mwreturn(NULL, 0, FALSE, 0);
   };
   td = (struct testdata *) si->data;
   /* timestamp when we started to process request */
@@ -63,7 +66,30 @@ int testdataservice(mwsvcinfo * si)
 
   /* timestamp when we end processing request */
   gettimeofday(&td->endtv,NULL);
-  
+
+  mwlog(MWLOG_INFO, "Ending %s", si->service);
   mwreturn(si->data, sizeof(struct testdata), TRUE, 0);
+};
+
+int test_svc_time(mwsvcinfo * si) {
+   
+   char * buf = mwalloc(100);
+   time_t t;
+   time(&t);
+   ctime_r(&t, buf);
+
+   mwreturn (buf, 0, MWSUCCESS, 0);
+}
+
+
+
+__attribute__((constructor))  int init(void)  
+{
+  printf ("******************************testsuite server booting\n");
+  fflush(stdout);
+
+  mwprovide("testsvc1", testdataservice, 0);
+  mwprovide("testdate", testdataservice, 0);
+  mwprovide("testtime", test_svc_time, 0);
 };
 

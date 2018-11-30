@@ -171,6 +171,7 @@ int mwdSetIPCparam(IPCPARAM param, int value)
   default:
     return -1;
   };
+  return 0;
 };
 
 int mwdGetIPCparam(IPCPARAM param)
@@ -736,6 +737,7 @@ int cleanup_ipc(void)
   shm_destroy();
   term_tables();
   term_maininfo();
+  return 0;
 };
 
 PTask shutdowntask = 0;
@@ -952,12 +954,12 @@ static void mainloop(void)
   provided++;
   _mw_set_my_status("");
 
-  if (penv = getenv ("MWD_SRVMGR_TASK_INTERVAL")) {
+  if ((penv = getenv ("MWD_SRVMGR_TASK_INTERVAL"))) {
      d = atof(penv);
      if (d > 0.0) srvmgrtaskinterval = d;
   };
 
-  if (penv = getenv ("MWD_EVENT_TASK_INTERVAL")) {
+  if ((penv = getenv ("MWD_EVENT_TASK_INTERVAL"))) {
      d = atof(penv);
      if (d > 0.0) eventtaskinterval = d;
   };
@@ -1196,7 +1198,7 @@ int main(int argc, char ** argv)
 
   /* We apply PATH_MAX == 255 here, just to make life easy. */
   if (strlen(mwhome) > 250) {
-    Error("Path to MidWayHome is to long. %d is longer than max 250", strlen(mwhome));
+    Error("Path to MidWayHome is to long. %zu is longer than max 250", strlen(mwhome));
     exit(-1);
   };
 

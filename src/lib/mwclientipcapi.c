@@ -171,7 +171,7 @@ void _mw_do_ipcevent(Event * ev)
   if (ev->data != 0) {
     doack = 1;
     dbuf = _mwoffset2adr(ev->data, _mw_getsegment_byid(ev->datasegmentid));
-    DEBUG3("ev->data %lld, addr = %p data = %s", ev->data, dbuf, dbuf); 
+    DEBUG3("ev->data %lu, addr = %p data = %s", ev->data, dbuf, dbuf); 
   }	
     
   _mw_doevent(ev->subscriptionid, ev->event, dbuf, ev->datalen);

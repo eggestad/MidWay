@@ -684,7 +684,7 @@ int parse_request(int nonblock)
   char hex[330], shex[4];
 
   rc = msgrcv(mymqid(), (void *) mesgbuffer, MWMSGMAX, 0, nonblock?IPC_NOWAIT:0); 
-  DEBUG("rc = %d max = %d errno = %d", rc, MWMSGMAX, errno);
+  DEBUG("rc = %d max = %lu errno = %d", rc, MWMSGMAX, errno);
   /*  timeout is handleled by an alarm() else where, we simply return EINTR */
   
   if (rc == -1) {

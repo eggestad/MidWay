@@ -165,7 +165,7 @@ int call(int argc, char ** argv)
   };
   
 
-  DEBUG("about to call(%s, %s, %d, ...)", argv[0], data, len);
+  DEBUG("about to call(%s, %s, %zu, ...)", argv[0], data, len);
   gettimeofday(&start, NULL); 
 
   rc = mwcall(argv[0], data, len, &rdata, &rlen, &apprc, 0);
@@ -180,9 +180,9 @@ int call(int argc, char ** argv)
     FILE * OF;
 
     if (rc != MWSUCCESS) {
-       Info("Call to \"%s\" failed,   returned %d bytes of data with reason %d apprc %d", argv[0], rlen, rc, apprc);      
+       Info("Call to \"%s\" failed,   returned %zu bytes of data with reason %d apprc %d", argv[0], rlen, rc, apprc);      
     } else {
-       Info("Call to \"%s\" succeded, returned %d bytes of data with application return code %d", argv[0], rlen, apprc);
+       Info("Call to \"%s\" succeded, returned %zu bytes of data with application return code %d", argv[0], rlen, apprc);
     };
     if (outputfile) {
       OF = fopen(outputfile, "w");

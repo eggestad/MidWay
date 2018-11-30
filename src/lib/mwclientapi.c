@@ -586,7 +586,7 @@ int mwacall(const char * svcname, const char * data, size_t datalen, int flags)
   TIMEPEGNOTE("begining acall");
 
   /* input sanyty checking, everywhere else we depend on params to be sane. */
-  if ( (datalen < 0) || (svcname == NULL) ) {
+  if ( svcname == NULL ) {
      rc = -EINVAL;
      goto out;
   };
@@ -624,7 +624,7 @@ int mwcall(const char * svcname,
 {
   int hdl;
   /* input sanyty checking, everywhere else we depend on params to be sane. */
-  if ( (clen < 0) || (svcname == NULL) ) 
+  if ( svcname == NULL ) 
     return -EINVAL;
   if  ( !(flags & MWNOREPLY) && ((rlen == NULL) || (rdata == NULL)))
     return -EINVAL; 
@@ -788,7 +788,7 @@ int mwevent(const char * event, const char * data, size_t datalen, const char * 
 {
 
   /* input sanyty checking, everywhere else we depend on params to be sane. */
-  if ( (datalen < 0) || (event == NULL) ) 
+  if ( event == NULL ) 
     return -EINVAL;
   
   DEBUG1("called with event %.64s", event);

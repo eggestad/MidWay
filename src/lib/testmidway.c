@@ -63,10 +63,10 @@ int serverhandler1(mwsvcinfo * si)
   printf ("  Clientid %d\n", si->cltid);
   printf ("  Serverid %d\n", si->srvid);
   printf ("  Service %s\n", si->service);
-  printf ("  Data buffer (%d) : \"%.*s\" \n", si->datalen, si->datalen, si->data);
+  printf ("  Data buffer (%zu) : \"%.*s\" \n", si->datalen, (int) si->datalen, si->data);
   printf ("  flags %#x\n", si->flags);
 
-  sprintf(buffer, "%.*s",  si->datalen, si->data);
+  strncpy(buffer, si->data, si->datalen);
   if (strcmp(buffer, "ok") == 0) {
     mwreply ("Kapla", 0, TRUE, 666, 0);
     return MWSUCCESS;
@@ -82,7 +82,7 @@ int serverhandler1(mwsvcinfo * si)
   if (strcmp(buffer, "date") == 0) {
     gettimeofday(&tv, NULL);
     
-    sprintf (buffer, "%s - %d.%6.6d", ctime(&tv.tv_sec), tv.tv_sec, tv.tv_usec);
+    sprintf (buffer, "%s - %ld.%6.6ld", ctime(&tv.tv_sec), tv.tv_sec, (long)tv.tv_usec);
     mwreply (buffer, 0, TRUE, 666, 0);
     return MWSUCCESS;
   };

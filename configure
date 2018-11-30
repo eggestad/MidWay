@@ -3197,8 +3197,6 @@ $as_echo "no, using $LN_S" >&6; }
 fi
 
 
-echo host: $host
-echo host_os: $host_os
 
 case "$host" in
 
@@ -4337,14 +4335,8 @@ PATCH_VERSION="0"
 
 
 if [ x$ostype = xMacOS ]; then
-  SO_SUFFIX="dylib"
-  SO_M_SUFFIX="$MAJOR_VERSION.dylib"
-  SO_MN_SUFFIX="$MAJOR_VERSION.$MINOR_VERSION.dylib"
   SONAMEFLAG="-install_name "
 else
-  SO_SUFFIX="so"
-  SO_M_SUFFIX="so.$MAJOR_VERSION"
-  SO_MN_SUFFIX="so.$MAJOR_VERSION.$MINOR_VERSION"
   SONAMEFLAG="-Wl,-soname,"
 fi
 

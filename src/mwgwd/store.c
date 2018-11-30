@@ -88,12 +88,12 @@ static char * RCSId UNUSED = "$Id$";
 */
 DECLAREMUTEX(callmutex);
 
-static int storeLockCall(void)
+static void storeLockCall(void)
 {
    LOCKMUTEX(callmutex);
 };
 
-static int storeUnLockCall(void)
+static void storeUnLockCall(void)
 {
    UNLOCKMUTEX(callmutex);
 };

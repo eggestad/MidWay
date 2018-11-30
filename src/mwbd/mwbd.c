@@ -113,12 +113,12 @@ extern struct fd_info * gw_root, * gw_tail;
    Connection struct *.  we really only work on fd's in mwbd, so we
    have this pseudo connection for whenever we call _mw_srb* */
 static Connection pseudoconn = { 
-  fd:            -1, 
-  rejects:        1,
-  domain:        NULL, 
-  version:       0.0, 
-  messagebuffer: NULL,
-  role:          -1
+  .fd =            -1, 
+  .rejects =        1,
+  .domain =        NULL, 
+  .version =       0.0, 
+  .messagebuffer = NULL,
+  .role =          -1
 };  
 
 
@@ -126,7 +126,7 @@ void Exit(char * reason, int exitcode)
 {
   closeall();
   if (reason)
-    Info("%s", reason);
+     Info("%s", reason);
   exit(exitcode);
 };
 

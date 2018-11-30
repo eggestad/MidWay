@@ -200,7 +200,7 @@ chunkfoot * _mwfooter(chunkhead * head)
    fadr = (void *)head + sizeof(chunkhead) + 
       head->size * _mwHeapInfo->basechunksize;
 
-   DEBUG3("footer for %p is at %p + %zu + %lld * %d = %p",
+   DEBUG3("footer for %p is at %p + %zu + %zu * %d = %p",
 	  head, head, sizeof(chunkhead),  head->size,  _mwHeapInfo->basechunksize,
 	  fadr) ;
    DEBUG3("head adr %p foot adr %p", head,  fadr);
@@ -217,9 +217,9 @@ static void debug_segmentheader(struct segmenthdr * si)
 	  "  magic             : %hd\n"
 	  "  chunkspersize     : %hd\n"
 	  "  basechunksize     : %d\n"
-	  "  segmentsize       : %lld\n"
-	  "  top               : %lld\n"
-	  "  bottom            : %lld\n"
+	  "  segmentsize       : %ld\n"
+	  "  top               : %lu\n"
+	  "  bottom            : %lu\n"
 	  "  inusecount        : %d\n"
 	  "  number of bins    : %d",
 	  si, si->magic, si->chunkspersize, si->basechunksize, 
@@ -522,14 +522,14 @@ int _mw_getbuffer_from_call (Call * callmesg, char ** data, size_t * datalen)
 
    l = _mwshmcheck(ptr);
    if ( (l < 0) || (l < callmesg->datalen)) {
-      Error("got a corrupt call message, dataoffset = %lld len = %lld shmcheck() => %d", 
+      Error("got a corrupt call message, dataoffset = %lu len = %zu shmcheck() => %d", 
 	    callmesg->data, callmesg->datalen, l);
       return -EBADMSG;
    };
 
    size = _mwshmgetsizeofchunk(ptr);
    if ( (size <= 0) || (size <=  callmesg->datalen)) {
-      Error("got a call with illegal data pointer buffer size = %ld datalen = %lld", 
+      Error("got a call with illegal data pointer buffer size = %ld datalen = %zu", 
 	    (long) size, callmesg->datalen);
       errno = -EBADMSG;
       return -1;
@@ -540,7 +540,7 @@ int _mw_getbuffer_from_call (Call * callmesg, char ** data, size_t * datalen)
       DEBUG("fastpath");
       *data = ptr;
    } else {
-      DEBUG("no fast path copying buffer from %p to %p (len=%lld)", ptr, *data, callmesg->datalen);
+      DEBUG("no fast path copying buffer from %p to %p (len=%zu)", ptr, *data, callmesg->datalen);
       *data = malloc(callmesg->datalen+1);
       memcpy(*data, ptr, callmesg->datalen);
       /* we adda trainling NUL just to be safe */
@@ -614,9 +614,9 @@ static size_t getchunksizebyadr(void * adr, seginfo_t * si)
    chunkhead * pCHead;
    pCHead = (chunkhead *) (adr - sizeof(chunkhead));
    if ( (!adr) || (!si)) {
-      return -1;
+      return 0;
    };
-   DEBUG3("si->segmentid = %d size = %lld", si->segmentid, pCHead->size);
+   DEBUG3("si->segmentid = %d size = %zu", si->segmentid, pCHead->size);
    if (si->segmentid == 0) {
       return  pCHead->size * _mwHeapInfo->basechunksize;
    };
@@ -697,7 +697,7 @@ int _mwshmcheck(void * adr)
    if (si == NULL) return -1;
 
    size = getchunksizebyadr(adr, si);
-   if (size < 0)   return -1; // can't happen
+   if (size == 0)   return -1; // can't happen
 
    DEBUG1("buffer at %p has size %zu", adr, size);
 
@@ -748,7 +748,7 @@ static chunkhead * popchunk(int *iRoot, int * freecount, seginfo_t * si)
    pCFoot = _mwfooter(pCHead); 
 
    DEBUG3("head at %p footer at %p", pCHead, pCFoot);
-   DEBUG3("footer: above = %lld prev %lld next %lld", pCFoot->above, pCFoot->next, pCFoot->prev);
+   DEBUG3("footer: above = %lu prev %lu next %lu", pCFoot->above, pCFoot->next, pCFoot->prev);
 
    if (*freecount == 1)  { /*last free*/
       pCFoot->next = 0;
@@ -994,7 +994,7 @@ void * _mwalloc(size_t size)
       
 	 if (pCHead == NULL) continue;
       
-	 DEBUG3("chunk has size in chunks %lld ownerid = %x", pCHead->size, pCHead->ownerid);
+	 DEBUG3("chunk has size in chunks %lu ownerid = %x", pCHead->size, pCHead->ownerid);
       
 	 _mwHeapInfo->inusecount ++;
 	 if (_mwHeapInfo->inusecount > _mwHeapInfo->inusehighwater) 
@@ -1003,7 +1003,7 @@ void * _mwalloc(size_t size)
 	 /* really should be CLIENTID or SERVERID or GATEWAYID ... */
 	 pCHead->ownerid = _mw_get_my_mwid(); 
 	 if (pCHead->size != 1<<i) {
-	    Error("mwalloc: retrived chunk is of size %lld*%d != %d*%d chunk at offset %ld",
+	    Error("mwalloc: retrived chunk is of size %zu*%d != %d*%d chunk at offset %lu",
 		  pCHead->size, 
 		  _mwHeapInfo->basechunksize , 
 		  1<<i, 
@@ -1012,7 +1012,7 @@ void * _mwalloc(size_t size)
 	    Error ("get cgetchunksizebyadr = %zu", getchunksizebyadr(pCHead, si));
 	 };
 
-	 DEBUG1("_mwalloc(%ld) return a chunk with size %lld at %p ", 
+	 DEBUG1("_mwalloc(%zu) return a chunk with size %zu at %p ", 
 		(long) size, pCHead->size*_mwHeapInfo->basechunksize, (void*) pCHead + sizeof(chunkhead));
 
 	 /* NB: wr return the addresss to the data area NOT to the head of chunk.
@@ -1043,7 +1043,7 @@ void * _mwalloc(size_t size)
       DEBUG1("Got alloc reply, rc=%d", rc);
       Assert(rc == 0);
       Assert (len  == sizeof(Alloc));
-      DEBUG("size=%lld pages=%lld id=%d", allocmesg.size, allocmesg.pages, allocmesg.bufferid);
+      DEBUG("size=%zu pages=%ld id=%d", allocmesg.size, allocmesg.pages, allocmesg.bufferid);
 
       if (allocmesg.bufferid < LOW_LARGE_BUFFER_NUMBER) {
 	 Error("Out of memory (from mwd)");
@@ -1122,7 +1122,7 @@ static int _mwfree0(seginfo_t * si, void * adr)
    // _mwHeapInfo, but we know that si->segementid == 0
    DEBUG1("checking to see if the address is in the chuck area of the heap");
    offset = (unsigned long) adr - (unsigned long) _mwHeapInfo;
-   DEBUG1("top = %lld < adr = %ld < %lld, bottom", _mwHeapInfo->top, offset, _mwHeapInfo->bottom);
+   DEBUG1("top = %lu < adr = %lu < %lu, bottom", _mwHeapInfo->top, offset, _mwHeapInfo->bottom);
    if ( (offset < _mwHeapInfo->top) || (offset > _mwHeapInfo->bottom)) {
       DEBUG1("EINVAL");
       return -EINVAL;
@@ -1185,7 +1185,7 @@ static int _mwfree0(seginfo_t * si, void * adr)
    };
 
 
-   DEBUG1("size %lld ownerid=%s Bin = %d %d", pCHead->size, _mwid2str(pCHead->ownerid, NULL), rc, bin);
+   DEBUG1("size %zu ownerid=%s Bin = %d %d", pCHead->size, _mwid2str(pCHead->ownerid, NULL), rc, bin);
    if (pCHead->ownerid == UNASSIGNED) {
       Warning("freeing an already freed shared memory buffer");
       errno = EINVAL;
@@ -1207,7 +1207,7 @@ static int _mwfree0(seginfo_t * si, void * adr)
    rc = pushchunk(pCHead, &_mwHeapInfo->chunk[bin], 
 		  &_mwHeapInfo->freecount[bin], si);
    if (rc != 0) {
-      Error("mwfree: shm chunk of size %lld lost, reason %d", 
+      Error("mwfree: shm chunk of size %zu lost, reason %d", 
 	    pCHead->size, rc);
    };
    _mwHeapInfo->inusecount --;

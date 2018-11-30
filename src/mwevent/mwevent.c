@@ -83,7 +83,7 @@ int subflag = MWEVSTRING;
 
 void eventhdl(const char * eventname, const char * data, size_t datalen) 
 {
-   fprintf (fp, "%s %*.*s\n", eventname, datalen, datalen, data);
+   fprintf (fp, "%s %*.*s\n", eventname, (int) datalen, (int) datalen, data);
 };
 
 int watchevents(int argc, char ** argv) 
@@ -160,7 +160,7 @@ int postevent(int argc, char ** argv)
   };
   
 
-  DEBUG("about to send event (%s, %s, %d, ...)", argv[0], data, len);
+  DEBUG("about to send event (%s, %s, %zu, ...)", argv[0], data, len);
 
   rc = mwevent(argv[0], data, len, user, client);
   

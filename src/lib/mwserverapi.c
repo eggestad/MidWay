@@ -666,7 +666,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
 	   "%d milliseconds, replying ETIME", 
 	   -rc);
     
-    DEBUG1("issued %lld.%d timeout %d now %ld.%ld deadline %ld.%d",
+    DEBUG1("issued %ld.%d timeout %d now %ld.%ld deadline %ld.%d",
 	  callmesg->issued, callmesg->uissued, callmesg->timeout,
 	   starttv.tv_sec ,  (long) starttv.tv_usec, 
 	  svcreqinfo->deadline, svcreqinfo->udeadline);

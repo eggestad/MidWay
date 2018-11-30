@@ -679,7 +679,7 @@ int gw_peerconnected(char * instance, char * peerdomain, Connection * conn)
 
   if (pi == NULL) {
     struct sockaddr sa;
-    int l;
+    socklen_t l;
     DEBUG( "got an connection from an unknown peer, adding and retrying");
     l = sizeof(struct sockaddr_in);
     getpeername(conn->fd, &sa, &l);
@@ -1214,9 +1214,9 @@ int main(int argc, char ** argv)
     exit(-1);
   };
 
-  /*********************************************************************************
-  /* we can now start in earnest 
-   *********************************************************************************/
+  /**********************************************************************
+   we can now start in earnest 
+  ***********************************************************************/
 
   
   Info("mwgwd starting gateway id %d domain=%s instance name=%s instance id=%s", 

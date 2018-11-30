@@ -113,12 +113,12 @@
 static char * RCSId UNUSED = "$Id$";
 
 Connection cltconn = { 
-   fd:            -1, 
-   rejects:        0,
-   domain:        NULL, 
-   version:       0.0, 
-   messagebuffer: NULL,
-   role:          -1
+   .fd =              -1, 
+   .rejects =          0,
+   .domain =        NULL, 
+   .version =        0.0, 
+   .messagebuffer = NULL,
+   .role =            -1
 }; 
 
 #if 0
@@ -456,7 +456,7 @@ int _mwattach_srb(int type, mwaddress_t *mwadr, const char * name, mwcred_t * cr
    srbmsg = _mw_srb_recvmessage(&cltconn, 0);
    alarm (0);
 
-   if ( (srbmsg  == NULL) || (srbmsg->command == NULL) || (srbmsg->map == NULL) ) {
+   if ( (srbmsg  == NULL) || (srbmsg->command[0] == '\0') || (srbmsg->map == NULL) ) {
       rc = -ECONNRESET;
    };
 
@@ -734,7 +734,7 @@ int _mwfetch_srb(int *hdl, char ** data, size_t * len, int * appreturncode, int 
    };
 
    /* now return the data, and RC's */
-   DEBUG1("about to return %d bytes of data and RC=%d", * len, rc);
+   DEBUG1("about to return %zu bytes of data and RC=%d", * len, rc);
    TIMEPEGNOTE("getting return params");
 
    if (callreqelm->data != NULL) {

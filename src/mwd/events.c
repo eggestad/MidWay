@@ -207,7 +207,7 @@ static void dumpeventqueue(void)
 		    eventqueuelen);
   ev = eventqueue_root;
   for (i = 0; i < eventqueuelen; i++, ev = ev->next)
-     DEBUG2("   - %5d: @ %p %s [%s sender %#x subid=%d datasegid=%d data=%lld datalen=%lld] next %p", 
+     DEBUG2("   - %5d: @ %p %s [%s sender %#x subid=%d datasegid=%d data=%lu datalen=%zu] next %p", 
 	    i, ev, ev->eventname, 
 	    ev->evmsg.event, ev->evmsg.senderid, ev->evmsg.subscriptionid, 
 	    ev->evmsg.datasegmentid, ev->evmsg.data, ev->evmsg.datalen,
@@ -235,7 +235,7 @@ static void dumppendingqueue(void)
   ev = ackqueue_root;
   for (i = 0; i < ackqueuelen; i++) {
      if (ev == NULL) continue;
-    DEBUG2(" - %5d: @%p %s [%s sender %#x subid=%d data=%lld datalen=%lld acklistlen=%d] next %p", 
+    DEBUG2(" - %5d: @%p %s [%s sender %#x subid=%d data=%lu datalen=%zu acklistlen=%d] next %p", 
 	   i, ev, ev->eventname, 
 	   ev->evmsg.event, ev->evmsg.senderid, ev->evmsg.subscriptionid, ev->evmsg.data, ev->evmsg.datalen,
 	   ev->pending_ack_len, ev->next);
@@ -496,7 +496,7 @@ int internal_event_enqueue(char * event, void * data, int datalen, char * user, 
     evmsg.datalen = 0;
   };
 
-  DEBUG("queueing event %s with %lld bytes data user=%s client=%s", 
+  DEBUG("queueing event %s with %zu bytes data user=%s client=%s", 
 	event, evmsg.datalen, user?user:"", client?client:"");
 
   evmsg.senderid = 0;
@@ -720,7 +720,7 @@ static int do_event(void)
        to pass it on to the clients, but'is our resposibility to free
        it. Thus the recipients must ack the event. */
 
-    DEBUG2("ev->evmsg.data=%lld, rc = %d", ev->evmsg.data, rc);
+    DEBUG2("ev->evmsg.data=%lu, rc = %d", ev->evmsg.data, rc);
     if (ev->evmsg.data != 0) {
       if (rc == 0) {
 	ev->pending_ack_len++;
@@ -742,7 +742,7 @@ static int do_event(void)
     dumppendingqueue();
   } else {
     // free up if there was no event sent
-     DEBUG2("freeing %lld", ev->evmsg.data);
+     DEBUG2("freeing %lu", ev->evmsg.data);
     if (ev->evmsg.data != 0) _mwfree( _mwoffset2adr(ev->evmsg.data, _mw_getsegment_byid(0)));
     free (ev);
   };

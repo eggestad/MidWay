@@ -106,7 +106,7 @@ urlmap * urlmapdecode(const char * list)
     value_end = strchr(next, '&');
     // if next = is past & then there are no value 
 
-    debug3("key_end=%p(next+%d) value_end=%p(next+%d) next=%s", 
+    debug3("key_end=%p(next+%ld) value_end=%p(next+%ld) next=%s", 
 	   key_end, key_end-next, value_end, value_end - next, next);
 
     if ((value_end != NULL) && (key_end > value_end)) key_end = NULL;

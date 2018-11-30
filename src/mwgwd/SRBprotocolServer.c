@@ -360,7 +360,7 @@ static void srbready(Connection * conn, SRBmessage * srbmsg)
   
   /* this the welcome from a just connected GW */
   if (conn->type == CONN_TYPE_GATEWAY) {
-    int l;
+    socklen_t l;
     if (srbmsg->marker != SRB_NOTIFICATIONMARKER) {
       goto error;
     };       
@@ -684,16 +684,19 @@ static void srbcall_req(Connection * conn, SRBmessage * srbmsg)
   };
 
   tmp = szGetOptField(conn, srbmsg, SRB_NOREPLY);
-  if (tmp)
-    if (strcasecmp(tmp, SRB_YES) == 0) flags |= MWNOREPLY;
-    else if (strcasecmp(tmp, SRB_NO) == 0) flags  &= ~MWNOREPLY;
+  if (tmp) {
+    if (strcasecmp(tmp, SRB_YES) == 0) {
+      flags |= MWNOREPLY;
+    }
+    else if (strcasecmp(tmp, SRB_NO) == 0) {
+      flags  &= ~MWNOREPLY;
+    }
     else {
       _mw_srbsendreject(conn, srbmsg,
 			SRB_NOREPLY, tmp, SRB_PROTO_ILLEGALVALUE);
-      
       return;
     };
-  
+  }
   /* TODO: are these req if peer is a gw? */
   domain =      szGetOptField(conn, srbmsg, SRB_DOMAIN);
   
@@ -722,7 +725,8 @@ static void srbinit(Connection * conn, SRBmessage * srbmsg)
   char * type = NULL, * version= NULL, * tmp = NULL;
   char * domain = NULL, * name = NULL, * user = NULL, * passwd = NULL; 
   char * agent = NULL, * agentver = NULL, * os = NULL;
-  int  rc, l;
+  int  rc;
+  socklen_t l;
   char * szptr;
   char * peerdomain = NULL, * instance = NULL;
 

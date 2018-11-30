@@ -16,6 +16,7 @@ __attribute__((constructor))  int init(void)
 
   mwprovide("testsvc1", testdataservice, 0);
   mwprovide("testdate", testdataservice, 0);
+  return 0;
 };
 
 

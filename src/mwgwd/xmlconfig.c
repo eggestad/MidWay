@@ -18,6 +18,7 @@
   Boston, MA 02111-1307, USA. 
 */
 
+#pragma GCC diagnostic ignored "-Wpointer-sign"
 
 /*
  * $Log$
@@ -112,7 +113,7 @@ int xmlConfigLoadFile(char * configfile)
      if (ferror) {
        off = ftell(ferror);
        fseek(ferror, 0, SEEK_SET);
-       DEBUG("%d bytes in errorfile", off);
+       DEBUG("%ld bytes in errorfile", off);
        errormesg = malloc(off+1);
        fread(errormesg, 1, off, ferror);
        errormesg[off] = '\0';
@@ -208,7 +209,7 @@ static int ParseClientAuthTag(xmlNodePtr node)
 
 
   Warning("authentocation not yet implemented");
-
+  return 0;
 };
 
 static int ParseClientACL(xmlNodePtr node)
@@ -267,7 +268,7 @@ static int ParseDomainACL(xmlNodePtr node)
 
   DEBUG("gwaddclientacl(%d, %s, %d)", allow_deny, acl, pattern);
   acl_clientadd(allow_deny, acl, pattern);
-
+  return 0;
 };
 
 

@@ -120,7 +120,7 @@ static int formatfreelist(int iStart, int basechunksize,
     pCFoot->next = iCHead + (iCSize + CHUNKOVERHEAD);
     pCFoot->prev = iCHead - (iCSize + CHUNKOVERHEAD);
     
-    DEBUG2("chunk %d: %lld octes at %p footer at %p next at %#llxp prev at %#llx", 
+    DEBUG2("chunk %d: %lu octes at %p footer at %p next at %#lx prev at %#lx", 
 	  i, pCHead->size * _mwHeapInfo->basechunksize,  pCHead, pCFoot, pCFoot->next, pCFoot->prev);
 
   }
@@ -128,13 +128,13 @@ static int formatfreelist(int iStart, int basechunksize,
   pCHead = _mwoffset2adr(iStart, shmheap);
   pCFoot = _mwfooter(pCHead);
   pCFoot->prev = iStart + (chunks-1) * (iCSize + CHUNKOVERHEAD);
-  DEBUG1("correcting first chunk at %p next at %lld prev at %lld", 
+  DEBUG1("correcting first chunk at %p next at %lu prev at %lu", 
 	pCHead, pCFoot->next, pCFoot->prev);
       
   pCHead = _mwoffset2adr(pCFoot->prev, shmheap);
   pCFoot = _mwfooter(pCHead);
   pCFoot->next = iStart;
-  DEBUG1("correcting last chunk at %p next at %lld prev at %lld", 
+  DEBUG1("correcting last chunk at %p next at %lu prev at %lu", 
 	pCHead, pCFoot->next, pCFoot->prev);
 
   return iStart + (chunks) * (iCSize + CHUNKOVERHEAD);;
@@ -297,6 +297,7 @@ int shm_cleanup(int shmid)
   _mwHeapInfo = shmheap->start;
   semctl(_mwHeapInfo->semid, 0, IPC_RMID, 0);
   shmdt(shmheap->start);
+  return 0;
 };
 
 int shm_destroy(void)  

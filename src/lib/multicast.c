@@ -200,7 +200,7 @@ int _mw_sendmcastquery(int s, const char * domain, const char * instance)
   char * env, buffer[SRBMESSAGEMAXLEN];
   int rc, len, val;
 
-  if (env = getenv ("MW_USE_BROADCAST") ) {
+  if ( (env = getenv ("MW_USE_BROADCAST")) ) {
      use_broadcast = atoi(env) ? 1 : 0;
   };
 
@@ -242,7 +242,9 @@ int _mw_sendmcastquery(int s, const char * domain, const char * instance)
 int _mw_getmcastreply(int s, instanceinfo * reply, float timeout)
 {
   char buffer[SRBMESSAGEMAXLEN+1];
-  int i, n, len, slen, rc;
+  int i, n, rc;
+  socklen_t slen;
+  size_t len;
   struct timeval tv;
   fd_set rfdset;
   struct sockaddr_in peeraddr;

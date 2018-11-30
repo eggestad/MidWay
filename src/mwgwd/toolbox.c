@@ -135,7 +135,7 @@ char ** _charlistadd(char ** list, char * addon, int flags)
      itself */
   if (list == NULL) {
     newsize = strlen(addon) + sizeof(char *) * 2 + 1;
-    DEBUG4("1: mallocing list  %d bytes long, strlen(add) = %d", 
+    DEBUG4("1: mallocing list  %d bytes long, strlen(add) = %zu", 
 	    newsize, strlen(addon));
     list = malloc(newsize);
     

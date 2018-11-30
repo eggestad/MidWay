@@ -295,7 +295,7 @@ void _mw_srb_init(SRBmessage * srbmsg, char * command, char marker, ...)
    if (command != NULL) {
       strncpy(srbmsg->command, command, SRBMAXCOMMANDLEN);
       if (strlen(command) == SRBMAXCOMMANDLEN) 
-	 srbmsg->command[SRBMAXCOMMANDLEN] = '\0';
+	 srbmsg->command[SRBMAXCOMMANDLEN-1] = '\0';
    };
    srbmsg->marker = marker;
    srbmsg->map = NULL;
@@ -655,7 +655,7 @@ SRBmessage * _mw_srb_recvmessage(Connection * conn, int flags)
       if (eof) {
 	 if (conn->fd >= 0) {
 	    close(conn->fd);
-	    conn->fd == -1;
+	    conn->fd = -1;
 	 };
 	 DEBUG1("At end of stream with srbmsg=%p", srbmsg);
 	 errno = EPIPE;
@@ -1052,7 +1052,7 @@ int _mw_srbsendcall(Connection * conn, int handle, const char * svcname, const c
       if (datalen == 0) {
 	 datalen = strlen(data);
       };
-      DEBUG1("datalen = %d max is %d", datalen,  srbdata_per_message());
+      DEBUG1("datalen = %zu max is %d", datalen,  srbdata_per_message());
       if (datalen > srbdata_per_message()) {
 	 _mw_srb_setfieldi(&srbmsg, SRB_DATATOTAL, datalen);
 	 datarem = datalen - srbdata_per_message() ;

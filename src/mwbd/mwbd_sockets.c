@@ -96,12 +96,12 @@ struct fd_info * client_root = NULL, * client_tail = NULL;
 /* some funcs that operation on a Connection * are used with teh UDP
    socket.  we need this peudo var for these calls. */
 static Connection pseudoconn = { 
-  fd:            -1, 
-  rejects:        1,
-  domain:        NULL, 
-  version:       0.0, 
-  messagebuffer: NULL,
-  role:          -1
+  .fd =            -1, 
+  .rejects =        1,
+  .domain =        NULL, 
+  .version =       0.0, 
+  .messagebuffer = NULL,
+  .role =          -1
 };  
 
 
@@ -527,7 +527,7 @@ int waitdata(int * fd, int * operation)
     char line[256];
     int i, len = 0;
     line[0] = '\0';
-    len = sprintf(line, "select on fd's: (setsize = %d ", sizeof(fd_set)*8);
+    len = sprintf(line, "select on fd's: (setsize = %zu ", sizeof(fd_set)*8);
     for (i = 0; i < sizeof(fd_set)*8; i++) {
       if (FD_ISSET(i, &rfdset)) {
 	len += sprintf (line+len, "%d, ", i);

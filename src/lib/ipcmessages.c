@@ -538,12 +538,12 @@ void  _mw_dumpmesg(void * mesg)
           int         forwardcount       = %d\n\
           char        service            = %.32s\n\
           char        origservice        = %.32s\n\
-          time_t      issued             = %lld\n\
+          time_t      issued             = %lxsd\n\
           int         uissued            = %d\n\
           int         timeout            = %d\n\
 	  int32_t     datasegmentid      = %d\n\
-          int64_t     data               = %lld \"%s\"\n\
-          int64_t     datalen            = %lld\n\
+          int64_t     data               = %lu \"%s\"\n\
+          int64_t     datalen            = %zu\n\
           int         appreturncode      = %d\n\
           int         flags              = %#x\n\
           char        domainname         = %.64s\n\
@@ -573,8 +573,8 @@ void  _mw_dumpmesg(void * mesg)
 	   "            SERVICEID   svcid            = %d\n"
 	   "            GATEWAYID   gwid             = %d\n"
 	   "          int32_t     datasegmentid      = %d\n"
-	   "          int64_t     data               = %lld \"%s\"\n"
-	   "          int64_t     datalen            = %lld\n"
+	   "          int64_t     data               = %lu \"%s\"\n"
+	   "          int64_t     datalen            = %zu\n"
 	   "          char        username           = %.64s\n"
 	   "          char        clientname         = %.64s\n"
 	   "          int         flags              = %#x\n",
@@ -609,8 +609,8 @@ void  _mw_dumpmesg(void * mesg)
 	   "   SERVICEID   svcid            = %d\n"
 	   "   GATEWAYID   gwid             = %d\n"
 	   " int32_t     datasegmentid      = %d\n"
-	   " int64_t     data               = %lld \"%s\"\n"
-	   " int64_t     datalen            = %lld\n"
+	   " int64_t     data               = %lu \"%s\"\n"
+	   " int64_t     datalen            = %zu\n"
 	   " int32_t     flags              = %#x\n"
 	   " int32_t     returncode         = %d\n",
 	   messagetype(ev->mtype), ev->mtype,  
@@ -639,8 +639,8 @@ void  _mw_dumpmesg(void * mesg)
 	    "   SERVERID    srvid            = %d\n"
 	    "   SERVICEID   svcid            = %d\n"
 	    "   GATEWAYID   gwid             = %d\n"
-	    " int64_t     buffersize         = %lld\n"
-	    " int64_t     pages              = %lld\n"
+	    " int64_t     buffersize         = %zu\n"
+	    " int64_t     pages              = %ld\n"
 	    " int         bufferid           = %d\n", 
 	    messagetype(alloc->mtype), alloc->mtype,  
 	    alloc->mwid,
@@ -1316,7 +1316,7 @@ int _mwacallipc (const char * svcname, const char * data, size_t datalen, int fl
      }
   } while (rc != 0);
   
-  DEBUG1("dataoffset %lld length %lld",   callmesg.data, callmesg.datalen);
+  DEBUG1("dataoffset %lu length %zu",   callmesg.data, callmesg.datalen);
 
   TIMEPEG();
   DEBUG1("getting available servers");
@@ -1341,7 +1341,7 @@ int _mwacallipc (const char * svcname, const char * data, size_t datalen, int fl
     };
  
     DEBUG1("Sending a ipcmessage to serviceid %#x service %s on server %#x my clientid %#x "
-	   "buffer at offset %lld len %lld ", 
+	   "buffer at offset %lu len %zu ", 
 	   callmesg.svcid, callmesg.service, dest, callmesg.cltid, callmesg.data, callmesg.datalen);
 
     TIMEPEG();
@@ -1496,7 +1496,7 @@ int _mwfetchipc (mwhandle_t * hdl, char ** data, size_t * len, int * appreturnco
 
   /* deadline info is invalid even though I can provide it */
 
-  DEBUG1("returned with returncode=%d and with %lld bytes of data", 
+  DEBUG1("returned with returncode=%d and with %zu bytes of data", 
 	callmesg->returncode, callmesg->datalen);
 
   if (callmesg->returncode > MWMORE) 
@@ -1760,7 +1760,7 @@ int _mw_ipcsend_event (const char * event, const char * data, size_t datalen,
   
   if (remoteflag) ev.flags |= MWEVENTPEERGENERATED;
 
-  DEBUG1("Sending a ipcmessage to mwd event %s id %#x buffer at offset %lld len %lld ", 
+  DEBUG1("Sending a ipcmessage to mwd event %s id %#x buffer at offset %lu len %zu ", 
 	 ev.event, ev.senderid, ev.data, ev.datalen);
 
   rc = _mw_ipc_putmessage(dest, (char *) &ev, sizeof (Event), 0);

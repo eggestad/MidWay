@@ -93,8 +93,8 @@ static void do_event_message(char * message, int len)
   if ( (newsvc == 0) || (delsvc == 0) ){
     
     if (evmsg->datalen != sizeof(mwprovideevent)) {
-      Error("in datalength with provide event (%lld != %ld), probably an error in mwd(1)", 
-	    evmsg->datalen, (long) sizeof(mwprovideevent));
+      Error("in datalength with provide event (%zu != %zu), probably an error in mwd(1)", 
+	    evmsg->datalen,  sizeof(mwprovideevent));
       return;
     };
     

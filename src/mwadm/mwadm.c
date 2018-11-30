@@ -385,6 +385,7 @@ int help(int argc, char ** argv)
   if (argc == 1) usage(NULL);
   else if (argc == 2) usage(argv[1]);
   else usage("help");
+  return 0;
 };
   
 void sig_handler(int signo)
@@ -405,6 +406,7 @@ int exec_command(int argc, char ** argv)
     i++;
   };
   usage(NULL);
+  return 0;
 };
 
 int parse_commandline(char *arglist)

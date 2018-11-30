@@ -34,8 +34,7 @@
 #include "xmlconfig.h"
 #include "servermgr.h"
 
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
+#pragma GCC diagnostic ignored "-Wpointer-sign"
 
 static xmlDocPtr  configdoc = NULL;
 //static xmlNsPtr configns = NULL;
@@ -98,7 +97,7 @@ int xmlConfigLoadFile(char * configfile)
      if (ferror) {
        off = ftell(ferror);
        fseek(ferror, 0, SEEK_SET);
-       DEBUG("%d bytes in errorfile", off);
+       DEBUG("%ld bytes in errorfile", off);
        errormesg = malloc(off+1);
        fread(errormesg, 1, off, ferror);
        errormesg[off] = '\0';
@@ -196,7 +195,7 @@ xmlNodePtr mwConfigFindNode(xmlNodePtr start, ...)
       //    cur->name, cur->type, xmlNodeGetContent(cur));
 
       if (cur->type == XML_ELEMENT_NODE) 
-	if (strcasecmp(cur->name, tagname) == 0) {
+	 if (strcasecmp((const char*)cur->name, tagname) == 0) {
 	  //DEBUG2("found a match");
 	  strcat (buffer2, tagname);
 	  strcat (buffer2, "/");
@@ -250,7 +249,7 @@ static int ParseEnvTag(xmlNodePtr node, int servergroup)
 	       cur->name, cur->parent->name, configfilename);
     };
 
-    envs = XML_GET_CONTENT(cur);
+    envs = (char*) XML_GET_CONTENT(cur);
     DEBUG("envs are %s", envs);
     
     envslength = strlen(envs);
@@ -318,12 +317,13 @@ static int ParseExecTag(xmlNodePtr node)
       continue;
     };
 
-    exec = xmlNodeGetContent (cur);
+    exec = (char *)xmlNodeGetContent (cur);
     trim(exec);
 
     DEBUG("   exec for this server is %s", exec);
     smgrSetServerExec(exec);
   };
+  return 0;
 };
 
 static int ParseArgListTag(xmlNodePtr node)
@@ -339,12 +339,13 @@ static int ParseArgListTag(xmlNodePtr node)
       continue;
     };
 
-    arglist = xmlNodeGetContent (cur);
+    arglist = (char*)xmlNodeGetContent (cur);
     trim(arglist);
 
     DEBUG("   arglist for this server is \"%s\"", arglist);
     smgrSetServerArgs(arglist);
   };
+  return 0;
 };
 
 static int ParseServerInstancesTag(xmlNodePtr node)
@@ -363,6 +364,7 @@ static int ParseServerInstancesTag(xmlNodePtr node)
 
   DEBUG("smgrSetServerMinMax(min = %d,  max = %d)", min, max);
   smgrSetServerMinMax(min, max);
+  return 0;
 };
 
 static int ParseServerTag(xmlNodePtr node)
@@ -373,7 +375,7 @@ static int ParseServerTag(xmlNodePtr node)
 
   DEBUG("*** beginning server %s tag", node->name);
 
-  servername = xmlGetProp(node, "name");
+  servername = xmlGetProp(node,  "name");
   if (servername == NULL) return -1;
 
   smgrBeginServer(servername);

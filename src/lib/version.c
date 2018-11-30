@@ -113,11 +113,12 @@ int _mwgetversion(int * vmaj, int * vmin, int * ptcl)
     * vmaj = 0;
     * vmin = 0;
     * ptcl = 0;
-  } else {
-    * vmaj = atoi(major);
-    * vmin = atoi(minor);
-    * ptcl = atoi(patch);
+    return -1;
   }
+  * vmaj = atoi(major);
+  * vmin = atoi(minor);
+  * ptcl = atoi(patch);
+  return 0;  
 };
 
 const char * _mwgetmagic(void)

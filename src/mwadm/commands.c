@@ -135,19 +135,19 @@ extern int extended;
 */
 
 char * location[5] = { 
-   [GWLOCAL]   "Local   ", 
-   [GWPEER]    "PeerDom ", 
-   [GWREMOTE]  "Foreign ", 
-   [GWCLIENT]  "Client  ", 
+   [GWLOCAL]   = "Local   ", 
+   [GWPEER]    = "PeerDom ", 
+   [GWREMOTE]  = "Foreign ", 
+   [GWCLIENT]  = "Client  ", 
    NULL};
 
 char * status_by_name[7] = {
-   [MWREADY]    "Ready", 
-   [MWSHUTDOWN] "Shutdown", 
-   [MWBOOTING]  "Booting", 
-   [MWBUSY]     "Busy", 
-   [MWDEAD]     "Dead", 
-   [MWBLOCKED]  "Blocked", 
+   [MWREADY]    = "Ready", 
+   [MWSHUTDOWN] = "Shutdown", 
+   [MWBOOTING]  = "Booting", 
+   [MWBUSY]     = "Busy", 
+   [MWDEAD]     = "Dead", 
+   [MWBLOCKED]  = "Blocked", 
    NULL};
 
 #define DATESTR "%a, %e %b %Y %H:%M:%S  %Z"
@@ -481,7 +481,7 @@ int heapinfo(int argc, char ** argv)
 
    if (listall) listinuse = 1;
 
-   fprintf (fp,"magic %x segnment size %lld semid %lld\n", 
+   fprintf (fp,"magic %x segment size %zu semid %ld\n", 
 	   _mwHeapInfo->magic, _mwHeapInfo->segmentsize, _mwHeapInfo->semid);
    fprintf (fp," Basechunksize %d chunkspersize %d Bins %d\n", 
 	   _mwHeapInfo->basechunksize, _mwHeapInfo->chunkspersize, BINS);
@@ -489,7 +489,7 @@ int heapinfo(int argc, char ** argv)
 	   _mwHeapInfo->inusecount, _mwHeapInfo->inusehighwater, 
 	   _mwHeapInfo->inuseaverage, _mwHeapInfo->inuseavgcount );
 
-   fprintf (fp," top=%lld bottom=%lld \n", _mwHeapInfo->top, _mwHeapInfo->bottom);
+   fprintf (fp," top=%lu bottom=%lu \n", _mwHeapInfo->top, _mwHeapInfo->bottom);
 
    rc = semctl(_mwHeapInfo->semid,BINS, GETALL, semarray);
    if (rc != 0) {
@@ -520,10 +520,10 @@ int heapinfo(int argc, char ** argv)
 	    pChead = ((void*) _mwHeapInfo) + h;
 	    pCFoot = ((void*) _mwHeapInfo) + f; 
 	    
-	    debug ("header %p(%lld) owner %x, size %llx", pChead, h, pChead->ownerid,  pChead->size);
-	    debug("footer %p(%lld) %lld %lld %lld", pCFoot, f, pCFoot->above, pCFoot->next, pCFoot->prev);
+	    debug ("header %p(%lld) owner %x, size %zu", pChead, h, pChead->ownerid,  pChead->size);
+	    debug("footer %p(%lld) %lu %lu %lu", pCFoot, f, pCFoot->above, pCFoot->next, pCFoot->prev);
 	    if (listall || (listinuse && pChead->ownerid != UNASSIGNED)) {
-	       fprintf (fp,"  %16lld: header=(%16lld: %10s %8lld) footer=(%16lld: %16lld %16lld %16lld)",
+	       fprintf (fp,"  %16lld: header=(%16lld: %10s %8zu) footer=(%16lld: %16lu %16lu %16lu)",
 		       h+sizeof(chunkhead), 
 		       h, _mwid2str(pChead->ownerid, NULL),  pChead->size * _mwHeapInfo->basechunksize,
 		       f, pCFoot->above, pCFoot->next, pCFoot->prev);
@@ -638,7 +638,7 @@ int boot(int argc, char ** argv)
 	    exit(-1);
 	 };
 	 rc = printf("child 2 reassignment complete\n");
-	 fprintf(stderr,"wrote %d bytes on new stdout, should be %d\n", 
+	 fprintf(stderr,"wrote %d bytes on new stdout, should be %lu\n", 
 		 rc, strlen("child 2 reassignment complete\n"));
 	 argv[0] = "-mwd";  
 	 execvp("mwd", argv); 
@@ -795,7 +795,7 @@ int event(int argc, char ** argv)
 
 static void event_handler(const char * event, const char * data, size_t datalen)
 {
-   printf("  EVENT: %s data:%*.*s(%d)\n", event, datalen, datalen, data, datalen);
+   printf("  EVENT: %s data:%*.*s(%zu)\n", event, (int) datalen, (int)datalen, data, datalen);
    return;
 };
 
@@ -891,8 +891,9 @@ int call(int argc, char ** argv)
 	       fortunalty the lowe niddle in an ascii hex reprenentation
 	       is the binary value */
 	    if ((i + 2) < len) {
-	       data[j++] = argv[2][++i] & 0x0f << 4
-		  + argv[2][++i] & 0x0f;
+	       data[j++] = argv[2][i+1] & (0x0f << 4)
+		  + argv[2][i+2] & 0x0f;
+	       i+=2;
 	    } 
 	 } else {
 	    data[j++] = argv[2][i];
@@ -940,7 +941,7 @@ int call(int argc, char ** argv)
     
     
       data[j] = '\0';
-      printf ("Call to \"%s\" returned %d(%s), with data \"%.*s\" %d bytes\n",  
+      printf ("Call to \"%s\" returned %d(%s), with data \"%.*s\" %zu bytes\n",  
 	      argv[1], rc, resultlbl, j, data, len);
    } else {
       printf ("Call to \"%s\" returned %d(%s), without data\n",  
@@ -948,7 +949,7 @@ int call(int argc, char ** argv)
    };
    printf ("  with application return code %d in %12.6f secs \n", apprc, secs);
 
-   DEBUG("call to %s returned %s len %d bytes rc = %d apprc=%d in %12.6f secs\n", 
+   DEBUG("call to %s returned %s len %zu bytes rc = %d apprc=%d in %12.6f secs\n", 
 	 argv[1], data, len, rc, apprc, secs);
 
    mwfree(rdata);

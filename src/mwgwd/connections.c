@@ -469,7 +469,8 @@ void conn_setpeername (Connection * conn)
 {
   char ipadr[128], * ipname;
   char * role = "unknown";
-  int len, family, rc, id = UNASSIGNED, port;
+  socklen_t  len;
+  int family, rc, id = UNASSIGNED, port;
   cliententry * cltent = NULL;
   gatewayentry * gwent = NULL;
   char * ipcaddrstr = NULL;

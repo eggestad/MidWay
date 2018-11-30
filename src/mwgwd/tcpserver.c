@@ -399,15 +399,16 @@ int tcp_do_write_condiion(Connection * conn)
 {
   DEBUG("write condition on fd=%d", conn->fd);
   if (conn->type == CONN_TYPE_GATEWAY) {
-    /* the other side shall send an SRB READY, we son't send an INIT
+    /* the other side shall send an SRB READY, we don't send an INIT
        until that is received, thus the task of sending an INIT falls
-       on dosrbready() not here. We just set eth state and unpoll from write events.*/
+       on dosrbready() not here. We just set the state and unpoll from write events.*/
     if (conn->state == CONNECT_STATE_CONNWAIT) {	
       conn->state = CONNECT_STATE_READYWAIT;
       unpoll_write(conn->fd);
     };
     return 0;
   };
+  return -1;
 };
 
 int tcp_do_read_condiion(Connection * conn)
@@ -579,12 +580,12 @@ void * tcpservermainloop(void * param)
     reconnect_broker = 1;
   };
 
-  if (penv = getenv ("MWGWD_TASK_INTERVAL")) {
+  if ((penv = getenv ("MWGWD_TASK_INTERVAL"))) {
     d = atof(penv);
     if (d > 0) task_interval = d;
   };
 
-  if (penv = getenv ("MWGWD_FAST_TASK_INTERVAL")) {
+  if ((penv = getenv ("MWGWD_FAST_TASK_INTERVAL"))) {
     d = atof(penv);
     if (d > 0) fast_task_interval = d;
   };

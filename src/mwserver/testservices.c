@@ -14,10 +14,10 @@ int servicehandler1(mwsvcinfo * si)
   printf ("  Clientid %d\n", si->cltid);
   printf ("  Serverid %d\n", si->srvid);
   printf ("  Service %s\n", si->service);
-  printf ("  Data buffer (%d) : \"%.*s\" \n", si->datalen, si->datalen, si->data);
+  printf ("  Data buffer (%zu) : \"%.*s\" \n", si->datalen, (int)si->datalen, si->data);
   printf ("  flags %#x\n", si->flags);
 
-  sprintf(buffer, "%.*s",  si->datalen, si->data);
+  sprintf(buffer, "%.*s",  (int)si->datalen, si->data);
   if (strcmp(buffer, "ok") == 0) {
     mwreply ("Kapla", 0, TRUE, 666, 0);
     return TRUE;

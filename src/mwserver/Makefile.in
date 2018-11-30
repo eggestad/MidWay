@@ -40,7 +40,7 @@ testservices.o: testservices.c ../include/MidWay.h
 	$(CC) -fPIC $(CFLAGS) -c $<
 
 testservices.so: testservices.o
-	$(CC) -shared -g -o testservices.so testservices.o
+	$(CC) -shared -g -o testservices.so testservices.o  -lMidWay -L../lib
 
 mwserver:  $(OBJS) ../lib/libMidWay.so
 	$(CC) -o $@ $(OBJS)  -rdynamic $(CFLAGS) $(LIBS) -ldl

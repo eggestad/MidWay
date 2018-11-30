@@ -30,8 +30,7 @@ testsuiteserver.o: testsuiteserver.c ../include/MidWay.h testsuite.h
 	$(CC) -fPIC $(CFLAGS) -c $<
 
 testsuiteserver.so: testsuiteserver.o
-	$(CC) -shared -g -o $@ $<
-
+	$(CC) -shared -g -o $@ $< -lMidWay -L../lib
 
 testsuitclient.o: testsuiteclient.c ../include/MidWay.h testsuite.h
 	$(CC) $(CFLAGS) -c $<

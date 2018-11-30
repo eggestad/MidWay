@@ -277,7 +277,7 @@ namespace MidWay {
 	    mwlog(MWLOG_DEBUG2, (char*) "sending async message to trigger processing of MidWay messages");
 	    int rc2 = uv_async_send(&service_request_event);
 	    mwlog(MWLOG_DEBUG2, (char*) "sending async message returned %d", rc2);
-	    //	    sleep(1);	    
+	    usleep(10);	    
 	 } else {
 	    mwlog(MWLOG_ERROR, (char*) " msg rcv returned %d errno = %d, %s", rc, errno, strerror(errno));
 	    break;

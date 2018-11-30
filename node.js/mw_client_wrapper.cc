@@ -27,7 +27,7 @@ namespace MidWay {
       napi_status status;
 
       char * data;
-      int datalen = 0;
+      size_t datalen = 0;
       int handle = 0;
       int apprc = 0;
 
@@ -51,7 +51,7 @@ namespace MidWay {
 
       // find callback
       napi_value callback ;
-      mwlog(MWLOG_DEBUG2,  (char*) "lokking callback ref %p", ref_call_map.find(handle)->second);
+      mwlog(MWLOG_DEBUG2,  (char*) "looking callback ref %p", ref_call_map.find(handle)->second);
 
       napi_ref cbref = ref_call_map.find(handle)->second;
       mwlog(MWLOG_DEBUG2,  (char*) "found callback ref");
@@ -220,7 +220,7 @@ namespace MidWay {
       mwlog(MWLOG_DEBUG2, (char*) "calling mwacall with %s %s %ld %d", url, data, datalen, flags);
 
       int rc = mwacall(url, data, datalen, flags);
-      mwlog(MWLOG_DEBUG2, (char*) "mwacall ed %d", rc);
+      mwlog(MWLOG_DEBUG2, (char*) "mwacall returned %d", rc);
 
       if (rc > 0) {
 	 napi_ref cbref;

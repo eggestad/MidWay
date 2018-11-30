@@ -26,7 +26,7 @@ function callback0() {
     console.log("cb0 start");
     mw.reply("testreply from data " + this.data, mw.success, 67);
 
-    mw.call("cal", "data", function(a, b, c) { console.log("call returned", a, b, c); });
+//    mw.call("cal", "data", function(a, b, c) { console.log("call returned", a, b, c); });
 
     console.log("cb0 ok");
     return true;
@@ -53,9 +53,9 @@ console.log("RUNNUNG SERVER");
 //console.log(mw.unprovide("node0"));
 //console.log(mw.unprovide("node1"));
 
-setInterval(function() {
+//setInterval(function() {
     mw.call("time", "data", function(a, b, c) { console.log("call returned", a, b, c); });
-}, 1000);
+//}, 1000);
 
 
 // Prints: 'world'

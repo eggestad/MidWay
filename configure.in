@@ -43,6 +43,8 @@ AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
 
+echo host: $host
+echo host_os: $host_os
 
 case "$host" in
 
@@ -61,8 +63,18 @@ case "$host" in
     ostype=Linux
     ;;
 
-   *-*-*)
-    echo WARNING: MidWay is not ported to $host
+  *-darwin*)
+    linux=false
+    ostype=MacOS
+    ;;
+ 
+
+  *-*-*)
+    AC_MSG_ERROR(["target $host is not supported"])
+    ;;
+
+  *)
+    AC_MSG_ERROR(["target $host is not supported"])
     ;;
 
 esac
@@ -198,6 +210,12 @@ AC_SUBST(MINOR_VERSION)
 PATCH_VERSION="0"
 AC_SUBST(PATCH_VERSION)
 
+if [[ x$ostype = xMacOS ]]; then
+  SONAMEFLAG="-install_name "
+else
+  SONAMEFLAG="-Wl,-soname,"
+fi 
+AC_SUBST(SONAMEFLAG)
 
 dnl End link options for readline
 

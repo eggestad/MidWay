@@ -18,38 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.8  2005/12/07 11:44:15  eggestad
- * large data SRB patch
- *
- * Revision 1.7  2004/11/26 16:38:00  eggestad
- * added mutexes to Connection
- *
- * Revision 1.6  2003/09/25 19:36:17  eggestad
- * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
- * - also improved logic in blocking/nonblocking of reading on Connection objects
- *
- * Revision 1.5  2003/08/06 23:16:18  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.4  2003/01/07 08:26:32  eggestad
- * redefined CONN_TYPE for simpled debuging info
- *
- * Revision 1.3  2002/10/22 21:58:20  eggestad
- * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
- *
- * Revision 1.2  2002/10/09 12:30:30  eggestad
- * Replaced all unions for sockaddr_* with a new type SockAddress
- *
- * Revision 1.1  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- *
- */
 
 #ifndef _CONNECTION_H
 #define _CONNECTION_H

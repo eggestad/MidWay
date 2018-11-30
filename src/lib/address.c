@@ -18,63 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.14  2004/08/11 18:59:04  eggestad
- * *** empty log message ***
- *
- * Revision 1.13  2004/04/08 10:34:06  eggestad
- * introduced a struct with pointers to the functions implementing the midway functions
- * for a given protocol.
- * This is in preparation for be able to do configure with/without spesific protocol.
- * This creates a new internal API each protocol must addhere to.
- *
- * Revision 1.12  2004/02/16 07:27:56  eggestad
- * - fix for '-' in host names
- * - default post is broker not mwgwd private
- *
- * Revision 1.11  2002/10/22 21:58:20  eggestad
- * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
- *
- * Revision 1.10  2002/10/09 12:30:30  eggestad
- * Replaced all unions for sockaddr_* with a new type SockAddress
- *
- * Revision 1.9  2002/09/05 23:25:33  eggestad
- * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
- * MWURL is now used in addition to MWADDRESS
- *
- * Revision 1.8  2002/07/07 22:35:20  eggestad
- * added urlmapdup
- *
- * Revision 1.7  2002/02/17 13:55:16  eggestad
- * added missing includes
- *
- * Revision 1.6  2001/10/03 22:45:10  eggestad
- * added multicast quert, and mem corruption fixes
- *
- * Revision 1.5  2000/11/29 23:16:29  eggestad
- * Parse of IPC url was wrong, IPC key ignored.
- *
- * Revision 1.4  2000/09/21 18:26:59  eggestad
- * - plugged a memory leak of mwadr
- * - cleared regexp matches at beginning, and reset
- *
- * Revision 1.3  2000/08/31 21:47:42  eggestad
- * Major rework for SRB
- *
- * Revision 1.2  2000/07/20 19:21:09  eggestad
- * url prefix for TCP/IP is now srb, not midway. fix up on double include prevention
- *
- * Revision 1.1.1.1  2000/03/21 21:04:06  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
 
 #include <sys/types.h>
 #include <ctype.h>
@@ -95,9 +38,6 @@
 #include <address.h>
 #include <SRBprotocol.h>
 #include <multicast.h>
-
-static char * RCSId UNUSED = "$Id$";
-
 
 /* here we have the regexps that defined the legal formats for the URL.
    We rely on the regexpnot to allow thru any bad address.

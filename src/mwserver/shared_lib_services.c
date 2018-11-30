@@ -18,21 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.4  2002/09/05 23:22:11  eggestad
- * meaningless test removed
- *
- * Revision 1.3  2002/07/07 22:29:16  eggestad
- * fixes to shared object search paths
- *
- * Revision 1.2  2001/10/04 19:18:10  eggestad
- * CVS tags fixes
- *
- */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -42,8 +27,6 @@
 #include <unistd.h>
 
 #include <MidWay.h>
-
-static char * RCSId UNUSED = "$Id$";
 
 struct service {
   char * svcname;

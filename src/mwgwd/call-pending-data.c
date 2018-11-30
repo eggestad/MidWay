@@ -18,13 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Log$
- * Revision 1.1  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- */
-
 #include <errno.h>
 
 #include <MidWay.h>

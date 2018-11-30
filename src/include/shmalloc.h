@@ -18,55 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.12  2005/10/11 21:33:26  eggestad
- * updated functions for getting and putting call buffers
- * fixes to data versification and error detection
- * general fixup
- *
- * Revision 1.11  2005/06/25 12:06:53  eggestad
- * added doxygen doc
- *
- * Revision 1.10  2005/06/13 23:21:04  eggestad
- * Added doxygen comments
- *
- * Revision 1.9  2004/11/17 20:58:08  eggestad
- * Large data buffers for IPC
- *
- * Revision 1.8  2004/08/10 19:39:09  eggestad
- * - shm heap is now 32/64 bit interoperable
- * - added large buffer alloc
- *
- * Revision 1.7  2003/07/06 22:06:14  eggestad
- * -debugging now in debug3
- * - added funcs for seting and geting ownerid
- *
- * Revision 1.6  2002/10/20 18:07:27  eggestad
- * added top and bottom offsets for legal buffer addresses, for _mwshmcheck
- *
- * Revision 1.5  2002/10/06 23:51:10  eggestad
- * bug in getchunksize, rather large, so a fixup in handling of size and verification
- *
- * Revision 1.4  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.3  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.2  2002/02/17 13:53:14  eggestad
- * added prototypes for _mw_putbuffer_to_call(), _mw_getbuffer_from_call()
- *
- * Revision 1.1.1.1  2000/03/21 21:04:04  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
 
 /**
    @file

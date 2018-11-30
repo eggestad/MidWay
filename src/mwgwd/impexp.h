@@ -18,38 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* $Id$ */
-
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.7  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- * Revision 1.6  2002/11/18 00:23:10  eggestad
- * - added prototype for impexp_cleanuppeer()
- *
- * Revision 1.5  2002/10/17 22:19:12  eggestad
- * added impfindpeerconn()
- *
- * Revision 1.4  2002/10/03 21:22:37  eggestad
- * - changed beh so that a service is importet to IPC table for each peer, thus svcid++ moved from Import to _peerlink
- * - impsetsvcid() needed gwid (reason in line above)
- *
- * Revision 1.3  2002/09/29 17:44:02  eggestad
- * added unproviding over srb
- *
- * Revision 1.2  2002/09/22 22:59:26  eggestad
- * prototype fixup
- *
- * Revision 1.1  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- *
- */
-
 struct _peerlink {
   struct gwpeerinfo * peer;
   SERVICEID svcid;

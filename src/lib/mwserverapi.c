@@ -18,95 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.23  2005/10/11 22:24:23  eggestad
- * change in API for putting buffer to svcinfo
- *
- * Revision 1.22  2004/12/29 19:59:01  eggestad
- * handle datatype fixup
- *
- * Revision 1.21  2004/08/11 20:40:41  eggestad
- * 32/64 bit fix
- *
- * Revision 1.20  2004/07/12 15:02:21  eggestad
- * mwforward was broken
- *
- * Revision 1.19  2004/05/31 19:47:09  eggestad
- * tasks interrupted mainloop
- *
- * Revision 1.18  2004/04/12 23:05:24  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.17  2004/03/01 14:09:31  eggestad
- * serviceinfo struct (mwsvcinfo) expanded with username, clientname and authentication method
- *
- * Revision 1.16  2004/02/17 07:27:35  eggestad
- * fix for wrong setting of non blocking flag in mwreply()
- *
- * Revision 1.15  2003/07/20 23:31:05  eggestad
- * - added an usleep() loop in mwreply() if no shm buffers are immediatly available
- *
- * Revision 1.14  2002/11/19 12:43:53  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.13  2002/10/20 18:13:22  eggestad
- * fixes for receiving calls from gateways as in peers, not srb clients
- *
- * Revision 1.12  2002/10/07 00:01:33  eggestad
- * - on error EFAULT was positive and not negative in callmesg.returncode.
- * - _mw_get_server_by_serviceid() was renamed to _mw_get_provider_by_serviceid()
- * - if _mw_getbuffer_from_call() return error, client sent a junk message, that are returned with error.
- *
- * Revision 1.11  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.10  2002/07/07 22:35:20  eggestad
- * *** empty log message ***
- *
- * Revision 1.9  2002/02/17 14:20:03  eggestad
- * - added _mw_server_get_callbuffer()/_mw_server_set_callbuffer()
- * - removed  struct ServiceFuncEntry
- * - _mw_popservice and _mw_pushservice now global funcs
- * - _mw_requestpending now a global var
- * - MWMORE now a return code, not a flag
- * - added _mw_set_deadline()
- * - timeout handling fixup
- *
- * Revision 1.8  2001/09/15 23:59:05  eggestad
- * Proper includes and other clean compile fixes
- *
- * Revision 1.7  2001/05/12 18:00:31  eggestad
- * changes to multiple reply handling, MWMULTIPLE are no langer sent to server, replies are cat'ed in client
- *
- * Revision 1.6  2000/11/29 23:18:01  eggestad
- * - Added two support function for Perl native module\n- Fixed some statitics bugs
- *
- * Revision 1.5  2000/09/24 14:06:00  eggestad
- * Fixed core dumo in a warning message
- *
- * Revision 1.4  2000/09/21 18:44:06  eggestad
- * fastpath and attach flags are now access thru funcs, nor global vars
- *
- * Revision 1.3  2000/08/31 21:53:42  eggestad
- * DEBUG level set propper. fix for NOREPLY
- *
- * Revision 1.2  2000/07/20 19:30:19  eggestad
- * - major change to mwreply() for multiple replies.
- * - prototype fixup.
- * - fix for gateways clients. (return mqueue)
- *
- * Revision 1.1.1.1  2000/03/21 21:04:15  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
-
 #include <errno.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -122,8 +33,6 @@
 #include <mwclientipcapi.h>
 #include <mwserverapi.h>
 #include <tasks.h>
-
-static char * RCSId UNUSED = "$Id$";
 
 /**********************************************************************
  *

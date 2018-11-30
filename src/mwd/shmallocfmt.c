@@ -18,46 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.10  2004/11/17 20:58:08  eggestad
- * Large data buffers for IPC
- *
- * Revision 1.9  2004/08/11 19:02:10  eggestad
- * - shm heap is now 32/64 bit interopperable
- *
- * Revision 1.8  2004/04/12 23:05:24  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.7  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.6  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.5  2002/02/17 16:16:18  eggestad
- * added missing include
- *
- * Revision 1.4  2001/10/16 16:18:09  eggestad
- * Fixed for ia64, and 64 bit in general
- *
- * Revision 1.3  2000/09/21 18:55:18  eggestad
- * Corrected loglevel on a debugmessage
- *
- * Revision 1.2  2000/07/20 19:49:40  eggestad
- * prototype fixup.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:27  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -69,9 +29,6 @@
 #include <shmalloc.h>
 #include "mwd.h"
 #include "shmallocfmt.h"
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /*
  * this need to change for more segments

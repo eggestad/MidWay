@@ -18,75 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.18  2004/11/17 20:58:08  eggestad
- * Large data buffers for IPC
- *
- * Revision 1.17  2004/08/11 20:41:21  eggestad
- * large buffer alloc
- *
- * Revision 1.16  2004/04/12 11:19:08  eggestad
- * - fix for wrong detach() return code
- *
- * Revision 1.15  2004/04/08 10:34:06  eggestad
- * introduced a struct with pointers to the functions implementing the midway functions
- * for a given protocol.
- * This is in preparation for be able to do configure with/without spesific protocol.
- * This creates a new internal API each protocol must addhere to.
- *
- * Revision 1.14  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.13  2004/03/01 12:52:15  eggestad
- * change in mwfetch() params
- *
- * Revision 1.12  2003/12/11 14:18:03  eggestad
- * added mwlistsvc for IPC
- *
- * Revision 1.11  2002/10/20 18:12:19  eggestad
- * prototype change in _mwipcacall
- *
- * Revision 1.10  2002/10/17 22:05:37  eggestad
- * -  more params to _mwacallipc()
- *
- * Revision 1.9  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.8  2002/07/07 22:35:20  eggestad
- * *** empty log message ***
- *
- * Revision 1.7  2002/02/17 14:12:47  eggestad
- * *** empty log message ***
- *
- * Revision 1.6  2001/09/15 23:59:05  eggestad
- * Proper includes and other clean compile fixes
- *
- * Revision 1.5  2001/05/12 18:00:31  eggestad
- * changes to multiple reply handling, MWMULTIPLE are no langer sent to server, replies are cat'ed in client
- *
- * Revision 1.4  2000/09/21 18:40:56  eggestad
- * Minor changes due to diffrent deadline API
- *
- * Revision 1.3  2000/08/31 21:52:16  eggestad
- * Top level API moved to mwclientapi.c.
- *
- * Revision 1.2  2000/07/20 19:24:22  eggestad
- * CVS keywords were missing.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:12  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
-
 #include <stdio.h>
 #include <errno.h>
 
@@ -106,9 +37,6 @@
 #include <mwclientapi.h>
 #include <shmalloc.h>
 #include <address.h>
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /*
   Here we provide the "visible" library API, in the IPC only form.

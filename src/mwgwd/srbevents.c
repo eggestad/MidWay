@@ -18,21 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Log$
- * Revision 1.3  2004/11/17 20:55:47  eggestad
- * - large data buffer
- * - protocol fix up in event messages
- *
- * Revision 1.2  2004/04/12 23:05:25  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.1  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- */
 
 #include <sys/types.h>
 #include <regex.h>
@@ -45,10 +30,6 @@
 #include <shmalloc.h>
 #include <ipctables.h>
 #include "gateway.h"
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
-
 
 /* handling of events for SRB clients and peers. Client must subscribe
    to events, however for efficiency, especially since it's necessary

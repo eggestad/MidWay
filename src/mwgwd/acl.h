@@ -18,16 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* $Id$ */
-
-/*
- * $Log$
- * Revision 1.1  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- *
- */
-
 
 #ifndef _ACL_H
 #define _ACL_H

@@ -19,20 +19,6 @@
 */
 
 
-/*
- * $Log$
- * Revision 1.3  2005/12/07 11:44:16  eggestad
- * large data SRB patch
- *
- * Revision 1.2  2003/09/25 19:36:17  eggestad
- * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
- * - also improved logic in blocking/nonblocking of reading on Connection objects
- *
- * Revision 1.1  2003/08/07 11:19:55  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- */
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <errno.h>
@@ -42,9 +28,6 @@
 #include <urlencode.h>
 
 #include <connection.h>
-
-static char * RCSId UNUSED = "$Id$";
-
 
 /* at some poing we're going to do OpenSSL. Then conn_read, and
    conn_write will hide the SSL, and the rest of MidWay can treat it

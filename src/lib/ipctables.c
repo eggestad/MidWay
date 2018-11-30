@@ -19,101 +19,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.26  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- * Revision 1.25  2005/08/29 13:36:44  eggestad
- * gcc 4 fix
- *
- * Revision 1.24  2004/11/26 16:39:15  eggestad
- * Yet another function for finding a serviceid from service name this get an IPC is possible, SRBP otherwise
- *
- * Revision 1.23  2004/11/17 20:48:43  eggestad
- * 2 byte Emacs C indent
- *
- * Revision 1.22  2004/08/11 18:58:04  eggestad
- * - shm tables is now 32/64 bit interoperable
- *
- * Revision 1.21  2004/06/06 16:08:54  eggestad
- * better test on system state
- *
- * Revision 1.20  2004/04/12 23:05:24  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.19  2004/04/08 10:34:06  eggestad
- * introduced a struct with pointers to the functions implementing the midway functions
- * for a given protocol.
- * This is in preparation for be able to do configure with/without spesific protocol.
- * This creates a new internal API each protocol must addhere to.
- *
- * Revision 1.18  2003/12/11 14:18:03  eggestad
- * added mwlistsvc for IPC
- *
- * Revision 1.17  2003/06/12 07:43:21  eggestad
- * added MWIPCONLY flag to _mwipcacall, to force local service
- *
- * Revision 1.16  2003/03/26 01:59:33  cstup
- * Another fix to the same DEBUG line.
- *
- * Revision 1.15  2003/03/25 02:29:52  cstup
- * Fixed DEBUG statement in _mw_attach_ipc()
- *
- * Revision 1.14  2002/11/18 00:11:38  eggestad
- * - _mw_ipcmaininfo prtotype fixup
- *
- * Revision 1.13  2002/10/07 00:04:40  eggestad
- * - _mw_get_server_by_serviceid() named _mw_get_provider_by_serviceid() that also retun gateways.
- * - _mw_get_service_providers() obsoleted
- * - _mw_get_services_byname() now can return the number(n) in the returned list,
- *
- * Revision 1.12  2002/10/03 21:09:08  eggestad
- * - _mw_get_service_providers() never worked, eternal loop
- * - _mw_get_services_byname() had rand() on the wrong spot,
- *   table was randomly traversed
- *
- * Revision 1.11  2002/09/29 17:37:54  eggestad
- * improved the _mw_get[client|server|service|gateway]entry functions and removed duplicates in mwd.c
- *
- * Revision 1.10  2002/09/22 22:49:23  eggestad
- * Added new function that return list of all providers of a service
- *
- * Revision 1.9  2002/09/04 07:13:31  eggestad
- * mwd now sends an event on service (un)provide
- *
- * Revision 1.8  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.7  2002/07/07 22:35:20  eggestad
- * *** empty log message ***
- *
- * Revision 1.6  2002/02/17 14:09:58  eggestad
- * clean compile fix
- *
- * Revision 1.5  2001/09/15 23:59:05  eggestad
- * Proper includes and other clean compile fixes
- *
- * Revision 1.4  2000/09/21 18:36:36  eggestad
- * server crashed if IPC client dissapeared while service call was prosessed.
- *
- * Revision 1.3  2000/08/31 21:50:48  eggestad
- * DEBUG level set propper.
- *
- * Revision 1.2  2000/07/20 19:23:40  eggestad
- * Changes needed for SRB clients and gateways.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:11  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
-
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
@@ -130,10 +35,6 @@
 #include <ipcmessages.h>
 #include <shmalloc.h>
 #include <utils.h>
-
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 
 static ipcmaininfo  * ipcmain = NULL; 

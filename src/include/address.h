@@ -18,44 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.7  2004/04/08 10:34:05  eggestad
- * introduced a struct with pointers to the functions implementing the midway functions
- * for a given protocol.
- * This is in preparation for be able to do configure with/without spesific protocol.
- * This creates a new internal API each protocol must addhere to.
- *
- * Revision 1.6  2002/09/05 23:25:33  eggestad
- * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
- * MWURL is now used in addition to MWADDRESS
- *
- * Revision 1.5  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.4  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.3  2000/08/31 19:49:16  eggestad
- * - added domain to the address struct
- * - corrected som defs for protocol types.
- * - fix to prototype for _mwdecode_url(- added domain to the address struct
- * - corrected som defs for protocol types.
- * - fix to prototype for _mwdecode_url()
- *
- * Revision 1.2  2000/07/20 19:14:10  eggestad
- * fix up on double include prevention
- *
- * Revision 1.1.1.1  2000/03/21 21:04:03  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
 
 #ifndef _ADDRESS_H
 #define _ADDRESS_H

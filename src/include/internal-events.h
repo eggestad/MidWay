@@ -18,16 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.1  2002/09/04 07:13:31  eggestad
- * mwd now sends an event on service (un)provide
- *
- * 
- */
 
 /*
  * there are some internal events used within an instance that passes a binary struct.

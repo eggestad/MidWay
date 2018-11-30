@@ -18,40 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.8  2004/08/11 20:34:43  eggestad
- * large buffer alloc
- *
- * Revision 1.7  2003/06/12 07:31:31  eggestad
- * - added trigger_watchdog() after every server exit
- * - special handling of dying watchdog
- *
- * Revision 1.6  2003/06/05 21:56:04  eggestad
- * environment var fixes
- *
- * Revision 1.5  2003/04/25 13:03:10  eggestad
- * - fix for new task API
- * - new shutdown procedure, now using a task
- *
- * Revision 1.4  2002/09/05 23:21:08  eggestad
- * smgrTask() shall not try to start servers in unclean system state
- *
- * Revision 1.3  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.2  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.1  2002/02/17 13:40:26  eggestad
- * The server manager
- *
- *
- */
-
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -73,9 +39,6 @@
 #include "execvpe.h"
 #include "servermgr.h"
 #include "watchdog.h"
-
-
-static char * RCSId UNUSED = "$Id$";
 
 
 static int default_autoboot = TRUE;

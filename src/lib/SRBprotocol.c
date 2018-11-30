@@ -18,86 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-
-/*
- * $Log$
- * Revision 1.19  2005/12/07 11:44:16  eggestad
- * large data SRB patch
- *
- * Revision 1.18  2005/10/11 22:17:35  eggestad
- * fix for large data
- *
- * Revision 1.17  2005/06/25 12:08:24  eggestad
- * - added large data
- *
- * Revision 1.16  2004/11/17 20:47:57  eggestad
- * message map leak fix
- *
- * Revision 1.15  2004/11/08 10:51:48  eggestad
- * fix for possible recv buffer corruption when moving remains to beginning
- *
- * Revision 1.14  2004/04/08 10:34:06  eggestad
- * introduced a struct with pointers to the functions implementing the midway functions
- * for a given protocol.
- * This is in preparation for be able to do configure with/without spesific protocol.
- * This creates a new internal API each protocol must addhere to.
- *
- * Revision 1.13  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.12  2004/03/01 12:56:14  eggestad
- * added event API for SRB client
- *
- * Revision 1.11  2003/09/25 19:36:17  eggestad
- * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
- * - also improved logic in blocking/nonblocking of reading on Connection objects
- *
- * Revision 1.10  2003/08/06 23:16:18  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.9  2003/03/16 23:53:53  eggestad
- * bug fixes
- *
- * Revision 1.8  2003/01/07 08:26:48  eggestad
- * * major fixup of trace, added desc propper and fixup direction indicator.
- * * added newline before SRB message in DBEUG for readability on log.
- * * added timepegs
- *
- * Revision 1.7  2002/10/29 23:56:24  eggestad
- * added peer IP adress to srb trace
- *
- * Revision 1.6  2002/10/17 22:02:05  eggestad
- * - added _mw_srb_setfieldx()
- * - changed a debug() to Error() (if remote didn't want rejects we now log the reject as error locally)
- * - added a debug so that  reject is always logged
- *
- * Revision 1.5  2002/07/07 22:35:20  eggestad
- * added urlmapdup
- *
- * Revision 1.4  2001/10/03 22:43:59  eggestad
- * added api for manipulate SRBmessage's, before urlmap* had to be used directly
- *
- * Revision 1.3  2001/09/16 00:07:14  eggestad
- * * Licence header was missing
- * * trace api changes inorder to trace explicitly and to a separate file.
- * * the encodeing part of SRBsendmessage taken out since SRBsendmessage
- *   couldn't be used for UDP
- *
- * Revision 1.2  2000/09/21 18:24:25  eggestad
- * - added _mw_srb_checksrbcall()
- * - deadline now set correctly in srbsendcall()
- * - A few other minor bug fixed
- *
- * Revision 1.1  2000/08/31 19:37:30  eggestad
- * This file is used for implementing SRB client side
- *
- * Revision 1.1  2000/07/20 19:12:13  eggestad
- * The SRB protcol
- *
- */
-
 #include <sys/types.h>
 #include <errno.h>
 #include <ctype.h>
@@ -112,8 +32,6 @@
 #include <version.h>
 #include <urlencode.h>
 #include <mwclientapi.h>
-
-static char * RCSId UNUSED = "$Id$";
 
 static char * tracefilename = NULL;
 static FILE * tracefile  = NULL;

@@ -18,44 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.9  2003/06/12 07:29:19  eggestad
- * - sighandlers are now private
- * - added MWD_WATCHDOG_INTERVAL env
- * - added trigger_watchdog() func for srvmgr
- *
- * Revision 1.8  2003/04/25 13:03:12  eggestad
- * - fix for new task API
- * - new shutdown procedure, now using a task
- *
- * Revision 1.7  2002/11/19 12:43:55  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.6  2002/09/04 07:19:12  eggestad
- * mwd now sends an event on service (un)provide
- *
- * Revision 1.5  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.4  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.3  2002/02/17 18:02:14  eggestad
- * - added missing includes
- *
- * Revision 1.2  2000/07/20 19:54:52  eggestad
- * prototype fixup.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:30  eggestad
- * Initial Release
- *
- * 
- */
-
 #include <errno.h>
 #include <stdio.h>
 #include <sys/time.h>
@@ -69,9 +31,6 @@
 #include "tables.h"
 #include "watchdog.h"
 
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
-  
 /****************************************************************************************
  * Signal handling
  ****************************************************************************************/

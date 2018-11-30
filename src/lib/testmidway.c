@@ -18,35 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.4  2004/05/31 19:48:33  eggestad
- * main API changes
- *
- * Revision 1.3  2000/09/21 18:45:56  eggestad
- * bug fix: url for IPC no not contain //
- *
- * Revision 1.2  2000/07/20 19:37:10  eggestad
- * new test service test
- *
- * Revision 1.1  2000/03/21 21:29:01  eggestad
- * Still some MiddleWay references that I had not cleaned up.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:17  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
-
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
-
 #include <MidWay.h>
 #include <signal.h>
 #include <stdio.h>

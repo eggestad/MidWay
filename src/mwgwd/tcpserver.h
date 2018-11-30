@@ -18,27 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* $Id$ */
-
-/*
- * $Log$
- * Revision 1.5  2004/10/13 18:41:23  eggestad
- * task API updates
- *
- * Revision 1.4  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.3  2001/09/15 23:49:38  eggestad
- * Updates for the broker daemon
- * better modulatization of the code
- *
- * Revision 1.2  2000/08/31 22:19:31  eggestad
- * added prototype for tcpgetclientpeername()
- *
- * Revision 1.1  2000/07/20 18:49:59  eggestad
- * The SRB daemon
- *
- */
 #ifndef _TCPSERVER_H
 #define _TCPSERVER_H
 

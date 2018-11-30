@@ -18,45 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* $Id$ */
-
-/*
- * $Log$
- * Revision 1.10  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- * Revision 1.9  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.8  2003/03/16 23:50:24  eggestad
- * Major fixups
- *
- * Revision 1.7  2002/09/26 22:36:05  eggestad
- * added missing protptype
- *
- * Revision 1.6  2002/09/22 22:58:50  eggestad
- * prototype fixup
- *
- * Revision 1.5  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.4  2001/10/03 22:38:10  eggestad
- * pids now in globals struct
- *
- * Revision 1.3  2001/09/15 23:49:38  eggestad
- * Updates for the broker daemon
- * better modulatization of the code
- *
- * Revision 1.2  2000/08/31 22:08:31  eggestad
- * new global vars in gateway.c
- *
- * Revision 1.1  2000/07/20 18:49:59  eggestad
- * The SRB daemon
- *
- */
-
 #ifndef _GATEWAY_H
 #define _GATEWAY_H
 

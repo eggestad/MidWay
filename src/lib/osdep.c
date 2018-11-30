@@ -26,18 +26,6 @@
    if /proc is not mounted we return -ENODEV, 0 on no proc, 1 if proc exists.
 */
 
-/*
- * $Log$
- * Revision 1.4  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.3  2002/02/17 14:20:45  eggestad
- * added missing include
- *
- * Revision 1.2  2000/07/20 19:30:56  eggestad
- * CVS keywords missing
- *
- */
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -46,9 +34,6 @@
 #include <errno.h>
 
 #include <MidWay.h>
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 int _mw_procowner(pid_t pid, uid_t * uid) 
 { 

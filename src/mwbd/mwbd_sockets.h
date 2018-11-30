@@ -18,18 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-
-
-/* 
- * $Log$
- * Revision 1.2  2002/07/07 22:33:41  eggestad
- * We now operate on Connection structs not filedesc.
- *
- * Revision 1.1  2001/09/15 23:40:09  eggestad
- * added the broker daemon
- *
- */
-
 struct fd_info {
   int fd;
   time_t lastused;

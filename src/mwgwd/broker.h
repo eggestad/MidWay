@@ -19,17 +19,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* $Id$ */
-
-/* 
- * $Log$
- * Revision 1.2  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- * Revision 1.1  2001/09/15 23:40:09  eggestad
- * added the broker daemon
- *
- */
 
 #ifndef _BROKER_H
 #define _BROKER_H

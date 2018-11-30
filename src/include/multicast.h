@@ -19,22 +19,6 @@
 */
 
 
-/* 
- * $Log$
- * Revision 1.4  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.3  2002/02/17 13:50:25  eggestad
- * Added prototype for _mw_sendmcastquery
- *
- * Revision 1.2  2001/10/03 22:57:00  eggestad
- * added missing prototype
- *
- * Revision 1.1  2001/09/15 23:40:09  eggestad
- * added the broker daemon
- *
- */
-
 
 #ifndef _MULTICAST_H
 

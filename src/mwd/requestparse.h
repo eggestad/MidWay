@@ -18,18 +18,4 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.2  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.1  2002/02/17 13:38:26  eggestad
- * missing includes/prototypes
- *
- *
- */
-
 int parse_request(int nonblocking);

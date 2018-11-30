@@ -18,18 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.1  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- *
- *
- */
-
 #include <libxml/tree.h>
 #include <libxml/parser.h>
 #include <libxml/debugXML.h>

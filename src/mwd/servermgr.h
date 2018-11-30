@@ -18,24 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.3  2003/04/25 13:03:11  eggestad
- * - fix for new task API
- * - new shutdown procedure, now using a task
- *
- * Revision 1.2  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.1  2002/02/17 13:40:26  eggestad
- * The server manager
- *
- *
- */
-
 
 /* the name in Group may be NULL, we've this macro for the places a
    string may not be NULL */

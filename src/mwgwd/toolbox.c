@@ -18,33 +18,12 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Log$
- * Revision 1.5  2002/12/11 17:03:46  eggestad
- * *** empty log message ***
- *
- * Revision 1.4  2002/11/19 12:43:55  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.3  2002/11/18 00:24:26  eggestad
- * - charlistadd() just didnæt work, major corruption if realloc returned
- *   buffer at another address.
- *
- * Revision 1.2  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.1  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- */
 
 #include <string.h>
 #include <ctype.h>
 
 #include <MidWay.h>
 #include "toolbox.h"
-
-static char * RCSId UNUSED = "$Id$";
 
 
 #ifdef DEBUGGING

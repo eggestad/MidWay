@@ -18,17 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.1  2002/02/17 13:38:26  eggestad
- * missing includes/prototypes
- *
- *
- */
-
 #ifndef _SHMALLOCFMT_H
 
 int shmb_format(int mode, long chunksize, long chunkspersize);

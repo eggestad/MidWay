@@ -19,98 +19,6 @@
 */
 
 
-/*
- * $Log$
- * Revision 1.24  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- * Revision 1.23  2004/12/29 20:00:59  eggestad
- * Large data  protocol fix up
- * handle datatype fixup
- *
- * Revision 1.22  2004/11/17 20:54:11  eggestad
- * added a IPC fifo queue incase dest IPC message queues are full
- *
- * Revision 1.21  2004/04/12 23:05:24  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.20  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.19  2003/08/06 23:16:19  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.18  2003/06/12 07:45:01  eggestad
- * - added MWIPCONLY flag to _mwipcacall, to force local service
- * - added check for error in message decode
- * + bug fixes
- *
- * Revision 1.17  2003/03/16 23:50:23  eggestad
- * Major fixups
- *
- * Revision 1.16  2003/01/07 08:27:40  eggestad
- * * Major fixes to get three mwgwd working correctly with one service
- * * and other general fixed for suff found on the way
- *
- * Revision 1.15  2002/11/19 12:43:55  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.14  2002/11/18 00:14:59  eggestad
- * - when a connection is established not not UP in SRB context, we need
- *   to handle SRB INIT special, and reject everything else
- *
- * Revision 1.13  2002/10/22 21:58:20  eggestad
- * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which des a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
- *
- * Revision 1.12  2002/10/20 18:15:42  eggestad
- * major rework for sending calls. srbcall now split into srbcall_req, and srbcall_rpl
- *
- * Revision 1.11  2002/10/17 22:10:43  eggestad
- * - iGetOptBinField renamed vGetOptBinField
- * - added xGetOptField for hex encoded field
- * - changed to handle gateways as well as clients (not complete)
- *
- * Revision 1.10  2002/09/29 17:41:06  eggestad
- * added srbunprovide() handler
- *
- * Revision 1.9  2002/09/22 22:51:50  eggestad
- * added srbsendunprovide()
- *
- * Revision 1.8  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.7  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.6  2001/10/03 22:34:18  eggestad
- * - plugged mem leaks, no detected mem leak in mwgwd now
- * - switched to using _mw_srb_*field() instead of direct use of urlmap*()
- *
- * Revision 1.5  2001/09/15 23:49:38  eggestad
- * Updates for the broker daemon
- * better modulatization of the code
- *
- * Revision 1.4  2001/08/29 17:55:15  eggestad
- * fix for changed behavior of urlmapnset
- *
- * Revision 1.3  2000/09/24 14:10:42  eggestad
- * Changed a few mwlog()  messages to be DEBUG
- *
- * Revision 1.2  2000/09/21 18:57:55  eggestad
- * - Bug fix: had a lot of \n in the end of mwlog()
- * - Bug fix: srbmsg.map was not inited to NULL many placed, cased core dumps.
- *
- * Revision 1.1  2000/08/31 19:40:36  eggestad
- * We have quite som changes to mwgwd with the implementation of the SRB client
- * only API in the lib.
- * This is now the addition to the lib for the server side API.
- *
- * Revision 1.1  2000/07/20 18:49:59  eggestad
- * The SRB daemon
- *
- */
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -142,8 +50,6 @@
 #include "ipcserver.h"
 
 extern globaldata globals;
-
-static char * RCSId UNUSED = "$Id$";
 
 static void srbhello(Connection *, SRBmessage * );
 static void srbterm(Connection *, SRBmessage * );

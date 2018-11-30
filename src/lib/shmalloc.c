@@ -18,95 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.23  2005/12/07 11:44:16  eggestad
- * large data SRB patch
- *
- * Revision 1.22  2005/10/11 21:33:26  eggestad
- * updated functions for getting and putting call buffers
- * fixes to data versification and error detection
- * general fixup
- *
- * Revision 1.21  2005/06/13 23:21:29  eggestad
- * Added doxygen comments
- *
- * Revision 1.20  2004/12/14 19:06:48  eggestad
- * mwalloc() returned wrong size buffer in some cases
- *
- * Revision 1.19  2004/11/17 20:58:08  eggestad
- * Large data buffers for IPC
- *
- * Revision 1.18  2004/08/11 19:01:36  eggestad
- * - shm heap is now 32/64 bit interoperable
- * - added large buffer alloc
- *
- * Revision 1.17  2004/04/12 22:56:50  eggestad
- * *** empty log message ***
- *
- * Revision 1.16  2004/04/12 12:53:41  eggestad
- * _mw_putbuffer_to_call() failed if data is "", caused mwalloc(0), which returned -ENOMEM
- *
- * Revision 1.15  2004/02/19 23:42:11  eggestad
- * setting of correct owner id in _mwalloc()
- *
- * Revision 1.14  2003/07/20 23:16:19  eggestad
- * - major corruption fix:
- *  * added bounds check functions
- *  * push got into wrong bin, probably double to int conv problem (weird)
- *  * imporved perf of pushchunk
- *  * made debugging a little more intelligent
- *
- * Revision 1.13  2003/07/06 22:06:14  eggestad
- * -debugging now in debug3
- * - added funcs for seting and geting ownerid
- *
- * Revision 1.12  2003/06/12 07:22:19  eggestad
- * fix for negative size
- *
- * Revision 1.11  2002/11/19 12:43:54  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.10  2002/10/20 18:13:52  eggestad
- * added sanity check
- *
- * Revision 1.9  2002/10/06 23:51:10  eggestad
- * bug in getchunksize, rather large, so a fixup in handling of size and verification
- *
- * Revision 1.8  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.7  2002/07/07 22:35:20  eggestad
- * *** empty log message ***
- *
- * Revision 1.6  2002/02/17 14:23:31  eggestad
- * - added missing includes
- * - added _mw_getbuffer_from_call() and _mw_putbuffer_to_call()
- * 	These now hide fastpath. If fast path pointers point to shm buffers.
- *
- * Revision 1.5  2001/10/16 16:18:09  eggestad
- * Fixed for ia64, and 64 bit in general
- *
- * Revision 1.4  2000/09/21 18:45:10  eggestad
- * bug fix: core dump if SRB since _mwHeap was not tested for NULL
- *
- * Revision 1.3  2000/08/31 21:56:00  eggestad
- * DEBUG level set propper. moved out test for malloc()
- *
- * Revision 1.2  2000/07/20 19:36:21  eggestad
- * core dump on mwfree() on malloc()'d buffer fix.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:16  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
-
 
 #include <sys/sem.h>
 #include <sys/shm.h>
@@ -124,9 +35,6 @@
 #include <shmalloc.h>
 #include <ipctables.h>
 #include <ipcmessages.h>
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /**
    @file

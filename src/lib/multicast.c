@@ -18,47 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-
-/* 
- * $Log$
- * Revision 1.12  2005/12/07 11:44:16  eggestad
- * large data SRB patch
- *
- * Revision 1.11  2004/11/17 20:49:13  eggestad
- * fix for null term of message buffer
- *
- * Revision 1.10  2004/04/12 23:05:24  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.9  2004/02/21 15:15:35  eggestad
- * multicast flag
- *
- * Revision 1.8  2004/02/20 15:07:18  eggestad
- * added use of broadcast in addition to multicast
- *
- * Revision 1.7  2003/08/06 23:16:19  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.6  2003/06/12 07:26:15  eggestad
- * standalone fix, added unicast to loopback, if multicast fails
- *
- * Revision 1.5  2003/01/07 08:26:53  eggestad
- * C99 struct init format and setfd correctly on multicast send trace
- *
- * Revision 1.4  2002/07/07 22:35:20  eggestad
- * added urlmapdup
- *
- * Revision 1.3  2001/10/09 11:05:47  eggestad
- * Multicast was sendt only on loopbackdevice during attach
- *
- * Revision 1.2  2001/10/05 14:34:19  eggestad
- * fixes or RH6.2
- *
- * Revision 1.1  2001/09/15 23:40:09  eggestad
- * added the broker daemon
- *
- */
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -78,9 +37,6 @@
 #include <SRBprotocol.h>
 #include <multicast.h>
 #include <connection.h>
-
-static char * RCSId UNUSED = "$Id$";
-
 
 /* some funcs that operation on a Connection * are used with teh UDP
    socket.  we need this peudo var for these calls. */

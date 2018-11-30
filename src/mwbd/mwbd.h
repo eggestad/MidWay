@@ -20,19 +20,6 @@
 
 
 
-/* 
- * $Log$
- * Revision 1.3  2003/03/16 23:53:53  eggestad
- * bug fixes
- *
- * Revision 1.2  2002/10/17 22:08:10  eggestad
- * - we're now using the mwlog() API
- *
- * Revision 1.1  2001/09/15 23:40:09  eggestad
- * added the broker daemon
- *
- */
-
 #ifndef _MWBD_C
 extern int debugging; 
 #endif 

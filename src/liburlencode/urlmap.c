@@ -18,52 +18,12 @@
   Boston, MA 02111-1307, USA. 
 */
 
-
-/* 
- * $Log$
- * Revision 1.12  2003/08/06 23:16:19  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.11  2003/07/13 22:41:47  eggestad
- * - added timepegs
- * - removed some trailing newline in debug messages
- *
- * Revision 1.10  2003/06/12 07:20:28  eggestad
- * - urlmapdecode now return NULL if decode of a value field is wrong
- * - replaced all old printf with debug1
- *
- * Revision 1.9  2002/10/22 21:46:55  eggestad
- * debuging was not #ifdef encapsulated
- *
- * Revision 1.8  2002/10/17 22:20:19  eggestad
- * - bug in handling an empty field
- *
- * Revision 1.7  2002/07/07 22:34:46  eggestad
- * added urlmapdup
- *
- * Revision 1.6  2001/10/03 22:49:31  eggestad
- * added urlmapseti()mem corruption fixes
- *
- * Revision 1.5  2001/09/15 23:55:34  eggestad
- * Fixes for parameter sanity checking
- *
- * Revision 1.4  2001/08/29 17:53:31  eggestad
- * - added missing licence header
- * - added  urlmapgetvalue()
- * - urlmapnset is now an implied urlmapadd() if no key exists
- * - various NULL pointer checks added.
- *
- */
-
 #include <errno.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
 
 #include "urlencode.h"
-
-static char * RCSId UNUSED = "$Id$";
-
 
 urlmap * urlmapdecode(const char * list)
 {

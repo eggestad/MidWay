@@ -18,76 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.19  2005/10/13 22:26:40  eggestad
- * fix for propper attach/detach with boot/shutdown
- *
- * Revision 1.18  2004/11/17 20:51:59  eggestad
- * expanded the buffers command in mwadm to show buffers in use,and optionally the data in the buffer
- *
- * Revision 1.17  2004/08/11 20:41:21  eggestad
- * large buffer alloc
- *
- * Revision 1.16  2003/07/06 18:59:56  eggestad
- * introduced a table api for commands.c to return data in
- *
- * Revision 1.15  2002/11/19 12:43:54  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.14  2002/11/08 00:14:32  eggestad
- * was missing home dir in ipcmain command
- *
- * Revision 1.13  2002/10/22 21:47:59  eggestad
- * addresses in ipctables are now string not struct sockaddr_*
- *
- * Revision 1.12  2002/10/03 21:12:31  eggestad
- * - clean up of output info, getting closer to a tabular output
- * - services output better
- * - gateways output had wrong header
- *
- * Revision 1.11  2002/09/29 17:45:33  eggestad
- * ifdef'ed ut conv stuff
- *
- * Revision 1.10  2002/09/22 22:51:04  eggestad
- * query now return replies immediately, not after the timeout
- *
- * Revision 1.9  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.8  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.7  2001/10/03 22:56:12  eggestad
- * added multicast query
- * added view of gateway table
- *
- * Revision 1.6  2001/09/15 23:42:56  eggestad
- * fix for changing ipcmain systemname to instance name
- *
- * Revision 1.5  2001/08/29 17:57:59  eggestad
- * had declared a shutdown() function that collided with the syscall, renamed to cmd_shutdown
- *
- * Revision 1.4  2001/05/12 17:57:08  eggestad
- * call didn't print return buffer on failed service
- *
- * Revision 1.3  2000/11/29 23:19:54  eggestad
- * No data to service in call was illegal, now legal
- *
- * Revision 1.2  2000/07/20 19:42:34  eggestad
- * Listing of SRB clients fix.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:20  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
-
 
 #include <stdio.h>
 #include <string.h>
@@ -116,9 +46,6 @@
 #include "mwadm.h"
 #include "dtbl.h"
 #include "commands.h"
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /* globals from mwadm.c */
 extern struct ipcmaininfo * ipcmain;

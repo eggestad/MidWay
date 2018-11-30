@@ -18,22 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.3  2003/04/25 13:03:07  eggestad
- * - fix for new task API
- * - new shutdown procedure, now using a task
- *
- * Revision 1.2  2002/09/04 07:13:31  eggestad
- * mwd now sends an event on service (un)provide
- *
- * Revision 1.1  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- */
 
 #ifndef _EVENTS_C
 #define _EVENTS_C

@@ -18,84 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Log$
- * Revision 1.23  2004/11/26 16:38:00  eggestad
- * added mutexes to Connection
- *
- * Revision 1.22  2004/04/12 23:05:25  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.21  2003/09/25 19:36:17  eggestad
- * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
- * - also improved logic in blocking/nonblocking of reading on Connection objects
- *
- * Revision 1.20  2003/08/06 23:16:19  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.19  2003/07/13 22:42:04  eggestad
- * added timepegs
- *
- * Revision 1.18  2003/07/06 22:07:56  eggestad
- * took out reverse ip lookups, it caused timeout on mwgwd start if no dns server is available
- *
- * Revision 1.17  2003/03/16 23:50:24  eggestad
- * Major fixups
- *
- * Revision 1.16  2003/01/07 08:27:48  eggestad
- * * Major fixes to get three mwgwd working correctly with one service
- * * and other general fixed for suff found on the way
- *
- * Revision 1.15  2002/11/19 12:43:55  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.14  2002/11/18 00:19:36  eggestad
- * - added setting of address string for Multicast pseudo connect
- * - peeraddress fix
- *
- * Revision 1.13  2002/10/22 21:58:20  eggestad
- * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
- *
- * Revision 1.12  2002/10/20 18:17:44  eggestad
- * fixup of debug messages
- *
- * Revision 1.11  2002/10/17 22:16:54  eggestad
- * - fix for gateways
- * - downgraded some debug to debug2
- *
- * Revision 1.10  2002/10/09 12:30:30  eggestad
- * Replaced all unions for sockaddr_* with a new type SockAddress
- *
- * Revision 1.9  2002/10/03 21:15:34  eggestad
- * - conn_select now return -errno on error, not -1 with errno set.
- *
- * Revision 1.8  2002/09/26 22:38:19  eggestad
- * we no longer listen on the standalone  port (11000) for clients as default. Default is now teh broker.
- *
- * Revision 1.7  2002/09/22 23:01:16  eggestad
- * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
- *
- * Revision 1.6  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.5  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.4  2001/10/05 14:34:19  eggestad
- * fixes or RH6.2
- *
- * Revision 1.3  2001/10/03 22:36:31  eggestad
- * bugfixes
- *
- * Revision 1.2  2001/09/15 23:49:38  eggestad
- * Updates for the broker daemon
- * better modulatization of the code
- *
- * Revision 1.1  2000/07/20 18:49:59  eggestad
- * The SRB daemon
- *
- */
-
 #include <sys/time.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -123,8 +45,6 @@
 # endif
 #endif
 */
-
-static char * RCSId UNUSED = "$Id$";
 
 
 /* hmm I'm almost puzzeled that this all works withouit a mutex on the

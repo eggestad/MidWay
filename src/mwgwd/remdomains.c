@@ -18,19 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Log$
- * Revision 1.3  2002/11/18 00:25:21  eggestad
- * - CVS Name removed.
- *
- * Revision 1.2  2002/09/26 22:36:19  eggestad
- * added missing include
- *
- * Revision 1.1  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- *
- */
 
 #include <pthread.h>
 #include <errno.h>
@@ -45,8 +32,6 @@
 #include "connections.h"
 #include "gateway.h"
 
-
-static char * RCSId UNUSED = "$Id$";
 
 struct Imports {
   char * localname;

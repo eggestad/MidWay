@@ -20,14 +20,6 @@
 
 #pragma GCC diagnostic ignored "-Wpointer-sign"
 
-/*
- * $Log$
- * Revision 1.1  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * 
- */
-
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
@@ -43,8 +35,6 @@
 #include "pattern.h"
 #include "acl.h"
 #include "xmlconfig.h"
-
-static char * RCSId UNUSED = "$Id$";
 
 static xmlDocPtr  configdoc = NULL;
 static xmlNsPtr configns = NULL;

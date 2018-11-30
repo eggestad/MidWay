@@ -18,24 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.3  2004/05/31 19:48:33  eggestad
- * main API changes
- *
- * Revision 1.2  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.1  2004/03/12 13:15:44  eggestad
- * added mwevent client
- *
- *
- */
 
 #include <stdio.h>
 #include <string.h>
@@ -50,9 +32,6 @@
 #include <errno.h>
 
 #include <MidWay.h>
-
-static char * RCSId UNUSED = "$Id";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 char * inputfile = NULL;
 char * outputfile = NULL;

@@ -18,13 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Log$
- * Revision 1.1  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- *
- */
 
 #include <errno.h>
 #include <unistd.h>
@@ -53,9 +46,6 @@
 #include "callstore.h"
 #include "store.h"
 #include "tcpserver.h"
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$";
 
 /**
    @file

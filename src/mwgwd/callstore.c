@@ -18,16 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* $Id$ */
-
-/*
- * $Log$
- * Revision 1.1  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- *
- */
-
 /** @file
  The purpose of this module is to make an "Object" that stores call
  state. 
@@ -77,9 +67,6 @@
 #include <SRBprotocol.h>
 #include <shmalloc.h>
 #include "ipcserver.h"
-
-static char * RCSId UNUSED = "$Id$";
-
 
 
 /*

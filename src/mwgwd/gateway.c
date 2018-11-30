@@ -18,108 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Log$
- * Revision 1.27  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- * Revision 1.26  2004/11/17 20:58:08  eggestad
- * Large data buffers for IPC
- *
- * Revision 1.25  2004/06/06 16:09:42  eggestad
- * fix for segfault when domain are is empty
- *
- * Revision 1.24  2004/04/12 23:05:25  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.23  2004/04/08 10:34:06  eggestad
- * introduced a struct with pointers to the functions implementing the midway functions
- * for a given protocol.
- * This is in preparation for be able to do configure with/without spesific protocol.
- * This creates a new internal API each protocol must addhere to.
- *
- * Revision 1.22  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.21  2003/06/12 07:35:50  eggestad
- * fix for NULL data when forward to peer
- *
- * Revision 1.20  2003/06/05 21:59:21  eggestad
- * sigsegv bug fix
- *
- * Revision 1.19  2003/06/05 21:52:56  eggestad
- * commonized handling of -l option
- *
- * Revision 1.18  2003/03/16 23:50:24  eggestad
- * Major fixups
- *
- * Revision 1.17  2003/01/07 08:27:56  eggestad
- * * Major fixes to get three mwgwd working correctly with one service
- * * and other general fixed for suff found on the way
- *
- * Revision 1.16  2002/11/19 12:43:55  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.15  2002/11/18 00:21:21  eggestad
- * - gw_provideservices_to_peer() called once to many
- * - added clean up of all imp/exp on peer disconnect
- * - remove some junk since mwlog() now handle default log file name correctly
- *
- * Revision 1.14  2002/10/22 21:58:21  eggestad
- * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
- *
- * Revision 1.13  2002/10/20 18:21:53  eggestad
- * - added handling of outbound srvcall, and tok out outbound replies in a separate function (where it belongs)
- * - Fatal handling fixup
- * - added good logging markers on beginning and end of processiong an ipcmessage
- *
- * Revision 1.12  2002/10/06 23:58:35  eggestad
- * _mw_get_services_byname() has a new prototype
- *
- * Revision 1.11  2002/10/03 21:19:35  eggestad
- * - fix to prevent export of imported services (we still need to handle foreign domains later)
- * - impsetsvcid() needed GWID.
- * - get cost of service fixup
- * - segfault in a DEBUG fixed.
- * - improved handling of logfile prefix, added -L to give it spesifically (still not complete, see mwlog.c)
- *
- * Revision 1.10  2002/09/29 17:44:01  eggestad
- * added unproviding over srb
- *
- * Revision 1.9  2002/09/26 22:38:21  eggestad
- * we no longer listen on the standalone  port (11000) for clients as default. Default is now teh broker.
- *
- * Revision 1.8  2002/09/22 22:53:30  eggestad
- * - added IPC event message handler
- * - fix of mutex locking error
- *
- * Revision 1.7  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.6  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.5  2001/10/04 19:18:10  eggestad
- * CVS tags fixes
- *
- * Revision 1.4  2001/10/03 22:37:38  eggestad
- * many bugfixes: memleak, gwid, propper shutdown
- *
- * Revision 1.3  2001/09/15 23:49:38  eggestad
- * Updates for the broker daemon
- * better modulatization of the code
- *
- * Revision 1.2  2000/08/31 22:06:54  eggestad
- * - srbsend*() funcs now has a _mw_ prefix
- * - all direct use of urlmap, and sprintf() in making messages, we now use SRBmsg structs
- *
- * Revision 1.1  2000/07/20 18:49:59  eggestad
- * The SRB daemon
- *
- */
-
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -164,8 +62,6 @@
 #include "srbevents.h"
 #include "ipcserver.h"
 
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$";
 
 /***********************************************************************
  This  modules  differs  a  bit   from  every  one  else  in  that  is

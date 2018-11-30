@@ -18,47 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Log$
- * Revision 1.12  2005/10/11 22:26:36  eggestad
- * additional debugging in _mw_setrealtimer
- *
- * Revision 1.11  2005/06/19 13:36:01  eggestad
- * Added doxygen comments
- *
- * Revision 1.10  2004/11/26 16:38:34  eggestad
- * added a utility function _mw_irand() as a wrapper to random functions
- *
- * Revision 1.9  2004/10/13 18:41:10  eggestad
- * task API updates
- *
- * Revision 1.8  2004/10/07 22:01:23  eggestad
- * task API updates
- *
- * Revision 1.7  2004/04/12 23:05:24  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.6  2003/07/13 20:38:03  eggestad
- * robustness fixes.
- *
- * Revision 1.5  2003/01/07 08:27:03  eggestad
- * added sum of timepegs
- *
- * Revision 1.4  2002/12/12 16:08:07  eggestad
- * inline asm in rt_sample was not hammer compat. Now it's both ia32 and hammer OK
- *
- * Revision 1.3  2002/10/29 23:54:50  eggestad
- * attempted to subtract debugging from timepegs
- *
- * Revision 1.2  2002/10/22 21:45:49  eggestad
- * added timepegs for measuring timeing in code, based on x86 instr rdtsc
- *
- * Revision 1.1  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- *
- */
-
 /** @file
    This is a collection of utility function to be use through out MidWay. 
 */
@@ -84,9 +43,6 @@
 
 
 #include <MidWay.h>
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 /**
    The gettiimeofday in microsecs. We use microsecs and not mlillisecs

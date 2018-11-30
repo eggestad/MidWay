@@ -18,46 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.9  2004/11/18 21:19:55  eggestad
- * - fixed shm buffer leak if no subscription
- *
- * Revision 1.8  2004/11/17 20:58:08  eggestad
- * Large data buffers for IPC
- *
- * Revision 1.7  2004/08/11 20:34:43  eggestad
- * large buffer alloc
- *
- * Revision 1.6  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.5  2004/02/19 23:46:34  eggestad
- * - added handling for full msg queues for recipients for events. This
- * means that events are queued up in yet another queue until the
- * client/server has free space on it's msgqueue. This solves a mwd being
- * blocked problem. (ipc msg send was blocking when delivering the event)
- *
- * Revision 1.4  2003/04/25 13:03:05  eggestad
- * - fix for new task API
- * - new shutdown procedure, now using a task
- *
- * Revision 1.3  2002/09/22 23:01:16  eggestad
- * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
- *
- * Revision 1.2  2002/09/04 07:13:31  eggestad
- * mwd now sends an event on service (un)provide
- *
- * Revision 1.1  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- */
-
 
 #include <errno.h>
 #include <string.h>
@@ -71,11 +31,6 @@
 #include <ipctables.h>
 #include <shmalloc.h>
 #include "events.h"
-
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
-
 
 /* Keep in mind that all event messages are posted on mwd mail IPC msg queue. 
 

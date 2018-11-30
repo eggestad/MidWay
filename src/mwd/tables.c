@@ -18,83 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.20  2004/11/17 20:35:23  eggestad
- * Fix for a segfault due to an illegal cid in delclient().
- * The fix is to prevent lookup if the cid if invalid.
- *
- * Revision 1.19  2004/04/12 23:02:29  eggestad
- * - added missing server name to server table
- *
- * Revision 1.18  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.17  2004/02/19 23:44:09  eggestad
- * adding debug messages for msgctl(RM)
- *
- * Revision 1.16  2003/06/12 07:33:15  eggestad
- *  numerous fixes to check_tables()
- *
- * Revision 1.15  2003/04/25 13:03:11  eggestad
- * - fix for new task API
- * - new shutdown procedure, now using a task
- *
- * Revision 1.14  2003/03/16 23:53:53  eggestad
- * bug fixes
- *
- * Revision 1.13  2002/10/22 21:50:50  eggestad
- * addresses in ipctables are now strings and not struct sockaddr_*
- *
- * Revision 1.12  2002/10/03 21:14:04  eggestad
- * - cost field in provide was ignored, now correctly done
- *
- * Revision 1.11  2002/09/29 17:39:50  eggestad
- * improved the _mw_get[client|server|service|gateway]entry functions and removed duplicates in mwd.c
- *
- * Revision 1.10  2002/09/22 23:01:16  eggestad
- * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
- *
- * Revision 1.9  2002/09/05 23:19:45  eggestad
- * smgrTask() shall not try to start servers in unclean system state
- *
- * Revision 1.8  2002/09/04 07:13:31  eggestad
- * mwd now sends an event on service (un)provide
- *
- * Revision 1.7  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.6  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.5  2002/02/17 17:56:20  eggestad
- * *** empty log message ***
- *
- * Revision 1.4  2001/10/03 22:41:05  eggestad
- * added a TODO marker
- *
- * Revision 1.3  2001/09/15 23:59:05  eggestad
- * Proper includes and other clean compile fixes
- *
- * Revision 1.2  2000/07/20 19:53:32  eggestad
- * - ID numbers are no longer assigned the first from 0 but in rotation,
- *   like Unix pid.
- * - Major changes to client table to accommodate SRB clients.
- * - prototype fixup.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:29  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
-
 #include <errno.h>
 #include <signal.h>
 #include <sys/shm.h>
@@ -116,8 +39,6 @@ serverentry  * srvtbl  = NULL;
 serviceentry * svctbl  = NULL;
 gatewayentry * gwtbl   = NULL;
 conv_entry   * convtbl = NULL;
-
-static char * RCSId UNUSED = "$Id$";
 
 /* we fill up the necessary fileds in the tables with
  * UNASSIGNED to "empty" them

@@ -57,9 +57,6 @@
 
 #include "utils.h"
 
-static char * RCSId UNUSED = "$Id$";
-
-
 /* undocumented func in lib/mwlog.c */
 void _mw_copy_on_stdout(int flag);
 

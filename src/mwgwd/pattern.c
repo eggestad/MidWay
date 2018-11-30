@@ -19,20 +19,10 @@
 */
 
 
-/*
- * $Log$
- * Revision 1.1  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * 
- */
-
 #include <string.h>
 
 #include <MidWay.h>
 #include "pattern.h"
-
-static char * RCSId UNUSED = "$Id$";
 
 
 int getPatternType(char * patterntype)

@@ -18,30 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* 
- * $Log$
- * Revision 1.7  2005/12/07 11:44:16  eggestad
- * large data SRB patch
- *
- * Revision 1.6  2003/08/06 23:16:19  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.5  2003/03/16 23:50:24  eggestad
- * Major fixups
- *
- * Revision 1.4  2002/11/18 00:16:19  eggestad
- * - needed to set the peeraddress string for the broker connection
- *
- * Revision 1.3  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.2  2001/10/03 22:35:46  eggestad
- * bugfixes
- *
- * Revision 1.1  2001/09/15 23:40:09  eggestad
- * added the broker daemon
- *
- */
 
 #include <stdio.h>
 #include <errno.h>
@@ -56,8 +32,6 @@
 
 #include "../mwbd/mwbd.h"
 #include "connections.h"
-
-static char * RCSId UNUSED = "$Id$";
 
 int connectbroker(char * domain, char * instance)
 {

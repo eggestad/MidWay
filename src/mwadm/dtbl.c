@@ -18,22 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.3  2005/10/11 22:29:07  eggestad
- * moved call trace to MidWay.h
- *
- * Revision 1.2  2003/07/09 11:52:10  eggestad
- * *** empty log message ***
- *
- * Revision 1.1  2003/07/06 18:59:56  eggestad
- * introduced a table api for commands.c to return data in
- *
- */
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -46,10 +30,6 @@
 #endif
 
 #include "dtbl.h"
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
-
 
 #ifdef MWLOG_DEBUG3
 

@@ -19,25 +19,6 @@
 */
 
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.4  2004/07/13 12:25:06  eggestad
- * *** empty log message ***
- *
- * Revision 1.3  2004/07/08 11:26:16  eggestad
- * apache 2.0 conversion (incomplete)
- *
- * Revision 1.2  2000/09/24 14:02:53  eggestad
- * Default URL fix
- *
- * Revision 1.1.1.1  2000/03/21 21:04:34  eggestad
- * Initial Release
- *
- *
- */
 #include <string.h>
 
 #include "httpd.h"

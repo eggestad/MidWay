@@ -18,24 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* $Id$ */
-
-/*
- * $Log$
- * Revision 1.4  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- * Revision 1.3  2002/10/17 22:18:27  eggestad
- * fix to handle calls from a gateway, not just clients
- *
- * Revision 1.2  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.1  2000/07/20 18:49:59  eggestad
- * The SRB daemon
- *
- */
-
 #define CALLFLAG 1
 #define REPLYFLAG 0
 #define CALLREPLYSTR(f) (f==CALLFLAG?"call":"reply")

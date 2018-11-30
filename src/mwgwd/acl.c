@@ -19,13 +19,6 @@
 */
 
 
-/*
- * $Log$
- * Revision 1.1  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * 
- */
 
 #define _GNU_SOURCE  
 
@@ -40,8 +33,6 @@
 #include "gateway.h"
 #include "acl.h"
 #include "pattern.h"
-
-static char * RCSId UNUSED = "$Id$";
 
 /* the client Access Control List. 
 

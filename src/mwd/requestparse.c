@@ -18,76 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.19  2005/12/07 11:44:16  eggestad
- * large data SRB patch
- *
- * Revision 1.18  2005/10/11 22:30:39  eggestad
- * change in API for putting buffer to svcinfo
- *
- * Revision 1.17  2004/10/13 18:41:23  eggestad
- * task API updates
- *
- * Revision 1.16  2004/08/11 19:02:40  eggestad
- * added large buffer alloc
- *
- * Revision 1.15  2004/04/12 22:59:06  eggestad
- * - unprovide was brken now fixed
- * - also fiex missing servername in servertable
- *
- * Revision 1.14  2003/04/25 13:03:09  eggestad
- * - fix for new task API
- * - new shutdown procedure, now using a task
- *
- * Revision 1.13  2003/03/16 23:53:53  eggestad
- * bug fixes
- *
- * Revision 1.12  2002/11/19 12:43:55  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.11  2002/10/03 21:13:25  eggestad
- * - cost field in provide was ignored, now correctly done
- *
- * Revision 1.10  2002/09/29 17:39:50  eggestad
- * improved the _mw_get[client|server|service|gateway]entry functions and removed duplicates in mwd.c
- *
- * Revision 1.9  2002/09/22 23:01:16  eggestad
- * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
- *
- * Revision 1.8  2002/09/04 07:13:31  eggestad
- * mwd now sends an event on service (un)provide
- *
- * Revision 1.7  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.6  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.5  2002/02/17 14:52:32  eggestad
- * - added missing includes
- * - added do_call() that handle all SVCCALL/FORWARD, we can't use the normal _mwGetServiceRequest
- *
- * Revision 1.4  2001/09/15 23:59:05  eggestad
- * Proper includes and other clean compile fixes
- *
- * Revision 1.3  2000/09/24 14:09:16  eggestad
- * Fix of format of clientid i two messages
- *
- * Revision 1.2  2000/07/20 19:49:01  eggestad
- * Changes to handling of attachrequest to handle SRB clients
- *
- * Revision 1.1.1.1  2000/03/21 21:04:26  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
-
 #include <errno.h>
 #include <sys/msg.h>
 #include <signal.h>
@@ -115,9 +45,6 @@
  * it waits infinitly (until interrupted) on the mwd message queue
  * for administrative requests.
  **********************************************************************/
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 static char mesgbuffer[MWMSGMAX+1];
 

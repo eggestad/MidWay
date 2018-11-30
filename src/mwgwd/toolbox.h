@@ -18,17 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.1  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- *
- */
-
 #define UNIQUE 0x10
 
 #define charlistadd(list, add) _charlistadd(list, add, 0)

@@ -18,20 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- *  $Log$
- *  Revision 1.4  2004/04/08 10:34:05  eggestad
- *  introduced a struct with pointers to the functions implementing the midway functions
- *  for a given protocol.
- *  This is in preparation for be able to do configure with/without spesific protocol.
- *  This creates a new internal API each protocol must addhere to.
- *
- *
- */
-
 #ifndef _MWCLIENTAPI_H
 #define _MWCLIENTAPI_H
 

@@ -19,56 +19,6 @@
 */
 
 
-/*
- * $Log$
- * Revision 1.18  2005/06/25 15:36:22  eggestad
- * missed a doxygen tag ob event->returncode
- *
- * Revision 1.17  2005/06/25 12:05:32  eggestad
- * - added doxygen doc
- * - prototype for _mw_get_caller_mwid()
- *
- * Revision 1.16  2004/12/29 19:59:01  eggestad
- * handle datatype fixup
- *
- * Revision 1.15  2004/11/17 20:47:15  eggestad
- * updated struct for IPC coexist for 32 and 64 bit apps
- *
- * Revision 1.14  2004/08/10 19:38:10  eggestad
- * - ipcmessages is now 32/64 bit interchangeable
- * - added messages for large buffer alloc
- *
- * Revision 1.13  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.12  2004/03/01 12:56:35  eggestad
- * change in mwfetch() params\
- *
- * Revision 1.11  2002/10/20 18:09:39  eggestad
- * added instance to the Call struct. Needed later for gateway to gateway calls
- *
- * Revision 1.10  2002/10/17 22:04:24  eggestad
- * - added more field to _mwacallipc() needed for gateway to gateway calls
- * - Call struct now also has callerid and hops fields
- *
- * Revision 1.9  2002/10/03 21:01:38  eggestad
- * - new prototypes for (un)provide_for_id()
- *
- * Revision 1.8  2002/09/22 23:01:16  eggestad
- * fixup policy on *ID's. All ids has the mask bit set, and purified the consept of index (new macros) that has the mask bit cleared.
- *
- * Revision 1.7  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.6  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.5  2002/02/17 13:48:01  eggestad
- * added prototypes for _mw_ipc_(un)provide()
- *
- */
 
 #ifndef IPCMESSAGES_H
 #define IPCMESSAGES_H

@@ -18,45 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* 
- * $Log$
- * Revision 1.11  2005/12/07 11:44:16  eggestad
- * large data SRB patch
- *
- * Revision 1.10  2004/08/11 20:30:09  eggestad
- * daemonize fix
- *
- * Revision 1.9  2003/08/06 23:16:19  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.8  2003/01/07 08:27:21  eggestad
- * * fixed infinite loop on error on sendfd
- * * added empty SIGPIPE handler, to ignore SIGPIPE, but solution incomplete
- *
- * Revision 1.7  2002/11/19 12:43:54  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.6  2002/10/17 22:07:44  eggestad
- * - we're now using the mwlog() api
- * - improved handling of SRB fields
- *
- * Revision 1.5  2002/09/29 17:39:06  eggestad
- * fix of debugmessage that didn't give correct recv SRB message
- *
- * Revision 1.4  2002/07/07 22:33:41  eggestad
- * We now operate on Connection structs not filedesc.
- *
- * Revision 1.3  2001/10/16 16:18:09  eggestad
- * Fixed for ia64, and 64 bit in general
- *
- * Revision 1.2  2001/10/03 22:55:22  eggestad
- * plugged file desc leak
- *
- * Revision 1.1  2001/09/15 23:40:09  eggestad
- * added the broker daemon
- *
- */
-
 #include <unistd.h>
 #include <stdio.h>
 #include <time.h>
@@ -81,9 +42,7 @@
 
 #define AGENT "MidWay broker daemon"
 
-static char * RCSId UNUSED = "$Id$";
 static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
-
 
 /* notes
 

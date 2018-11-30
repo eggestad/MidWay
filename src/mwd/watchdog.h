@@ -18,23 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.3  2003/06/12 07:29:43  eggestad
- * added trigger_watchdog() func for srvmgr
- *
- * Revision 1.2  2000/07/20 19:54:26  eggestad
- * prototype fixup.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:30  eggestad
- * Initial Release
- *
- * 
- */
-
 int start_watchdog(void);
 
 void trigger_watchdog(void);

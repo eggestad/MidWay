@@ -18,37 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* 
- * $Log$
- * Revision 1.9  2004/04/12 23:05:24  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.8  2003/06/12 07:24:00  eggestad
- * comment fixup
- *
- * Revision 1.7  2002/11/19 12:43:54  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.6  2002/10/17 22:08:24  eggestad
- * - we're now using the mwlog() API
- *
- * Revision 1.5  2002/09/26 22:33:42  eggestad
- * - get an abort on SIGPIPE when a gw died. we now use MSG_NOSIGNAL on sendmsg() when passing the desc.
- *
- * Revision 1.4  2002/07/07 22:33:41  eggestad
- * We now operate on Connection structs not filedesc.
- *
- * Revision 1.3  2002/02/17 14:25:52  eggestad
- * added missing includes
- *
- * Revision 1.2  2001/10/05 14:34:19  eggestad
- * fixes or RH6.2
- *
- * Revision 1.1  2001/09/15 23:40:09  eggestad
- * added the broker daemon
- *
- */
-
 #include <unistd.h>
 #include <stdlib.h>
 #include <errno.h>
@@ -68,8 +37,6 @@
 
 #include "mwbd.h"
 #include "mwbd_sockets.h"
-
-static char * RCSId UNUSED = "$Id$";
 
 /* the three sockets that never die and their addresses */
 static struct sockaddr_in tcpsockaddr;

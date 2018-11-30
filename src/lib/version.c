@@ -18,33 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.6  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.5  2002/07/07 22:35:20  eggestad
- * *** empty log message ***
- *
- * Revision 1.4  2002/02/17 14:24:22  eggestad
- * added missing include
- *
- * Revision 1.3  2001/10/03 22:46:09  eggestad
- * mem corruption fixes
- *
- * Revision 1.2  2000/07/20 19:38:37  eggestad
- * prototype fix up.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:17  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
 
 #include <string.h>
 #include <stdlib.h>
@@ -54,7 +27,7 @@
 /* MAGIC are used to tag the ipcmain shm segment. */
 #define MAGIC "MW10"
 
-static char * RCSId UNUSED = "$Id$";
+// TODO: set version some other way
 static const char * Name = "$Name$";
 
 /* RCS Name are to be on the format Name:  TYPE_M_N_P , 

@@ -18,16 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Log$
- * Revision 1.2  2005/10/11 22:28:11  eggestad
- * Added URLENCODEVERBOSE for setting loglevel in the lib
- *
- * Revision 1.1  2003/06/12 07:17:08  eggestad
- * added weak syms for mwlog and timepegs, allowing for intergrated logging and profileing with rest of MW
- *
- */
-
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>

@@ -18,14 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* $Id$ */
-
-/*
- * $Log$
- * Revision 1.1  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- */
 
 #ifndef _CALL_PENDING_DATA_H
 #define _CALL_PENDING_DATA_H

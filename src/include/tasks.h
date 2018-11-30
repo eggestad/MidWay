@@ -18,19 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.2  2004/10/13 18:41:09  eggestad
- * task API updates
- *
- * Revision 1.1  2004/05/31 19:52:25  eggestad
- * *** empty log message ***
- *
- *
- */
 
 enum { TASK_SUSP, TASK_WAIT, TASK_RUN };
 

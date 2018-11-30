@@ -18,16 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.1  2003/07/06 18:59:56  eggestad
- * introduced a table api for commands.c to return data in
- *
- */
-
 #include "dtbl.h"
 
 /* the functions that implement the commands. They calling convention is based on 

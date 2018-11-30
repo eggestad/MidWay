@@ -31,8 +31,6 @@
 #include <MidWay.h>
 #include <ipctables.h>
 
-static char * RCSId UNUSED = "$Id$";
-
 /** @file
 This module implement the provided logging API see man page for mwlog(3).
 */

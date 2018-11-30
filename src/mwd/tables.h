@@ -18,43 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.9  2003/06/12 07:33:15  eggestad
- *  numerous fixes to check_tables()
- *
- * Revision 1.8  2003/04/25 13:03:12  eggestad
- * - fix for new task API
- * - new shutdown procedure, now using a task
- *
- * Revision 1.7  2002/10/03 21:14:30  eggestad
- * - cost field in provide was ignored, now correctly done
- *
- * Revision 1.6  2002/09/04 07:13:31  eggestad
- * mwd now sends an event on service (un)provide
- *
- * Revision 1.5  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.4  2002/02/17 17:57:12  eggestad
- * - added prototype for delallservices()
- *
- * Revision 1.3  2001/08/29 17:57:59  eggestad
- * had declared a shutdown() function that collided with the syscall, renamed to cmd_shutdown
- *
- * Revision 1.2  2000/07/20 19:50:19  eggestad
- * prototype fixup.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:30  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
 #ifndef _TABLES_C
 #define _TABLES_C
 

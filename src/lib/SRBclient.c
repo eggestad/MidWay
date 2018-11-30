@@ -18,78 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-
-/*
- * $Log$
- * Revision 1.20  2005/12/07 11:44:16  eggestad
- * large data SRB patch
- *
- * Revision 1.19  2004/12/29 19:57:56  eggestad
- * Large data  protocol fix up
- *
- * Revision 1.18  2004/11/17 20:39:42  eggestad
- * MIssmatch of EVENT & EVENTID SRBP fieldnames between implementation and spec
- *
- * Revision 1.17  2004/04/12 22:55:17  eggestad
- * - fix of bug where readmessage returned error while actually read a message
- *
- * Revision 1.16  2004/04/08 10:34:05  eggestad
- * introduced a struct with pointers to the functions implementing the midway functions
- * for a given protocol.
- * This is in preparation for be able to do configure with/without spesific protocol.
- * This creates a new internal API each protocol must addhere to.
- *
- * Revision 1.15  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.14  2004/03/01 12:56:14  eggestad
- * added event API for SRB client
- *
- * Revision 1.13  2003/09/28 10:45:59  eggestad
- * duplicate initalizer
- *
- * Revision 1.12  2003/09/25 19:36:17  eggestad
- * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
- * - also improved logic in blocking/nonblocking of reading on Connection objects
- *
- * Revision 1.11  2003/08/06 23:16:18  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.10  2003/07/13 22:40:59  eggestad
- * - mwfetch(,,,MWMULTPILE) returned queued replies in the wrong order
- * - added timepegs
- *
- * Revision 1.9  2003/01/07 08:26:41  eggestad
- * added TCP_NODELAY
- *
- * Revision 1.8  2002/09/05 23:25:33  eggestad
- * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
- * MWURL is now used in addition to MWADDRESS
- *
- * Revision 1.7  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.6  2002/07/07 22:35:20  eggestad
- * *** empty log message ***
- *
- * Revision 1.5  2001/10/16 16:18:09  eggestad
- * Fixed for ia64, and 64 bit in general
- *
- * Revision 1.4  2001/09/16 00:05:56  eggestad
- * Wrong Licence header
- *
- * Revision 1.3  2000/09/21 18:21:55  eggestad
- * Major work, added acall/fetch and got it to work
- *
- * Revision 1.2  2000/08/31 21:46:51  eggestad
- * Major rework
- *
- * Revision 1.1  2000/07/20 19:12:13  eggestad
- * The SRB protcol
- *
- */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/tcp.h>
@@ -109,8 +37,6 @@
 #include <address.h>
 #include <mwclientapi.h>
 #include <connection.h>
-
-static char * RCSId UNUSED = "$Id$";
 
 Connection cltconn = { 
    .fd =              -1, 

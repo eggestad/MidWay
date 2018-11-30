@@ -18,17 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.1  2002/02/17 13:40:57  eggestad
- * The XML configuration file
- *
- *
- */
-
 #include <libxml/tree.h>
 #include <libxml/parser.h>
 #include <libxml/debugXML.h>

@@ -18,34 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* $Id$ */
-
-/*
- * $Log$
- * Revision 1.7  2003/09/25 19:36:19  eggestad
- * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
- * - also improved logic in blocking/nonblocking of reading on Connection objects
- *
- * Revision 1.6  2003/08/06 23:16:19  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.5  2003/03/16 23:50:24  eggestad
- * Major fixups
- *
- * Revision 1.4  2002/10/22 21:58:21  eggestad
- * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
- *
- * Revision 1.3  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.2  2001/10/05 14:34:19  eggestad
- * fixes or RH6.2
- *
- * Revision 1.1  2001/09/15 23:40:09  eggestad
- * added the broker daemon
- * 
- */
-
 
 #include <MidWay.h>
 

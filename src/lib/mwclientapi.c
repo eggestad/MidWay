@@ -18,97 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.23  2005/10/11 22:22:32  eggestad
- * fix for not allowing negative handles
- *
- * Revision 1.22  2005/06/14 23:07:05  eggestad
- * Fix on next handle, it didn't wrap bit got a new random value on wrap, which could be a recently used value.
- *
- * Revision 1.21  2004/12/29 19:59:01  eggestad
- * handle datatype fixup
- *
- * Revision 1.20  2004/06/16 06:53:58  eggestad
- * mwattach: If mwattach() failed the lib was still in attached state
- *
- * Revision 1.19  2004/05/31 19:40:00  eggestad
- * changes for allowing foreign language bindings access to internal API
- *
- * Revision 1.18  2004/04/12 11:18:22  eggestad
- * - added mwgeturl()
- * - added mwsetcred()
- * - changed mwattach() prototype, username and passowrd moved to mwsetcred
- * - fixed mwdetach() return code (missing)
- * - debug format fixes
- *
- * Revision 1.17  2004/04/08 10:34:06  eggestad
- * introduced a struct with pointers to the functions implementing the midway functions
- * for a given protocol.
- * This is in preparation for be able to do configure with/without spesific protocol.
- * This creates a new internal API each protocol must addhere to.
- *
- * Revision 1.16  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.15  2004/03/01 12:54:52  eggestad
- * change in mwfetch() params
- * added event API for SRB client
- *
- * Revision 1.14  2003/12/11 14:18:03  eggestad
- * added mwlistsvc for IPC
- *
- * Revision 1.13  2003/07/20 23:13:34  eggestad
- * - better exit from mwacall
- *
- * Revision 1.12  2003/07/06 22:10:16  eggestad
- * - added timepegs
- *
- * Revision 1.11  2003/06/26 17:04:08  eggestad
- * *** empty log message ***
- *
- * Revision 1.10  2002/09/05 23:25:33  eggestad
- * ipaddres in  mwaddress_t is now a union of all possible sockaddr_*
- * MWURL is now used in addition to MWADDRESS
- *
- * Revision 1.9  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.8  2002/07/07 22:35:20  eggestad
- * *** empty log message ***
- *
- * Revision 1.7  2002/02/17 14:11:45  eggestad
- * MWMORE is no longer a flag
- *
- * Revision 1.6  2001/10/03 22:46:51  eggestad
- * Added timeout errno for attach
- *
- * Revision 1.5  2001/08/29 20:38:47  eggestad
- * added RCS keys
- *
- * Revision 1.4  2001/05/12 18:00:31  eggestad
- * changes to multiple reply handling, MWMULTIPLE are no langer sent to server, replies are cat'ed in client
- *
- * Revision 1.3  2000/11/15 21:23:38  eggestad
- * fix for NULL as input data
- *
- * Revision 1.2  2000/09/21 18:39:36  eggestad
- * - issue of handle now moved here
- * - deadline handling now placed here
- * - lots of changes to deadline handling
- * - fastpath flag now private and added func to access it.
- *
- * Revision 1.1  2000/08/31 19:37:30  eggestad
- * This file is used for implementing SRB client side
- *
- *
- */
-
 
 #include <errno.h>
 #include <stdio.h>
@@ -133,8 +42,6 @@
 #include <shmalloc.h>
 #include <mwclientipcapi.h>
 #include <SRBclient.h>
-
-static char * RCSId UNUSED = "$Id$";
 
 // all the not conncected and not implemeted versions of the client calls:
 

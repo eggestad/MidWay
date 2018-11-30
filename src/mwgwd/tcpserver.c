@@ -18,86 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-
-/*
- * $Log$
- * Revision 1.22  2005/12/07 11:44:16  eggestad
- * large data SRB patch
- *
- * Revision 1.21  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- * Revision 1.20  2004/11/17 20:38:18  eggestad
- * fix for a bad menory leak, kept allocing new connection message buffers.
- *
- * Revision 1.19  2004/10/13 18:41:23  eggestad
- * task API updates
- *
- * Revision 1.18  2004/04/12 23:05:25  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.17  2004/03/20 18:57:47  eggestad
- * - Added events for SRB clients and proppagation via the gateways
- * - added a mwevent client for sending and subscribing/watching events
- * - fix some residial bugs for new mwfetch() api
- *
- * Revision 1.16  2003/09/25 19:36:20  eggestad
- * - had a serious bug in the input handling of SRB messages in the Connection object, resulted in lost messages
- * - also improved logic in blocking/nonblocking of reading on Connection objects
- *
- * Revision 1.15  2003/08/06 23:16:19  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.14  2003/07/13 22:42:17  eggestad
- * added timepegs
- *
- * Revision 1.13  2003/06/05 21:56:05  eggestad
- * environment var fixes
- *
- * Revision 1.12  2003/03/16 23:50:25  eggestad
- * Major fixups
- *
- * Revision 1.11  2003/01/07 08:28:06  eggestad
- * * Major fixes to get three mwgwd working correctly with one service
- * * and other general fixed for suff found on the way
- *
- * Revision 1.10  2002/10/22 21:58:21  eggestad
- * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
- *
- * Revision 1.9  2002/10/20 18:23:18  eggestad
- * debug messages fixup
- *
- * Revision 1.8  2002/10/09 12:30:30  eggestad
- * Replaced all unions for sockaddr_* with a new type SockAddress
- *
- * Revision 1.7  2002/10/03 21:23:46  eggestad
- * - fix for changed retcode from conn_select (now return -errno, not -1 with errno set on error)
- *
- * Revision 1.6  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.5  2001/10/05 14:34:19  eggestad
- * fixes or RH6.2
- *
- * Revision 1.4  2001/10/03 22:39:30  eggestad
- * many bugfixes: memleak, propper shutdown, +++
- *
- * Revision 1.3  2001/09/15 23:49:38  eggestad
- * Updates for the broker daemon
- * better modulatization of the code
- *
- * Revision 1.2  2000/08/31 22:18:50  eggestad
- * - added some debugging
- * - sendmessage() now in lib
- * - we now sending a detach message to mwd when a client disconnects
- * - the end buffer is in lib and only alloc'ed if you use SRB.
- * - tcpgetclientpeername() reworked.
- *
- * Revision 1.1  2000/07/20 18:49:59  eggestad
- * The SRB daemon
- *
- */
-
 #include <errno.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -118,8 +38,6 @@
 #include "connections.h"
 #include "broker.h"
 #include "srbevents.h"
-
-static char * RCSId UNUSED = "$Id$";
 
 /* linux only???? seem to be a bug in /usr/include/bits/in.h 
    see /usr/include/bits/linux/in.h 

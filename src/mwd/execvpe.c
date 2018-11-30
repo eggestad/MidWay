@@ -26,13 +26,6 @@
 
    Terje */
 
-/* 
- * $Log$
- * Revision 1.2  2002/10/22 21:49:25  eggestad
- * cvs and C cosmetics
- * 
- */
-
 #include <unistd.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -49,8 +42,6 @@
 #else
 #define UNUSED 
 #endif
-
-static char * RCSId UNUSED = "$Id$";
 
 /* The file is accessible but it is not an executable file.  Invoke
    the shell to interpret it as a script.  */

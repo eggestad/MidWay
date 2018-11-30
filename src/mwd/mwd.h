@@ -18,45 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.8  2005/10/11 22:30:12  eggestad
- * removed unused externs
- *
- * Revision 1.7  2004/08/11 20:32:30  eggestad
- * - daemonize fix
- * - umask changes (Still wrong, but better)
- * - large buffer alloc
- *
- * Revision 1.6  2003/06/12 07:27:03  eggestad
- * sighandlers are now private, watchdog needed it's own
- *
- * Revision 1.5  2003/04/25 13:03:09  eggestad
- * - fix for new task API
- * - new shutdown procedure, now using a task
- *
- * Revision 1.4  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- * Revision 1.3  2002/02/17 14:48:38  eggestad
- * - added missing includes
- * - added missing prototypes
- * - added IPC param aliases
- * - Added define for server manager service name
- *
- * Revision 1.2  2000/07/20 19:44:00  eggestad
- * prototype fixup.
- *
- * Revision 1.1.1.1  2000/03/21 21:04:24  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
 
 typedef struct {
   /* signal flags */

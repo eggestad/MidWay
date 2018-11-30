@@ -18,15 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/* $Id$ */
-
-/*
- * $Log$
- * Revision 1.7  2005/10/12 22:46:27  eggestad
- * Initial large data patch
- *
- */
-
 #include <SRBprotocol.h>
 #include <connection.h>
 

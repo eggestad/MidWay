@@ -18,9 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-static char * RCSId = "$Id$";
-static char * RCSName = "$Name$"; /* CVS TAG */
-
 /* linux return uptime in clock ticks via times(2).
         normally a clock tick is 1/100'th of a second. 
         uptime as reported by times() then roll over 2^31 every ~250 days.

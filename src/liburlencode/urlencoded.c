@@ -18,33 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.9  2003/08/06 23:16:19  eggestad
- * Merge of client and mwgwd recieving SRB messages functions.
- *
- * Revision 1.8  2003/07/14 22:05:27  eggestad
- * Timepeg fix
- *
- * Revision 1.7  2003/07/13 20:34:49  eggestad
- * - unhex debugging from level 1 to 3
- * - added timepegs
- *
- * Revision 1.6  2003/06/12 07:18:39  eggestad
- * unhex() failed for %ff (returned -1)
- *
- * Revision 1.5  2002/07/07 22:34:46  eggestad
- * added urlmapdup
- *
- * Revision 1.4  2001/10/04 19:18:10  eggestad
- * CVS tags fixes
- *
- *
- */
-
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
@@ -52,9 +25,6 @@
 #include <ctype.h>
 
 #include "urlencode.h"
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 
 /******************************************************

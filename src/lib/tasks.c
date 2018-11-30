@@ -18,32 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Log$
- * Revision 1.7  2005/12/07 11:44:16  eggestad
- * large data SRB patch
- *
- * Revision 1.6  2005/10/11 22:25:31  eggestad
- * added an implicit mwdotasks() at the end of addtask
- *
- * Revision 1.5  2004/10/07 22:00:38  eggestad
- * task API updates
- *
- * Revision 1.4  2004/05/31 19:47:09  eggestad
- * tasks interrupted mainloop
- *
- * Revision 1.3  2004/04/12 23:05:24  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.2  2003/04/25 13:04:20  eggestad
- * - fixes to task API
- *
- * Revision 1.1  2002/08/09 20:50:15  eggestad
- * A Major update for implemetation of events and Task API
- * 
- *
- */
-
 #include <signal.h>
 #include <limits.h>
 #include <errno.h>
@@ -51,9 +25,6 @@
 #include <MidWay.h>
 #include <utils.h>
 #include <tasks.h>
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$";
 
 
 /* wonder if gtod return us on all platforms... anyway we use it here

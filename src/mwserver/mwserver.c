@@ -18,42 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Id$
- * $Name$
- * 
- * $Log$
- * Revision 1.9  2004/05/31 19:48:33  eggestad
- * main API changes
- *
- * Revision 1.8  2003/06/05 21:52:57  eggestad
- * commonized handling of -l option
- *
- * Revision 1.7  2002/12/11 17:03:46  eggestad
- * *** empty log message ***
- *
- * Revision 1.6  2002/11/19 12:43:55  eggestad
- * added attribute printf to mwlog, and fixed all wrong args to mwlog and *printf
- *
- * Revision 1.5  2002/11/08 00:12:59  eggestad
- * Major fixup on default logfile
- *
- * Revision 1.4  2002/07/07 22:29:16  eggestad
- * fixes to shared object search paths
- *
- * Revision 1.3  2001/10/04 19:18:10  eggestad
- * CVS tags fixes
- *
- * Revision 1.2  2000/07/20 19:55:49  eggestad
- * mwMainLoop() now has an argument
- *
- * Revision 1.1.1.1  2000/03/21 21:04:31  eggestad
- * Initial Release
- *
- * Revision 1.1.1.1  2000/01/16 23:20:12  terje
- * MidWay
- *
- */
 
 #include <MidWay.h>
 #include <signal.h>
@@ -65,9 +29,6 @@
 
 #include "shared_lib_services.h"
 #include <ipctables.h>
-
-static char * RCSId UNUSED = "$Id$";
-static char * RCSName UNUSED = "$Name$"; /* CVS TAG */
 
 void cleanup(void)
 {

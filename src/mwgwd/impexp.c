@@ -18,56 +18,6 @@
   Boston, MA 02111-1307, USA. 
 */
 
-/*
- * $Log$
- * Revision 1.14  2004/04/12 23:05:25  eggestad
- * debug format fixes (wrong format string and missing args)
- *
- * Revision 1.13  2003/06/12 07:36:51  eggestad
- * fix in impcleanuppeer()
- *
- * Revision 1.12  2003/03/16 23:50:24  eggestad
- * Major fixups
- *
- * Revision 1.11  2003/01/07 08:28:01  eggestad
- * * Major fixes to get three mwgwd working correctly with one service
- * * and other general fixed for suff found on the way
- *
- * Revision 1.10  2002/11/18 00:22:16  eggestad
- * - added clean up function for all imp/exp belonging to a peer, to be
- *   called when peers are disconnected.
- *
- * Revision 1.9  2002/10/22 21:58:21  eggestad
- * Performace fix, the connection peer address, is now set when establised, we did a getnamebyaddr() which does a DNS lookup several times when processing a single message in the gateway (Can't believe I actually did that...)
- *
- * Revision 1.8  2002/10/20 18:22:44  eggestad
- * dumping of export list is now in DEBUG2 not DEBUG
- *
- * Revision 1.7  2002/10/17 22:19:12  eggestad
- * added impfindpeerconn()
- *
- * Revision 1.6  2002/10/06 23:58:35  eggestad
- * _mw_get_services_byname() has a new prototype
- *
- * Revision 1.5  2002/10/03 21:22:21  eggestad
- * - added debug dump functions of both imp and exp lists.
- * - changed beh so that a service is importet to IPC table for each peer, thus svcid++ moved from Import to _peerlink
- * - impsetsvcid() needed gwid (reason in line above)
- *
- * Revision 1.4  2002/09/29 17:44:34  eggestad
- * added unproviding and importlist now has a mutex
- *
- * Revision 1.3  2002/09/22 22:54:57  eggestad
- * - removed getsvccost, new and improved lies in gateway.c
- * - added unexportservice()
- *
- * Revision 1.2  2002/08/09 20:50:16  eggestad
- * A Major update for implemetation of events and Task API
- *
- * Revision 1.1  2002/07/07 22:45:48  eggestad
- * *** empty log message ***
- *
- */
 
 #include <errno.h>
 
@@ -82,9 +32,6 @@
 #include "SRBclient.h"
 #include "SRBprotocolServer.h"
 
-
-
-static char * RCSId UNUSED = "$Id$";
 
 static Export * exportlist = NULL;
 static Import * importlist = NULL;

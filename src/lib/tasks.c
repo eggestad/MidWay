@@ -214,7 +214,7 @@ static inline int inittasks(void)
 
     tasks = 0;
   };
-
+  return 0;
 };
 
 void mwblocksigalarm(void)
@@ -523,7 +523,7 @@ PTask _mwaddtaskdelayed(taskproto_t function, char * name, double interval, doub
 
   if (tasks == -1) inittasks();
   tasklist = realloc(tasklist, (tasks+1)*sizeof(Task));
-  DEBUG1("tasklist = %p, size = %d", tasklist, (tasks+1)*sizeof(Task));
+  DEBUG1("tasklist = %p, size = %zu", tasklist, (tasks+1)*sizeof(Task));
   idx = tasks;
   t = &tasklist[tasks];
   tasks++;

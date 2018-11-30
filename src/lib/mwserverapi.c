@@ -362,7 +362,7 @@ int mwreply(const char * data, size_t len, int returncode, int appreturncode, in
   /* if we already have completed the replies */
   if (! _mw_requestpending) return -EALREADY;
 
-  DEBUG1("mwreply (data =%p, len=%d rc=%d apprc=%d flags=%#x", 
+  DEBUG1("mwreply (data =%p, len=%zu rc=%d apprc=%d flags=%#x", 
 	 data, len,  returncode, appreturncode, flags);
 
   rc = _mwsystemstate();
@@ -481,7 +481,7 @@ int mwforward(const char * svcname, const char * data, size_t len, int flags)
     if (dataoffset == -1) {
       dbuf = _mwalloc(len);
       if (dbuf == NULL) {
-	Error("Forward: mwalloc(%d) failed reason %d", len, (int) errno);
+	Error("Forward: mwalloc(%zu) failed reason %d", len, (int) errno);
 	return -errno;
       };
       memcpy(dbuf, data, len);
@@ -668,7 +668,7 @@ mwsvcinfo *  _mwGetServiceRequest (int flags)
     
     DEBUG1("issued %lld.%d timeout %d now %ld.%ld deadline %ld.%d",
 	  callmesg->issued, callmesg->uissued, callmesg->timeout,
-	  starttv.tv_sec ,  starttv.tv_usec, 
+	   starttv.tv_sec ,  (long) starttv.tv_usec, 
 	  svcreqinfo->deadline, svcreqinfo->udeadline);
     callmesg->returncode = -ETIME;
     _mw_ipc_putmessage(callmesg->cltid, (char *) callmesg, sizeof(Call), 0);

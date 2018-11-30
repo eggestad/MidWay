@@ -43,8 +43,8 @@ AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 AC_PROG_LN_S
 
-echo host: $host
-echo host_os: $host_os
+dnl echo host: $host
+dnl echo host_os: $host_os
 
 case "$host" in
 

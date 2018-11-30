@@ -134,9 +134,9 @@ unsigned long long _mw_lltimes(void)
 };
 
 static void printitv(struct itimerval * itv) {
-   DEBUG1("itimeval interval: %d.%06d value: %d.%06d", 
-	   itv->it_interval.tv_sec, itv->it_interval.tv_usec, 
-	   itv->it_value.tv_sec, itv->it_value.tv_usec);
+   DEBUG1("itimeval interval: %ld.%06ld value: %ld.%06ld", 
+	  itv->it_interval.tv_sec, (long) itv->it_interval.tv_usec, 
+	  itv->it_value.tv_sec, (long) itv->it_value.tv_usec);
 };
 /**
    Set at timer (wall clock). A wrapper to setitimer.  

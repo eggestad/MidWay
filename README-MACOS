@@ -1,0 +1,4 @@
+
+# Darwin have archaic values for sysv shm run:
+
+# sysctl -w kern.sysv.shmmax=33554432

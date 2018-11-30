@@ -537,7 +537,7 @@ int mwfetch(int * handle, char ** data, size_t * len, int * appreturncode, int f
     do {
        rc = _mwaddress.proto.fetch(handle, &pdata, &pdatalen, appreturncode, flags);
 
-       DEBUG1("protocol level fetch returned %d datalen = %d", rc, pdatalen);
+       DEBUG1("protocol level fetch returned %d datalen = %zu", rc, pdatalen);
 
       /* if error */
       if (rc == MWFAIL) {
@@ -556,7 +556,7 @@ int mwfetch(int * handle, char ** data, size_t * len, int * appreturncode, int f
       first = 0;
       
       *data = realloc(*data, *len + pdatalen + 1);
-      DEBUG1("Adding reply: *data = %p appending at %p old len = %d new len = %d",
+      DEBUG1("Adding reply: *data = %p appending at %p old len = %zu new len = %zu",
 	    *data, (*data)+(*len), *len, pdatalen);
       memcpy((*data)+(*len), pdata, pdatalen);
       *len += pdatalen;
@@ -864,7 +864,7 @@ int mwbegin(float fsec, int flags)
   deadline.tv_sec = now.tv_sec + (int) s;
   deadline.tv_usec = now.tv_usec + (int) (ss * 1000000); /*micro secs*/
   DEBUG3("mwbegin deadline is at %ld.%ld",
-	deadline.tv_sec, deadline.tv_usec); 
+	 deadline.tv_sec, (long) deadline.tv_usec); 
   return 0;
 };
 
@@ -874,6 +874,7 @@ int mwcommit()
 
   deadline.tv_sec = 0;
   deadline.tv_usec = 0;
+  return 0;
 };
 
 int mwabort()
@@ -882,6 +883,7 @@ int mwabort()
 
   deadline.tv_sec = 0;
   deadline.tv_usec = 0;
+  return 0;
 };
 
 /**********************************************************************
@@ -893,7 +895,7 @@ void * mwalloc(size_t size)
 {
    void * addr;
 
-   DEBUG3("size = %d", size);
+   DEBUG3("size = %zu", size);
    if (size < 1) return NULL;
 
    if (_mwaddress.protocol != MWSYSVIPC) {
@@ -911,7 +913,7 @@ void * mwrealloc(void * adr, size_t newsize)
 {
    char * naddr;
    
-   DEBUG3("old mem %p size = %d", adr, newsize);
+   DEBUG3("old mem %p size = %zu", adr, newsize);
    if (_mwshmcheck(adr) == -1) {
       DEBUG3("mwrealloc: using realloc");
       naddr =  realloc(adr, newsize);

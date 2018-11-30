@@ -200,7 +200,7 @@ chunkfoot * _mwfooter(chunkhead * head)
    fadr = (void *)head + sizeof(chunkhead) + 
       head->size * _mwHeapInfo->basechunksize;
 
-   DEBUG3("footer for %p is at %p + %u + %lld * %d = %p",
+   DEBUG3("footer for %p is at %p + %zu + %lld * %d = %p",
 	  head, head, sizeof(chunkhead),  head->size,  _mwHeapInfo->basechunksize,
 	  fadr) ;
    DEBUG3("head adr %p foot adr %p", head,  fadr);
@@ -336,7 +336,7 @@ static seginfo_t * attach_mmap(int id)
    };
 
    rc = fstat(fd, &statdat);
-   DEBUG1("stat of %s size=%#lx", path, statdat.st_size);
+   DEBUG1("stat of %s size=%#llx", path, (long long) statdat.st_size);
 
    start = mmap(NULL, statdat.st_size, PROT_WRITE|PROT_READ, MAP_SHARED, fd, 0);
    DEBUG1("buffer mapped at %p", start);
@@ -582,7 +582,7 @@ int _mw_putbuffer_to_call (Call * callmesg, const char * data, size_t len)
       if (dataoffset == -1) {
 	 dbuf = _mwalloc(len);
 	 if (dbuf == NULL) {
-	    Error("mwalloc(%d) failed reason %d", len, (int) errno);
+	    Error("mwalloc(%zu) failed reason %d", len, (int) errno);
 	    return -errno;
 	 };
 	 DEBUG("copying data from %p to %p-%p", data, dbuf, dbuf+len);
@@ -593,7 +593,7 @@ int _mw_putbuffer_to_call (Call * callmesg, const char * data, size_t len)
 	 seginfo = _mw_getsegment_byaddr((char*)data);
       };
 
-      DEBUG("data offset = %d", dataoffset);
+      DEBUG("data offset = %ld", dataoffset);
       callmesg->datasegmentid = seginfo->segmentid;
  
       callmesg->data = dataoffset;
@@ -699,7 +699,7 @@ int _mwshmcheck(void * adr)
    size = getchunksizebyadr(adr, si);
    if (size < 0)   return -1; // can't happen
 
-   DEBUG1("buffer at %p has size %d", adr, size);
+   DEBUG1("buffer at %p has size %zu", adr, size);
 
    offset = _mwadr2offset(adr, si);
    return offset;
@@ -933,7 +933,7 @@ static int find_bin(size_t size, seginfo_t * si)
    f = log(chksize) / log(2);
    bin = ceilf(f);
    
-   DEBUG1("alloc size %d, size in chunks = %d, bin = %d", size, chksize, bin);
+   DEBUG1("alloc size %zu, size in chunks = %d, bin = %d", size, chksize, bin);
    return bin;
 };
 
@@ -1009,7 +1009,7 @@ void * _mwalloc(size_t size)
 		  1<<i, 
 		  _mwHeapInfo->basechunksize, 
 		  _mwadr2offset(pCHead, si));
-	    Error ("get cgetchunksizebyadr = %d", getchunksizebyadr(pCHead, si));
+	    Error ("get cgetchunksizebyadr = %zu", getchunksizebyadr(pCHead, si));
 	 };
 
 	 DEBUG1("_mwalloc(%ld) return a chunk with size %lld at %p ", 
@@ -1083,7 +1083,7 @@ void * _mwrealloc(void * adr, size_t newsize)
 
    size =  _mwshmgetsizeofchunk(adr);
    if (size > 0) {
-      DEBUG1("newsize = %d oldsize = %d", newsize, size);
+      DEBUG1("newsize = %zu oldsize = %zu", newsize, size);
 
       /* check to see if newsize need the same size of buffer. */
       if (newsize < size) {

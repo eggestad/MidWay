@@ -323,7 +323,7 @@ static inline int _CALLTRACE(int up_down, const char * func)
   
   sprintf(buffer, "%s%*.*s[%d] %s", up_down?">Enter":">Leave", calllevel, calllevel, up_down?enterstr:leavestr, calllevel, func);
 
-  mwlog(MWLOG_DEBUG1, buffer);
+  mwlog(MWLOG_DEBUG1, "%s", buffer);
   
   timepeg_resume(); 
   return 0;

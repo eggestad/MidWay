@@ -707,7 +707,7 @@ int _mw_ipc_getmessage(char * data, size_t *len, int type, int flags)
   *len = rc;
   *len += sizeof(long);
 
-  DEBUG1("_mw_ipc_getmessage a msgrcv(type=%d, flags=%d) returned %d and %d bytes of data", 
+  DEBUG1("_mw_ipc_getmessage a msgrcv(type=%d, flags=%d) returned %d and %zu bytes of data", 
 	type, flags, rc, *len);
   
   _mw_dumpmesg((void *)data);
@@ -731,7 +731,7 @@ int _mw_ipc_putmessage(int dest, const char *data, size_t len,  int flags)
   TIMEPEG();
 
   if (len > MWMSGMAX) {
-    Error("_mw_ipc_putmessage: got a to long message %d > %d", len, MWMSGMAX);
+    Error("_mw_ipc_putmessage: got a to long message %zu > %lu", len, MWMSGMAX);
     return -E2BIG;
   };
   qid = _mw_get_mqid_by_mwid(dest);
@@ -751,7 +751,7 @@ int _mw_ipc_putmessage(int dest, const char *data, size_t len,  int flags)
   rc = msgsnd(qid, data, len, flags);
   TIMEPEG();
 
-  DEBUG1("_mw_ipc_putmessage: msgsnd(dest=%d, msglen=%d, flags=%#x) returned %d", 
+  DEBUG1("_mw_ipc_putmessage: msgsnd(dest=%d, msglen=%zu, flags=%#x) returned %d", 
 	qid, len, flags, rc);
   /*
     if we got an interrupt this is OK, else not.
@@ -836,7 +836,7 @@ int _mw_ipcsend_attach(int attachtype, const char * name, int flags)
   mesg.ipcqid = _mw_my_mqid();
 
   /* THREAD MUTEX BEGIN */
-  DEBUG1(	"Sending an attach message to mwd name = %s, client = %s server = %s size = %d",
+  DEBUG1(	"Sending an attach message to mwd name = %s, client = %s server = %s size = %zu",
 	name, mesg.client?"TRUE":"FALSE", mesg.server?"TRUE":"FALSE", sizeof(mesg));
 
   rc = _mw_ipc_putmessage(0, (void *) &mesg, sizeof(mesg) ,0);
@@ -1219,7 +1219,7 @@ int _mwacallipc (const char * svcname, const char * data, size_t datalen, int fl
 
   TIMEPEG();
 
-  DEBUG1("BEGIN: (svcname=%s, data=%p, datalen=%d, flags=%#x, mwid=%#x, instance=%s, domain=%s, "
+  DEBUG1("BEGIN: (svcname=%s, data=%p, datalen=%zu, flags=%#x, mwid=%#x, instance=%s, domain=%s, "
 	 "callerid=%d, hops=%d", svcname, data, datalen, flags, mwid, 
 	 instance?instance:"(NULL)", domain?domain:"(NULL)", callerid, hops);
 
@@ -1716,7 +1716,7 @@ int _mw_ipcsend_event (const char * event, const char * data, size_t datalen,
     if (dataoffset == -1) {
       dbuf = _mwalloc(datalen);
       if (dbuf == NULL) {
-	Error("Send Event: mwalloc(%d) failed reason %d", datalen, (int) errno);
+	Error("Send Event: mwalloc(%zu) failed reason %d", datalen, (int) errno);
 	return -errno;
       };
       memcpy(dbuf, data, datalen);
@@ -1789,7 +1789,7 @@ int _mw_ipc_getevent(Event * ev)
   if (len == sizeof(Event)) {
     return 0;
   };
-  Error("Got an event ipc message, but with wrong length! %d != %d", rc, sizeof(Event));
+  Error("Got an event ipc message, but with wrong length! %zu != %zu", len, sizeof(Event));
   return -EMSGSIZE;
 };
       

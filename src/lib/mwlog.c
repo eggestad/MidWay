@@ -388,7 +388,7 @@ int mwsetloglevel(int level)
   if (level == -1) return loglevel;
 
   // env overrides code
-  if (tmp = getenv("MWLOG_LEVEL")) {
+  if ((tmp = getenv("MWLOG_LEVEL"))) {
      level = _mwstr2loglevel(tmp);
   };
 
@@ -442,7 +442,7 @@ void mwsetlogprefix(const char * lfp)
   char * mwhome, * instancename, *tmp;
   ipcmaininfo * ipcmain;
 
-  if (tmp = getenv("MWLOG_PREFIX")) lfp = tmp;
+  if ((tmp = getenv("MWLOG_PREFIX"))) lfp = tmp;
 
   _fprintf(stderr, "logprefix arg = %s at %s:%d\n", lfp, __FUNCTION__, __LINE__);
 

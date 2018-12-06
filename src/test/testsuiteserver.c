@@ -26,17 +26,6 @@
 
 #include "testsuite.h"
 
-int testdataservice(mwsvcinfo * si);
-
-__attribute__((constructor))  int init(void)  
-{
-  printf ("******************************testsuite server booting\n");
-  fflush(stdout);
-
-  mwprovide("testsvc1", testdataservice, 0);
-  mwprovide("testdate", testdataservice, 0);
-  return 0;
-};
 
 int testdataservice(mwsvcinfo * si)
 {
@@ -91,5 +80,6 @@ __attribute__((constructor))  int init(void)
   mwprovide("testsvc1", testdataservice, 0);
   mwprovide("testdate", testdataservice, 0);
   mwprovide("testtime", test_svc_time, 0);
+  return 0;
 };
 

@@ -55,6 +55,15 @@ case "$host" in
     fi
     ;;
 
+  aarch64*-linux*)
+    linux=true
+    ostype=Linux
+    dnl    CFLAGS+="-fsigned-char"
+    if [[ x$libdir = x'${exec_prefix}/lib' ]]; then
+       libdir='${exec_prefix}'/lib64
+    fi
+    ;;
+
   *-linux*)
     linux=true
     ostype=Linux

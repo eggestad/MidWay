@@ -53,14 +53,14 @@
    yet supported.*/
 // regexp match numbers
 //              0    12              345  6               78  9
-#define RE_IPC "^ipc:(([[:digit:]]+)|(((/)([[:alnum:]]+))?((@)([[:alnum:]]+))?))$"
+#define RE_IPC "^ipc:(([[:digit:]]+)|(((\/)([[:alnum:]]+))?((@)([[:alnum:]]+))?))$"
 
 /* this is used for an SRB url, it don't verify that eithre or both of
    ipaddress, and domain is given, leaving both out is here legal, we
    must check for thsi below.*/
 // regexp match numbers
 //               0     12   3                4 5                 67  8
-#define RE_SRBP "^srbp:((//)([[:alnum:]\\.\\-]+)(:([[:alnum:]]*))?)?((/)([[:alnum:]]+))?$"
+#define RE_SRBP "^srbp:((\/\/)([[:alnum:]\\.\\-]+)(:([[:alnum:]]*))?)?((\/)([[:alnum:]]+))?$"
 
 /* http is missing here. */
 
@@ -208,7 +208,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, const char * srburl)
 {
   int urllen = strlen(srburl);
   char url[urllen+1];
-  strncpy(url, srburl, urllen);
+  strncpy(url, srburl, urllen+1);
 
   int len=0, j, rc;
   static char * ipaddress = NULL;

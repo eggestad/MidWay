@@ -848,8 +848,8 @@ gatewayentry * _mw_get_gateway_byid (GATEWAYID gwid)
     DEBUG1("_mw_get_gateway_byid called while ipcmain == NULL");
     return NULL;
   };
-  if ((gwid & MWSERVERMASK) != MWSERVERMASK) {
-    DEBUG1("_mw_get_gateway_byid gwid & MWGATEWAYMASK %d != %d", gwid & MWSERVERMASK, MWSERVERMASK);
+  if ((gwid & MWGATEWAYMASK) != MWGATEWAYMASK) {
+    DEBUG1("_mw_get_gateway_byid gwid & MWGATEWAYMASK %d != %d", gwid & MWGATEWAYMASK, MWGATEWAYMASK);
     return NULL;
   };
   index = gwid & MWINDEXMASK;

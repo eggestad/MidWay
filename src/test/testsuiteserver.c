@@ -26,7 +26,9 @@
 
 #include "testsuite.h"
 
+int testdataservice(mwsvcinfo * si);
 
+ 
 int testdataservice(mwsvcinfo * si)
 {
   struct testdata * td;
@@ -81,5 +83,5 @@ __attribute__((constructor))  int init(void)
   mwprovide("testdate", testdataservice, 0);
   mwprovide("testtime", test_svc_time, 0);
   return 0;
-};
+ };
 

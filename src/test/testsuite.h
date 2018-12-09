@@ -22,3 +22,4 @@ struct testdata
 
 };
   
+int  chargen (char * buffer, size_t buflen) ;

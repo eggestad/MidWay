@@ -72,9 +72,25 @@ int test_svc_time(mwsvcinfo * si) {
    mwreturn (buf, 0, MWSUCCESS, 0);
 }
 
+int test_svc_chargen(mwsvcinfo * si) {
+   int lines = 50;
+   
+   if (si->datalen > 0) {
+      int i = atoi(si->data);
+      if (i > 0) lines = i;
+   }
 
+   int buflen = lines * 75+10;
+   char * buf = mwalloc(buflen);
 
-__attribute__((constructor))  int init(void)  
+   size_t replylen = chargen(buf, buflen);
+
+   mwreply (buf, replylen, MWSUCCESS, 0, 0);   
+}
+   
+
+   
+__attribute__((constructor))  int xinit(void)  
 {
   printf ("******************************testsuite server booting\n");
   fflush(stdout);
@@ -82,6 +98,7 @@ __attribute__((constructor))  int init(void)
   mwprovide("testsvc1", testdataservice, 0);
   mwprovide("testdate", testdataservice, 0);
   mwprovide("testtime", test_svc_time, 0);
+  mwprovide("testchargen", test_svc_chargen, 0);
   return 0;
  };
 

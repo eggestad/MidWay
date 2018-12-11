@@ -35,7 +35,9 @@
 
 static char * tracefilename = NULL;
 static FILE * tracefile  = NULL;
-int _mw_srbdata_per_message = 3000;
+
+// TODO: too low, but the way we encode  messages we have to assume that unencoded data may become 3000
+int _mw_srbdata_per_message = 1000; // 3000;
 
 int _mw_srb_traceonfile(FILE * fp)
 {
@@ -607,6 +609,8 @@ int _mw_srbencodemessage(SRBmessage * srbmsg, char * buffer, int bufflen)
 {
    int len1, len2;
 
+   debug3("srbencode message %p %p %d", srbmsg, buffer, bufflen);
+   
    if (bufflen < MWMAXSVCNAME+2) {
       errno = EMSGSIZE;
       return -1;
@@ -614,7 +618,9 @@ int _mw_srbencodemessage(SRBmessage * srbmsg, char * buffer, int bufflen)
   
    len1 = sprintf(buffer, "%.*s%c", MWMAXSVCNAME, 
 		  srbmsg->command, srbmsg->marker);
-  
+
+   debug3("srbencode: len 1 = %d", len1);
+   
    len2 = urlmapnencode(buffer+len1, SRBMESSAGEMAXLEN-len1, 
 			srbmsg->map);
   

@@ -455,12 +455,12 @@ static SRBmessage * read_message_from_connbuffer(Connection * conn)
    };
       
    DEBUG3("we have %d octets pending in conn buffer sob=%p som=%p", conn->leftover, conn->messagebuffer, conn->som);   
-
+   
    if (conn->leftover == 0) {
       conn->som = conn->messagebuffer;
       return NULL;
    };
-
+ 
    if (conn->next_message_boundry_marker == NULL)
       conn->next_message_boundry_marker = strstr(conn->som, SRB_MESSAGEBOUNDRY);
    
@@ -519,7 +519,7 @@ SRBmessage * _mw_srb_recvmessage(Connection * conn, int flags)
    int  n, eof = 0;
    SRBmessage * srbmsg = NULL;
    int blocking;
-
+   DEBUG3("read a message from fd=%d flags=%d", conn->fd, flags);
    blocking = !(flags & MWNOBLOCK);
 
    TIMEPEGNOTE("begin");
@@ -531,7 +531,9 @@ SRBmessage * _mw_srb_recvmessage(Connection * conn, int flags)
   
    // first we try to get another message from the message buffer in the conn
    // if it's there we return it, and if it's there we add us to9 the mwgwd read fifo. 
+   DEBUG3("read a message from fd=%d flags=%d", conn->fd, flags);
    srbmsg = read_message_from_connbuffer(conn);
+   DEBUG3("read a message from fd=%d flags=%d", conn->fd, flags);
    if (srbmsg) {
       DEBUG("read message from buffer");
       conn->next_message_boundry_marker = strstr(conn->som, SRB_MESSAGEBOUNDRY);
@@ -571,11 +573,12 @@ SRBmessage * _mw_srb_recvmessage(Connection * conn, int flags)
       
       DEBUG3("readmessage(fd=%d) read %d bytes eof=%d", conn->fd, n, eof);
       srbmsg = read_message_from_connbuffer(conn);
-      
+         DEBUG3("read a message from fd=%d flags=%d", conn->fd, flags);
+ 
       if (eof) {
 	 if (conn->fd >= 0) {
 	    close(conn->fd);
-	    conn->fd = -1;
+	    //conn->fd = -1;
 	 };
 	 DEBUG1("At end of stream with srbmsg=%p", srbmsg);
 	 errno = EPIPE;
@@ -609,7 +612,7 @@ int _mw_srbencodemessage(SRBmessage * srbmsg, char * buffer, int bufflen)
 {
    int len1, len2;
 
-   debug3("srbencode message %p %p %d", srbmsg, buffer, bufflen);
+   debug("srbencode message %p %p %d", srbmsg, buffer, bufflen);
    
    if (bufflen < MWMAXSVCNAME+2) {
       errno = EMSGSIZE;

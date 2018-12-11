@@ -106,7 +106,7 @@ static int pushCRqueue(urlmap * map)
 
    TIMEPEGNOTE("begin");
    DEBUG3("pushCRqueue starts");
-
+ 
    if (map == NULL) return 0;
    idx = urlmapget(map, SRB_HANDLE);
    if (idx == -1) {
@@ -173,13 +173,13 @@ static int pushCRqueueDATA(urlmap * map)
    dataidx = urlmapget(map, SRB_DATA);
 
    if (dataidx == -1) {
-      Warning("got a SVCDATA message with out required data");
+      Warning("got a SVCDATA message without required data");
       urlmapfree(map);
       return -EINVAL;
    }
    hdl  = urlmapgetvalue(map, SRB_HANDLE);
    if (hdl == NULL) {
-      Warning("got a SVCDATA message with out required handle");
+      Warning("got a SVCDATA message without required handle");
       urlmapfree(map);
       return -1;
    };
@@ -569,6 +569,8 @@ int _mw_drain_socket(int flags)
 		srbmsg->command, srbmsg->marker);
 	  pushCRqueueDATA(srbmsg->map);	 
 	  srbmsg->map = NULL;
+	  flags |= MWNOBLOCK;
+	  rc++;
 	  continue;
       };
       /* this is a message other than SVCCALL, the only one we

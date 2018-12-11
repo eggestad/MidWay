@@ -172,6 +172,7 @@ int urlmapnencode(char * list, int len, urlmap * map)
   int keylen; 
   int valuelen;
 
+  debug(" **** len = %d", len);
   URLTIMEPEGNOTE("mapnencode begin");
   listlen = 0;
   idx = 0;
@@ -193,6 +194,7 @@ int urlmapnencode(char * list, int len, urlmap * map)
   };
 
   while(map[idx].key != NULL) {
+     debug(" **** idx %d  on key %s len=%d listlen=%d", idx,  map[idx].key, len, listlen);
     /* if not the beginning insert the pair separator. */
     if (listlen != 0)
       list[listlen++] = '&';
@@ -214,6 +216,7 @@ int urlmapnencode(char * list, int len, urlmap * map)
 	errno = EOVERFLOW;
 	return -1;
       };
+      debug(" **** valuelen %d", valuelen);
       rc = urlnencode(list + listlen, map[idx].value, valuelen);
       listlen += rc;
     };

@@ -38,11 +38,13 @@ int testencode(int flag)
   printf("\n** Testing url escape of \"binary\" data\n");
   packnunpack("hei hei", 7);
   packnunpack("hei hei", 8);
+  packnunpack("hei hei!", 8);
 
   X = "hei + \\ / & % # hei";
   packnunpack(X, strlen(X));
 
   len = urlnencodedup(&X, X, strlen(X));
+  
   packnunpack(X, strlen(X));
 
   printf("\n** Testing url escape of strings\n");
@@ -51,6 +53,9 @@ int testencode(int flag)
   printf("  urldecodedup(%s) = %s\n", X, ptr);
   free (ptr);
 
+  X = "hei!hei!%20";
+  urldecodedup(&ptr, X);
+  printf("  urldecodedup(%s) = %s\n", X, ptr);
   return 1;
 };
 
@@ -184,8 +189,8 @@ int testmap(int flag)
 
 int main(int argc, char ** argv)
 {
-  testencode(0);
-  testfl(0);
+  testencode(1);
+  testfl(1);
   testmap(1);
   return 0;
 };

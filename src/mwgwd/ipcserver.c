@@ -211,7 +211,7 @@ static void do_svcreply(Call * cmsg, int len)
   SRBmessage srbmsg;
   Connection * conn;
 
-  DEBUG("Got a svcreply service %s from server %d for client %d, gateway %d ipchandle=%#x callerid=%x instrance=%s", 
+  DEBUG("Got a svcreply service %s from server %d for client %d, gateway %d ipchandle=%#x callerid=%x instance=%s", 
 	cmsg->service, SRVID2IDX(cmsg->srvid),
 	CLTID2IDX(cmsg->cltid), GWID2IDX(cmsg->gwid), cmsg->handle, cmsg->callerid, cmsg->instance);
 
@@ -227,7 +227,8 @@ static void do_svcreply(Call * cmsg, int len)
     DEBUG("Couldn't find a waiting call for this message, possible quite normal");
     return;
   };
-
+  
+  urlmapdel(srbmsg.map, SRB_DATATOTAL);
   dbg_srbprintmap(&srbmsg);
 
   if (cmsg->flags & MWNOREPLY) {
@@ -240,7 +241,7 @@ static void do_svcreply(Call * cmsg, int len)
     data = NULL;
     len = 0;
   } else {
-     /// @todo large data return. 
+     /// @todo large data return. TODO
     len = cmsg->datalen;
     data = _mwoffset2adr(cmsg->data, _mw_getsegment_byid(cmsg->datasegmentid));
   };

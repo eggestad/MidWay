@@ -57,7 +57,7 @@ void tcpserverinit(void)
 
   /* the send buffer is located in the lib/SRBclient.c and is not
      alloc'ed until we really know we need it. */
-  if (_mw_srbmessagebuffer == NULL) _mw_srbmessagebuffer = malloc(SRBMESSAGEMAXLEN+1);
+  if (_mw_srbmessagebuffer == NULL) _mw_srbmessagebuffer = malloc(SRBMESSAGEMAXLEN+100);
 
   DEBUG2( "tcpserverinit: completed");
   return;
@@ -245,7 +245,7 @@ static void gwreadmessage(Connection * conn)
   if (conn == NULL) return;
 
   TIMEPEGNOTE("begin");
-
+  DEBUG2("read a message from fd=%d", conn->fd);
   errno = 0;
   srbmsg = _mw_srb_recvmessage(conn, MWNOBLOCK);
   TIMEPEG();

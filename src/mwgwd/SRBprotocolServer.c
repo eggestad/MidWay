@@ -502,6 +502,7 @@ static void srbsvcdata(Connection * conn, SRBmessage * srbmsg)
   };
 
   vGetOptBinField(conn, srbmsg, SRB_DATA, &data, &datalen);
+  DEBUG2("DATA: (%d) %s", datalen, data);
   storeSRBData(mwid, handle, data, datalen);
 };
 

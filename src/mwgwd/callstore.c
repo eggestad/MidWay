@@ -349,8 +349,11 @@ static void check_if_complete(struct PendingCall * pc)
    switch(pc->status) {
 
       /* check if all pieces of data has arrived, if so, do a IPC call */
-   case CALLDATAPENDING: 
-      DEBUG("checking to see if call data is complete: %s", (pc->datarecv != pc->datalen)?"Yes":"No");
+   case CALLDATAPENDING:
+
+      DEBUG("checking to see if call data is complete: %d == %d : %s",
+	    pc->datarecv,  pc->datalen, 
+	    (pc->datarecv == pc->datalen)?"Yes":"No");
       if (pc->datarecv != pc->datalen) break;
 
       if(pc->datalen > 0) 
@@ -376,7 +379,10 @@ static void check_if_complete(struct PendingCall * pc)
       break;
    
    case REPLYDATAPENDING:
-      DEBUG("checking to see if reply  data is complete: %s", (pc->datarecv != pc->datalen)?"Yes":"No");
+      DEBUG("checking to see if reply  data is complete: %d == %d : %s",
+	    pc->datarecv,  pc->datalen, 
+	    (pc->datarecv == pc->datalen)?"Yes":"No");
+
       if (pc->datarecv != pc->datalen) break;
       
       if (pc->datalen > 0)
@@ -514,7 +520,8 @@ int storeSRBData(MWID mwid, SRBhandle_t nethandle, char * data, int datalen)
       pc->data = _mwalloc(pc->datalen);
    };
 
-   // the total data mosy be greater or equal what we've got so far.
+   // the total data must be greater or equal what we've got so far.
+   // TODO: reject the massage and close connection instead of assert
    Assert(pc->datalen >= pc->datarecv + datalen);
    
    memcpy(pc->data + pc->datarecv, data, datalen);

@@ -346,6 +346,18 @@ void _mw_srb_delfield (SRBmessage * srbmsg, const char * key)
    return;
 };
 
+char * findMarker(char * message) {
+   char * cp = message;
+   do {
+      if (*cp  == SRB_REQUESTMARKER) return cp;
+      if (*cp  == SRB_RESPONSEMARKER) return cp;
+      if (*cp  == SRB_NOTIFICATIONMARKER) return cp;
+      if (*cp  == SRB_REJECTMARKER) return cp;
+      cp++;
+   } while (*cp != '\0');
+   return NULL;
+}
+   
 /* encode decode functions */
 
 SRBmessage * _mw_srbdecodemessage(Connection * conn, char * message, int msglen)
@@ -367,32 +379,33 @@ SRBmessage * _mw_srbdecodemessage(Connection * conn, char * message, int msglen)
    else 
       szTmp = NULL;
 
-   if ( (ptr = strchr(message, SRB_REQUESTMARKER)) == NULL)
-      if ( (ptr = strchr(message, SRB_RESPONSEMARKER)) == NULL)
-	 if ( (ptr = strchr(message, SRB_NOTIFICATIONMARKER)) == NULL) {
-	    if ( (ptr = strchr(message, SRB_REJECTMARKER)) != NULL) {
-	       DEBUG3("no legal marker found");
-	       errno = EBADMSG;
-	       return NULL;
-	    } else { 
-	       Warning ("rejected message due to missing srb marker: message \"%s\"", message);
-	       Assert(0);
-	       _mw_srbsendreject_sz(conn, message, -1);
-	       errno = EBADMSG;
-	       return NULL;
-	    }
+   if ( (ptr = findMarker (message) ) == NULL) {
+
+      Warning ("rejected message due to missing srb marker: message \"%s\"", message);   
+      _mw_srbsendreject_sz(conn, message, -1);
+      errno = EBADMSG;
+      return NULL;
+   }
 	
-	 }
+   
+   if ( *ptr == SRB_REJECTMARKER ) {
+      Warning("received a reject message");
+      errno = EBADMSG;
+      return NULL;
+   }
+
    TIMEPEG();
 
    commandlen = ptr - message;
+   DEBUG3("command = %*.*s marker = %c", commandlen, commandlen, message, *ptr);
    if (commandlen > 32) {
-      Warning ("rejected message due to too long srb command: message \"%s\"", message);
+      Warning ("rejected message due to too long srb command (%d): message \"%s\"",
+	       commandlen, message);
       _mw_srbsendreject_sz(conn, message, commandlen);
       errno = EBADMSG;
       return NULL;
    };
-   DEBUG3("command = %*.*s marker = %c", commandlen, commandlen, message, *ptr);
+
 
    TIMEPEG();
 

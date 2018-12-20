@@ -97,6 +97,8 @@ int urlnencodedup(char ** ret, char * uncoded, int len)
     return -1;
   };
 
+  if (len == 0) len = strlen(uncoded);
+
   /* new buffer */
   out = (char *) malloc(len*3+1);
   if (out == NULL) return 0;
@@ -211,6 +213,7 @@ int urldecode(char * plain, char * encoded)
   /* on decode, we only have to look for % and +, % must be 
      followed by two hex chars. */
   for (i = 0; i< len; i++) {
+
     if (encoded[i] == '%') {
       i++;
       c = unhex (encoded[i], encoded[i+1]);
@@ -225,8 +228,7 @@ int urldecode(char * plain, char * encoded)
       plain[j++] = (char) c;
     } else if (encoded[i] == '+') {
       plain[j++] = ' ';
-      i++;
-    } else {
+     } else {
       plain[j++] = encoded[i];
     };
   };

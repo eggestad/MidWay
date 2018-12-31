@@ -25,6 +25,7 @@
 #include <sys/time.h>
 
 #include "testsuite.h"
+#include "chromiumbase64.h"
 
 int testdataservice(mwsvcinfo * si);
 
@@ -36,10 +37,10 @@ int testdataservice(mwsvcinfo * si)
 
   mwlog(MWLOG_INFO, "Startying %s", si->service);
 
-  mwlog(MWLOG_INFO, "data %s(%d)", si->data, si->datalen);
+  mwlog(MWLOG_INFO, "data %s(%zu)", si->data, si->datalen);
 
   if (si->datalen < sizeof(struct testdata)) {
-     mwlog(MWLOG_INFO, "data (%d)", sizeof(struct testdata));
+     mwlog(MWLOG_INFO, "data (%zu)", sizeof(struct testdata));
      mwreturn(NULL, 0, FALSE, 0);
   };
   td = (struct testdata *) si->data;
@@ -70,6 +71,7 @@ int test_svc_time(mwsvcinfo * si) {
    ctime_r(&t, buf);
 
    mwreturn (buf, 0, MWSUCCESS, 0);
+   return 1;
 }
 
 int test_svc_chargen(mwsvcinfo * si) {
@@ -85,7 +87,8 @@ int test_svc_chargen(mwsvcinfo * si) {
 
    size_t replylen = chargen(buf, buflen);
 
-   mwreply (buf, replylen, MWSUCCESS, 0, 0);   
+   mwreply (buf, replylen, MWSUCCESS, 0, 0);
+   return 1;
 }
 
 int test_svc_echo(mwsvcinfo * si) {
@@ -99,9 +102,45 @@ int test_svc_echo(mwsvcinfo * si) {
    char * buf = mwalloc(si->datalen);
    memcpy(buf, si->data, si->datalen);
 
-   mwreply (buf, si->datalen, MWSUCCESS, 0, 0);   
+   mwreply (buf, si->datalen, MWSUCCESS, 0, 0);
+   return 1;
 }
-     
+
+int test_svc_base64_encode(mwsvcinfo * si) {
+
+   
+   if (si->datalen == 0) {
+      mwreply ("", 0, MWSUCCESS, 0, 0);
+      return 1;
+   }
+
+   char * dest = mwalloc(chromium_base64_encode_len(si->datalen));
+   int len = chromium_base64_encode(dest, si->data, si->datalen);
+
+   mwreply (dest, len, MWSUCCESS, 0, 0);
+   return 1;
+}
+
+int test_svc_base64_decode(mwsvcinfo * si) {
+
+   
+   if (si->datalen == 0) {
+      mwreply ("", 0, MWSUCCESS, 0, 0);
+      return 0;
+   }
+
+   char * dest = mwalloc(chromium_base64_decode_len(si->datalen));
+   int len = chromium_base64_decode(dest, si->data, si->datalen);
+
+   if (len == MODP_B64_ERROR) {
+      mwreply ("invalid base64", 0, MWFAIL, 0, 0);
+      return 0;
+   }
+
+   mwreply (dest, len, MWSUCCESS, 0, 0);
+   return 1;
+}
+
 int test_svc_sleep(mwsvcinfo * si) {
    int i = 0;
      
@@ -113,7 +152,8 @@ int test_svc_sleep(mwsvcinfo * si) {
    char * buf = mwalloc(80);
    sprintf(buf, "sleept for %d seconds", i);
   
-   mwreply (buf, 0, MWSUCCESS, 0, 0);   
+   mwreply (buf, 0, MWSUCCESS, 0, 0);
+   return 1;
 }
    
 
@@ -128,7 +168,10 @@ __attribute__((constructor))  int xinit(void)
   mwprovide("testtime", test_svc_time, 0);
   mwprovide("testsleep", test_svc_sleep, 0);
   mwprovide("testecho", test_svc_echo, 0);
-  
+
+  mwprovide("testbase64enc", test_svc_base64_encode, 0);
+  mwprovide("testbase64dec", test_svc_base64_decode, 0);
+
   mwprovide("testchargen", test_svc_chargen, 0);
   
   return 0;

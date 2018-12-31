@@ -87,6 +87,34 @@ int test_svc_chargen(mwsvcinfo * si) {
 
    mwreply (buf, replylen, MWSUCCESS, 0, 0);   
 }
+
+int test_svc_echo(mwsvcinfo * si) {
+
+   
+   if (si->datalen == 0) {
+      mwreply ("", 0, MWSUCCESS, 0, 0);
+      return 0;
+   }
+
+   char * buf = mwalloc(si->datalen);
+   memcpy(buf, si->data, si->datalen);
+
+   mwreply (buf, si->datalen, MWSUCCESS, 0, 0);   
+}
+     
+int test_svc_sleep(mwsvcinfo * si) {
+   int i = 0;
+     
+   if (si->datalen > 0) {
+      i = atoi(si->data);
+      if (i < 0) i = 0;
+   }
+   sleep(i);
+   char * buf = mwalloc(80);
+   sprintf(buf, "sleept for %d seconds", i);
+  
+   mwreply (buf, 0, MWSUCCESS, 0, 0);   
+}
    
 
    
@@ -98,7 +126,11 @@ __attribute__((constructor))  int xinit(void)
   mwprovide("testsvc1", testdataservice, 0);
   mwprovide("testdate", testdataservice, 0);
   mwprovide("testtime", test_svc_time, 0);
+  mwprovide("testsleep", test_svc_sleep, 0);
+  mwprovide("testecho", test_svc_echo, 0);
+  
   mwprovide("testchargen", test_svc_chargen, 0);
+  
   return 0;
  };
 

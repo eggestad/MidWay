@@ -106,7 +106,7 @@ struct Connection {
 #define CONN_TYPE_MCAST   'M'
 
 /* the state, only used in the gateway when we do no_blocking to
-   remeber if we're waiting for a connect() to complete, or we got an
+   remember if we're waiting for a connect() to complete, or we got an
    connect, but waiting to SRB_INIT, or if're connected. SSL adds more states. */
 enum {  CONNECT_STATE_CONNWAIT = 1, 
 	CONNECT_STATE_READYWAIT, 	

@@ -169,7 +169,7 @@ static void debugPC(char * msg, struct PendingCall * pc) {
    char src[64], dst[64];
    _mwid2str(pc->src_mwid, src);
    _mwid2str(pc->dst_mwid, dst);
-   DEBUG("%s PendingCall src:%s %#x dst:%s %#x  sts=%d", 
+   DEBUG("%s PendingCall src: id=%s hdl=%#x dst: id=%s hdl=%#x  sts=%d", 
 	 msg, src, pc->srchdl, dst, pc->dsthdl, pc->status);
 };
 
@@ -281,7 +281,7 @@ static void unlinkPendingCall(struct PendingCall * pc)
 /**
    reinsert with new tuple.
    
-   This is down after all the data is arrived and we changed from src to dest tuple
+   This is done after all the data is arrived and we changed from src to dest tuple
 */
 
 static void rehashPendingCall(struct PendingCall * pc, MWID mwid, SRBhandle_t hdl)
@@ -542,7 +542,7 @@ int storeSRBData(MWID mwid, SRBhandle_t nethandle, char * data, int datalen)
    storeSRBReplyData() explicitly. Will check for complete reply and
    route reply to either the IPC or SRB client.
 
-   @param mwid mwid of the replyer
+   @param mwid mwid of the replier
    @param nethandle the SRBHANDLE of the message
    @param map the urlmap of the decoded SRBMessage
    @param datalen the total number of octets of data associated with this reply >= 0
@@ -587,12 +587,51 @@ int storeSRBReply(MWID mwid, SRBhandle_t nethandle, urlmap *map, int rcode, int 
    return 0;
 };
 
-/** 
-    Add a IPC originated service call to pending calls. 
+/**
+   when a client closed connection we need to clear any pending calls
+   the client left hanging
+   
+   @param mwid mwid of the client
+   @return always 0
+*/
+int storeSRCClearClient(MWID mwid)
+{
+   struct PendingCall * pc, *pc_tmp;
+   int rc = 0;
+   
+   ENTER();
+   storeLockCall();
 
-    @param cmsg the Call message received from the client.
-    @param conn the Connection that the call is routed out on. 
-    @return always 0
+   DEBUG("clearing all PendingCall for id=%#x", mwid);
+
+   int clearcount = 0;
+   for (int i = 0; i < HASHSIZE; i++) {
+      pc = hash[i];
+      while(pc != NULL) {
+	 pc_tmp = pc;
+	 pc = pc->next;
+	 
+	 if (pc_tmp->src_mwid == mwid) {
+	    debugPC("Found a pending call", pc_tmp);
+	    freePendingCall(pc_tmp);
+	 }
+      }
+	    
+   }
+   
+out:
+   storeUnLockCall();
+   LEAVE();
+   return 0;
+}
+
+
+/**
+   Add a IPC originated service call to pending calls. 
+
+   @param cmsg the Call message received from the client.
+   @param conn the Connection that the call is routed out on. 
+   @return always 0
 */
 int storeIPCCall(Call * cmsg, Connection *conn)
 {

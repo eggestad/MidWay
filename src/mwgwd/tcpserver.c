@@ -175,14 +175,18 @@ static Connection *  tcpnewconnection(Connection * listensocket)
 void tcpcloseconnection(Connection * conn)
 {
 
-   TIMEPEGNOTE("begin");
+  TIMEPEGNOTE("begin");
 
-  DEBUG("on  fd=%d", conn->fd);
+  DEBUG("on  fd=%d cid %#x", conn->fd, conn->cid);
+
   if (conn->cid != UNASSIGNED) {
-     srb_unsubscribe_all(conn);
-     gwdetachclient(conn->cid);
+    storeSRCClearClient(conn->cid);
+    srb_unsubscribe_all(conn);
+    gwdetachclient(conn->cid);
+
   } else if (conn->type == CONN_TYPE_BROKER) {
     reconnect_broker = 1;   
+
   } else if ((conn->type == CONN_TYPE_GATEWAY) && (conn->type != UNASSIGNED)) {
      gw_closegateway(conn);
     return;
@@ -381,6 +385,8 @@ int tcp_do_read_condiion(Connection * conn)
     if (srbmsg) {
        srbDoMessage(conn, srbmsg);
        DEBUG("srbDomessage completed");
+       free(srbmsg);
+       
     } else {
        Warning ("got a message from broker that's wrongly formated");
        conn_del(conn->fd);

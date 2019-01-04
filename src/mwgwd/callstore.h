@@ -27,5 +27,8 @@ int storeSRBCall(MWID mwid, SRBhandle_t nethandle, urlmap *map, Connection * con
 		 char * service, char * instance, char * domain, char * clientname, int timeout, int flags);
 int storeSRBData(MWID mwid, SRBhandle_t nethandle, char * data, int datalen);
 int storeSRBReply(MWID mwid, SRBhandle_t nethandle, urlmap *map, int rcode, int apprcode, int datatotal);
+
+int storeSRCClearClient(MWID mwid);
+
 int storeIPCCall(Call * cmsg, Connection *conn);
 int storeIPCReply(Call * cmsg, Connection ** pconn, urlmap ** pmap);

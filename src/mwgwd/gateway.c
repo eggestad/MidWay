@@ -119,7 +119,7 @@ DECLAREGLOBALMUTEX(bigmutex);
  ************************************************************************/
 int gwattachclient(Connection * conn, char * cname, char * username, char * password, urlmap * map)
 {
-  Attach mesg;
+  Attach mesg = { 0 };
   int rc;
 
   /*  first  of all  we  should  test  authentication..... that  means

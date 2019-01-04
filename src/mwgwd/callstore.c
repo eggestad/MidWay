@@ -160,7 +160,7 @@ struct PendingCall {
    struct PendingCall * next, **root; ///< double linked list 
 };
 
-//* the hash if all active pending call
+//* the hash of all active pending call
 static struct PendingCall * hash[HASHSIZE] = { NULL };
 //* we cache used structs
 static struct PendingCall * freelist = NULL;
@@ -682,7 +682,15 @@ int storeIPCReply(Call * cmsg, Connection ** pconn, urlmap ** pmap)
       goto out;
    };
    
-   *pconn = pc->srcconn;
+   Connection * conn = pc->srcconn;
+   if (conn->cid != mwid && conn->gwid != mwid) {
+      Error("got reply to mwid %#x but connection had cid %#x gwid %#x, discarding",
+	    mwid, conn->cid, conn->gwid );
+      rc = -1;
+      goto out;
+   };
+   
+   *pconn = conn;
    if (cmsg->returncode == MWMORE) {
       *pmap = urlmapdup(pc->callmsg);
    } else {

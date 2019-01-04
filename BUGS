@@ -194,3 +194,4 @@ CRITICAL BUGS:
 
 * mwd spontaneously dies occationally, looks like the watchdog is left behind. 
 
+* mwgwd go down in assert if data sent is greater than TOTALDATA

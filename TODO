@@ -25,7 +25,7 @@
 
  * Java TCP/IP Client API
 
- * Java RMI bindings
+ * Java RMI bindings or use JNA
 
  * Transaction support
 
@@ -39,6 +39,8 @@ OK * trace facility
 
  * SRB trace need better peer info. (_mw_srb_trace)
 
+ * On SRB reply with extra data, large data will cause tcp thread to block
+
  * Data buffers are not arbitrary length
 
  * fast path missing
@@ -48,6 +50,11 @@ OK * trace facility
  (partly) * config file (XML)
 
  * authentication in gateway. Requires config 
+
+ * external lookup of GW IP's. Requires config. Usefull for AWS
+   Which don't allow for multicast/broadcast. External lookup whould be a
+   commandline command/script. In AWS EC2 this would be like getting all
+   servers with a given tag.
 
  * allow multiple replies to a service request. Solves the html
    problem, and simple to implement.

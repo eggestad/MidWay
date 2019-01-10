@@ -3,3 +3,22 @@ Start testserver with:
 
 Then run the testclient with:
 ./testsuiteclient
+
+
+
+test services
+
+testchargen  - chargen data is ecpected to be an ascii int telling how many lines
+
+testtime - return ctime no arguments
+
+### todo
+
+echo
+
+base64 encode decode
+
+url encode decode
+
+random - generate given bytes of random data
+

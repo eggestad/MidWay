@@ -50,14 +50,14 @@
 /* hmm I'm almost puzzeled that this all works withouit a mutex on the
    connection table. But I'm pretty sure that I'm OK without it.  */
 
-/* threre was a major problem in th eoriginal implementation. Nota
-mutex problem though.  There was only onle connection table that was
+/* there was a major problem in the original implementation. Not a
+mutex problem though.  There was only one connection table that was
 realloc'ed when expansion was needed. However, there are pointers to
 the conn entry around, most notably in gwpeerinfo. Hence the conn
 struct can't move. Also when one thread would do realloc, the other
 may do dereferencing of the conn pointer that are no longer valid. 
 
-Our solution is to to a two level array to save space, and teh to
+Our solution is to have a two level array to save space, and the two
 level array may be realloced. */
 
 #define CONNDIRSIZE 10
@@ -75,7 +75,6 @@ static int connectiontablesize = 0;
 static int maxsocket = -1;
 
 #if USE_POLL
-
 #error "poll not implemented!"
 
 #else

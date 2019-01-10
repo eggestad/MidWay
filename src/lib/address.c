@@ -349,7 +349,9 @@ static int url_decode_srbp (mwaddress_t * mwadr, const char * srburl)
 	      inet_ntop(AF_INET, &mwadr->ipaddress.sin4->sin_addr, buf, 64));
       };
   } else {
-    
+
+     //#define USE_GETHOSTBYNAME // old school
+#ifdef USE_GET_HOSTBYNAME
     hent = gethostbyname(ipaddress);
     if (hent == NULL) {
       Error("Unable to resolve hostname %s", ipaddress);
@@ -368,8 +370,33 @@ static int url_decode_srbp (mwaddress_t * mwadr, const char * srburl)
     mwadr->ipaddress.sin4->sin_family = AF_INET;
     mwadr->ipaddress.sin4->sin_port = ns_port;
     mwadr->ipaddress.sin4->sin_addr = * (struct in_addr *) hent->h_addr_list[0];
-  };
-
+#else
+    struct addrinfo hints = { 0 };
+    hints.ai_flags = 0; //AI_CANONNAME;
+    hints.ai_family = AF_INET; // when we support IP6 : AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM;
+    
+    struct addrinfo *res = NULL;
+    
+    int rc = getaddrinfo(ipaddress, NULL, &hints, &res);
+    if (rc != 0) {
+       Error("Failed to resolve hostname %s", ipaddress);
+       return -1;
+    }
+    while(res != NULL) {
+       
+       if (res->ai_family == AF_INET) {
+	  struct sockaddr_in *in = (struct sockaddr_in *) res->ai_addr;
+	  mwadr->ipaddress.sin4 = malloc(sizeof(struct sockaddr_in));
+	  mwadr->ipaddress.sin4->sin_family = AF_INET;
+	  mwadr->ipaddress.sin4->sin_port = ns_port;
+	  mwadr->ipaddress.sin4->sin_addr = in->sin_addr;
+	  break;
+       }
+       res = res->ai_next;
+    }
+  }
+#endif
   {
     char buf[64];
     DEBUG1("Gateways address: family %d, port %d ipaddress V4 %s", 
@@ -441,12 +468,13 @@ int _mwdecode_url(const char * url, mwaddress_t * mwadr)
     rc = url_decode_srbp(mwadr, url);
     return rc;
   };
+  /*
   if (0 == strncasecmp("http", url+match[1].rm_so, 4)) {
     mwadr->protocol = MWHTTP;
     rc = url_decode_srbp(mwadr, url);
     return rc;
   };
-  
+  */
   Error("Unknown protocol %s in the URL \"%s\" for MidWay instance, error %d", 
 	url+match[1].rm_so, url, mwadr->protocol);
   return -EPROTONOSUPPORT;

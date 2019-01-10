@@ -804,7 +804,7 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
   Connection * nc;
   GATEWAYID gwid;
   char * _addrlist[2];
-  struct hostent * he, _he;
+  //  struct hostent * he, _he;
   struct sockaddr raddr;
   struct sockaddr_in * raddr4 = (struct sockaddr_in *) & raddr;
 
@@ -829,7 +829,8 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
   if (s == -1) abort();
   nc = conn_add(s, SRB_ROLE_GATEWAY, CONN_TYPE_GATEWAY);
   nc->state = CONNECT_STATE_CONNWAIT;
-  
+
+  #ifdef USE_GETHOSTBYNAME
   /* now convert the hostname in dot format, or lookup the
      hostname. If we've an address in dot format, we create a fake hostent struct */
   rc = inet_pton(AF_INET, peerinfo->hostname,& raddr4->sin_addr.s_addr);
@@ -858,7 +859,25 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
       return;
     }
   };
-
+#else
+  struct addrinfo hints = { 0 };
+  hints.ai_flags = 0; //AI_CANONNAME;
+  hints.ai_family = AF_INET; // when we support IP6 : AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+    
+  struct addrinfo *res = NULL;
+  
+  rc = getaddrinfo(peerinfo->hostname, NULL, &hints, &res);
+  if (rc != 0) {
+     Error("unable to resolve \"%s\", reason %s, will try again", 
+	   peerinfo->hostname, gai_strerror(rc));
+     
+     conn_del(s);
+     close(s);
+     return;
+  }
+  
+#endif
   
   // OK we now have a legal hostent, now lets try to connect, but first we need to assign an GWID
 
@@ -875,22 +894,26 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
 
   /* DNS may give us multiple addresses for a cononical name, we must
      try them all */
+#ifdef USE_GETHOSTBYNAME
   for (n = 0; he->h_addr_list[n] != NULL; n++) {
-    // IPv6
-    memcpy(&raddr4->sin_addr.s_addr, he->h_addr_list[n], sizeof(struct sockaddr_in));
-    
-    rc = connect(s, (struct sockaddr *) raddr4, sizeof(struct sockaddr_in));
+     // IPv6
+     memcpy(&raddr4->sin_addr.s_addr, he->h_addr_list[n], sizeof(struct sockaddr_in));
+     rc = connect(s, (struct sockaddr *) raddr4, sizeof(struct sockaddr_in));
+#else
+   while(res != NULL) {	
+      rc = connect(s, res->ai_addr, sizeof(struct sockaddr));
+#endif
     if (rc == 0) { /* according to docs this may happen if remote address is localhost */
       peerinfo->conn = nc;
       nc->state = CONNECT_STATE_READYWAIT;
       DEBUG( "connected to peer on localhost");
       break;
     } else if (errno == EINPROGRESS) { // This is the good "normal end
-      char buff[64];
+       //char buff[64];
 
-      inet_ntop(AF_INET, he->h_addr_list[n], buff, 64);
-      DEBUG( "_he = %p he = %p he->h_name %p", &_he, he, he->h_name );
-      DEBUG( "connect to peer %s(%s) in progress", he->h_name, buff);
+       //inet_ntop(AF_INET, he->h_addr_list[n], buff, 64);
+      //      DEBUG( "_he = %p he = %p he->h_name %p", &_he, he, he->h_name );
+      // DEBUG( "connect to peer %s(%s) in progress", he->h_name, buff);
       poll_write(s);
       peerinfo->conn = nc;
       nc->peerinfo = peerinfo; 
@@ -899,6 +922,9 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
       gw_closegateway(nc);
       break;
     };
+#ifndef USE_GETHOSTBYNAME
+    res = res->ai_next;
+#endif
   };
   return;
 };

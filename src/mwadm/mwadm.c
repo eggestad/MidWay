@@ -24,6 +24,8 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <ctype.h>
+#include <limits.h>
 
 /* needed for Gnu Readline lib */
 #include <readline/readline.h>
@@ -197,7 +199,7 @@ struct command  commands[] =
   { "buffers",  heapinfo,    1, "buffers",    "prints out info on the shm buffer area"},
   { "help",     help,        0, "help [command]", 
     "list available commands and gives online help on spesific commands"},
-  { "query",     query,        0, "query",    "perform a multicast discovery of running instances"},
+  { "query",     query,        0, "query [-h hostname]",    "perform a broad/multicast discovery of running instances"},
   { "quit",     quit,        0, "quit",    "exits mwadm"},
   { "q",        quit,        0, "q",    "exits mwadm"},
   { "R&D",      toggleRandD, 0, "R&D",     "Toggle mwadm into R&D mode."},
@@ -344,6 +346,9 @@ int exec_command(int argc, char ** argv)
 {
   int i;
 
+  optreset = 1;
+  optind = 1;
+  
   i = 0;
   while(commands[i].commandname != NULL) {
     /*printf("testing to see if command %s is %s\n", argv[0], commands[i].commandname);*/
@@ -455,7 +460,7 @@ int main(int argc, char ** argv)
   DEBUG("mwadm client starting");
 
   attach(0, NULL);
-  
+
   DEBUG ("optind = %d argc = %d", optind, argc);
   for (i = optind; i < argc; i++) {
      DEBUG("argv[%d] = \"%s\"", i, argv[i]);
@@ -469,7 +474,12 @@ int main(int argc, char ** argv)
   }
   /* if interactive */
   init_readline();
-
+  char histfile[PATH_MAX] = { 0 };
+  if (ipcmain != NULL) {
+     snprintf(histfile, PATH_MAX, "%s/.mwadm_history", ipcmain->mw_homedir);
+     read_history (histfile);
+  }
+     
   while(1) {
 
     mwrecvevents();
@@ -500,6 +510,11 @@ int main(int argc, char ** argv)
 
     free(thiscommand);
   };
-  
+  if (ipcmain != NULL) {
+     write_history (histfile);
+     history_truncate_file (histfile, 200);
+  }
+   
+
   detach(0, NULL);
 };

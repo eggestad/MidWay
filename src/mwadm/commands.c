@@ -35,6 +35,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <netdb.h>
 
 #include <MidWay.h>
 #include <ipctables.h>
@@ -486,23 +487,70 @@ int query(int argc, char ** argv)
 {
    int s, rc;
    char addr[INET_ADDRSTRLEN+1];
+   char * hostname = NULL;
    struct sockaddr_in * inaddr;
    instanceinfo reply;
    char * domain = NULL, * instance = NULL;
-  
-   if (argc == 2) {
-      domain = argv[1];
+
+   struct addrinfo hints = { 0 };
+   hints.ai_flags = 0; //AI_CANONNAME;
+   hints.ai_family = AF_INET; // when we support IP6 : AF_UNSPEC;
+   hints.ai_socktype = SOCK_DGRAM;
+   
+   struct addrinfo *res = NULL;
+   char dftport[16];
+   snprintf(dftport, 16, "%d", SRB_BROKER_PORT);
+   char * port = dftport;
+   int c;
+   
+   while( (c = getopt(argc, argv, "h:p:")) != -1) {
+      switch(c) {
+      case 'h':
+	 hostname = optarg;
+	 break;
+
+      case 'p':
+	 port = optarg;
+	 break;
+
+      default:
+	 fprintf(stderr, "error parsing args \n");
+	 return -1;
+      };
+   };
+
+   if ( (argc - optind) > 1) {
+      fprintf(stderr, "error argc %d optind %d \n", argc, optind);
+      fprintf(stderr, "error in query wrong number of args \n");
+      return 0;
+   };
+
+   if ( (argc - optind) == 1) {
+      domain = argv[optind];
    } 
 
    s = socket(AF_INET, SOCK_DGRAM, 0);
    if (s == -1) return -errno;
-
-   rc = _mw_sendmcastquery(s, domain, instance);
-   if (rc == -1) {
-      close(s);
-      return rc;
-   };
-
+   if (hostname == NULL) {
+      rc = _mw_sendmcastquery(s, domain, instance);
+      if (rc == -1) {
+	 close(s);
+	 return rc;
+      };
+   } else {
+      int rc = getaddrinfo(hostname, port, &hints, &res);
+      if (rc != 0) {
+	 Error("Failed to resolve hostname %s", hostname);
+	 return rc;
+      }
+      while(res != NULL) {
+	 if (res->ai_family == AF_INET) {
+	    struct sockaddr_in *in = (struct sockaddr_in *) res->ai_addr;
+	    rc = _mw_sendunicastquery(s, *in, domain, instance);
+	 }
+	 res = res->ai_next;
+      }
+   }
    printf("Domain               Instance             Version  Address\n");
 
    rc = 0;

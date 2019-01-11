@@ -35,7 +35,11 @@
 int _mw_setmcastaddr(void);
 int _mw_initmcast(int s);
 int _mw_sendmcast (int s, char * payload);
+int _mw_sendunicast_old (int s, struct  in_addr * iaddr, char * payload);
+int _mw_sendunicast (int s, struct sockaddr_in to, char * payload);
 int _mw_getmcastreply(int s, instanceinfo * reply, float timeout);
 int _mw_sendmcastquery(int s, const char * domain, const char * instance);
+int _mw_sendunicastquery(int s, struct sockaddr_in to,
+		       const char * domain, const char * instance);
 
 #endif /* _MULTICAST_H */

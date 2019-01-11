@@ -45,7 +45,7 @@ Connection pseudoconn = {
   .rejects         =  0,
   .domain          =  NULL, 
   .version         =  0, 
-  .peeraddr_string =  "Multicast send", 
+  .peeraddr_string =  "query send", 
   .messagebuffer   =  NULL,
   .type            =  CONN_TYPE_MCAST
 };  
@@ -71,7 +71,8 @@ int _mw_setmcastaddr(void)
 int _mw_initmcast(int s)
 {
   int rc, val;
-
+  _mw_setmcastaddr();
+  
   if (use_broadcast) {
      val = 1;
      rc = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &val, 4);
@@ -91,16 +92,17 @@ int _mw_initmcast(int s)
 
 
 
-int _mw_sendmcast (int s, char * payload)
+int _mw_sendunicast_old (int s, struct  in_addr * iaddr, char * payload)
 {
   int rc, plen, err;
   struct sockaddr_in to;
 
   to.sin_family = AF_INET;
   to.sin_port = htons(SRB_BROKER_PORT);
-
+  to.sin_addr = *iaddr;
+  
   plen = strlen(payload);
-  DEBUG1("send mcast on fd=%d", s);
+  DEBUG1("send unicast on fd=%d", s);
   pseudoconn.fd = s;
   _mw_srb_trace(SRB_TRACE_OUT, &pseudoconn, payload, plen);
   pseudoconn.fd = -1;
@@ -109,35 +111,77 @@ int _mw_sendmcast (int s, char * payload)
   err = 0;
   rc = -1;
 
-  if (use_broadcast) {
-     to.sin_addr.s_addr = htonl(INADDR_BROADCAST);
-     rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
-     DEBUG1("sent broadcast rc = %d errno = %d", rc, errno);
-     err = errno;
-  }
+  char buf[1024];
+  DEBUG1 ("addr4  = %s\n", inet_ntop(to.sin_family, &to.sin_addr, buf, 1024));
+  rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
+  DEBUG1("sent unicast rc = %d errno = %d", rc, errno);
+ 
+  return rc;
+};
 
-  if (use_multicast) {
-     memcpy(&to.sin_addr,  &mr.imr_multiaddr.s_addr, sizeof(struct in_addr));
-     rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
-     DEBUG1("sent multicast rc = %d errno = %d", rc, errno);
-     err = errno;
-  }
+int _mw_sendmcast (int s, char * payload) {
+   int val = 0, rc;
+   char * env;
+  
+   if ( (env = getenv ("MW_USE_BROADCAST")) ) {
+      use_broadcast = atoi(env) ? 1 : 0;
+   };
+   
+   struct sockaddr_in to;
+   to.sin_family = AF_INET;
+   to.sin_port = htons(SRB_BROKER_PORT);
 
-  DEBUG1("sendto returned %d errno=%d", rc, err);
+   // default query localhost
+   to.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+   
+   if (use_broadcast) {
+      DEBUG1("using broadcast");
+      rc = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &val, 4);
+      DEBUG1("set broadcast opt returned %d errno =%d", rc, errno);
+      to.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+   }  else if (use_multicast) {
+      rc =  _mw_setmcastaddr();
+      DEBUG1("set multicast opt returned %d errno =%d", rc, errno);
+      if (rc == -1) return rc;
+      memcpy(&to.sin_addr,  &mr.imr_multiaddr.s_addr, sizeof(struct in_addr));
+   }
+   
+   rc = _mw_sendunicast(s, to, payload);
+   if (rc == -1) {
+      if ( (errno ==  ENETUNREACH) || (errno ==  ENONET) ) {
+	 DEBUG1("Multi/broadcast failed probably because we're on a standalone node, "
+		"doing unicast to loopback");
+	 errno = 0;
+	 to.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 
-  if (rc == -1) {
-     if ( (err ==  ENETUNREACH) || (err ==  ENONET) ) {
-	DEBUG1("Multi/broadcast failed probably because we're on a standalone node, "
-	       "doing unicast to loopback");
-	errno = 0;
-	to.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-	rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
-	err = errno;
-	DEBUG1("sendto loopback returned %d errno=%d", rc, err);
-     } else {
-	DEBUG1("sendto failed with unexpected  errno=%d", err);
-     }
-  };
+	 rc = _mw_sendunicast(s, to, payload);
+	 DEBUG1("sendto loopback returned %d errno=%d", rc, errno);
+      } else {
+	 DEBUG1("sendto failed with unexpected  errno=%d", errno);
+      }
+   };
+   return rc;
+}
+
+int _mw_sendunicast (int s, struct sockaddr_in to, char * payload)
+{
+  int rc, plen;
+  to.sin_family = AF_INET;
+  if (to.sin_port == 0)
+     to.sin_port = htons(SRB_BROKER_PORT);
+
+  plen = strlen(payload);
+  DEBUG1("sending query on fd=%d", s);
+  pseudoconn.fd = s;
+  _mw_srb_trace(SRB_TRACE_OUT, &pseudoconn, payload, plen);
+  pseudoconn.fd = -1;
+
+  errno = 0;
+  rc = 0;
+  char buf[1024];
+  DEBUG1 ("addr4  = %s\n", inet_ntop(to.sin_family, &to.sin_addr, buf, 1024));
+  rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
+  DEBUG1("sendto returned %d errno=%d", rc, errno);
 
   return rc;
 };
@@ -150,40 +194,52 @@ static char * known_instances_list = NULL;
 static int known_instances_alloc = 0;
 static int known_instances = 0;
 
-int _mw_sendmcastquery(int s, const char * domain, const char * instance)
-{
-  SRBmessage srbreq;
-  char * env, buffer[SRBMESSAGEMAXLEN];
-  int rc, len, val;
+static char * make_SRBready_req(const char * domain, const char * instance) {
+   SRBmessage srbreq;
+   static char buffer[SRBMESSAGEMAXLEN];
+   strcpy(srbreq.command, SRB_READY);
+   srbreq.marker = SRB_REQUESTMARKER;
+   srbreq.map = NULL;
+   
+   srbreq.map = urlmapadd(srbreq.map, SRB_VERSION, NULL);
+   srbreq.map = urlmapadd(srbreq.map, SRB_DOMAIN, NULL);
+   srbreq.map = urlmapadd(srbreq.map, SRB_INSTANCE, NULL);
+   
+   urlmapset(srbreq.map, SRB_VERSION, SRBPROTOCOLVERSION);
+   if (domain) urlmapset(srbreq.map, SRB_DOMAIN, domain);
+   if (instance) urlmapset(srbreq.map, SRB_INSTANCE, instance);
+   
+   int len = _mw_srbencodemessage(&srbreq, buffer, SRBMESSAGEMAXLEN);
+   urlmapfree(srbreq.map);
+   return buffer;
+}
 
-  if ( (env = getenv ("MW_USE_BROADCAST")) ) {
-     use_broadcast = atoi(env) ? 1 : 0;
-  };
-
-  if (use_broadcast) {
-     val = 1;     
-     rc = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &val, 4);
-     DEBUG1("set broadcast opt returned %d errno =%d", rc, errno);
-  } else {
-     rc =  _mw_setmcastaddr();
-     if (rc == -1) return rc;
-  };
-
-  strcpy(srbreq.command, SRB_READY);
-  srbreq.marker = SRB_REQUESTMARKER;
-  srbreq.map = NULL;
-
-  srbreq.map = urlmapadd(srbreq.map, SRB_VERSION, NULL);
-  srbreq.map = urlmapadd(srbreq.map, SRB_DOMAIN, NULL);
-  srbreq.map = urlmapadd(srbreq.map, SRB_INSTANCE, NULL);
-
-  urlmapset(srbreq.map, SRB_VERSION, SRBPROTOCOLVERSION);
-  if (domain) urlmapset(srbreq.map, SRB_DOMAIN, domain);
-  if (instance) urlmapset(srbreq.map, SRB_INSTANCE, instance);
-
-  len = _mw_srbencodemessage(&srbreq, buffer, SRBMESSAGEMAXLEN);
+int _mw_sendmcastquery(int s, const char * domain, const char * instance) {
+   char * buffer;
+   _mw_initmcast(s);
+   int rc;
+  buffer = make_SRBready_req( domain,  instance);
   rc = _mw_sendmcast (s, buffer);
-  urlmapfree(srbreq.map);
+
+  // clear the list of known instances, new query, a new unique list
+  if (known_instances_alloc == 0) {
+     known_instances_alloc = 16;
+     known_instances_list = malloc(sizeof(char) * known_instances_alloc * MWMAXNAMELEN);
+  };
+  known_instances = 0;
+
+  return rc;
+}
+
+int _mw_sendunicastquery(int s, struct sockaddr_in to,
+			    const char * domain, const char * instance)
+{
+
+  char * buffer;
+  int rc, len;
+
+  buffer = make_SRBready_req( domain,  instance);
+  rc = _mw_sendunicast (s, to, buffer);
 
   // clear the list of known instances, new query, a new unique list
   if (known_instances_alloc == 0) {

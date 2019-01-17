@@ -164,6 +164,13 @@ should begin with . ) */
 #define MWAUTH_KRB5     3   // kerberos
 
 
+/// The port we expect the broker listening to
+#if 1
+#define SRB_BROKER_PORT         1102
+#else 
+#define SRB_BROKER_PORT         102
+#endif
+
 /* for OS's (like mac osx that are missing some errno values */
 
 #ifndef ELAST

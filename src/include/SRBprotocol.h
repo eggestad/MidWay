@@ -57,12 +57,7 @@ static inline int srbdata_per_message(void)
    return _mw_srbdata_per_message;
 };
 
-#ifdef DEBUG
-#define SRB_BROKER_PORT         1102
-#else 
-/// The port we expect the broker listening to
-#define SRB_BROKER_PORT         102
-#endif
+// SRB_BROKER_PORT set in top MidWay.h 
 
 /**
    @depreciated

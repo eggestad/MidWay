@@ -114,13 +114,13 @@ int _mw_sendunicast_old (int s, struct  in_addr * iaddr, char * payload)
   char buf[1024];
   DEBUG1 ("addr4  = %s\n", inet_ntop(to.sin_family, &to.sin_addr, buf, 1024));
   rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
-  DEBUG1("sent unicast rc = %d errno = %d", rc, errno);
+  DEBUG1("sent unicast rc = %d errno = %d (%s)", rc, errno, strerror(errno));
  
   return rc;
 };
 
 int _mw_sendmcast (int s, char * payload) {
-   int val = 0, rc;
+   int val = 1, rc;
    char * env;
   
    if ( (env = getenv ("MW_USE_BROADCAST")) ) {
@@ -157,7 +157,7 @@ int _mw_sendmcast (int s, char * payload) {
 	 rc = _mw_sendunicast(s, to, payload);
 	 DEBUG1("sendto loopback returned %d errno=%d", rc, errno);
       } else {
-	 DEBUG1("sendto failed with unexpected  errno=%d", errno);
+	 DEBUG1("sendto failed with unexpected  errno=%d(%s)", errno, strerror(errno));
       }
    };
    return rc;
@@ -166,6 +166,10 @@ int _mw_sendmcast (int s, char * payload) {
 int _mw_sendunicast (int s, struct sockaddr_in to, char * payload)
 {
   int rc, plen;
+  //  int val = 1;
+  //rc = setsockopt(s, SOL_SOCKET, SO_BROADCAST, &val, 4);
+  //DEBUG1("set broadcast opt returned %d errno =%d", rc, errno);
+
   to.sin_family = AF_INET;
   if (to.sin_port == 0)
      to.sin_port = htons(SRB_BROKER_PORT);

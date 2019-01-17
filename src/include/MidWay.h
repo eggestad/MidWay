@@ -354,6 +354,7 @@ static inline int _CALLTRACE(int up_down, const char * func)
 #ifndef DEPRECATED
 #define DEPRECATED
 #endif
+char * _mw_errno2str() ;
 
 /** Info level log. */
 #define Info(m...)    mwlog(MWLOG_INFO, m)

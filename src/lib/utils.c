@@ -40,7 +40,8 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
-
+#include <errno.h>
+//#include <threads.h>
 
 #include <MidWay.h>
 
@@ -426,3 +427,23 @@ char * debug_strdup(char * file, int line, char * ptr)
 };
 
 #endif
+
+char errmsgbuffer[256] = { 0 }; 
+char * _mw_errno2str() {
+   printf("xxxx");
+   char * label = "E?";
+
+   printf("%s(%d) %s\n", "", 0, "");
+   printf("%s(%d) %s\n", label, errno, "");
+   switch (errno) {
+      
+#include "errnos.h"
+   }
+   printf("%s(%d) %s\n", label, errno, "");
+      printf("%s(%d) %s\n", label, errno, strerror(errno));
+
+   sprintf(errmsgbuffer, "%s(%d) %s", label, errno, strerror(errno));
+   printf("%s(%d) %s\n", label, errno, errmsgbuffer);
+   printf("%s(%d) %p\n", label, errno, errmsgbuffer);
+   return &errmsgbuffer[0];
+}

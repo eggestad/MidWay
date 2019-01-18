@@ -864,6 +864,7 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
   hints.ai_flags = 0; //AI_CANONNAME;
   hints.ai_family = AF_INET; // when we support IP6 : AF_UNSPEC;
   hints.ai_socktype = SOCK_STREAM;
+  hints.ai_protocol = htons(SRB_BROKER_PORT)
     
   struct addrinfo *res = NULL;
   
@@ -894,50 +895,44 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
 
   /* DNS may give us multiple addresses for a cononical name, we must
      try them all */
-#ifdef USE_GETHOSTBYNAME
-  for (n = 0; he->h_addr_list[n] != NULL; n++) {
-     // IPv6
-     memcpy(&raddr4->sin_addr.s_addr, he->h_addr_list[n], sizeof(struct sockaddr_in));
-     rc = connect(s, (struct sockaddr *) raddr4, sizeof(struct sockaddr_in));
-#else
-   while(res != NULL) {
-      errno = 0;
-      if (res->ai_family != AF_INET) {
-	 res = res->ai_next;
-	 continue;
-      }
-      char buf[1024];
-      DEBUG ("calling connect to addr4  = %s", inet_ntop(res->ai_family, &res->ai_addr, buf, 1024));
-      rc = connect(s, res->ai_addr, sizeof(struct sockaddr));
-      DEBUG( "connect returned %d %s", rc, _mw_errno2str());
-      
-#endif
-    if (rc == 0) { /* according to docs this may happen if remote address is localhost */
-      peerinfo->conn = nc;
-      nc->state = CONNECT_STATE_READYWAIT;
-      DEBUG( "connected to peer on localhost");
-      return;
-    } else if (errno == EINPROGRESS) { // This is the good "normal end
-       //char buff[64];
-
-       //inet_ntop(AF_INET, he->h_addr_list[n], buff, 64);
-      //      DEBUG( "_he = %p he = %p he->h_name %p", &_he, he, he->h_name );
-      // DEBUG( "connect to peer %s(%s) in progress", he->h_name, buff);
-      poll_write(s);
-      peerinfo->conn = nc;
-      nc->peerinfo = peerinfo; 
-      return;
-    } else {
-       Warning("connect failed with %d %d", rc, errno);
-       Warning("connect failed with %d %#x", rc, _mw_errno2str());
-    };
-
-#ifndef USE_GETHOSTBYNAME
-    res = res->ai_next;
-#endif
+  while(res != NULL) {
+     errno = 0;
+     if (res->ai_family != AF_INET) {
+	res = res->ai_next;
+	continue;
+     }
+     char buf[1024];
+     struct sockaddr_in * in = (struct sockaddr_in *) res->ai_addr;
+     DEBUG ("calling connect to addr4  = %s : %d",
+	    inet_ntop(res->ai_family, &in->sin_addr.s_addr, buf, 1024),
+	    ntohs(in->sin_port));
+     rc = connect(s, res->ai_addr, sizeof(struct sockaddr));
+     DEBUG( "connect returned %d %s", rc, _mw_errno2str());
+     
+     
+     if (rc == 0) { /* according to docs this may happen if remote address is localhost */
+	peerinfo->conn = nc;
+	nc->state = CONNECT_STATE_READYWAIT;
+	DEBUG( "connected to peer on localhost");
+	return;
+     } else if (errno == EINPROGRESS) { // This is the good "normal end
+	//char buff[64];
+	
+	//inet_ntop(AF_INET, he->h_addr_list[n], buff, 64);
+	//      DEBUG( "_he = %p he = %p he->h_name %p", &_he, he, he->h_name );
+	// DEBUG( "connect to peer %s(%s) in progress", he->h_name, buff);
+	poll_write(s);
+	peerinfo->conn = nc;
+	nc->peerinfo = peerinfo; 
+	return;
+     } else {
+	Warning("connect failed with %d %s", rc, _mw_errno2str());
+     };
+     res = res->ai_next;     
   };
-   gw_closegateway(nc);
-   return;
+  conn_del(s);
+  close(s);
+  return;
 };
 
 /* called from a tasklet, needed, teh same tasklet will send
@@ -959,8 +954,8 @@ void gw_connectpeers(void)
 	 DEBUG( "Already Connected peer at host %s, instance %s, fd=%d state = %d", 
 		pi->hostname,  pi->instance, 
 		pi->conn->fd,  pi->conn->state);
-    }
-  };
+      }
+   };
    UNLOCKMUTEX(peersmutex);
 };
 
@@ -979,7 +974,11 @@ void gw_sendmcasts(void)
 
   return;
 };
-
+ 
+pthread_t tcp_thread;
+void signal_tcp_thread(int sig) {
+   pthread_kill(tcp_thread, sig);
+}
 
 /************************************************************************
  * main
@@ -996,7 +995,7 @@ int main(int argc, char ** argv)
   char c, *name;
   mwaddress_t * mwaddress;
   char logprefix[PATH_MAX] = "mwgwd";
-  pthread_t tcp_thread;
+
   int tcp_thread_rc;
   int rc = 0, idx;
   char * penv;
@@ -1186,7 +1185,7 @@ int main(int argc, char ** argv)
   DEBUG( "tcp_thread has id %d,", (int) tcp_thread);
 
   Info("mwgwd startup complete");
-
+  
   rc = ipcmainloop();
   DEBUG("ipcmainloop() returned %d, going down", rc);
 

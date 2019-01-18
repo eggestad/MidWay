@@ -102,6 +102,8 @@ void gw_sendmcasts(void);
 
 Connection * gwlocalclient(CLIENTID cid);
 
+void signal_tcp_thread(int sig);
+
 #endif
 
 

@@ -805,9 +805,6 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
   Connection * nc;
   GATEWAYID gwid;
   char * _addrlist[2];
-  //  struct hostent * he, _he;
-  struct sockaddr raddr;
-  struct sockaddr_in * raddr4 = (struct sockaddr_in *) & raddr;
 
   if (peerinfo == NULL) {
     Error("gw_connectpeer called with NULL argument");
@@ -822,53 +819,18 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
   DEBUG( "doing nonblock connect to %s %s", 
 	peerinfo->hostname,  peerinfo->instance );
 
-  raddr4->sin_family = AF_INET;
-  raddr4->sin_port = htons(SRB_BROKER_PORT);
-
-  // we create the  socker and conn entry
+ // we create the  socker and conn entry
   s = socket(PF_INET, SOCK_STREAM, 0);
   if (s == -1) abort();
   nc = conn_add(s, SRB_ROLE_GATEWAY, CONN_TYPE_GATEWAY);
   nc->state = CONNECT_STATE_CONNWAIT;
 
-#ifdef USE_GETHOSTBYNAME
-  /* now convert the hostname in dot format, or lookup the
-     hostname. If we've an address in dot format, we create a fake hostent struct */
-  rc = inet_pton(AF_INET, peerinfo->hostname,& raddr4->sin_addr.s_addr);
-  if (rc > 0) {
-    DEBUG( "%s is an IPv4 address, creating an hostent", peerinfo->hostname );
-    _he.h_name = peerinfo->hostname;
-    _he.h_aliases = NULL;
-    _he.h_addrtype = AF_INET;
-    _he.h_length = 4;
-    _he.h_addr_list = _addrlist;
-    _addrlist[0] = (char *) & raddr4->sin_addr.s_addr;
-    _addrlist[1] = NULL;;
-    he = & _he;
-  } else {
-    // test for IPv6
-    
-    /* hostname is canonical, we must lookup */
-    
-    he = gethostbyname(peerinfo->hostname);
-    if (he == NULL) {
-      Error("unable to resolve \"%s\", reason %s, will try again", 
-	    peerinfo->hostname, hstrerror(h_errno));
-      
-      conn_del(s);
-      close(s);
-      return;
-    }
-  };
-#else
   struct addrinfo hints = { 0 };
-  hints.ai_flags = 0; //AI_CANONNAME;
-  hints.ai_family = AF_INET; // when we support IP6 : AF_UNSPEC;
+  hints.ai_flags = AI_NUMERICSERV; //AI_CANONNAME;
   hints.ai_socktype = SOCK_STREAM;
-  hints.ai_protocol = htons(SRB_BROKER_PORT)
-    
+  hints.ai_family = AF_INET; // when we support IP6 : AF_UNSPEC;
+
   struct addrinfo *res = NULL;
-  
   rc = getaddrinfo(peerinfo->hostname, NULL, &hints, &res);
   if (rc != 0) {
      Error("unable to resolve \"%s\", reason %s, will try again", 
@@ -878,9 +840,7 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
      close(s);
      return;
   }
-  
-#endif
-  
+    
   // OK we now have a legal hostent, now lets try to connect, but first we need to assign an GWID
 
   gwid = allocgwid(GWPEER, SRB_ROLE_GATEWAY);
@@ -904,6 +864,8 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
      }
      char buf[1024];
      struct sockaddr_in * in = (struct sockaddr_in *) res->ai_addr;
+     in->sin_port = htons(SRB_BROKER_PORT);
+     
      DEBUG ("calling connect to addr4  = %s : %d",
 	    inet_ntop(res->ai_family, &in->sin_addr.s_addr, buf, 1024),
 	    ntohs(in->sin_port));
@@ -1008,7 +970,7 @@ static char * mktagfunc(void) {
    return "";
 }
    
- /************************************************************************
+/************************************************************************
  * main
  ************************************************************************/
 

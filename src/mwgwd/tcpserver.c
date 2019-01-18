@@ -566,7 +566,7 @@ void * tcpservermainloop(void * param)
   };
 
   tcpcloseall();
-  Info("Connections closed");
+  Info("Connections closed tcp thread is now dead");
 
   * (int *) param = 0;
   return param;

@@ -238,7 +238,7 @@ static void srbready(Connection * conn, SRBmessage * srbmsg)
     if (!(domain = szGetReqField(conn, srbmsg, SRB_DOMAIN))) return;
     if (!(instance = szGetReqField(conn, srbmsg, SRB_INSTANCE))) return;
 
-    DEBUG("srb_ready with domain = %s insance = %s", domain, instance);
+    DEBUG("srb_ready with domain = %s instance = %s", domain, instance);
 
     /* if the ready reply is not the reply from your own broker about us */
     if (strcmp(globals.myinstance, instance) ==  0) {

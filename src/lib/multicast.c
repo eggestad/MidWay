@@ -183,7 +183,7 @@ int _mw_sendunicast (int s, struct sockaddr_in to, char * payload)
   errno = 0;
   rc = 0;
   char buf[1024];
-  DEBUG1 ("addr4  = %s\n", inet_ntop(to.sin_family, &to.sin_addr, buf, 1024));
+  DEBUG1 ("addr4  = %s", inet_ntop(to.sin_family, &to.sin_addr, buf, 1024));
   rc = sendto (s,  payload, plen , 0, (struct sockaddr *)&to, sizeof(struct sockaddr_in));
   DEBUG1("sendto returned %d errno=%d", rc, errno);
 

@@ -104,6 +104,8 @@ Connection * gwlocalclient(CLIENTID cid);
 
 void signal_tcp_thread(int sig);
 
+// for logging
+void gw_register_thread(pthread_t t, char * n) ;
 #endif
 
 

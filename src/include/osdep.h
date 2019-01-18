@@ -20,3 +20,4 @@
 
 int _mw_procowner(pid_t pid, uid_t * uid);
 
+void reset_getopt(void);

@@ -33,6 +33,7 @@
 
 #include <MidWay.h>
 #include <ipctables.h>
+#include <osdep.h>
 
 #include "mwadm.h"
 #include "dtbl.h"
@@ -345,9 +346,8 @@ void sig_handler(int signo)
 int exec_command(int argc, char ** argv)
 {
   int i;
-
-  optreset = 1;
-  optind = 1;
+  
+  reset_getopt();
   
   i = 0;
   while(commands[i].commandname != NULL) {

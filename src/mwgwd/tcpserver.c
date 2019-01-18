@@ -254,7 +254,7 @@ static void gwreadmessage(Connection * conn)
   srbmsg = _mw_srb_recvmessage(conn, MWNOBLOCK);
   TIMEPEG();
 
-  DEBUG2("read a message from fd=%d returned %p errno=%d", conn->fd,  srbmsg, errno);
+  DEBUG2("read a message from fd=%d returned %p errno=%s", conn->fd,  srbmsg, _mw_errno2str());
 
   /* read return 0 on end of file, and -1 on error. */
   if (srbmsg == NULL) {
@@ -398,6 +398,7 @@ int tcp_do_read_condiion(Connection * conn)
   if (conn->type == CONN_TYPE_LISTEN) {
     DEBUG("new connection on listen socket");
     conn = tcpnewconnection(conn);
+    return 0;
   };
   
   DEBUG("doing gwreadmessage on fd %d", conn->fd);

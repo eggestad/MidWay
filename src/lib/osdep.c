@@ -99,3 +99,16 @@ int _mw_procowner(pid_t pid, uid_t * uid)
   
   return 1;
 };
+
+
+void reset_getopt(void)
+{
+#ifdef __GLIBC__
+	optind = 0;
+#else
+	optind = 1;
+#endif
+#ifdef HAVE_OPTRESET
+	optreset = 1;		/* Makes BSD getopt happy */
+#endif
+}

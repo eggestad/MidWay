@@ -28,6 +28,7 @@
 #include <sys/sem.h>
 #include <limits.h>
 #include <signal.h>
+#include <pthread.h>
 
 #include <netdb.h>
 #include <sys/types.h>
@@ -143,8 +144,8 @@ int gwattachclient(Connection * conn, char * cname, char * username, char * pass
   rc = _mw_ipc_putmessage(MWD_ID, (void *) &mesg, sizeof(mesg) ,0);
 
   if (rc != 0) {
-    Error("gwattachclient()=>%d failed with error %d(%s)", 
-	   rc, errno, strerror(errno));
+    Error("gwattachclient()=>%d failed with error %s", 
+	   rc, _mw_errno2str());
     return -errno;
   };
   return 0;
@@ -179,8 +180,8 @@ int gwdetachclient(int cltid)
   rc = _mw_ipc_putmessage(MWD_ID, (void *) &mesg, sizeof(mesg) ,0);
 
   if (rc != 0) {
-    Error("gwdetachclient() putmessage =>%d failed with error %d(%s)", 
-	   rc, errno, strerror(errno));
+    Error("gwdetachclient() putmessage =>%d failed with error %s", 
+	   rc, _mw_errno2str());
     return -errno;
   };
   return 0;
@@ -974,13 +975,40 @@ void gw_sendmcasts(void)
 
   return;
 };
- 
+
 pthread_t tcp_thread;
 void signal_tcp_thread(int sig) {
    pthread_kill(tcp_thread, sig);
 }
 
-/************************************************************************
+ 
+/************   to make thread ID tags in logging ************/
+struct _mw_gw_threadname {
+   pthread_t threadid;
+   char * name;
+   struct _mw_gw_threadname * next;
+};
+ 
+static struct _mw_gw_threadname * threadlistroot = NULL;
+void gw_register_thread(pthread_t t, char * n) {
+   struct _mw_gw_threadname * elm = malloc (sizeof(struct _mw_gw_threadname));
+   elm->threadid = t;
+   elm->name = n;
+   elm->next = threadlistroot;
+   threadlistroot = elm;
+}
+static __thread char tagbuf[16];
+static char * mktagfunc(void) {
+   pthread_t myptid = pthread_self();
+   struct _mw_gw_threadname * elm = threadlistroot;
+   while (elm != NULL) {
+      if (pthread_equal(myptid, elm->threadid)) return elm->name;
+      elm = elm->next;
+   }
+   return "";
+}
+   
+ /************************************************************************
  * main
  ************************************************************************/
 
@@ -1005,6 +1033,11 @@ int main(int argc, char ** argv)
   loglevel = MWLOG_DEBUG2;
 #endif
 
+  // to enable thread name tag in loggin
+  gw_register_thread(pthread_self(), "main");
+  _mw_log_settagfunc(mktagfunc);
+
+  
   penv = getenv ("MWGWD_LOGLEVEL");
   if (penv != NULL) {
      rc = _mwstr2loglevel(penv);
@@ -1182,8 +1215,8 @@ int main(int argc, char ** argv)
   };
 
   rc = pthread_create(&tcp_thread, NULL, tcpservermainloop, &tcp_thread_rc);
-  DEBUG( "tcp_thread has id %d,", (int) tcp_thread);
-
+  gw_register_thread(tcp_thread, "tcp");
+  DEBUG( "tcp_thread has id %s,", mktagfunc() );
   Info("mwgwd startup complete");
   
   rc = ipcmainloop();

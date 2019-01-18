@@ -26,9 +26,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
+#include <libgen.h>
 
 #include "shared_lib_services.h"
 #include <ipctables.h>
+
+
+#ifndef PATH_MAX
+dddd
+#define PATH_MAX  4096
+#endif
 
 void cleanup(void)
 {
@@ -42,7 +50,7 @@ void sighandler(int sig)
 
 void usage(void) 
 {
-  fprintf(stderr, "mwserver [-l loglevel] [-A uri] [-L logprefix] [-n name] [-s service[:function]] dynamiclibraries...\n");
+  fprintf(stderr, "mwserver [-l loglevel] [-A uri] [-L logprefix] [-n name] [-r rundir] [-s service[:function]] dynamiclibraries...\n");
   fprintf(stderr, "    loglevel is one of error, warning, info, debug, debug1, debug2\n");
   fprintf(stderr, "    uri is the address of the MidWay instance e.g. ipc:12345\n");
   fprintf(stderr, "    logprefix is the path inclusive the beginning of the file name the logfile shall have.\n");
@@ -57,7 +65,7 @@ extern char *optarg;
 extern int optind, opterr, optopt;
 char * uri = NULL;
 char * servername = NULL;
-char * libdir, * rundir;
+char * libdir = NULL , * rundir = NULL;
 
 int main(int argc, char ** argv)
 {
@@ -67,13 +75,16 @@ int main(int argc, char ** argv)
   char  * mwhome, * instance;
   ipcmaininfo * ipcmain;
 
+  char startdir[PATH_MAX];
+  getcwd(startdir, PATH_MAX);  
+
 #ifdef DEBUGGING
   loglevel = MWLOG_DEBUG2;
 #else 
   loglevel = MWLOG_INFO;
 #endif
 
-  while ((option = getopt(argc, argv, "l:L:s:A:")) != EOF) {
+  while ((option = getopt(argc, argv, "l:L:s:A:r:")) != EOF) {
     
     switch (option) {
       
@@ -95,6 +106,10 @@ int main(int argc, char ** argv)
 
     case 'n':
       servername = optarg;
+      break;
+
+    case 'r':
+      rundir = optarg;
       break;
 
     case 's':
@@ -145,10 +160,12 @@ int main(int argc, char ** argv)
 
   i = strlen(mwhome)+strlen(instance)+10;
   libdir = malloc(i);
-  rundir = malloc(i);
   
   sprintf(libdir, "%s/%s/lib", mwhome, instance);
-  sprintf(rundir, "%s/%s/run", mwhome, instance);
+  if (rundir == NULL) {
+     rundir = malloc(i);
+     sprintf(rundir, "%s/%s/run", mwhome, instance);
+  }
   
   DEBUG("libdir = %s", libdir);
   DEBUG("rundir = %s", rundir);
@@ -170,11 +187,38 @@ int main(int argc, char ** argv)
   };
 
   for (i = optind; i < argc; i++ ) {
-    if ((rc = add_library(argv[i])) != 0) {
-      Error("%s: failed to load shared library %s reason %s", 
+     printf("arg %s\n",argv[i]);
+     char abspath[PATH_MAX];
+
+     char * bname = strdup(argv[i]);
+     bname = basename(bname);
+     char * dname = strdup(argv[i]);
+     dname = dirname(dname);
+
+     printf("arg %s\n",argv[i]);
+     printf("bsn %s\n",bname);
+     printf("din %s\n",dname);
+
+     if (dirname == NULL) {
+	snprintf(abspath, PATH_MAX, "%s/%s", startdir, bname);
+	printf("___ %s\n", abspath);
+
+     } else if (dname[0] == '/') {
+	strncpy(abspath, argv[i], PATH_MAX);
+	printf("abs %s\n", abspath);
+	
+     } else {
+	snprintf(abspath, PATH_MAX, "%s/%s", startdir, argv[i]);
+	printf("rel %s\n", abspath);
+     }
+
+     printf("%s\n", abspath);
+     
+     if ((rc = add_library(abspath)) != 0) {
+	Error("%s: failed to load shared library %s reason %s", 
 	      argv[0],argv[i], strerror(-rc));
-      exit(rc);
-    };
+	exit(rc);
+     };
   };
   
   signal(SIGTERM, sighandler);

@@ -273,6 +273,7 @@ int * _mwgetloglevel(void);
 
 static int * debuglevel = NULL;
 int _mwstr2loglevel(const char *);
+void _mw_log_settagfunc(char * (*mktagfunc)());
 
 #define PRINTF_ATTR __attribute__ ((format (printf, 5, 6)))
 #define DEPRECATED __attribute__ ((deprecated))

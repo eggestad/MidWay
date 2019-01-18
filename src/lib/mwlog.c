@@ -65,12 +65,12 @@ This module implement the provided logging API see man page for mwlog(3).
 
 static char levelprefix[] = { 'F', 'E', 'W', 'A', 'I', 'D', '1', '2', '3', '4' };
 
-static char * ttylevelheader[] = { COLOR_RED_ON_YELLOW "FATAL: "  COLORNORMAL, 
-				   COLOR_RED_BOLD      "ERROR: "  COLORNORMAL, 
-				   COLOR_YELLOW_BOLD   "Warning: " COLORNORMAL, 
-				   COLOR_MAGNETA_BOLD  "ALERT: "  COLORNORMAL, 
-				   COLOR_GREEN_BOLD    "info: "   COLORNORMAL, 
-				   COLOR_BLUE          "Debug: "  COLORNORMAL, 
+static char * ttylevelheader[] = { COLOR_RED_ON_YELLOW "FATAL : "  COLORNORMAL, 
+				   COLOR_RED_BOLD      "ERROR : "  COLORNORMAL, 
+				   COLOR_YELLOW_BOLD   "WARN  : " COLORNORMAL, 
+				   COLOR_MAGNETA_BOLD  "ALERT : "  COLORNORMAL, 
+				   COLOR_GREEN_BOLD    "info  : "   COLORNORMAL, 
+				   COLOR_BLUE          "Debug : "  COLORNORMAL, 
 				   COLOR_GREY          "Debug1: " COLORNORMAL, 
 				   COLOR_GREY          "Debug2: " COLORNORMAL, 
 				   COLOR_GREY          "Debug3: " COLORNORMAL, 
@@ -79,14 +79,14 @@ static char * ttylevelheader[] = { COLOR_RED_ON_YELLOW "FATAL: "  COLORNORMAL,
 
 static char *levelheader[] = { "FATAL: ", 
 			       "ERROR: ", 
-			       "Warning: ", 
+			       "WARN : ", 
 			       "ALERT: ", 
-			       "info: ", 
+			       "info : ", 
 			       "Debug: ", 
-			       "Debug1: ", 
-			       "Debug2: ", 
-			       "Debug3: ", 
-			       "Debug4: ", 
+			       "Dbg1 : ", 
+			       "Dbg2 : ", 
+			       "Dbg3 : ", 
+			       "Dbg4 : ", 
 			       NULL };
 
 static FILE *log = NULL;
@@ -210,6 +210,12 @@ switchlog (void)
 static   char buffer[LOG_MSG_MAX];
 static char mesg[LOG_MSG_MAX];
 
+static char * (*mktag)() = NULL;
+
+void _mw_log_settagfunc(char * (*mktagfunc)()){
+   mktag = mktagfunc;
+}
+
 /**
    This is mwlog() incarnate. 
 
@@ -225,7 +231,8 @@ _mw_vlogf(int level, const char * format, va_list ap)
 {
 
   int l, e, s, rc;
-
+  char * tag = "";
+  
   if (level > loglevel) return;
   if (format == NULL) return;
   e = errno;
@@ -240,6 +247,13 @@ _mw_vlogf(int level, const char * format, va_list ap)
   rc = vsnprintf(mesg, LOG_MSG_MAX, format, ap);
   if (rc == LOG_MSG_MAX) mesg[LOG_MSG_MAX-1] = '\0';
 
+  char tagbuf[16];
+  
+  if (mktag) {
+     snprintf(tagbuf, 16, " %.12s ",  mktag());
+     tag = tagbuf;
+  }
+
   /* print to log file if open */
   if (log != NULL) {
     char timestamp[40];
@@ -251,10 +265,10 @@ _mw_vlogf(int level, const char * format, va_list ap)
     // we don't check rc on these, since the *must* succed. 
     rc = sptime(timestamp, 40);
 
-    l = snprintf(buffer, s, "%s %8.8s" "[%5d] [%c]: " "%s\n",
+    l = snprintf(buffer, s, "%s %8.8s" "[%5d]%s[%c]: " "%s\n",
 		 timestamp, 
 		 progname?progname:"", 
-		 getpid(), levelprefix[level], 
+		 getpid(), tag, levelprefix[level], 
 		 mesg);
     
     if (l >= s) {
@@ -269,12 +283,13 @@ _mw_vlogf(int level, const char * format, va_list ap)
 
   /* copy to stdout/stderr if so has been desired */
   if (copy_on_FILE) {
-     if (ttyname(fileno(copy_on_FILE))) {
-	fprintf(copy_on_FILE,"%s%s\n", ttylevelheader[level], mesg);
-     } else {
-	fprintf(copy_on_FILE,"%s%s\n", levelheader[level], mesg);
-     }
-    //    fflush(copy_on_FILE);
+     char * lvlhead = levelheader[level];
+
+     if (ttyname(fileno(copy_on_FILE))) 
+	lvlhead = ttylevelheader[level];
+     
+     fprintf(copy_on_FILE,"%s%s%s\n", lvlhead, tag, mesg);
+     //    fflush(copy_on_FILE);
   };
 
 #ifdef DEBUGGING_X
@@ -444,6 +459,9 @@ void mwsetlogprefix(const char * lfp)
 
   _fprintf(stderr, "logprefix arg = %s at %s:%d\n", lfp, __FUNCTION__, __LINE__);
 
+  if (lfp == NULL) _mw_copy_on_stderr(TRUE);
+  else if (strcmp(lfp, "-")) _mw_copy_on_stdout(TRUE);
+  
   // if arg is null and we've set logprefix, we no not override with default. 
   if ( (logprefix != NULL) && (lfp == NULL) ) return;
   loginited = 1;

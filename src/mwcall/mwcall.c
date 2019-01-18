@@ -218,9 +218,9 @@ int main(int argc, char ** argv)
       usage(-1);
     }
   }
-  //printf ("logfile = %s loglevel = %d\n", logfile, loglevel);
+  printf ("logfile = %s loglevel = %d\n", logfile, loglevel);
   mwopenlog(prog, logfile, loglevel);
-	_mw_copy_on_stderr(TRUE);
+  //	_mw_copy_on_stderr(TRUE);
   DEBUG("mwcall client starting");
 
   if (optind >= argc) usage (-2);

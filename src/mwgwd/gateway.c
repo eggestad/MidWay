@@ -830,7 +830,7 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
   nc = conn_add(s, SRB_ROLE_GATEWAY, CONN_TYPE_GATEWAY);
   nc->state = CONNECT_STATE_CONNWAIT;
 
-  #ifdef USE_GETHOSTBYNAME
+#ifdef USE_GETHOSTBYNAME
   /* now convert the hostname in dot format, or lookup the
      hostname. If we've an address in dot format, we create a fake hostent struct */
   rc = inet_pton(AF_INET, peerinfo->hostname,& raddr4->sin_addr.s_addr);
@@ -900,14 +900,23 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
      memcpy(&raddr4->sin_addr.s_addr, he->h_addr_list[n], sizeof(struct sockaddr_in));
      rc = connect(s, (struct sockaddr *) raddr4, sizeof(struct sockaddr_in));
 #else
-   while(res != NULL) {	
+   while(res != NULL) {
+      errno = 0;
+      if (res->ai_family != AF_INET) {
+	 res = res->ai_next;
+	 continue;
+      }
+      char buf[1024];
+      DEBUG ("calling connect to addr4  = %s", inet_ntop(res->ai_family, &res->ai_addr, buf, 1024));
       rc = connect(s, res->ai_addr, sizeof(struct sockaddr));
+      DEBUG( "connect returned %d %s", rc, _mw_errno2str());
+      
 #endif
     if (rc == 0) { /* according to docs this may happen if remote address is localhost */
       peerinfo->conn = nc;
       nc->state = CONNECT_STATE_READYWAIT;
       DEBUG( "connected to peer on localhost");
-      break;
+      return;
     } else if (errno == EINPROGRESS) { // This is the good "normal end
        //char buff[64];
 
@@ -917,16 +926,18 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
       poll_write(s);
       peerinfo->conn = nc;
       nc->peerinfo = peerinfo; 
-      break;
+      return;
     } else {
-      gw_closegateway(nc);
-      break;
+       Warning("connect failed with %d %d", rc, errno);
+       Warning("connect failed with %d %#x", rc, _mw_errno2str());
     };
+
 #ifndef USE_GETHOSTBYNAME
     res = res->ai_next;
 #endif
   };
-  return;
+   gw_closegateway(nc);
+   return;
 };
 
 /* called from a tasklet, needed, teh same tasklet will send

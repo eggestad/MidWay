@@ -298,13 +298,13 @@ void sig_dummy(int sig)
   ;
 };
 
-int tcp_do_error_condiion(Connection * conn)
+int tcp_do_error_condition(Connection * conn)
 {
   
   DEBUG("error condition on fd=%d", conn->fd);
 
   if (conn->type == CONN_TYPE_LISTEN) {
-    Error("a listen socket (fd=%d) has dissapeared, really can't happen.",
+    Error("a listen socket (fd=%d) has disappeared, really can't happen.",
 	   conn->fd);
     sig_initshutdown(0);
   } else if (conn->type == CONN_TYPE_BROKER) {
@@ -317,7 +317,7 @@ int tcp_do_error_condiion(Connection * conn)
   return 0;
 };
    
-int tcp_do_write_condiion(Connection * conn)
+int tcp_do_write_condition(Connection * conn)
 {
   DEBUG("write condition on fd=%d", conn->fd);
   if (conn->type == CONN_TYPE_GATEWAY) {
@@ -333,7 +333,7 @@ int tcp_do_write_condiion(Connection * conn)
   return -1;
 };
 
-int tcp_do_read_condiion(Connection * conn)
+int tcp_do_read_condition(Connection * conn)
 {
   int fd;
   char * msg;
@@ -553,15 +553,15 @@ void * tcpservermainloop(void * param)
 	  conn->fd, conn->type == CONN_TYPE_LISTEN, conn->type == CONN_TYPE_BROKER, cond);
     TIMEPEG();
     if (cond & COND_ERROR) {
-      rc = tcp_do_error_condiion(conn);
+      rc = tcp_do_error_condition(conn);
       continue;
     };
       
     if (cond & COND_WRITE) {
-      rc = tcp_do_write_condiion(conn);
+      rc = tcp_do_write_condition(conn);
     };
     if (cond & COND_READ) {
-      rc = tcp_do_read_condiion(conn);
+      rc = tcp_do_read_condition(conn);
     };
     
   };

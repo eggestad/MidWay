@@ -550,6 +550,7 @@ int query(int argc, char ** argv)
 	 }
 	 res = res->ai_next;
       }
+      freeaddrinfo(res);
    }
    printf("Domain               Instance             Version  Address\n");
 

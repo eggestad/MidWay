@@ -877,6 +877,7 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
 	peerinfo->conn = nc;
 	nc->state = CONNECT_STATE_READYWAIT;
 	DEBUG( "connected to peer on localhost");
+	freeaddrinfo(res);
 	return;
      } else if (errno == EINPROGRESS) { // This is the good "normal end
 	//char buff[64];
@@ -886,13 +887,15 @@ void gw_connectpeer(struct gwpeerinfo * peerinfo)
 	// DEBUG( "connect to peer %s(%s) in progress", he->h_name, buff);
 	poll_write(s);
 	peerinfo->conn = nc;
-	nc->peerinfo = peerinfo; 
+	nc->peerinfo = peerinfo;
+	freeaddrinfo(res);
 	return;
      } else {
 	Warning("connect failed with %d %s", rc, _mw_errno2str());
      };
      res = res->ai_next;     
   };
+  freeaddrinfo(res);
   conn_del(s);
   close(s);
   return;

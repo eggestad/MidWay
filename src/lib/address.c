@@ -395,6 +395,7 @@ static int url_decode_srbp (mwaddress_t * mwadr, const char * srburl)
        }
        res = res->ai_next;
     }
+    freeaddrinfo(res);
   }
 #endif
   {

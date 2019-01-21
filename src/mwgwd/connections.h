@@ -54,8 +54,8 @@ Connection * conn_read_fifo_dequeue(void);
 int conn_select(Connection ** pconn, int * cause, time_t timeout);
 
 
-
-char * conn_print(void);
+void debugDumpSocketTable(FILE *);
+void conn_print(FILE *);
 
 void unpoll_write(int fd);
 void poll_write(int fd);

@@ -594,7 +594,7 @@ int storeSRBReply(MWID mwid, SRBhandle_t nethandle, urlmap *map, int rcode, int 
    @param mwid mwid of the client
    @return always 0
 */
-int storeSRCClearClient(MWID mwid)
+int storeSRBClearClient(MWID mwid)
 {
    struct PendingCall * pc, *pc_tmp;
    int rc = 0;

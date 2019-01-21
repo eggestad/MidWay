@@ -38,6 +38,7 @@
 #include "connections.h"
 #include "broker.h"
 #include "srbevents.h"
+#include "callstore.h"
 
 /* linux only???? seem to be a bug in /usr/include/bits/in.h 
    see /usr/include/bits/linux/in.h 
@@ -180,7 +181,7 @@ void tcpcloseconnection(Connection * conn)
   DEBUG("on  fd=%d cid %#x", conn->fd, conn->cid);
 
   if (conn->cid != UNASSIGNED) {
-    storeSRCClearClient(conn->cid);
+    storeSRBClearClient(conn->cid);
     srb_unsubscribe_all(conn);
     gwdetachclient(conn->cid);
 
@@ -274,8 +275,43 @@ static void gwreadmessage(Connection * conn)
   _mw_srb_destroy(srbmsg);
   return;
 };
-		
 
+static pthread_t dumpthread;
+
+static void * doDump(void * targ) {
+  struct timeval tv;
+  gettimeofday(&tv,NULL);
+  char ts[16];
+  strftime(ts, 16, "%Y%m%d-%H:%M:%s", localtime(&tv.tv_sec));
+
+  char filename[1024];
+  sprintf(filename, "mwgwd-%s.dump", ts);
+
+  errno = 0;
+  FILE * fp = fopen (filename, "w");
+
+  if (fp == NULL) {
+    Warning("Failed to open dump file %s %s", filename, _mw_errno2str());
+    return NULL;
+  }
+
+  Info("dumping internal data structs to %s error %s", filename);
+  fprintf (fp, "dumping begins at %s\n", ts);
+
+  debugDumpSocketTable(fp);
+
+  conn_print(fp);
+  
+  fprintf (fp, "Done\n");
+
+  fclose (fp);
+  return NULL;
+}
+
+void sig_dumpdatestruct(int sig) {
+  pthread_create(&dumpthread, NULL, doDump, NULL);
+  
+}
 void sig_initshutdown(int sig)
 {
   if (globals.shutdownflag == 0) {
@@ -497,6 +533,9 @@ void * tcpservermainloop(void * param)
   signal(SIGQUIT, sig_initshutdown);
   signal(SIGHUP, sig_initshutdown);
 
+  // TODO disable for prod?
+  signal(SIGUSR1, sig_dumpdatestruct);
+
   signal(SIGPIPE, sig_dummy);
   signal(SIGALRM, sig_alarm);
 
@@ -524,8 +563,15 @@ void * tcpservermainloop(void * param)
   while(! globals.shutdownflag) {
 
     errno = 0;
-    DEBUG2("%s", conn_print());
- 
+
+#if 1
+    char printbuffer[64*1024];
+    FILE * memfp = fmemopen(printbuffer, 64*1024, "w");
+    conn_print(memfp);
+    fclose (memfp);
+    DEBUG2("%s", printbuffer);
+#endif
+    
     conn = NULL;
     rc= conn_select(&conn, &cond, timeout);
     DEBUG2("conn_select returned %d errno=%d", rc, errno);

@@ -22,7 +22,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <errno.h>
 #include <assert.h>
 #include <sys/socket.h>
@@ -641,64 +641,60 @@ void conn_del(int fd)
 };
 
 /* just for debugging purpose, print out all relevant data for all connections. */
-char * conn_print(void)
+void conn_print(FILE * output)
 {
-  static char * output = NULL;
-  static int buffersize = 0;
-  int i, l;
+  int i;
   struct tm * ts;
   Connection * conn;
 
-  if (maxsocket < 0) 
-     i = 4096;
-  else 
-     i = maxsocket * 4096;
-
-  if (buffersize != i) {
-     buffersize = i;
-     output = realloc(output, buffersize);
-  };
-
-  l = sprintf (output, "Printing connection table\n"
+  fprintf (output, "Printing connection table\n"
 	       "  fd role version  mtu "
 	       " cid gwid"
 	       " state type"
 	       " connected     lasttx        lastrx       "
-	       " peeraddr   peerinstance GWID");
+	       " peeraddr   peerinstance GWID\n");
 
   for (i = 0; i<maxsocket+1; i++) {
      struct gwpeerinfo * pi;
      conn = fd2conn(i);
-     if ( buffersize - l < 4096) Fatal("output buffer too small");
 
      //     DEBUG2("i = %d conn = %p", i, conn);
      if (conn->fd != -1) {
        
-	l += sprintf (output+l, "\n  %2d %4d %7d %4d",
-		      conn->fd, conn->role, 
-		      conn->version, 
-		      conn->mtu);
-      
-	l += sprintf (output+l, " %4d %4d", 
-		      CLTID2IDX(conn->cid), GWID2IDX(conn->gwid) );
+	fprintf (output, "  %2d %4d %7d %4d",
+		 conn->fd, conn->role, 
+		 conn->version, 
+		 conn->mtu);
 	
-	l += sprintf (output+l, " %5d %4c",
-		      conn->state, 
-		      conn->type ? conn->type : '?');
+	fprintf (output, " %4d %4d", 
+		 CLTID2IDX(conn->cid), GWID2IDX(conn->gwid) );
 	
+	fprintf (output, " %5d %4c",
+		 conn->state, 
+		 conn->type ? conn->type : '?');
+
+	char tsbuf[100];
 	ts = localtime(&conn->connected);
-	l+= strftime(output+l, 100, " %Y%m %H%M%S", ts);
-	ts = localtime(&conn->lasttx);
-	l+= strftime(output+l, 100, " %Y%m %H%M%S", ts);
-	ts = localtime(&conn->lastrx);
-	l+= strftime(output+l, 100, " %Y%m %H%M%S", ts);
+	strftime(tsbuf, 100, " %Y%m %H%M%S", ts);
+	fputs(tsbuf, output);
 	
-	l += sprintf (output+l, " %s", 
+	ts = localtime(&conn->lasttx);
+	strftime(tsbuf, 100, " %Y%m %H%M%S", ts);
+	fputs(tsbuf, output);
+	
+	ts = localtime(&conn->lastrx);
+	strftime(tsbuf, 100, " %Y%m %H%M%S", ts);
+	fputs(tsbuf, output);
+	
+	fprintf (output, " %s", 
 		      conn->peeraddr_string);
 	
 	
 	pi = (struct gwpeerinfo *) conn->peerinfo;
-	if (pi == NULL) continue;
+	if (pi == NULL) {
+	   fprintf (output, "\n");
+	   continue;
+	}
 	
 	/*
 	DEBUG2("%s", output);
@@ -724,12 +720,14 @@ char * conn_print(void)
 	DEBUG2(" . pi->inst = \"%s\" . ", pi->instance );
 	*/
 	
-	l += sprintf (output+l, " %s",  pi->instance );
+	fprintf (output, " %s",  pi->instance );
 	
-	l += sprintf (output+l, " %d",  GWID2IDX(pi->gwid));
-     };
+	fprintf (output, " %d",  GWID2IDX(pi->gwid));
+	fprintf (output, "\n");
+     };     
   };
-  return output;
+  fprintf (output, "\n");
+  return ;
 };
 
 
@@ -952,8 +950,29 @@ int conn_select(Connection ** pconn, int * cause, time_t deadline)
 };
 
 
+void debugDumpSocketTable(FILE * fp)  {
 
+   static fd_set rfds, wfds, errfds;
+   int i;
+   
+   copy_fd_set(&rfds, &sockettable, maxsocket);
+   copy_fd_set(&wfds, &sockettable_write, maxsocket); 
+   copy_fd_set(&errfds, &sockettable, maxsocket);
 
+   fprintf(fp, "Select tables\n");
+   for (i = 0; i <=maxsocket; i++) {
+      
+      if ( FD_ISSET(i, &rfds) | FD_ISSET(i, &wfds) |  FD_ISSET(i, &errfds) ) {
+	 fprintf(fp, "  fd %d on %s%s%s\n", i, 
+		 FD_ISSET(i, &rfds) ? "r" : " ",
+		 FD_ISSET(i, &wfds) ? "w" : " ",
+		 FD_ISSET(i, &errfds) ? "e" : " "
+		 );
+      }
+   }
+}
+	   
+   
 
 
 

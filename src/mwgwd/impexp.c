@@ -39,44 +39,65 @@ static Import * importlist = NULL;
 DECLAREMUTEX(impmutex);
 
 
-static void impdumplist(void)
+/*******************************   for dumping internal data */
+
+static void impdumplist(FILE * fp)
 {
-  Import * imp;
-  peerlink * pl;
+   Import * imp;
+   peerlink * pl;
 
-  DEBUG2("********************* DUMPING IMPORT LIST *********************");
-  DEBUG2("******** importlist = %p", importlist);
-  for (imp = importlist; imp != NULL; imp = imp->next) {
-    DEBUG2("********** imp=%p servicename=%s peerlist=%p next=%p", 
-	  imp, imp->servicename, imp->peerlist, imp->next);
-    for (pl = imp->peerlist; pl != NULL; pl = pl->next) {
-      DEBUG2("************ peerlist=%p instance=%s svcid=%d cost=%d gwid=%d next=%p", 
-	    pl, pl->peer->instance, 
-	    SVCID2IDX(pl->svcid), pl->cost, GWID2IDX(pl->peer->gwid), pl->next);
-    };
-  };
-  DEBUG2("******************* DUMP IMPORT LIST COMPLETE *****************");
-
+   fprintf(fp, "* DUMPING IMPORT LIST *\n");
+   for (imp = importlist; imp != NULL; imp = imp->next) {
+      fprintf (fp, "  imp=%p servicename=%s peerlist=%p next=%p\n", 
+	       imp, imp->servicename, imp->peerlist, imp->next);
+      for (pl = imp->peerlist; pl != NULL; pl = pl->next) {
+	 fprintf(fp, "    peerlist=%p instance=%s svcid=%d cost=%d gwid=%d next=%p\n", 
+		 pl, pl->peer->instance, 
+		 SVCID2IDX(pl->svcid), pl->cost, GWID2IDX(pl->peer->gwid), pl->next);
+      };
+   };
 };
 
-static void expdumplist(void)
+static void log_impdumplist() {
+   char printbuffer[64*1024];
+   FILE * memfp = fmemopen(printbuffer, 64*1024, "w");
+   impdumplist(memfp);
+   fclose(memfp);
+   DEBUG2("%s", printbuffer);
+}
+
+static void expdumplist(FILE * fp)
 {
-  Export * exp;
-  peerlink * pl;
+   Export * exp;
+   peerlink * pl;
 
-  DEBUG2("********************* DUMPING EXPORT LIST *********************");
-  DEBUG2("******** exportlist = %p", importlist);
-  for (exp = exportlist; exp != NULL; exp = exp->next) {
-    DEBUG2("********** exp=%p servicename=%s cost=%d peerlist=%p next=%p", 
-	  exp, exp->servicename, exp->cost, exp->peerlist, exp->next);
-    for (pl = exp->peerlist; pl != NULL; pl = pl->next) {
-      DEBUG2("************ peerlist=%p instance=%s gwid=%d next=%p", 
-	    pl, pl->peer->instance, GWID2IDX(pl->peer->gwid), pl->next);
-    };
-  };
-  DEBUG2("******************* DUMP EXPORT LIST COMPLETE *****************");
-
+   fprintf (fp,"* DUMPING EXPORT LIST *\n");
+   for (exp = exportlist; exp != NULL; exp = exp->next) {
+      fprintf(fp," exp=%p servicename=%s cost=%d peerlist=%p next=%p\n", 
+	      exp, exp->servicename, exp->cost, exp->peerlist, exp->next);
+      for (pl = exp->peerlist; pl != NULL; pl = pl->next) {
+	 fprintf(fp,"  peerlist=%p instance=%s gwid=%d next=%p\n", 
+		 pl, pl->peer->instance, GWID2IDX(pl->peer->gwid), pl->next);
+      };
+   };
+ 
 };
+static void log_expdumplist() {
+   char printbuffer[64*1024];
+   FILE * memfp = fmemopen(printbuffer, 64*1024, "w");
+   expdumplist (memfp);
+   fclose(memfp);
+   DEBUG2("%s", printbuffer);
+}
+
+
+void dumpImpExp(FILE * fp) {
+   impdumplist(fp);
+   expdumplist(fp);
+}
+
+/*********************************/
+
 
 /* find the Import element in the import list if it exist, or return NULL) */
 static Import * impfind(char * service)
@@ -156,7 +177,7 @@ static Import *  condnewimport(char * service, int cost)
   imp->next = importlist;
   importlist = imp;
   
-  impdumplist();
+  log_impdumplist();
 
   return imp;
 };
@@ -167,9 +188,9 @@ int importservice(char * service, int cost, struct gwpeerinfo * peerinfo)
   int rc;
   Import * imp;
   peerlink ** ppl, * pl;
-
+    
   LOCKMUTEX(impmutex);
-  impdumplist();
+  log_impdumplist();
   imp = condnewimport(service, cost);
 
   /* find the last peerlink, but we check to see if we already has a
@@ -197,7 +218,7 @@ int importservice(char * service, int cost, struct gwpeerinfo * peerinfo)
   };
 
  out:  
-  impdumplist();
+  log_impdumplist();
   UNLOCKMUTEX(impmutex);
   return 0;
 };
@@ -218,7 +239,7 @@ static void impcleanuppeer(struct gwpeerinfo * pi)
 
   LOCKMUTEX(impmutex);
 
-  impdumplist();
+  log_impdumplist();
 
   for (pimp = &importlist; *pimp != NULL; ) {
     imp = *pimp;
@@ -261,7 +282,7 @@ static void impcleanuppeer(struct gwpeerinfo * pi)
        pimp = &(*pimp)->next;
   };
 
-  impdumplist();
+  log_impdumplist();
   UNLOCKMUTEX(impmutex);
   return;
 }  
@@ -276,7 +297,7 @@ int unimportservice(char * service, struct gwpeerinfo * pi)
 
   LOCKMUTEX(impmutex);
 
-  impdumplist();
+  log_impdumplist();
   imp = impfind(service);
   
   if (imp == NULL) {
@@ -326,7 +347,7 @@ int unimportservice(char * service, struct gwpeerinfo * pi)
   Warning("Hmm went thru the peerlist but didn't find the peer, could ab a dublicate unprovide message");
 
  out:
-  impdumplist();
+  log_impdumplist();
   UNLOCKMUTEX(impmutex);
   return error;
 };
@@ -339,7 +360,7 @@ Connection * impfindpeerconn(char * service, SERVICEID svcid)
   Connection * rconn = NULL;
 
   LOCKMUTEX(impmutex);
-  impdumplist();
+  log_impdumplist();
 
   for (imp = importlist; imp != NULL; imp = imp->next) {
     if (strcmp(service, imp->servicename) != 0) continue;
@@ -404,7 +425,7 @@ static Export *  condnewexport(char * service)
   
   *prevexp = exp;
 
-  expdumplist();
+  log_expdumplist();
   return exp;
 };
 
@@ -416,7 +437,7 @@ int exportservicetopeer(char * service, struct gwpeerinfo * peerinfo)
   assert (peerinfo != NULL) ;
   assert (service != NULL) ;
 
-  expdumplist();
+  log_expdumplist();
   
   DEBUG("exporting service %s to peer %s domid %d at %s", 
 	service , peerinfo->instance, peerinfo->domainid, peerinfo->conn->peeraddr_string); 
@@ -450,7 +471,7 @@ int exportservicetopeer(char * service, struct gwpeerinfo * peerinfo)
 
   *ppl = pl;
 
-  expdumplist();
+  log_expdumplist();
   DEBUG("Sending SRB PROVIDE cost = %d", exp->cost);
   return  _mw_srbsendprovide (peerinfo->conn, service, exp->cost);
 };
@@ -460,7 +481,7 @@ static void unexportservice(char * servicename)
     Export * exp, **prevexp;
     peerlink * pl, *pl2;
 
-    expdumplist();
+    log_expdumplist();
     prevexp = &exportlist;
     for (exp = exportlist; exp != NULL; prevexp = &exp->next, exp = exp->next) 
       if (strcmp(exp->servicename, servicename) == 0) break;
@@ -481,7 +502,7 @@ static void unexportservice(char * servicename)
     };
 
     free(exp);
-    expdumplist();
+    log_expdumplist();
     DEBUG("unexport complete");
 };
 
@@ -490,7 +511,7 @@ static void expcleanuppeer(struct gwpeerinfo * pi)
   Export * exp;
   peerlink * pl, **ppl;
 
-  expdumplist();
+  log_expdumplist();
 
   for (exp = exportlist; exp != NULL; exp = exp->next) {
     DEBUG(" export = %s", exp->servicename);
@@ -505,7 +526,7 @@ static void expcleanuppeer(struct gwpeerinfo * pi)
     };
   };  
 
-  expdumplist();
+  log_expdumplist();
   DEBUG("unexport complete");  
 };
 

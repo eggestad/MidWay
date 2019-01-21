@@ -59,3 +59,5 @@ void doprovideevent(char * servicename);
 void dounprovideevent(char * servicename);
 
 void impexp_cleanuppeer(struct gwpeerinfo * pi);
+
+void dumpImpExp(FILE * fp);

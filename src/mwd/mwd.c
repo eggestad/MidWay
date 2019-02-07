@@ -509,7 +509,11 @@ void set_instanceid(ipcmaininfo * ipcmain)
 #include <uuid/uuid.h>
   uuid_t uuid;
   uuid_generate(uuid);
+#ifdef __APPLE__
   uuid_string_t uuid_str;
+#else
+  char uuid_str[64];
+#endif
   uuid_unparse(uuid, uuid_str);
   sprintf(ipcmain->mw_instance_id, "%s", uuid_str);
   return;

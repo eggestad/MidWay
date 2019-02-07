@@ -8,7 +8,7 @@ MDHOME = @top_srcdir@
 CC = @CC@
 INSTALL = @INSTALL@
 
-LIBS = -lMidWay -lm -lxml2
+LIBS = -lMidWay -lm -lxml2 -luuid
 
 CFLAGS = @CFLAGS@ -I../include -I../liburl  `pkg-config --cflags libxml-2.0` 
 

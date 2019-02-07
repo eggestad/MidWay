@@ -74,7 +74,7 @@ static char * mwhome = NULL;
 static char * mwdatadir = NULL;
 char * instancename = NULL;
 
-mode_t mw_umask = UNASSIGNED;
+mode_t mw_umask = 0xffff;
 
 static struct passwd * mepw = NULL;
 
@@ -202,7 +202,7 @@ int mwdGetIPCparam(IPCPARAM param)
     value = numbuffers;
     break;
   case UMASK:
-     if (mw_umask == UNASSIGNED) {
+     if (mw_umask == 0xffff) {
 	mw_umask = umask(0);
 	umask(mw_umask);
      };
@@ -503,6 +503,18 @@ create_ipc(int mode)
 //
 void set_instanceid(ipcmaininfo * ipcmain)
 {
+  
+#define USE_UUID
+#ifdef USE_UUID
+#include <uuid/uuid.h>
+  uuid_t uuid;
+  uuid_generate(uuid);
+  uuid_string_t uuid_str;
+  uuid_unparse(uuid, uuid_str);
+  sprintf(ipcmain->mw_instance_id, "%s", uuid_str);
+  return;
+#endif
+
   char * pt, buffer [256] = {0};
   int s, rc, idx, N, len;
   struct ifconf ifc = {0};
@@ -518,7 +530,7 @@ void set_instanceid(ipcmaininfo * ipcmain)
   N = 0;
   do {
     N += 1;
-    ifc.ifc_len = len = sizeof(struct ifreq)*N;
+    ifc.ifc_len = len = (sizeof(struct ifreq))*N+4 ;
 
     DEBUG ("alloc len = %d", ifc.ifc_len);
 
@@ -530,19 +542,24 @@ void set_instanceid(ipcmaininfo * ipcmain)
     if (rc == -1) {
       goto out;
     };
+    DEBUG (" len = %d & %d", ifc.ifc_len, len);
 
-  } while (ifc.ifc_len >= len);
+  } while (ifc.ifc_len >= (len-sizeof(struct ifreq)));
 
   
   for (idx=0; idx < N; idx++) {
     
     ifr = &ifc.ifc_ifcu.ifcu_req[idx];
-
+    
     DEBUG("checking interface %d %s for unique address", idx, ifr->ifr_name);
-
+    errno = 0;
     rc = ioctl(s, SIOCGIFADDR, ifr);
-    DEBUG("ioctl(SIOCGIFADDR) returned %d errno %d af = %d", 
-	  rc, errno, ifr->ifr_addr.sa_family);
+    DEBUG("ioctl(SIOCGIFADDR) returned %d errno %s af = %d", 
+	  rc, strerror(errno), ifr->ifr_addr.sa_family);
+
+    if (rc == -1) {
+      continue;
+    }
     
     if (ifr->ifr_addr.sa_family == AF_INET) {
       sin = (struct sockaddr_in*) &ifr->ifr_addr;
@@ -584,7 +601,7 @@ void set_instanceid(ipcmaininfo * ipcmain)
   /* now we actually have a legal ip address as a string in
      buffer,and it's not the loopback.*/
     
-    sprintf(ipcmain->mw_instance_id, "%s/%d", buffer, masteripckey);
+    sprintf(ipcmain->mw_instance_id, "%s/0x%x", buffer, masteripckey);
     DEBUG("instanceid = %s", ipcmain->mw_instance_id);
     goto out;
   };
@@ -610,7 +627,7 @@ void set_instanceid(ipcmaininfo * ipcmain)
 
  nonet:
   Warning("No network connection found, assuming that host is standalone");
-  sprintf(ipcmain->mw_instance_id, "localhost/%d", masteripckey);
+  sprintf(ipcmain->mw_instance_id, "localhost/%u", masteripckey);
   return;
 }
 
@@ -815,114 +832,6 @@ int do_shutdowntask(PTask pt)
 }; 
 
 
-/* we're now going to make an instance name of netaddr/ipckey we go
-   thru the network devices and look for our primary ip address.  if
-   that fail, we use teh MAC addr, if the fail, we don't have a
-   network connected,and we use the hostname. */
-
-/* lets go thru the ~/.midwaytab and see if there is a home or ipc set. */
-static void checktab(char * instancename, char ** home, int * key)
-{
-  char tabpath[PATH_MAX];
-  char line[LINE_MAX];
-  char arg[5][65];
-  FILE * fp;
-  int n, i;
-
-  /* can't happen, mepw is fetche at the very beginning of main */
-  if (mepw == NULL) return; 
-  
-  strcpy(tabpath, mepw->pw_dir);
-  strcat(tabpath, "/.midwaytab");
-
-  fp = fopen(tabpath, "r");
-  if (fp == NULL) goto errout;
-
-  while ( !feof(fp)) {
-
-    if (fgets(line, LINE_MAX, fp) == NULL) continue;
-
-    arg[0][0] = arg[1][0] = arg[2][0] = arg[3][0] = arg[4][0] = '\0';
-    n = sscanf(line, "%64s %64s %64s %64s %64s", 
-	       arg[0], arg[1], arg[2], arg[3], arg[4]);
-
-    DEBUG2("read %d items from %s", n, tabpath);
-    if (n == 0) continue;
-     
-    DEBUG2("read %d items \"%s\" \"%s\" \"%s\" \"%s\" \"%s\"", 
-	  n, arg[0], arg[1], arg[2], arg[3], arg[4]);
-    
-    if (strcmp(arg[0], instancename) != 0) continue;
-    
-    for (i = 0; i < 5; i++) {
-      if ( (home != NULL) && (strncmp("home=", arg[i], 5) == 0) ) {
-	DEBUG2("home = %s", &arg[i][5] );
-	*home = strdup(&arg[i][5]);
-      };
-      if ( (key != NULL) && (strncmp("ipc:", arg[i], 4) == 0) ) {
-	DEBUG2("ipckey = %s", &arg[i][4] );
-	*key = (atoi(&arg[i][4]));
-      };
-    };
-  };
-
-  fclose(fp);
-  return;
-
- errout:
-      
-  DEBUG2("checktab fails");
-  if  (home != NULL) *home = NULL;
-  if  (key != NULL) *key = -1;
-  if (fp != NULL) fclose (fp);
-  return;
-};
-
-static int mkdir_asneeded(char * path)
-{
-  struct stat st;
-  char * tmp; 
-  int rc;
-
-  errno = 0;
-
-  DEBUG2("attempting to mkdir(%s)", path);
-  rc = stat(path, &st);
-
-  if (rc == 0) {
-    if (S_ISDIR(st.st_mode)) {
-      DEBUG2("%s is a dir", path);
-      return 0;
-    } else {
-      Error("%s is not a dir", path);
-      errno = ENOTDIR;
-      return -1;
-    };
-  };
-  
-  /* stat failed := path don't exists, recursivly try the .. dir */
-  tmp = strrchr(path, '/');
-  if (tmp == NULL) {
-    DEBUG2("unable to find a .. dir in %s, this is the top", path);
-  } else {    
-    *tmp = '\0';
-    
-    if (strlen(path) == 0) {
-      errno = ENOTDIR;
-      return -1;
-    };
-    
-    rc = mkdir_asneeded(path);
-    if (rc == -1) return -1;
-  
-    *tmp = '/';
-  };
-
-  Info("creating directory %s", path);
-  rc = mkdir(path, 0777);
-  
-  return rc;
-};
 
 /*********************************************************************
  * the main program loop
@@ -1051,8 +960,7 @@ int main(int argc, char ** argv)
   char c;
   int rc, loglevel, daemon = 1, n;
   char wd[PATH_MAX]; 
-  char * name, * tabhome = NULL;
-  int tabkey = -1;
+  char * name;
   mwaddress_t * mwaddress;
 
   int opt_clients =       -1;
@@ -1064,7 +972,17 @@ int main(int argc, char ** argv)
   char * penv;
   mode_t m;
   
+  /* { */
+  /*   _mw_copy_on_stdout(TRUE); */
+  /*   loglevel = _mwstr2loglevel("debug3");  */
 
+  /*   mwopenlog("x", ".", loglevel); */
+  /*   _mw_copy_on_stdout(TRUE); */
+
+  /*   struct ipcmaininfo ipcmain = {0}; */
+  /*   set_instanceid(&ipcmain); */
+  /*   exit(0); */
+  /* } */
   m = umask(0);
   umask(m);
   mwdSetIPCparam(UMASK, m);
@@ -1169,71 +1087,15 @@ int main(int argc, char ** argv)
   } else {
     usage();
   };
+  uri = alloca(strlen(instancename) + 8);
+  sprintf(uri, "ipc:/%s", instancename);
   
-  Info("MidWay instance name is %s", instancename); 
-
-  /* lets check the ~/.midwaytab and see if there is a home or ipc set. */
-  checktab(instancename, &tabhome, &tabkey);
-
-  /* now we're going to set MWHOME, instancename and try to load the config */
-  
-  /* Figure out the instance home. If not given by -H or thru env var MWHOME,
-     Default to ~/MidWay */
-
-  if (mwhome == NULL) {
-    if (tabhome != NULL) 
-      mwhome = tabhome;
-    else 
-      mwhome = getenv("MWHOME");
-  };
-
-  /* if still NULL default */
-  if (mwhome == NULL) {
-    mwhome = malloc(strlen(mepw->pw_dir)+10);
-    sprintf(mwhome,"%s/%s", mepw->pw_dir, "MidWay");
-  };
-
-  /* We apply PATH_MAX == 255 here, just to make life easy. */
-  if (strlen(mwhome) > 250) {
-    Error("Path to MidWayHome is to long. %zu is longer than max 250", strlen(mwhome));
-    exit(-1);
-  };
-
-  /* now do chdir to mwhome, if fail, go thru and create directories as needed.
-     If we fail to create them, abort. */
-  Info("MWHOME = %s", mwhome);
-
-  rc = mkdir_asneeded(mwhome);
-  if (rc != 0) {
-    Error("Failed to create the directory %s reason %s",
-	  mwhome, strerror(errno));
-    exit(-1);
-  };
-
-  rc = chdir(mwhome);
-  if (rc != 0) {
-    Error("failed to chdir to MWHOME=%s reason %s", 
-	  mwhome, strerror(errno));
-    exit(-1);
-  };
-  
-  rc = mkdir_asneeded(instancename);
-  if (rc != 0) {
-    Error("Failed to create the instance directory MWHOME/%s reason %s",
-	  instancename, strerror(errno));
-    exit(-1);
-  };
-
-  rc = chdir(instancename);
-  if (rc != 0) {
-    Error("failed to chdir to MWHOME/%s reason %s", 
-	  instancename, strerror(errno));
-    exit(-1);
-  };
-
-  /* when we get here, CWD is mwhome/instancename and it exists.*/
-
-
+  Info("MidWay instance name is %s url=%s", instancename, uri); 
+  mwhome = _mw_makeMidWayHomePath(mwhome) ;
+  Info("MidWay home is %s", mwhome); 
+  char * instancehomepath = _mw_makeInstanceHomePath(mwhome, instancename);
+  masteripckey = _mw_make_instance_home_and_ipckey(instancehomepath);
+  chdir (instancehomepath);
   /* init smgr, it sets default path which must be set before all
      setenvs in config but after mwhome is set. */
   smgrInit();
@@ -1266,16 +1128,14 @@ int main(int argc, char ** argv)
    **********************************************************************/
 
   /* TODO: the log dir may be set in the config */
-  rc = mkdir_asneeded("log");
+  rc = _mw_mkdir_asneeded("log");
   if (rc != 0) {
     Error("Failed to create the instance directory MWHOME/%s reason %s",
 	  "log", strerror(errno));
     exit(-1);
   };
 
-  strcpy(wd, mwhome);
-  strcat(wd, "/");
-  strcat(wd, instancename);
+  getcwd(wd,PATH_MAX);
   strcat(wd, "/");
   strcat(wd, "log/");
 
@@ -1291,9 +1151,9 @@ int main(int argc, char ** argv)
   Info("Logging to %s.YYYYMMDD", wd);
 
   /* more subdirs to follow. */
-  mkdir_asneeded("bin");
-  mkdir_asneeded("lib");
-  mkdir_asneeded("run");
+  _mw_mkdir_asneeded("bin");
+  _mw_mkdir_asneeded("lib");
+  _mw_mkdir_asneeded("run");
 
 
   inst_sighandlers();
@@ -1323,17 +1183,17 @@ int main(int argc, char ** argv)
      we're going to create it now. */
   if (uri == NULL) {
     uri = malloc(16);
-
+    key_t tabkey = 0;
     /* if tabkey != -1 the ipckey was in ~/.midwaytab */
     if (tabkey > 0) {
       sprintf(uri, "ipc:%d", tabkey);
     } else {
       /* if in config it's alreay set */
       if (mwdGetIPCparam(MASTERIPCKEY) > 0) {
-	sprintf(uri, "ipc:%d", mwdGetIPCparam(MASTERIPCKEY));
+	sprintf(uri, "ipc:%u", mwdGetIPCparam(MASTERIPCKEY));
       } else {
 	/* else default to uid */
-	sprintf(uri, "ipc:%d", getuid());
+	sprintf(uri, "ipc:%u", getuid());
       };
     }
   };
@@ -1351,7 +1211,8 @@ int main(int argc, char ** argv)
   };
 
   if (mwaddress->protocol != MWSYSVIPC) {
-    Error("url prefix must be ipc for mwd, url=%s errno=%d", uri, errno);
+    Error("url protocol must be ipc for mwd, url=%s %s",
+	  uri, _mw_errno2str());
     exit(-1);
   };
   
@@ -1399,7 +1260,7 @@ int main(int argc, char ** argv)
       exit(0);
     }
   };
-
+  DEBUG("formating shm tables");
   init_maininfo();
   init_tables();
 
@@ -1414,7 +1275,7 @@ int main(int argc, char ** argv)
   } else {
      strncpy(ipcmain->mw_bufferdir, mwdatadir, 256);
   };
-  rc = mkdir_asneeded(ipcmain->mw_bufferdir);
+  rc = _mw_mkdir_asneeded(ipcmain->mw_bufferdir);
   if (rc != 0) {
      Error("Failed to create the directory %s reason %s",
 	   ipcmain->mw_bufferdir, strerror(errno));
@@ -1435,6 +1296,7 @@ int main(int argc, char ** argv)
    * Note that child processes will be TCP client servers and Gateway servers
    * they will have a diffrent main loop 
    */
+  DEBUG("starting watchdog");
   rc = start_watchdog();
   if (rc <= 0) {
     Error("MidWay WatchDog daemon failed to start. reason %d", rc);

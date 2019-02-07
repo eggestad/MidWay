@@ -88,6 +88,7 @@ int do_info(int argc, char ** argv, DTable dtbl , char ** errstr)
 	 *errstr = "We are not connected to a MidWay system";
       return -1;
    };
+   mwaddress_t * mwadr =  _mw_get_mwaddress();
    
    dtbl_title(dtbl, "MidWay system Informaton");
    
@@ -118,6 +119,17 @@ int do_info(int argc, char ** argv, DTable dtbl , char ** errstr)
    dtbl_setfield(dtbl, -1, 0,  "mwd Message queue id"); 
    dtbl_setfield(dtbl, -1, 1, "%d", ipcmain->mwd_mqid);
 
+   if (mwadr != NULL) {
+      
+      dtbl_newrow(dtbl, NULL);
+      dtbl_setfield(dtbl, -1, 0,  "mwd IPCKEY"); 
+      dtbl_setfield(dtbl, -1, 1, "%#x", mwadr->sysvipckey);
+
+      dtbl_newrow(dtbl, NULL);
+      dtbl_setfield(dtbl, -1, 0,  "mwd IPC url"); 
+      dtbl_setfield(dtbl, -1, 1, "ipc:/%s ipc:%u",
+		    ipcmain->mw_instance_name, mwadr->sysvipckey);
+   }
    dtbl_newrow(dtbl, NULL);
    dtbl_setfield(dtbl, -1, 0,  "mwd last active"); 
    strftime(date, 64, DATESTR, localtime((time_t *)&ipcmain->lastactive));
@@ -409,7 +421,7 @@ int heapinfo(int argc, char ** argv)
 
    if (listall) listinuse = 1;
 
-   fprintf (fp,"magic %x segment size %zu semid %ld\n", 
+   fprintf (fp,"magic %x segment size %llu semid %lld\n", 
 	   _mwHeapInfo->magic, _mwHeapInfo->segmentsize, _mwHeapInfo->semid);
    fprintf (fp," Basechunksize %d chunkspersize %d Bins %d\n", 
 	   _mwHeapInfo->basechunksize, _mwHeapInfo->chunkspersize, BINS);
@@ -417,7 +429,7 @@ int heapinfo(int argc, char ** argv)
 	   _mwHeapInfo->inusecount, _mwHeapInfo->inusehighwater, 
 	   _mwHeapInfo->inuseaverage, _mwHeapInfo->inuseavgcount );
 
-   fprintf (fp," top=%lu bottom=%lu \n", _mwHeapInfo->top, _mwHeapInfo->bottom);
+   fprintf (fp," top=%llu bottom=%llu \n", _mwHeapInfo->top, _mwHeapInfo->bottom);
 
    rc = semctl(_mwHeapInfo->semid,BINS, GETALL, semarray);
    if (rc != 0) {
@@ -448,10 +460,10 @@ int heapinfo(int argc, char ** argv)
 	    pChead = ((void*) _mwHeapInfo) + h;
 	    pCFoot = ((void*) _mwHeapInfo) + f; 
 	    
-	    debug ("header %p(%lld) owner %x, size %zu", pChead, h, pChead->ownerid,  pChead->size);
-	    debug("footer %p(%lld) %lu %lu %lu", pCFoot, f, pCFoot->above, pCFoot->next, pCFoot->prev);
+	    debug ("header %p(%lld) owner %x, size %llu", pChead, h, pChead->ownerid,  pChead->size);
+	    debug("footer %p(%lld) %llu %llu %llu", pCFoot, f, pCFoot->above, pCFoot->next, pCFoot->prev);
 	    if (listall || (listinuse && pChead->ownerid != UNASSIGNED)) {
-	       fprintf (fp,"  %16lld: header=(%16lld: %10s %8zu) footer=(%16lld: %16lu %16lu %16lu)",
+	       fprintf (fp,"  %16lld: header=(%16lld: %10s %8llu) footer=(%16lld: %16llu %16llu %16llu)",
 		       h+sizeof(chunkhead), 
 		       h, _mwid2str(pChead->ownerid, NULL),  pChead->size * _mwHeapInfo->basechunksize,
 		       f, pCFoot->above, pCFoot->next, pCFoot->prev);

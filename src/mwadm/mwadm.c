@@ -34,6 +34,8 @@
 #include <MidWay.h>
 #include <ipctables.h>
 #include <osdep.h>
+#include <mwclientapi.h>
+#include <address.h>
 
 #include "mwadm.h"
 #include "dtbl.h"
@@ -425,7 +427,8 @@ int main(int argc, char ** argv)
   int loglevel = MWLOG_INFO;
   extern char *optarg;
   extern int optind, opterr, optopt;
-
+  void _mw_copy_on_stdout(int flag);
+  
   while ((option = getopt(argc, argv, "dl:RA:")) != EOF) {
     
     switch (option) {
@@ -437,6 +440,8 @@ int main(int argc, char ** argv)
     case 'l':
        loglevel = _mwstr2loglevel(optarg);
        if (loglevel == -1) _usage(argv[0]);
+       mwsetloglevel(loglevel);
+      
        break;
 
     case 'R':
@@ -451,13 +456,44 @@ int main(int argc, char ** argv)
       _usage(argv[0]);
     }
   }
-
+  Info("mwadm client starting url=%s", url);
+  
+  mwaddress_t mwadr = {0};
+  rc = _mwdecode_url(url, &mwadr);
+  if (rc == -1) {
+     fprintf(stderr, "unable to parse url %s\n", url);
+     exit(-1);
+  }
+  DEBUG("mwaddr %d key %u instance %s", mwadr.protocol, mwadr.sysvipckey, mwadr.instancename);
+  if (mwadr.protocol != MWSYSVIPC){
+     fprintf(stderr, "mwadm require an IPC url not %s\n", url);
+     exit(-1);
+  }
   /* spesifically we don't want INT (^C) to abort the program. */
   signal(SIGTERM, sig_handler);
   signal(SIGINT, sig_handler);
 
-  mwopenlog(argv[0], "mwlog", loglevel);
-  DEBUG("mwadm client starting");
+  //mwopenlog(argv[0], "mwlog", loglevel);
+
+  if (mwadr.sysvipckey == -1 || mwadr.sysvipckey == 0) {
+     if (mwadr.instancename == NULL){ 
+	Error("ipc address don't contain either IPCKEY or instancename");
+	exit(7);
+     }
+
+     char * mwinsthome = _mw_makeInstanceHomePath(NULL, mwadr.instancename);
+     if (mwinsthome == NULL) {
+	Error("Unable to find path to instance home, %s", _mw_errno2str());
+	exit(7);
+     }
+     mwadr.sysvipckey = _mw_make_instance_home_and_ipckey(mwinsthome);
+  }
+  if (url == NULL) {
+     url = alloca(100);
+     sprintf(url, "ipc:%u", mwadr.sysvipckey);
+  }
+  
+  DEBUG("mwadm client attaching %s", url);
 
   attach(0, NULL);
 

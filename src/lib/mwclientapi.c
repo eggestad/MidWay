@@ -176,7 +176,11 @@ char * mwgeturl()
       return NULL;
 
    case MWSYSVIPC:
-      snprintf(url, URLMAXLEN, "ipc:%d", mwadr->sysvipckey);
+
+      if (mwadr->instancename != NULL)
+	 snprintf(url, URLMAXLEN, "ipc:/%s", mwadr->instancename);
+      else 
+	 snprintf(url, URLMAXLEN, "ipc:%u", mwadr->sysvipckey);
       return url;
       
    case MWSRBP:      

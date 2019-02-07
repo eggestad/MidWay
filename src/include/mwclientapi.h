@@ -69,6 +69,7 @@ struct _mwaddress_t {
   struct mwprotocol proto;
   int sysvipckey ;
   char * domain;
+  char * instancename;
   char * posixipcpath ;
   union _ipaddress {
     struct sockaddr * sa;

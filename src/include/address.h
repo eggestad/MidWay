@@ -26,6 +26,10 @@
 
 int _mwdecode_url(const char * url, mwaddress_t * mwaddr);
 const char * _mw_sprintsa(struct sockaddr * sa, char * buffer);
+int _mw_mkdir_asneeded(char * path);
+char * _mw_makeMidWayHomePath(char * mwhome) ;
+char * _mw_makeInstanceHomePath(char * mwhome, char * instancename) ;
+key_t _mw_make_instance_home_and_ipckey(char *);
 
 #endif
 

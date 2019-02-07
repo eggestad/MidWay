@@ -143,14 +143,20 @@ static void do_svcreply(Call * cmsg, int len);
 static void do_svccall(Call * cmsg, int len)
 {
   Connection * conn;
-
+  char printbuffer[64*1024];
+  
   TIMEPEGNOTE("enter do_svccall");
   if (cmsg == NULL) {
     Error("Internal Error: do_svccall called with NULL pointer, this can't happen");
     return;
   };
 
-  DEBUG2("%s", conn_print());
+
+  FILE * memfp = fmemopen(printbuffer, 64*1024, "w");
+  conn_print(memfp);
+  fclose (memfp);
+  DEBUG2("%s", printbuffer);
+
   DEBUG("got a call to service %s svcid %#x", cmsg->service, cmsg->svcid);
   TIMEPEG();
   conn = impfindpeerconn(cmsg->service, cmsg->svcid);

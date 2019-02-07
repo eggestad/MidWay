@@ -408,6 +408,8 @@ int mwsetloglevel(int level)
   if ( (level < MWLOG_FATAL) || (level > MWLOG_DEBUG4) ) return -EINVAL;
   oldlevel = loglevel;
   loglevel = level;
+  loginited = 1;
+  
   DEBUG("loglevel is now %s", levelheader[level]);
 
   tmp = getenv("MWLOG_STDERR");
@@ -418,7 +420,7 @@ int mwsetloglevel(int level)
      if (level >= MWLOG_DEBUG) copy_on_FILE = stderr;
      else copy_on_FILE = NULL;
   };
-  loginited = 1;
+
   return oldlevel;
 };
 

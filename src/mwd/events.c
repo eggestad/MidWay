@@ -491,7 +491,7 @@ int event_enqueue(Event * evmsg)
   ev->pending_acks = 0;
   ev->pending_ack_ids = NULL;
 
-  if (ev->evmsg.eventid == UNASSIGNED) 
+  if (ev->evmsg.eventid <= 0) 
     ev->evmsg.eventid = next_eventid();
   
   *eventqueue_tailp = ev;

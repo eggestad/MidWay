@@ -977,9 +977,6 @@ static char * mktagfunc(void) {
  * main
  ************************************************************************/
 
-/* undocumented  in lib/mwlog.c */
-void _mw_copy_on_stderr(int flag);
-
 int main(int argc, char ** argv)
 {
   int loglevel = MWLOG_INFO, gateway = 0, client = 0, port = -1;

@@ -41,10 +41,6 @@ static char * logfile = NULL;
 static int noreply = 0;
 static char * prog; 
 
-/* undocumented func in lib/mwlog.c */
-void _mw_copy_on_stdout(int flag);
-void _mw_copy_on_stderr(int flag);
-
 int call(int argc, char ** argv) 
 {
   int apprc = 0, rc = 0; 

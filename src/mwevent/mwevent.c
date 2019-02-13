@@ -54,10 +54,6 @@ char * client = NULL;
 
 int mode = 0;
 
-/* undocumented func in lib/mwlog.c */
-void _mw_copy_on_stdout(int flag);
-void _mw_copy_on_stderr(int flag);
-
 int subflag = MWEVSTRING;
 
 void eventhdl(const char * eventname, const char * data, size_t datalen) 

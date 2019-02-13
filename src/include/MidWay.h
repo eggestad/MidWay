@@ -266,8 +266,11 @@ void _mw_vlogf(int level, const char * format, va_list ap); // in mwlog.c
    namespace to user applications */
 //#define NDEBUG
 
+void _mw_copy_on_stderr(int);
+void _mw_copy_on_stdout(int);
 
 #ifndef NDEBUG
+
 
 int * _mwgetloglevel(void);
 

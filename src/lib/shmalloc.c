@@ -448,8 +448,8 @@ int _mw_getbuffer_from_call (Call * callmesg, char ** data, size_t * datalen)
       DEBUG("fastpath");
       *data = ptr;
    } else {
-      DEBUG("no fast path copying buffer from %p to %p (len=%zu)", ptr, *data, callmesg->datalen);
       *data = malloc(callmesg->datalen+1);
+      DEBUG("no fast path copying buffer from %p to %p (len=%zu)", ptr, *data, callmesg->datalen);
       memcpy(*data, ptr, callmesg->datalen);
       /* we adda trainling NUL just to be safe */
       (*data)[callmesg->datalen] = '\0';
@@ -862,6 +862,7 @@ void * _mwalloc(size_t size)
    ENTER();
    if (size <= 0) {
       errno = ENOMEM;
+      LEAVE();
       return NULL;
    };
 
@@ -887,6 +888,7 @@ void * _mwalloc(size_t size)
 	 rc = lock(i);
 	 if (rc < 0) {
 	    Error("_mwalloc: lock of bin %d failed erro=%d", i, errno);
+	    LEAVE();
 	    return NULL;
 	 }
 

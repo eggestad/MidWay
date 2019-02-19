@@ -691,7 +691,7 @@ key_t _mw_make_instance_home_and_ipckey(char * path) {
    };
    /* when we get here, CWD is mwhome/instancename and it exists.*/
    key_t ipckey = ftok(path, getuid());
-   Info("IPCKEY %d", ipckey);
+   Info("IPCKEY %u %#x", ipckey, ipckey);
    return ipckey;
 }
       

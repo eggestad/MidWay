@@ -143,7 +143,8 @@ sptime(char *b, int max)
   if (b == NULL) return  -1;
 
   gettimeofday(&tv,NULL);
-  now = localtime((time_t *) &tv.tv_sec);
+  struct tm localtm;
+  now = localtime_r((time_t *) &tv.tv_sec, &localtm);
   
   rc = snprintf(b, max, "%4d%2.2d%2.2d %2.2d%2.2d%2.2d.%3.3ld ",
 		now->tm_year+1900, now->tm_mon+1, now->tm_mday,
@@ -173,7 +174,8 @@ switchlog (void)
   if (_force_switchlog) {
     _force_switchlog = 0;
   } else {
-    strftime(newsuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
+     struct tm localtm;
+     strftime(newsuffix, 100, "%Y%m%d", localtime_r(&tv.tv_sec, &localtm));
     if (strcmp(newsuffix, timesuffix) == 0) {
       return;
     };

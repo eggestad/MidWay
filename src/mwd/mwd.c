@@ -54,6 +54,7 @@
 #include "shmallocfmt.h"
 #include "requestparse.h"
 #include "events.h"
+#include "simpleSrvManager.h"
 
 #include "utils.h"
 
@@ -80,6 +81,10 @@ static struct passwd * mepw = NULL;
 
 static Flags flags = { 0, 0, 0, 0, 0};
 
+char * mwd_get_mwhome() {
+  return mwhome;
+}
+ 
 
 // prototypes for this module
 int term_maininfo(void);
@@ -236,6 +241,7 @@ static void sighandler(int sig)
       
    case SIGTERM:
    case SIGINT:
+     DEBUG("adding deleayed shutdown task");
       mwaddtaskdelayed(do_shutdowntrigger, -1, 1.0);
       DEBUG("normal shutdown sig=%d", sig);
       return;
@@ -763,6 +769,7 @@ PTask shutdowntask = 0;
 int do_shutdowntrigger(PTask pt)
 {
    int rc;
+   if (shutdowntask == 0) return 0;
    rc = mwwaketask(shutdowntask);
    if (rc != 0) Fatal ("attempted to wake shutdown task %p but got error (%d) %s", 
 		       (void *) shutdowntask, rc, strerror(-rc));
@@ -797,6 +804,7 @@ int do_shutdowntask(PTask pt)
       
    case 4:  
       DEBUG("shutdown phase %d", countdown);
+      triggershutdown(SIGTERM);
       rc = kill_all_servers(SIGTERM);
       DEBUG("kill_all_servers() returned %d", rc);
       countdown--;
@@ -804,12 +812,14 @@ int do_shutdowntask(PTask pt)
 
    case 3:
       DEBUG("shutdown phase %d", countdown);
+      triggershutdown(SIGINT);
       rc = kill_all_servers(SIGINT);
       DEBUG("kill_all_servers() returned %d", rc);
       countdown--;
 
    case 2:
       DEBUG("shutdown phase %d", countdown);
+      triggershutdown(SIGHUP);
       rc = kill_all_servers(SIGHUP);
       DEBUG("kill_all_servers() returned %d", rc);
       countdown--;
@@ -819,7 +829,7 @@ int do_shutdowntask(PTask pt)
       countdown--;
       Info("Watchdog: termination, kill all servers and connecting members.");
       kill(SIGTERM, ipcmain->mwwdpid);
-
+      triggershutdown(SIGKILL);
       rc = kill_all_servers(SIGKILL);
       DEBUG("kill_all_servers() returned %d", rc);
       ipcmain->status = MWDEAD;
@@ -880,8 +890,10 @@ static void mainloop(void)
   DEBUG("adding event task with interval %lg", eventtaskinterval);
   eventtask = mwaddtask(do_events, eventtaskinterval);
 
+  DEBUG("adding  suspened shutdown task");
   shutdowntask = mwaddtask(do_shutdowntask, -1);
 
+  DEBUG("wake msg  task");
   mwwaketask(srvmgrtask);
   
   /* finally the loop */
@@ -959,7 +971,7 @@ int daemonize(void)
  * this main has grow to be way to large 
  **********************************************************************/
 
-int main(int argc, char ** argv)
+int main(int argc, char ** argv, char * const envp[] )
 {
   char c;
   int rc, loglevel, daemon = 1, n;
@@ -1103,7 +1115,8 @@ int main(int argc, char ** argv)
   /* init smgr, it sets default path which must be set before all
      setenvs in config but after mwhome is set. */
   smgrInit();
-       
+
+
   /* now if the config exists load it */
   getcwd(wd,PATH_MAX);
   strcat(wd,"/config");
@@ -1158,6 +1171,8 @@ int main(int argc, char ** argv)
   _mw_mkdir_asneeded("bin");
   _mw_mkdir_asneeded("lib");
   _mw_mkdir_asneeded("run");
+  _mw_mkdir_asneeded("conf");
+  _mw_mkdir_asneeded("boot");
 
 
   inst_sighandlers();
@@ -1317,7 +1332,12 @@ int main(int argc, char ** argv)
   ipcmain->boottime = (int64_t) time(NULL);
 
   /* now start all autobott servers */
-  smgrAutoBoot();
+  // until further we've given up on the xml tuxedo like config
+  //  smgrAutoBoot();
+
+  pthread_t srvmsgThread ;
+  rc = pthread_create(&srvmsgThread, NULL, serverManagerThread, NULL);
+  if (rc != 0) Error("failed to create server manager thread");
 
   mainloop();
 

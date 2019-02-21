@@ -8,12 +8,13 @@ MDHOME = @top_srcdir@
 CC = @CC@
 INSTALL = @INSTALL@
 
-LIBS = -lMidWay -lm -lxml2 -luuid
+LIBS = -lMidWay -lm -lxml2 -luuid `pkgconf --libs glib-2.0` -lpthread
 
-CFLAGS = @CFLAGS@ -I../include -I../liburl  `pkg-config --cflags libxml-2.0` 
+CFLAGS = @CFLAGS@ -I../include -I../liburl  `pkg-config --cflags libxml-2.0`  `pkg-config --cflags glib-2.0` 
 
 OBJS = mwd.o shmallocfmt.o requestparse.o tables.o watchdog.o \
-	servermgr.o xmlconfig.o execvpe.o events.o
+	servermgr.o xmlconfig.o execvpe.o events.o \
+	simpleSrvManager.o singleServerManager.o
 
 EXE = mwd
 

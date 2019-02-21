@@ -61,3 +61,5 @@ conv_entry * getconv_entry(int i);
 void usage(void);
 
 #define MWSRVMGR ".mwsrvmgr"
+
+void * serverManagerThread(void*);

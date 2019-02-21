@@ -336,9 +336,12 @@ int mwwaketask(PTask pt)
   if (tasks < 0) return -EILSEQ;
   if (tasks == 0) return -ENOENT;
   if (idx >= tasks) return -ENOENT;
+  if (idx < 0) return -EINVAL;
 
   LOCKMUTEX(tasklock);
 
+  DEBUG1("tasklist = %p tasidx %s", tasklist, idx);
+  
   t = &tasklist[idx];
 
   DEBUG1("waking task %d \"%s\"", idx, t->name);
@@ -488,8 +491,7 @@ PTask _mwaddtaskdelayed(taskproto_t function, char * name, double interval, doub
   if (function == NULL) return  -EINVAL;
 
   LOCKMUTEX(tasklock);
-
-  DEBUG1("tasks %d", tasks);
+  DEBUG1("adding task, num tasks %d before", tasks);
   DEBUG1("interval %g delay %g", interval, initialdelay);
 
   if (tasks == -1) inittasks();

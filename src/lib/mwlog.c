@@ -186,8 +186,9 @@ switchlog (void)
     for (i = 0; i < 256; i++) 
       filename [i] = '\0';
   };
-
-  strftime(timesuffix, 100, "%Y%m%d", localtime(&tv.tv_sec));
+  
+  struct tm localtm;
+  strftime(timesuffix, 100, "%Y%m%d", localtime_r(&tv.tv_sec, &localtm));
 
   if (logprefix != NULL) {
     strcpy (filename, logprefix);

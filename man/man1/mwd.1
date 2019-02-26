@@ -77,7 +77,7 @@ The size of the heap, currently not used. The number of buffers per bin is given
 .BI "-A " url
 The url needed for clients and servers to find the primary shared
 memory segment.  If absent we use
-.BR ipc:// uid
+.BR ipc:/ username
 .
 .TP
 .BI "-H " runtimedirectory
@@ -86,14 +86,14 @@ See
 below. The directory where MidWay code expect to find config files, and places log and 
 other runtime files. NOTE if you set this, you 
 .I must
-set the environment variable MWDIR for IPC clients and servers.
+set the environment variable MWHOME for IPC clients and servers.
 Default is
 .IR  ~/MidWay , 
 but will use 
 .I ~/.MidWay 
 if it exists, and 
 .I ~/MidWay 
-do not. (I may swap this order in the future.) mwd will honor the environment variable MWDIR as well.
+do not. (I may swap this order in the future.) mwd will honor the environment variable MWHOME as well.
 .TP
 .BI "-g " maxgateways
 The max number of remote MidWay instances we may know about.
@@ -107,14 +107,14 @@ It is completly legal to have instances with the same name, but confusion will f
 .PP
 More importanly, in order to avoid collision of the log files and keep config files separate, 
 the files are placed under 
-.RI $MWDIR/ instancename /. 
+.RI $MWHOME/ instancename /. 
 See FILES below. In this context the default value is "default". If you use the config file
 to generate the IPCKEY, you must of course set the instancename inorder to start to seperate 
 instances.
 
 .SH ENVIRONMENT
 .TP
-.B MWDIR
+.B MWHOME
 The runtime directory, may be overidden with the -H option.
 .TP
 .B MWURL
@@ -134,41 +134,46 @@ it's subscribers is halv this interval.
 
 .SH FILES
 As discussed above the files are located under
-.IR MWDIR / instancename
+.IR MWHOME / instancename
 where the defaults are 
-.I MWDIR 
+.I MWHOME 
 = "~/MidWay" and 
 .I instancemname 
 = "default". Under this directory we have the following files and subdirectories:
 .TP
-.IB MWDIR/instancename/ bin
+.IB MWHOME/instancename/ bin
 For servers run by mwd, the default place mwd will look for them is here. If you give relative path
 in mwd.conf for these, thay are relative to tis place. 
 .TP
-.IB MWDIR/instancename/ conf
+.IB MWHOME/instancename/ boot
+At startup mwd will start all the servers (or launch scripts) listed in this dir. Only excutables files are run, and files with ~ suffix are ignored (emacs autosave files). See 
+.B Managed Servers
+below.
+.TP
+.IB MWHOME/instancename/ conf
 Directory for config files. If your servers need their own config files you may place them here, but 
 all files beginning with mw or .mw are reserved.
 .TP
-.IB MWDIR/instancename/ conf/mwd.conf
+.IB MWHOME/instancename/ conf/mwd.conf
 The config file for mwd, (NYI). See 
 .BR mwd.conf (4). 
 .TP
-.IB MWDIR/instancename/ core
+.IB MWHOME/instancename/ core
 If servers run by mwd core dumps, their core files are moved here, and renamed
 .RI core. serverexecutablename . YYYYMMDD . 
 .TP
-.IB MWDIR/instancename/ logs
+.IB MWHOME/instancename/ logs
 The default directory for placing logfiles, see 
 .BR mwlog (3C). 
 .TP
-.IB MWDIR/instancename/ logs/MidWayLog. YYYYMMDD
+.IB MWHOME/instancename/ logs/MidWayLog. YYYYMMDD
 The default logfile. See 
 .BR mwlog (3C). 
 .TP
-.IB MWDIR/instancename/ run
+.IB MWHOME/instancename/ run
 For servers runned by mwd, default current working directory is set to here before their are started.
 .TP
-.IB MWDIR/instancename/ tmp
+.IB MWHOME/instancename/ tmp
 Runtime data, purged by mwd on startup. Unix family sockets for conversations go here, as well as 
 large buffers. 
 .SH SEE ALSO

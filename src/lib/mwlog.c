@@ -155,6 +155,7 @@ sptime(char *b, int max)
 static char timesuffix[100] = ""; 
 static char newsuffix[100];
 static char filename[256];
+static time_t nextlogswitchtime = 0;
 
 /**
    rotate the logfind is we'ew crossed midnite. 
@@ -165,30 +166,30 @@ switchlog (void)
 {
   struct timeval tv;
 
-
   if (logprefix == NULL) return ;
 
   /* if an openlog call has been made in between, we swichlog even if not at the end of day */ 
   gettimeofday(&tv,NULL);
- 
-  if (_force_switchlog) {
-    _force_switchlog = 0;
-  } else {
-     struct tm localtm;
-     strftime(newsuffix, 100, "%Y%m%d", localtime_r(&tv.tv_sec, &localtm));
-    if (strcmp(newsuffix, timesuffix) == 0) {
-      return;
-    };
-  };
-  
-  {
-    int i;
-    for (i = 0; i < 256; i++) 
-      filename [i] = '\0';
-  };
-  
+
+  //printf("next logswitch in %ld sec\n", nextlogswitchtime - tv.tv_sec);
+
+  if (nextlogswitchtime > tv.tv_sec && ! _force_switchlog)
+     return;
+
   struct tm localtm;
-  strftime(timesuffix, 100, "%Y%m%d", localtime_r(&tv.tv_sec, &localtm));
+  localtime_r(&tv.tv_sec, &localtm);
+  localtm.tm_sec = 59;
+  localtm.tm_min = 59;
+  localtm.tm_hour = 23;
+  time_t nextmidnite  = mktime(&localtm);
+  printf("**** next logswitch in %ld sec\n", nextmidnite - tv.tv_sec);
+  nextlogswitchtime = nextmidnite;
+  
+  _force_switchlog = 0;
+
+  memset(filename, '\0', 256);
+
+  strftime(timesuffix, 100, "%Y%m%d", &localtm);
 
   if (logprefix != NULL) {
     strcpy (filename, logprefix);
@@ -208,6 +209,7 @@ switchlog (void)
   //mwlog(MWLOG_INFO, "Switched to New Log %s", filename);
   return;
 }
+
 #define LOG_MSG_MAX (64*1024)
 
 static   char buffer[LOG_MSG_MAX];

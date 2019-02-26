@@ -29,6 +29,7 @@
 #include <signal.h>
 #include <sys/wait.h>
 #include <sys/time.h>
+#include <poll.h>
 
 #include <MidWay.h>
 #include "mwd.h"
@@ -165,7 +166,9 @@ int  runSingleServerManager(struct managed_server_t * server, int mwdfd) {
    if (child > 0) {
       // im manager process
       char buf[32];
-
+      int waitforchilddeath = 0;
+      int waitcount = 0;
+      
       srvmgr_messages_t msg;
       msg.startup.mtype = msg_type_startup;
       msg.startup.server_pid = child;
@@ -174,24 +177,64 @@ int  runSingleServerManager(struct managed_server_t * server, int mwdfd) {
       write(mwdfd, &msg, sizeof(srvmgr_messages_t));
       
       close(mgrchildpipe[1]);
-
+      
+      struct pollfd pipes[2] = {0};
+      pipes[0].fd = mwdfd;
+      pipes[0].events = 0;
+      pipes[0].revents = 0;
+      pipes[1].fd = mgrchildpipe[0];
+      pipes[1].events = 0;
+      pipes[1].revents = 0;
+      
+      int  errcount = 0;
       do {
-	 rc = read(mgrchildpipe[0], buf, 32);
-	 if (rc == 0) {
-	    Info("child died");
-	    return 0;
-	 }
-	 if (rc > 0)  {
-	    DEBUG("readfrom child %d %.*s, ignoring", rc, rc, buf);
+
+	 DEBUG2("polling %d %d", pipes[0].fd, pipes[1].fd);
+	 int nready = poll(pipes,  2, 5000);
+	 DEBUG2("poll returned %d %d %d", nready, pipes[0].revents, pipes[1].revents);
+	 if (waitforchilddeath) {
+	    int signals[] ={ SIGTERM, SIGINT, SIGHUP, SIGQUIT, SIGKILL};
+	    DEBUG("send kill to serverpid %d", server->serverpid);
+	    kill (server->serverpid, signals[waitcount]);
+	    waitcount++;
+	    if (waitcount >= 5) {
+	       Warning("manager process exits while child still runs");
+	       return 0;
+	    }
 	    continue;
 	 }
-	 if (errno == EINTR) continue;
-	 perror("read from child");
-	 //	 wait(NULL);
-	 Info("child died 2");
-	 return 0;
-      } while (1);
+		  
+	 if (nready == 0) continue;
 
+	 if (pipes[0].revents != 0) {
+	    Info("mwd died") ;
+	    waitforchilddeath = 1;
+	    pipes[0].fd = - pipes[0].fd;
+	    shutdown_flag = 1;
+	    continue;
+	 }
+
+	 if (pipes[1].revents != 0) {
+	    rc = read(mgrchildpipe[0], buf, 32);
+	    if (rc == 0) {
+	       Info("child died");
+	       return 0;
+	    }
+	    if (rc > 0)  {
+	       DEBUG("readfrom child %d %.*s, ignoring", rc, rc, buf);
+	       continue;
+	    }
+	    if (errno == EINTR) continue;
+	    perror("read from child");
+	    //	 wait(NULL);
+	    Info("child died 2");
+	    return 0;
+	 }
+	 Warning("poll returned but neither mwdfd or childfd had anything");
+	 errcount++;
+      } while (errcount < 10);
+      DEBUG("while loop terminated, errcount=%d", errcount);
+      shutdown_flag = 1;
       return 0;
    }
 
@@ -199,11 +242,22 @@ int  runSingleServerManager(struct managed_server_t * server, int mwdfd) {
    if (child == 0) {
       close(mgrchildpipe[0]);
 
+      // we add $MWHOME/bin to the beginning of the path 
+      char * envpath = getenv("PATH");
+      int newpathlen =strlen(envpath) + strlen(mwd_get_mwhome())
+	 + strlen(instancename) + 10; 
+      char newenvpath[newpathlen];
+      snprintf(newenvpath, newpathlen, "%s/%s/bin:%s", mwd_get_mwhome(),
+	       instancename, envpath);
+      setenv ("PATH", newenvpath, 1);
+      DEBUG("PATH is now %s", getenv("PATH"));
       char * path = server->fullpath;
       char * args[2] = { path, NULL };
       
       Info("exec server %s", path);
-      rc = execve (path, args, server->envp);
+
+      extern char **environ;
+      rc = execve (path, args, environ /* server->envp */);
       perror("exec failed");
       write(mgrchildpipe[1], "exec fail", 10);
       
@@ -216,6 +270,7 @@ int  runSingleServerManager(struct managed_server_t * server, int mwdfd) {
 int runSingleServerManagerLoop(struct managed_server_t *server, int mwdfd) {
 
    int rc = runSingleServerManager(server, mwdfd);
+   DEBUG("child has died %d", rc);
    do {
       if (shutdown_flag) {
 	 Info("Shutdown manager for %s done", server->name);
@@ -228,6 +283,7 @@ int runSingleServerManagerLoop(struct managed_server_t *server, int mwdfd) {
       sleep(gracetime);
       Info("Restarting Server");
       rc = runSingleServerManager(server, mwdfd);
+      DEBUG("child has died %d", rc);
    } while (!shutdown_flag);
    
 }

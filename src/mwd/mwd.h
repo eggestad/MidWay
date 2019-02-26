@@ -48,7 +48,8 @@ void init_maininfo(void);
 int cleanup_ipc(void) ;
 int mymqid(void);
 int mwdheapmode(void);
-      
+char * mwd_get_mwhome();
+
 int mwdSetIPCparam(IPCPARAM, int);
 int mwdGetIPCparam(IPCPARAM);
 ipcmaininfo * getipcmaintable(void); 

@@ -241,7 +241,7 @@ static void sighandler(int sig)
       
    case SIGTERM:
    case SIGINT:
-     DEBUG("adding deleayed shutdown task");
+     DEBUG("adding delayed shutdown task");
       mwaddtaskdelayed(do_shutdowntrigger, -1, 1.0);
       DEBUG("normal shutdown sig=%d", sig);
       return;
@@ -1316,15 +1316,16 @@ int main(int argc, char ** argv, char * const envp[] )
    * they will have a diffrent main loop 
    */
   DEBUG("starting watchdog");
-  rc = start_watchdog();
-  if (rc <= 0) {
-    Error("MidWay WatchDog daemon failed to start. reason %d", rc);
+  pid_t watchdogpid = start_watchdog();
+  if (watchdogpid <= 0) {
+    Error("MidWay WatchDog daemon failed to start. reason %d",watchdogpid);
     shm_destroy();
     term_tables();
     term_maininfo();
     exit(-1);
   };
-  Info("MidWay WatchDog daemon started pid=%d", rc); 
+
+  Info("MidWay WatchDog daemon started pid=%d", watchdogpid); 
   Info("MidWay daemon boot complete instancename is %s", 
 	ipcmain->mw_instance_name); 
 
@@ -1340,8 +1341,9 @@ int main(int argc, char ** argv, char * const envp[] )
   if (rc != 0) Error("failed to create server manager thread");
 
   mainloop();
-
+  kill(SIGKILL, watchdogpid);
   cleanup_ipc();
+
 
   Info("MidWay daemon shutdown complete");
 };

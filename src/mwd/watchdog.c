@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <poll.h>
 
 #include <MidWay.h>
 #include <ipctables.h>
@@ -95,7 +96,7 @@ static int go_on_patrol(void)
   return 0;
 };
 
-static int run_watchdog(void)
+static int run_watchdog(int mwdparentpipe)
 {
   int rc;
   int remaining, sleeping; 
@@ -119,10 +120,14 @@ static int run_watchdog(void)
   sleeping = interval;
 
   now = time(NULL);
-
+  struct pollfd poll_fd[1] = {0};
+  poll_fd[0].fd = mwdparentpipe;
+  poll_fd[0].events = 0;
+  poll_fd[0].revents = 0;
+  
   while(1) {
     DEBUG("while begin");
-    if (remaining == 0) sleeping = interval;
+    if (remaining <= 0) sleeping = interval;
     else sleeping = remaining;
     
     DEBUG("sleeping %d ipcmain = %p", sleeping, ipcmain);
@@ -135,15 +140,21 @@ static int run_watchdog(void)
      * SLEEPING 
      ***************************************************/
     DEBUG("watchdog going to sleep for %d secs", sleeping);
-    remaining = sleep(sleeping);     
-    now = time(NULL);
+    time_t startsleep = time(NULL);
+    int nready = poll(poll_fd,  1, sleeping*1000);
+    DEBUG("poll returned %d", nready);
 
+    //remaining = sleep(sleeping);     
+    now = time(NULL);
+    remaining = now - startsleep;
+    
     DEBUG("watchdog awoke after going to sleep for %d, with %d remaining", 
 	  sleeping, remaining);
-
+    int mwd_parent_died = nready > 0 &&  poll_fd[0].revents & (POLLERR|POLLHUP);
+    DEBUG("parent died ?= %d", mwd_parent_died);
     /* basic sanity checks */
-    if (ipcmain->mwdpid != getppid()) {
-      Error("Watchdog: mwd who was my parent died unexpectantly, This Can't happen. %d != %d", 
+    if (mwd_parent_died || ipcmain->mwdpid != getppid()) {
+      Error("Watchdog: mwd who was my parent died unexpectedly, This Can't happen. %d != %d", 
 	    ipcmain->mwdpid, getppid());
       Error("Watchdog: attempting to clean up everything.");
       kill_all_servers(SIGKILL);
@@ -207,32 +218,42 @@ int start_watchdog(void)
   if (gwtbl == NULL)   return -EUCLEAN;
   if (convtbl == NULL) return -EUCLEAN;
 
+   int mwdparentpipe[2];
+   rc = pipe(mwdparentpipe);
+   if (rc != 0) {
+      return -errno;
+   }
+   
    /* Check heap */
   rc = fork();
   if (rc == -1) {
-    return -errno;
+     close(mwdparentpipe[0]);
+     close(mwdparentpipe[1]);
+     return -errno;
   };
 
   /* parent */
   if (rc > 0) {
+     close(mwdparentpipe[1]);
     ipcmain->mwwdpid = rc;
     DEBUG("Watchdog pid = %d", ipcmain->mwwdpid);
     return rc;
   }
 
+  close(mwdparentpipe[0]);
   /* Bark, I'm the dog.*/
-  _mw_copy_on_stdout(FALSE);
+  //_mw_copy_on_stdout(FALSE);
 
   fclose (stdin);
-  fclose (stdout);
-  fclose (stderr);
+  //fclose (stdout);
+  //fclose (stderr);
 
    /* we nice us down a bit, just in case. */
   nice(10);
   ipcmain->lastactive = time(NULL);
   inst_sighandlers();
   Info("MidWay WatchDog daemon startup  complete");
-  rc = run_watchdog();
+  rc = run_watchdog(mwdparentpipe[1]);
   Info("MidWay WatchDog daemon shutdown complete");
   exit(0);
 };

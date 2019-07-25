@@ -67,6 +67,10 @@ static void     childDiedHandler(int sig, siginfo_t * si, void * uctx) {
    DEBUG("child with pid died %d ; code = %d status = %d", si->si_pid,
 	    si->si_code, si->si_status);
 
+   int sts = 0;
+   int waitrc = waitpid(si->si_pid, &sts, WNOHANG);
+   DEBUG("wait returned %d sts %d", waitrc, sts);
+   
    time(&managedserver.exittime);
    
    if (si->si_code == CLD_EXITED) {

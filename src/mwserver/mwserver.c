@@ -28,13 +28,13 @@
 #include <errno.h>
 #include <limits.h>
 #include <libgen.h>
+#include <fcntl.h>
 
 #include "shared_lib_services.h"
 #include <ipctables.h>
 
 
 #ifndef PATH_MAX
-dddd
 #define PATH_MAX  4096
 #endif
 
@@ -67,6 +67,65 @@ char * uri = NULL;
 char * servername = NULL;
 char * libdir = NULL , * rundir = NULL;
 
+static char * checklibrarypath(char * soname, char * directory){
+   if (soname == NULL) return NULL;
+   if (directory == NULL) directory = "";
+   int solen = strlen(soname);
+   int dirlen = strlen(directory);
+   char * fullpath = malloc(solen + dirlen+ 10);
+   if (dirlen > 0) {
+      strcpy(fullpath, directory);
+      if (directory[dirlen-1] != '/')
+	 strcat(fullpath, "/");
+   }
+   strcat(fullpath, soname);
+   DEBUG("Checking of abs path for lib %s %s, %s", soname, directory, fullpath);
+   if (faccessat (AT_FDCWD, fullpath, X_OK, 0) == 0) {
+      return fullpath;
+   } else {
+      DEBUG("access failed reason %d", errno);
+      free(fullpath);
+      return NULL;
+   }
+}
+   
+static char * search_for_shared_library(char * soname) {
+   if (soname == NULL || strlen(soname) == 0) return NULL;
+   if (soname[0] == '/') {
+      DEBUG("given library have absolute path %s, skipping search paths", soname);
+      return checklibrarypath(soname, NULL);
+   }
+
+   char * path = checklibrarypath(soname, NULL);
+   if (path != NULL) return path;
+   path = checklibrarypath(soname, NULL);
+   if (path != NULL) return path;
+   path = checklibrarypath(soname, libdir);
+   if (path != NULL) return path;
+
+   char * ldlp = getenv ("LD_LIBRARY_PATH");
+   if (ldlp != NULL && strlen(ldlp) > 0) {
+      ldlp = strdup(ldlp);
+      DEBUG("looking thru LD_LIBARAY_PATH");
+      char * rest = ldlp;
+      char * thisdir;
+      do {	 
+	 thisdir = strsep(&rest, ":");
+	 path = checklibrarypath(soname, thisdir);
+	 if (path != NULL) break;
+	 // if rest is NULL we're at the last entry in the search path
+	 if (rest == NULL) {
+	    path = checklibrarypath(soname, thisdir);
+	    break;
+	 }
+      } while (rest != NULL);
+      free (ldlp);
+      if (path != NULL) return path;
+   }
+   return NULL;
+}
+   
+   
 int main(int argc, char ** argv)
 {
   char option;
@@ -188,32 +247,14 @@ int main(int argc, char ** argv)
 
   for (i = optind; i < argc; i++ ) {
      printf("arg %s\n",argv[i]);
-     char abspath[PATH_MAX];
-
-     char * bname = strdup(argv[i]);
-     bname = basename(bname);
-     char * dname = strdup(argv[i]);
-     dname = dirname(dname);
-
-     printf("arg %s\n",argv[i]);
-     printf("bsn %s\n",bname);
-     printf("din %s\n",dname);
-
-     if (dirname == NULL) {
-	snprintf(abspath, PATH_MAX, "%s/%s", startdir, bname);
-	printf("___ %s\n", abspath);
-
-     } else if (dname[0] == '/') {
-	strncpy(abspath, argv[i], PATH_MAX);
-	printf("abs %s\n", abspath);
-	
-     } else {
-	snprintf(abspath, PATH_MAX, "%s/%s", startdir, argv[i]);
-	printf("rel %s\n", abspath);
-     }
-
-     printf("%s\n", abspath);
      
+     char * abspath = search_for_shared_library(argv[i]) ;
+  
+     if (abspath == NULL) {
+	Error("%s: failed to locate shared library %s", 
+	      argv[0],argv[i]);
+	exit(rc);
+     };
      if ((rc = add_library(abspath)) != 0) {
 	Error("%s: failed to load shared library %s reason %s", 
 	      argv[0],argv[i], strerror(-rc));

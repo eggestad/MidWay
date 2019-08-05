@@ -92,29 +92,10 @@ int add_library(char * libarg)
     getcwd(wd, 4090);
     DEBUG("wd = %s", wd);
   };
+  DEBUG("searching library = %s", libarg);
 
-  /* is absolute path go directly, else search */
-  if (libarg[0] == '/') {
-    strncpy(libpath, libarg, 4000);
-  } else {
-    sprintf (libpath, "%s/%s", wd, libarg);
-    DEBUG("checking shared exec %s", libpath);
-    rc = access (libpath, X_OK);
-    if (rc != 0) {
-      DEBUG("access failed reason %d", errno);
-      sprintf (libpath, "%s/%s", wd, libarg);
-	     
-      sprintf (libpath, "%s/%s", libdir, libarg);
-      DEBUG("checking shared exec %s", libpath);
-      
-      rc = access (libpath, X_OK);
-      if (rc != 0) {
-	DEBUG("access failed reason %d", errno);
-	Error("failed to find library %s", libarg);
-	return -errno;
-      };
-    };
-  }
+  strncpy(libpath, libarg, 4000);
+  
 
   DEBUG("using shared exec %s", libpath);
 
